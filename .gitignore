@@ -1,0 +1,11 @@
+# Renders and large media stay out of git
+*.mp4
+*.mov
+*.webm
+*.wav
+frames/
+renders/
+out/
+node_modules/
+__pycache__/
+.DS_Store
