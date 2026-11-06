@@ -1,186 +1,130 @@
 [
  {
-  "id": "a01",
-  "src": "新增",
+  "id": "x01",
   "text": "AI 越来越聪明，",
   "sub": null,
   "big": "AI 越来越聪明，",
-  "seg": "open"
+  "seg": "open",
+  "reuse": "a01"
  },
  {
-  "id": "a02",
-  "src": "新增",
+  "id": "x02",
   "text": "靠的是上万颗芯片一起练。",
   "sub": null,
   "big": "靠的是上万颗芯片一起练。",
-  "seg": "open"
+  "seg": "open",
+  "reuse": "a02"
  },
  {
-  "id": "a03",
-  "src": "新增",
-  "text": "它们每算一步，都要互相交换数据；AI 能跑多快，很大程度看芯片之间传得多快。",
-  "sub": "AI 多快，要看芯片之间传得多快",
+  "id": "x03",
+  "text": "它们每算一步，都要互相交换数据。",
+  "sub": null,
   "big": null,
-  "seg": "open"
+  "seg": "open",
+  "reuse": null
  },
  {
-  "id": "a03b",
-  "src": "L3",
-  "text": "可最快的连接，偏偏只修几条路。",
+  "id": "x04",
+  "text": "可芯片之间最快的连接，偏偏只修几条路。",
   "sub": "最快的连接，偏偏只修几条路",
   "big": null,
-  "seg": "open"
+  "seg": "open",
+  "reuse": null
  },
  {
-  "id": "a03c",
-  "src": "新增",
+  "id": "x05",
   "text": "其实你早就见过：25 针的老打印机线，跑不过只有 4 根线的 USB。",
   "sub": "25 针，跑不过 4 根线",
   "big": null,
-  "seg": "open"
+  "seg": "open",
+  "reuse": "a03c"
  },
  {
-  "id": "a03d",
-  "src": "新增",
+  "id": "x06",
   "text": "为什么路少了，反而快？",
   "sub": null,
   "big": null,
-  "seg": "open"
+  "seg": "open",
+  "reuse": "a03d"
  },
  {
-  "id": "a04",
-  "src": "L1+L2",
-  "text": "直觉上，修几十条路、几十件货同时出发，似乎更快；可速度一高，这个办法就越来越吃力。",
-  "sub": "速度一高，并排走越来越吃力",
-  "big": null,
-  "seg": "explain"
- },
- {
-  "id": "a05",
-  "src": "L5",
-  "text": "仓库里的货，原本是并排摆着的。",
+  "id": "x07",
+  "text": "直觉上，路越多，一次送出去的就越多。",
   "sub": null,
   "big": null,
-  "seg": "explain"
+  "seg": "explain",
+  "reuse": null
  },
  {
-  "id": "a06",
-  "src": "L6",
-  "text": "发货口先把它们排成一列，一件接一件，飞快地装车送走；",
+  "id": "x08",
+  "text": "可几十条路一起送，有个前提：每一批货，必须一起到。对面等齐了，才能拼出完整的数据。",
+  "sub": "每一批，必须一起到",
+  "big": null,
+  "seg": "explain",
+  "reuse": null
+ },
+ {
+  "id": "x09",
+  "text": "跑得慢的时候，这不难：一批和一批隔得远，晚到一点也来得及。",
   "sub": null,
   "big": null,
-  "seg": "explain"
+  "seg": "explain",
+  "reuse": null
  },
  {
-  "id": "a07",
-  "src": "L7",
-  "text": "到了对方仓库，再把这一列拆开、重新并排摆好。",
+  "id": "x10",
+  "text": "可速度一快，一批接一批挤得越来越紧，留给「一起到」的时间就越来越短。",
+  "sub": "越快，「一起到」的时间越短",
+  "big": null,
+  "seg": "explain",
+  "reuse": null
+ },
+ {
+  "id": "x11",
+  "text": "这时哪怕有一条路长了一点点，那件货晚到一步，就混进了下一批，整批数据就拼错了。",
+  "sub": "晚到一步，就混进了下一批",
+  "big": null,
+  "seg": "reveal",
+  "reuse": null
+ },
+ {
+  "id": "x12",
+  "text": "路越多，越难让每一条都一样长。",
   "sub": null,
   "big": null,
-  "seg": "explain"
+  "seg": "reveal",
+  "reuse": null
  },
  {
-  "id": "a08",
-  "src": "L8",
-  "text": "芯片之间传数据也是这样。",
+  "id": "x13",
+  "text": "所以干脆反过来：只修几条路，让数据排成一列，一个接一个地跑。不用再等谁，每条路都能一路提速。",
+  "sub": "排成一列，每条路一路提速",
+  "big": null,
+  "seg": "reveal",
+  "reuse": null
+ },
+ {
+  "id": "x14",
+  "text": "一句话带走：",
   "sub": null,
   "big": null,
-  "seg": "explain"
+  "seg": "end",
+  "reuse": "a19"
  },
  {
-  "id": "a09",
-  "src": "L9",
-  "text": "负责这件事的电路，叫 SerDes。名字就是这两个动作：Ser，串行化，负责排成一列；Des，解串，负责拆回一排。",
-  "sub": "SerDes：串行化 + 解串",
-  "big": null,
-  "seg": "explain"
- },
- {
-  "id": "a10",
-  "src": "L10",
-  "text": "那为什么不并排走？第一个原因：出口不够。",
-  "sub": "原因一：出口不够",
-  "big": null,
-  "seg": "explain"
- },
- {
-  "id": "a11",
-  "src": "L11",
-  "text": "芯片对外的引脚数量有限，而且每多一条线，就多占面积、多耗电。",
-  "sub": "每多一条线，多占面积、多耗电",
-  "big": null,
-  "seg": "explain"
- },
- {
-  "id": "a12",
-  "src": "L12",
-  "text": "不可能为每一件货，都修一条路。",
+  "id": "x15",
+  "text": "路少不是退步。速度一高，「一起到」比「路多」更难。",
   "sub": null,
   "big": null,
-  "seg": "explain"
+  "seg": "end",
+  "reuse": null
  },
  {
-  "id": "a13",
-  "src": "L13",
-  "text": "第二个原因更隐蔽：很难同时到达。",
-  "sub": "原因二：很难同时到达",
-  "big": null,
-  "seg": "explain"
- },
- {
-  "id": "a14",
-  "src": "L14",
-  "text": "并排走的前提是：几十件货，必须在很短的时间窗口里一起到达终点，对方才能把它们拼成完整的数据。",
-  "sub": "必须在同一个时间窗口里到达",
-  "big": null,
-  "seg": "explain"
- },
- {
-  "id": "a15",
-  "src": "L15",
-  "text": "这就像一排运动员要求同时冲线：跑得慢时，还好对齐；",
+  "id": "x16",
+  "text": "下一条：排成一列以后，连续五个 1，对面怎么数清？",
   "sub": null,
   "big": null,
-  "seg": "explain"
- },
- {
-  "id": "a16",
-  "src": "L16–L18",
-  "text": "跑得越快，到达的时间窗口就越窄；哪怕一条路长了一点点，那件货晚到一步，就赶不上，整排数据就拼错了。",
-  "sub": "跑得越快，窗口越窄",
-  "big": null,
-  "seg": "reveal"
- },
- {
-  "id": "a17",
-  "src": "L19",
-  "text": "所以速度一高，与其让几十条路勉强齐步走，不如只修少数几条路，让货物排成一列，每条路都跑到极快。",
-  "sub": "只修几条路，每条跑到极快",
-  "big": null,
-  "seg": "reveal"
- },
- {
-  "id": "a19",
-  "src": "L46",
-  "text": "一句话带走。",
-  "sub": null,
-  "big": null,
-  "seg": "end"
- },
- {
-  "id": "a20",
-  "src": "L47",
-  "text": "速度一高，并排走就难以对齐，所以数据要排成一列出发。",
-  "sub": null,
-  "big": null,
-  "seg": "end"
- },
- {
-  "id": "a21",
-  "src": "新增",
-  "text": "下一条：排成一列以后，连续五个 1，对方怎么数清？",
-  "sub": null,
-  "big": null,
-  "seg": "end"
+  "seg": "end",
+  "reuse": null
  }
 ]

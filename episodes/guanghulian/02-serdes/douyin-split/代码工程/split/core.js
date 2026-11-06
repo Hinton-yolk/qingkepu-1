@@ -79,7 +79,7 @@ const drawHud = (c, t) => { if (t < D.hudIn) return;
 
 // ---------- 关键点字幕：深色撕边条 + 奶油字，左边一小截红胶带（和黑底机制画面区分开） ----------
 const SUB_Y = 1500;
-const drawSubs = (c, t, sh) => { if (sh.kind === 'desk' || sh.kind === 'take') return;
+const drawSubs = (c, t, sh) => { if (sh.kind === 'desk' || sh.kind === 'take' || window.NO_SUBS) return;
   const l = D.lines.find(x => x.sub && t >= x.t0 - 0.05 && t < x.t1 + 0.35); if (!l) return;
   const k = Math.min(seg(t, l.t0 - 0.05, l.t0 + 0.1), 1 - seg(t, l.t1 + 0.2, l.t1 + 0.35)); if (k <= 0) return;
   let size = 46; c.save(); c.font = `${size}px "PuHui-Heavy"`; let w = c.measureText(l.sub).width; if (w > 840) { size = Math.floor(size * 840 / w); c.font = `${size}px "PuHui-Heavy"`; w = c.measureText(l.sub).width; }
@@ -113,13 +113,24 @@ const phone = (c, x, y, w, h, screen, { alpha = 1 } = {}) => { c.save(); c.globa
   const m = w * 0.05, sx = x - w / 2 + m, sy = y - h / 2 + m * 1.6, sw = w - 2 * m, sh = h - m * 3.2;
   c.save(); c.beginPath(); c.roundRect(sx, sy, sw, sh, w * 0.07); c.clip(); screen(c, sx, sy, sw, sh); c.restore();
   c.fillStyle = '#121211'; c.beginPath(); c.roundRect(x - w * 0.12, sy + 10, w * 0.24, 22, 11); c.fill(); c.restore(); };
-window.SP = { phone, D, L, W, H, COL, kw, txt, tape, tag, pop, ease, seg, darkBg, deskBg, deskShot, hookText, endCard, hlBand, MECH: {}, STN };
+// 「一句话带走」：纸桌上几张打字的纸条（和口播一致），说到哪段荧光笔涂到哪段
+const deskType = (c, t, sh) => {
+  deskBg(c); const S = sh.type, tt = MO.step(t, 12); let y = 640;
+  S.forEach((s, i) => { const big = i === 0, size = big ? 76 : 64; c.save(); c.font = `${size}px "${big ? 'PuHui-Heavy' : 'PuHui-Medium'}"`; const tw = c.measureText(s.text).width, w = tw + size * 1.1, h = size * 1.75;
+    const at = sh.t0 + 0.12 + i * 0.12, q = clamp((tt - at) / 0.17); if (q <= 0) { c.restore(); y += h + 30; return; }
+    const r = U.rng(i * 31 + 7), rot = (r() - .5) * 0.03, x = W / 2 - 30 - w / 2 + (r() - .5) * 30, lift = 1 + 0.08 * (1 - q);
+    c.translate(x + w / 2, y + h / 2); c.rotate(rot); c.scale(lift, lift); c.translate(-w / 2, -h / 2);
+    c.shadowColor = 'rgba(40,30,15,.32)'; c.shadowBlur = 16; c.shadowOffsetY = 7; c.fillStyle = big ? COL.ink : COL.paper; CL.tornRect(c, w, h, i * 17 + 5, 5); c.fill(); c.shadowColor = 'transparent';
+    if (s.line && !big) { const a = s.from ? kw(s.line, s.from) : L[s.line].t0, b = s.to ? kw(s.line, s.to, 0, true) : L[s.line].t1; hlBand(c, size * 0.4, h * 0.18, w - size * 0.4, h * 0.84, MO.step(seg(t, a, b), 24), i * 5 + 3); }
+    c.fillStyle = big ? '#f3efe6' : COL.ink; c.textBaseline = 'middle'; c.fillText(s.text, size * 0.55, h / 2 + 2); c.restore(); y += h + 30; });
+};
+window.SP = { deskType, phone, D, L, W, H, COL, kw, txt, tape, tag, pop, ease, seg, darkBg, deskBg, deskShot, hookText, endCard, hlBand, MECH: {}, STN };
 
 SCENES.split = {
   init() { const all = [...D.lines.map(l => (l.sub || '') + l.text), ...STN, ...(window.SPLIT_GLYPHS || [])].join('').replace(/\s/g, ''); U.assertGlyphs('PuHui-Heavy', all, 'split'); },
   draw(c, lt, t) {
     const k = D.shots.findIndex(s => t >= s.t0 && t < s.t1), sh = D.shots[Math.max(0, k)];
-    const paint = (g, s) => { g.save(); const f = SP.MECH[s.kind]; if (s.kind === 'desk') deskShot(g, t, s); else if (f) f(g, t, s); else { darkBg(g); txt(g, s.kind, 100, 900, { size: 60 }); } g.restore(); };
+    const paint = (g, s) => { g.save(); const f = SP.MECH[s.kind]; if (s.kind === 'desk') deskShot(g, t, s); else if (s.kind === 'take' && s.type) { deskType(g, t, s); if (SP.END) endCard(g, t, L[SP.END]); } else if (f) f(g, t, s); else { darkBg(g); txt(g, s.kind, 100, 900, { size: 60 }); } g.restore(); };
     // 换镜头：纸桌↔黑底之间用一张撕边纸从上往下盖过去（0.32 s）；黑底之间直接切（机制本身是连着的）
     const prev = D.shots[k - 1], wipe = prev && (prev.paper !== sh.paper) ? seg(t, sh.t0, sh.t0 + 0.32) : 1;
     if (wipe < 1) { paint(c, prev); const B = window.__splitBuf || (window.__splitBuf = window.__mk()), g = B.getContext('2d'); g.clearRect(0, 0, W, H); paint(g, sh);

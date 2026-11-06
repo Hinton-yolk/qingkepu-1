@@ -1,186 +1,114 @@
 [
  {
-  "id": "c01",
-  "src": "新增",
+  "id": "z01",
   "text": "AI 芯片的新闻，",
   "sub": null,
   "big": "AI 芯片的新闻，",
-  "seg": "open"
+  "seg": "open",
+  "reuse": "c01"
  },
  {
-  "id": "c02",
-  "src": "新增",
+  "id": "z02",
   "text": "天天在说速度翻倍。",
   "sub": null,
   "big": "天天在说速度翻倍。",
-  "seg": "open"
+  "seg": "open",
+  "reuse": "c02"
  },
  {
-  "id": "c03",
-  "src": "新增",
+  "id": "z03",
   "text": "可这就像汽车说最高时速 300，没说是在什么路上跑的。",
   "sub": "最高时速 300，在什么路上？",
   "big": null,
-  "seg": "open"
+  "seg": "open",
+  "reuse": "c03"
  },
  {
-  "id": "c03b",
-  "src": "新增",
+  "id": "z04",
+  "text": "看懂这类新闻，先问三个问题。",
+  "sub": null,
+  "big": null,
+  "seg": "open",
+  "reuse": null
+ },
+ {
+  "id": "z05",
+  "text": "第一问：在什么路上跑出来的？",
+  "sub": null,
+  "big": null,
+  "seg": "explain",
+  "reuse": null
+ },
+ {
+  "id": "z06",
   "text": "同样写着 224G，一个能推过一米长的铜缆，一个只跑几厘米。",
-  "sub": "同样 224G：一米，还是几厘米？",
+  "sub": "同样 224G：一米，还是几厘米",
   "big": null,
-  "seg": "open"
+  "seg": "explain",
+  "reuse": "c03b"
  },
  {
-  "id": "c03c",
-  "src": "新增",
-  "text": "看懂这类新闻，要会问三个问题。",
+  "id": "z07",
+  "text": "路越长、损耗越大，越难跑。",
   "sub": null,
   "big": null,
-  "seg": "open"
+  "seg": "explain",
+  "reuse": null
  },
  {
-  "id": "c04",
-  "src": "L33",
-  "text": "AI 让芯片之间要传的数据越来越多，可芯片的出口数量增长有限，提高“每条路跑多快”，就成了重要方向。",
-  "sub": "出口有限，只能让每条路跑更快",
-  "big": null,
-  "seg": "explain"
- },
- {
-  "id": "c05",
-  "src": "L34",
-  "text": "于是 SerDes 的速度，大约每过几年就要翻一倍。",
-  "sub": "每条通道的速度，几年翻一倍",
-  "big": null,
-  "seg": "explain"
- },
- {
-  "id": "c06",
-  "src": "L35",
-  "text": "速度一翻倍，信号在路上更容易变模糊，收货端更难听准节拍。",
+  "id": "z08",
+  "text": "第二问：每传一个比特，花多少电？",
   "sub": null,
   "big": null,
-  "seg": "explain"
+  "seg": "explain",
+  "reuse": null
  },
  {
-  "id": "c07",
-  "src": "L36",
-  "text": "所以今天的高速 SerDes，自己也带着不少“整理”能力，在发出和收进时就把信号修一修。",
-  "sub": "发出和收进时，把信号修一修",
+  "id": "z09",
+  "text": "要是每个比特的电降不下来，速度翻倍，耗电也跟着翻倍。几万颗芯片一起跑，每一点电都是成本。",
+  "sub": "速度翻倍，耗电也可能翻倍",
   "big": null,
-  "seg": "explain"
+  "seg": "explain",
+  "reuse": null
  },
  {
-  "id": "c08",
-  "src": "L37",
-  "text": "这些额外的工作，都要耗电、占芯片面积。",
+  "id": "z10",
+  "text": "第三问：在真实芯片上跑通了吗？",
   "sub": null,
   "big": null,
-  "seg": "explain"
+  "seg": "reveal",
+  "reuse": null
  },
  {
-  "id": "c09",
-  "src": "L38",
-  "text": "跑得更快，同时让每送出一个比特少花一点电，是 SerDes 每一代都要面对的难题。",
-  "sub": "更快，同时每比特更省电",
+  "id": "z11",
+  "text": "纸面和仿真里的速度，和真做出芯片、测出来的速度，是两回事。",
+  "sub": "仿真 ≠ 实测",
   "big": null,
-  "seg": "explain"
+  "seg": "reveal",
+  "reuse": null
  },
  {
-  "id": "c10",
-  "src": "L39",
-  "text": "从投资角度，先记住一点：SerDes 很少作为一颗独立的芯片单独出售。",
-  "sub": "SerDes 很少单独卖",
-  "big": null,
-  "seg": "explain"
- },
- {
-  "id": "c11",
-  "src": "L40",
-  "text": "它更像一种“能力”，嵌在 GPU、交换芯片和光模块里的芯片之中；",
+  "id": "z12",
+  "text": "一句话带走：",
   "sub": null,
   "big": null,
-  "seg": "explain"
+  "seg": "end",
+  "reuse": "a19"
  },
  {
-  "id": "c12",
-  "src": "L41",
-  "text": "常以设计模块，也就是 IP 的形式，授权给芯片公司使用；大公司则多半自己研发。",
-  "sub": "IP 授权，或自己研发",
-  "big": null,
-  "seg": "explain"
- },
- {
-  "id": "c13",
-  "src": "L42",
-  "text": "所以看一家做高速互连芯片的公司，不能只看它宣称跑得多快。",
+  "id": "z13",
+  "text": "下次看到速度翻倍，先问三句：什么路？多少电？跑通没有？",
   "sub": null,
   "big": null,
-  "seg": "explain"
+  "seg": "end",
+  "reuse": null
  },
  {
-  "id": "c14",
-  "src": "L43",
-  "text": "同样号称跑得快，要问清楚：第一，在什么路况下跑到这个速度？",
-  "sub": "① 什么路况下跑到的？",
-  "big": null,
-  "seg": "reveal"
- },
- {
-  "id": "c15",
-  "src": "L43",
-  "text": "第二，每个比特花多少电？",
-  "sub": "② 每个比特花多少电？",
-  "big": null,
-  "seg": "reveal"
- },
- {
-  "id": "c16",
-  "src": "L43",
-  "text": "第三，是否已经在真实芯片上跑通？",
-  "sub": "③ 真实芯片上跑通了吗？",
-  "big": null,
-  "seg": "reveal"
- },
- {
-  "id": "c17",
-  "src": "L44",
-  "text": "在这之后，再看它的 SerDes 是自研还是授权。",
-  "sub": "然后：自研，还是授权？",
-  "big": null,
-  "seg": "reveal"
- },
- {
-  "id": "c18",
-  "src": "L45",
-  "text": "以后看 DSP、光模块，还会反复用到这几个问题。",
-  "sub": null,
-  "big": null,
-  "seg": "reveal"
- },
- {
-  "id": "c19",
-  "src": "L46",
-  "text": "一句话带走。",
-  "sub": null,
-  "big": null,
-  "seg": "end"
- },
- {
-  "id": "c20",
-  "src": "L49",
-  "text": "SerDes 难在越跑越快，还要读得准、更省电；看一家公司，先问路况、每比特的电、真实芯片跑通没有。",
-  "sub": null,
-  "big": null,
-  "seg": "end"
- },
- {
-  "id": "c21",
-  "src": "新增",
+  "id": "z14",
   "text": "下一条：信号上路以后，为什么会越跑越模糊？",
   "sub": null,
   "big": null,
-  "seg": "end"
+  "seg": "end",
+  "reuse": null
  }
 ]

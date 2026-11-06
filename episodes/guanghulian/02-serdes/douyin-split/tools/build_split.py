@@ -4,15 +4,14 @@
 import json, sys, re
 N = sys.argv[1]; SRC = '/home/user/kepu-studio/episodes/guanghulian/02-serdes/douyin-split'
 S = json.load(open(f'{SRC}/script_{N}.json')); A = json.load(open(f'{SRC}/align_{N}.json'))
-ST = lambda i, l, a=None, b=None: dict(id=i, line=l, **{'from': a}, to=b)
+TK = lambda text, line, a=None, b=None: dict(text=text, line=line, **{'from': a}, to=b)
 SHOTS = {
- 's1': [('bga', 'a01'), ('parallel', 'a04'), ('serdes', 'a05'), ('desk', 'a10', [ST('W0', 'a10', '为什么', '并排走'), ST('R1', 'a10', '第一', '不够')]), ('pins', 'a11'),
-        ('desk', 'a13', [ST('Q1', 'a13', '第二', '到达')]), ('race', 'a14'), ('serial', 'a17'),
-        ('take', 'a19', [ST('E0', 'a19'), ST('E1', 'a20', '速度', '对齐'), ST('E2', 'a20', '所以', '出发')])],
- 's2': [('scope', 'b01'), ('stream', 'b04'), ('zoom', 'b07'), ('unpack', 'b09'), ('desk', 'b11', [ST('O5', 'b11', '连续', '1'), ST('O6', 'b11', '就是', '一起'), ST('O7', 'b11', '没有', '电平')]),
-        ('level', 'b12'), ('cdr', 'b14'), ('take', 'b19', [ST('E0', 'b19'), ST('E3', 'b20', 'SerDes', '排队'), ST('E4', 'b20', '收到', '听准'), ST('E5', 'b20', '节拍', '一排')])],
- 's3': [('spec', 'c01'), ('lanes', 'c04'), ('blur', 'c06'), ('seesaw', 'c09'), ('desk', 'c10', [ST('V1', 'c10', '很少', '出售')]), ('inside', 'c11'), ('three', 'c13'),
-        ('take', 'c19', [ST('E0', 'c19'), ST('E6', 'c20', '难在', '读得准'), ST('Y2', 'c20', '路况', '路况'), ST('Y3', 'c20', '每比特', '的电'), ST('Y4', 'c20', '真实芯片', '没有')])],
+ 's1': [('ai', 'x01'), ('few', 'x04'), ('lanes', 'x07'), ('serial', 'x13'),
+        ('take', 'x14', [TK('一句话带走', 'x14'), TK('路少不是退步。', 'x15', '路少', '退步'), TK('速度一高，「一起到」', 'x15', '速度', '一起到'), TK('比「路多」更难。', 'x15', '比', '更难')])],
+ 's2': [('video', 'y01'), ('beat', 'y06'), ('scramble', 'y10'),
+        ('take', 'y12', [TK('一句话带走', 'y12'), TK('芯片不是在看 0 和 1，', 'y13', '芯片', '0 和 1'), TK('是在听节拍：', 'y13', '是在', '节拍'), TK('每一次跳变，都是它的节拍器。', 'y13', '每一次', '节拍器')])],
+ 's3': [('news', 'z01'), ('road', 'z05'), ('power', 'z08'), ('real', 'z10'),
+        ('take', 'z12', [TK('一句话带走', 'z12'), TK('看到「速度翻倍」，先问三句：', 'z13', '下次', '三句'), TK('什么路？多少电？', 'z13', '什么路', '多少电'), TK('跑通没有？', 'z13', '跑通', '没有')])],
 }[N]
 LEAD, TAIL = 0.35, 1.6
 t = LEAD; lines = []; prev = None
@@ -32,17 +31,16 @@ for i, s in enumerate(S):
     for c, (u0, u1) in zip(cl, segs):
         cs = list(c)
         for j, _ in enumerate(cs): ch.append(round(t0 + (u0 - a['on']) + (u1 - u0) * j / max(1, len(cs)), 3))
-    lines.append(dict(id=s['id'], t0=round(t0, 3), t1=round(t1, 3), clip=round(t0 - a['on'], 3), text=''.join(cl), ch=ch, sub=s['sub'], big=s['big'], seg=s['seg'], src=s['src']))
+    lines.append(dict(id=s['id'], t0=round(t0, 3), t1=round(t1, 3), clip=round(t0 - a['on'], 3), text=''.join(cl), ch=ch, sub=s['sub'], big=s['big'], seg=s['seg'], src=s.get('src', '')))
     t = t1; prev = s
 dur = round(t + TAIL, 2)
 L = {x['id']: x for x in lines}; shots = []
 for k, (kind, first, *rest) in enumerate(SHOTS):
     a = 0 if k == 0 else round(L[first]['t0'] - 0.3, 3)
     sh = dict(kind=kind, t0=a, paper=kind in ('desk', 'take'), first=first)
-    if rest: sh['strips'] = rest[0]
+    if rest: sh['type'] = rest[0]
     if kind == 'take': sh['cy'] = 700
-    if N == 's3' and kind == 'desk': sh['tape'] = dict(text='从投资角度')
     shots.append(sh)
 for k in range(len(shots)): shots[k]['t1'] = shots[k + 1]['t0'] if k + 1 < len(shots) else dur
-json.dump(dict(name=N, dur=dur, lines=lines, shots=shots, hudIn=shots[1]['t0']), open(f'/home/user/vox-ep02s/代码工程/split/{N}.json', 'w'), ensure_ascii=False)
+json.dump(dict(name=N, dur=dur, lines=lines, shots=shots, hudIn=round(next(l['t0'] for l in lines if l['seg'] != 'open') - 0.3, 3)), open(f'/home/user/vox-ep02s/代码工程/split/{N}.json', 'w'), ensure_ascii=False)
 print(N, 'dur', dur, [(s['kind'], s['t0']) for s in shots])
