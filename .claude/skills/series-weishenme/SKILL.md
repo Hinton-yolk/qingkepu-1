@@ -59,7 +59,10 @@ description: 制作「为什么」系列（你每天都在用，但你不知道�
   小红书全屏版 1080×2340：把每帧顶部 24 行模糊拉伸成 420 px 补在上方。
 - 每集一个项目目录：`index.html`、`timeline.js`、`render.mjs`、`music/score.mjs`、`tools/`（master.sh、beatcheck.mjs、motion.py、fonts.py、verify.sh）、`assets/fonts/`、`SPEC.md`、`REVIEW.md`、`FACTS.md`。
 - 试过但被否掉的：animate 的变形转场样例（「转场太硬」）；three.js 拆解（每帧 21–34 秒，太慢）。用户：「我比较 prefer 现有版本」。
-- ⚠️ EP.01 / EP.02 的项目源码、系列圣经 `SERIES.md`、选题库 `选题库.md`、封面脚本 `covers/make.mjs` 目前只在「为什么系列」那个会话的容器里，**还没进本仓库**。拿到后放进 `episodes/weishenme/` 和 `templates/weishenme/`，以它为模板做新集。
+- **开新一集从模板开始**：`templates/weishenme/`（以 EP.02 为骨架，含系列圣经 `SERIES.md`、封面脚本 `covers/`），步骤和命令见 `templates/weishenme/README.md`。
+- 已有各集源码：`episodes/weishenme/01-tuoluoyi/`、`02-weibolu/`、`03-jiangzaoerji/`（降噪耳机）、`04-julichuanganqi/`（距离传感器）。
+  **04 是被否掉的 v1，用户说「先暂时保留，等我指令再开始做」**（见该目录的 `notes.md`），没有指令不要动。
+- 选题库：`episodes/weishenme/选题库.md`。
 
 ## 声音
 - **不加配音**（用户 2026-11-06 确定）：本系列以节奏和演示为主，只用字幕，信息全部靠画面和字幕传达。
