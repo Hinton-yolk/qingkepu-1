@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1080">
+<title>EP.01 陀螺仪</title>
+<style>
+  @font-face { font-family: "Smiley"; src: url("assets/fonts/smiley.woff2") format("woff2"); }
+  @font-face { font-family: "NotoSC"; font-weight: 700; src: url("assets/fonts/noto-sc-bold.woff2") format("woff2"); }
+  @font-face { font-family: "NotoSC"; font-weight: 400; src: url("assets/fonts/noto-sc-regular.woff2") format("woff2"); }
+  html, body { margin: 0; background: #ECEBE6; }
+  #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="44.5" data-width="1080" data-height="1920">
+  <canvas id="c" width="1080" height="1920"></canvas>
+</div>
+<script src="timeline.js"></script>
+<script>
+"use strict";
+// ============================================================================================
+// EP.01 为什么手机知道你横过来了？ (v4) — a pure function of time. window.seek(t) paints frame t.
+// The 「为什么系列」 detective story in one continuous space: phone → (the wrong guess, struck) → board → chip → one proof
+// mass → split → climb out → the same phone turns again, both sensors speak → the screen turns.
+// No timers, no rAF, no CSS transitions, no state between frames (the context is reset every frame); seeded noise only.
+// ============================================================================================
+const { T, COPY, W, H, DUR, FPS, VIB_HZ, turn, rate, omega } = TL;
+const cv = document.getElementById("c");
+const MAIN = cv.getContext("2d");
+const OFF = document.createElement("canvas"); OFF.width = W; OFF.height = H;
+const OFFX = OFF.getContext("2d");
+let ctx = MAIN;
+
+const C = {
+  ground: "#ECEBE6", ink: "#141414", acc: "#FF4A1C", paper: "#F1F0EC",
+  body: "#1C1D20", bodyEdge: "#4A4D52", glass: "#0D0E10",
+  dark: "#17191C", si: "#7D848B", siEdge: "#E4E8EB", siFixed: "#6C737A", hole: "#1B1E21",
+};
+const DISPLAY = "Smiley", UI = "NotoSC";
+
+// ---------------------------------------------------------------- math
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const E = {
+  sine: (x) => 0.5 - 0.5 * Math.cos(Math.PI * x),
+  p2io: (x) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2),
+  p3io: (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2),
+  p2in: (x) => x * x, p3in: (x) => x * x * x,
+  p3out: (x) => 1 - Math.pow(1 - x, 3), p4out: (x) => 1 - Math.pow(1 - x, 4),
+  smooth: (x) => x * x * (3 - 2 * x),
+};
+function spring(x, w = 15, z = 0.72) {
+  if (x <= 0) return 0;
+  if (z >= 1) return 1 - Math.exp(-w * x) * (1 + w * x);
+  const wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * x) * (Math.cos(wd * x) + ((z * w) / wd) * Math.sin(wd * x));
+}
+function slamScale(u) {                              // 0.17 s: 1.55 -> 0.94 -> 1.0
+  if (u <= 0) return 1.55;
+  if (u < 0.09) return lerp(1.55, 0.94, E.p2in(u / 0.09));
+  if (u < 0.17) return lerp(0.94, 1.0, E.p3out((u - 0.09) / 0.08));
+  return 1;
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const mixHex = (a, b, k) => { const p = (h, i) => parseInt(h.slice(1 + 2 * i, 3 + 2 * i), 16); return `rgb(${[0, 1, 2].map((i) => Math.round(lerp(p(a, i), p(b, i), k))).join(",")})`; };
+
+// ---------------------------------------------------------------- camera: similarity s = A·p + B (complex), log-spiral between keys
+const S0 = 5.6;
+const cmul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
+const cdiv = (a, b) => { const d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; };
+const cadd = (a, b) => [a[0] + b[0], a[1] + b[1]];
+const csub = (a, b) => [a[0] - b[0], a[1] - b[1]];
+const cpol = (r, th) => [r * Math.cos(th), r * Math.sin(th)];
+const RAD = Math.PI / 180;
+function key(F, anchor, Z, phiDeg) { const A = cpol(Z * S0, phiDeg * RAD); return { A, B: csub(anchor, cmul(A, F)), Z, phi: phiDeg * RAD }; }
+function interp(k0, k1, u) {
+  const lr = Math.log(k1.Z / k0.Z), th = k1.phi - k0.phi;
+  const kk = cpol(Math.exp(lr), th), ku = cpol(Math.exp(lr * u), th * u);
+  const c = csub(k1.B, cmul(kk, k0.B)), omk = csub([1, 0], kk);
+  if (Math.hypot(omk[0], omk[1]) < 1e-9) return { A: k0.A, B: cadd(k0.B, [c[0] * u, c[1] * u]), Z: k0.Z, phi: k0.phi };
+  const ws = cdiv(c, omk);
+  return { A: cmul(ku, k0.A), B: cadd(cmul(ku, csub(k0.B, ws)), ws), Z: k0.Z * Math.exp(lr * u), phi: k0.phi + th * u };
+}
+const toS = (K, p) => cadd(cmul(K.A, p), K.B);
+function setT(K, o = [0, 0], u = 1) { const a = K.A[0] * u, b = K.A[1] * u, B = cadd(cmul(K.A, o), K.B); ctx.setTransform(a, b, -b, a, B[0], B[1]); }
+const ID = () => ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+const PH = [0, 0], CHIP = [8, -40];
+const DIE = [CHIP[0] - 0.45, CHIP[1] + 0.1];
+const GYRO = [DIE[0] - 0.35, DIE[1]], ACC = [DIE[0] + 0.45, DIE[1]];
+const RICE = [1.75, -40];
+
+const KP = (phi) => key(PH, [540, 1060], 1.12, phi);
+const KM = key(PH, [540, 1000], 1.2, -90);            // pushed in on the phone for the guess
+const K1 = key([4.4, -40.2], [540, 1010], 13, 0);       // chip + rice grain
+const K1z = key([4.4, -40.2], [540, 1010], 14.6, 0);    // a slow creep while the next question is asked
+const K2 = key(CHIP, [540, 1030], 32, 0);               // the chip
+const K3 = key(GYRO, [540, 1070], 298, 0);              // one proof mass
+const K3c = key(GYRO, [540, 1080], 360, 0);             // closer: the knowledge peak
+const K3p = key(GYRO, [540, 1080], 390, 0);             // punch on "偏多少"
+const KL = key(GYRO, [270, 1000], 135, 0);              // split: left half
+const KRbase = (dx) => key(ACC, [810 + dx, 1000], 170, -90);   // split: right half, world-upright (gravity points down)
+const KC = (phi) => key(PH, [540, 1100], 1.12, phi);     // the closing: the same phone, a touch lower (room for the two voices)
+const K6 = KC(0);                                        // back out: the phone upright again, as before the opening turn
+const K7 = key(PH, [232, 530], 0.5, 0);
+const theta = (t) => -90 * E.p2io(prog(t, -0.25, T.rotEnd));
+const theta2 = (t) => -90 * E.p2io(prog(t, T.turn2, T.turn2End));   // the same turn, once more, at the end
+function cam(t) {
+  if (t < T.myth) return KP(theta(t));
+  if (t < T.push1End) return interp(KP(-90), KM, E.p2io(prog(t, T.myth, T.push1End)));
+  if (t < T.dive1) return KM;
+  if (t < T.dive1End) return interp(KM, K1, E.p3io(prog(t, T.dive1, T.dive1End)));
+  if (t < T.push2) return interp(K1, K1z, E.sine(prog(t, T.dive1End, T.push2)));
+  if (t < T.push2End) return interp(K1z, K2, E.p2io(prog(t, T.push2, T.push2End)));
+  if (t < T.dive2) return K2;
+  if (t < T.dive2End) return interp(K2, K3, E.p2io(prog(t, T.dive2, T.dive2End)));
+  if (t < T.close) return K3;
+  if (t < T.punch) return interp(K3, K3c, E.p2io(prog(t, T.close, T.closeEnd)));
+  if (t < T.split) return interp(K3c, K3p, E.p3out(prog(t, T.punch, T.punch + 0.3)));
+  if (t < T.climb) return interp(K3p, KL, E.p3io(prog(t, T.split, T.splitEnd)));
+  if (t < T.turn2) return interp(KL, K6, E.p3io(prog(t, T.climb, T.climbEnd)));
+  if (t < T.end) return KC(theta2(t));
+  return interp(KC(-90), K7, E.p3io(prog(t, T.end, T.endMorph)));
+}
+function splitX(t) {                                   // boundary between the halves (W = no right half)
+  if (t < T.split) return W;
+  if (t < T.climb) return W - 540 * E.p3out(prog(t, T.split, T.splitEnd));
+  return 540 + 540 * E.p3in(prog(t, T.climb, T.climb + 0.5));
+}
+
+// ---------------------------------------------------------------- static geometry (seeded, built once)
+const RNG = mulberry32(20261102);
+const PASSIVES = [];
+(function () {
+  const keepOut = [[-31, -73, 18, 18], [-11, -73, 25, 21], [17, -73, 14, 13], [2, -47, 13, 14], [-30, -31, 12, 6]];
+  const inside = (x, y, r) => x > r[0] - 1 && x < r[0] + r[2] + 1 && y > r[1] - 1 && y < r[1] + r[3] + 1;
+  let n = 0;
+  while (PASSIVES.length < 120 && n++ < 4000) { const x = -31 + RNG() * 62, y = -73 + RNG() * 51; if (keepOut.some((r) => inside(x, y, r))) continue; PASSIVES.push({ x, y, rot: RNG() < 0.5 ? 0 : 1, big: RNG() < 0.2 }); }
+  [[4.4, -41.2, 1], [4.4, -38.6, 1], [11.6, -41.6, 1], [11.6, -38.8, 1], [8, -36.6, 0], [6.2, -43.4, 0]].forEach(([x, y, r]) => PASSIVES.push({ x, y, rot: r, big: false }));
+})();
+const TRACES = [];
+(function () {
+  const r = mulberry32(77);
+  for (let i = 0; i < 46; i++) { let x = 2 + r() * 12, y = -47 + r() * 14; const pts = [[x, y]]; for (let k = 0; k < 4; k++) { if (k % 2 === 0) x += (r() - 0.5) * 16; else y += (r() - 0.5) * 12; pts.push([x, y]); } TRACES.push(pts); }
+  for (let i = 0; i < 30; i++) { let x = -30 + r() * 60, y = -72 + r() * 48; const pts = [[x, y]]; for (let k = 0; k < 3; k++) { if (k % 2 === 0) x += (r() - 0.5) * 30; else y += (r() - 0.5) * 20; pts.push([x, y]); } TRACES.push(pts); }
+})();
+const VIAS = []; (function () { const r = mulberry32(5); for (let i = 0; i < 60; i++) VIAS.push([1 + r() * 14, -48 + r() * 16]); })();
+const RIDGE = (() => { const r = mulberry32(9); return [0, 1, 2].map(() => [r() * 6, r() * 6, r() * 6]); })();
+
+// ---------------------------------------------------------------- drawing helpers
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function line(x0, y0, x1, y1) { ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
+function arrowS(x0, y0, x1, y1, w, col, head = 2.6) {
+  ID();
+  const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy); if (L < 1) return;
+  const ux = dx / L, uy = dy / L, hl = Math.min(L * 0.6, w * head), hw = w * 1.45;
+  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = w; ctx.lineCap = "butt";
+  line(x0, y0, x1 - ux * hl * 0.9, y1 - uy * hl * 0.9);
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - ux * hl - uy * hw, y1 - uy * hl + ux * hw); ctx.lineTo(x1 - ux * hl + uy * hw, y1 - uy * hl - ux * hw); ctx.closePath(); ctx.fill();
+}
+const MEASURE = new Map();
+function mw(font, s) { const k = font + "|" + s; let v = MEASURE.get(k); if (v === undefined) { ctx.font = font; v = ctx.measureText(s).width; MEASURE.set(k, v); } return v; }
+function parse(str) { const out = []; let a = 0; for (const ch of str) { if (ch === "[") { a = 1; continue; } if (ch === "]") { a = 0; continue; } out.push({ ch, a }); } return out; }
+const plain = (str) => str.replace(/[\[\]]/g, "");
+function fitSize(str, size, maxW, face = DISPLAY, wt = "") { const f = `${wt} ${size}px ${face}`.trim(), w = mw(f, plain(str)); return w > maxW ? Math.floor(size * maxW / w) : size; }
+
+// Text band: style none | blur | grey | type | slam | wipe; left aligned at x.
+function lines(L, t, t0, t1, o = {}) {
+  if (t < t0 || t >= t1) return;
+  const x = o.x ?? 96, ys = o.ys ?? [330, 472], face = o.face ?? DISPLAY, wt = o.weight ?? "";
+  const col = o.col ?? C.ink, acc = o.acc ?? C.acc, style = o.style ?? "blur";
+  const stag = o.stag ?? 0.055, lineGap = o.lineGap ?? 0.16, exitDur = o.exit ?? 0.16, maxW = o.maxW ?? 870;
+  ID();
+  L.forEach((str, i) => {
+    const size = fitSize(str, Array.isArray(o.size) ? o.size[i] : (o.size ?? 112), maxW, face, wt);
+    const font = `${wt} ${size}px ${face}`.trim();
+    const chars = parse(str), ls = t0 + i * lineGap;
+    if (t < ls) return;
+    let pre = "";
+    ctx.save();
+    if (style === "slam") { const sc = slamScale(t - ls), cy = ys[i] - size * 0.35; ctx.translate(x, cy); ctx.scale(sc, sc); ctx.translate(-x, -cy); }
+    if (style === "wipe") { const wv = mw(font, plain(str)); ctx.beginPath(); ctx.rect(0, ys[i] - size * 1.2, x + wv * E.p3out(prog(t, ls, ls + 0.32)) + 4, size * 1.6); ctx.clip(); }
+    ctx.font = font; ctx.textBaseline = "alphabetic";
+    chars.forEach((c, j) => {
+      const cx = x + mw(font, pre); pre += c.ch;
+      const lt = t - (ls + j * stag);
+      let a = 1, blur = 0;
+      if (style === "blur") { const k = clamp(lt / 0.13); a = k; blur = 9 * (1 - k); }
+      else if (style === "grey") { a = lt < 0 ? 0.22 : 0.22 + 0.78 * clamp(lt / 0.1); }
+      else if (style === "type") { a = lt >= 0 ? 1 : 0; }
+      if (t > t1 - exitDur) { const e = clamp((t - (t1 - exitDur)) / exitDur); a *= 1 - e; blur = Math.max(blur, 10 * e); }
+      if (a <= 0.003) return;
+      ctx.globalAlpha = a; ctx.filter = blur > 0.3 ? `blur(${blur.toFixed(1)}px)` : "none";
+      ctx.fillStyle = c.a ? acc : col; ctx.fillText(c.ch, cx, ys[i]);
+    });
+    ctx.restore(); ctx.filter = "none"; ctx.globalAlpha = 1;
+  });
+}
+function label(str, x, y, size, col, t, t0, t1, o = {}) {
+  if (t < t0 || t >= t1) return;
+  ID(); const font = `${o.weight ?? 700} ${size}px ${o.face ?? UI}`; const wv = mw(font, str);
+  const k = E.p3out(prog(t, t0, t0 + 0.28)), e = prog(t, t1 - 0.15, t1);
+  ctx.save(); ctx.font = font; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  const left = o.align === "right" ? x - wv : o.align === "center" ? x - wv / 2 : x;
+  if (o.plate) { ctx.fillStyle = o.plate; ctx.globalAlpha = (1 - e) * k; rr(left - 16, y - size * 1.0, wv + 32, size * 1.34, 12); ctx.fill(); ctx.globalAlpha = 1; }
+  ctx.beginPath(); ctx.rect(left - 4, y - size * 1.2, (wv + 8) * k, size * 1.6); ctx.clip();
+  ctx.globalAlpha = 1 - e; if (e > 0) ctx.filter = `blur(${(8 * e).toFixed(1)}px)`;
+  ctx.fillStyle = col; ctx.fillText(str, left, y); ctx.restore(); ctx.filter = "none";
+}
+function underline(str, prefix, word, lineIdx, t, t0, t1, ys = [330, 472], size0 = 112) {
+  if (t < t0 || t >= t1) return;
+  const size = fitSize(str, size0, 870), f = `${size}px ${DISPLAY}`;
+  const x0 = 96 + mw(f, prefix), wv = mw(f, word), k = E.p3out(prog(t, t0, t0 + 0.3)), fo = 1 - prog(t, t1 - 0.16, t1);
+  ID(); ctx.globalAlpha = fo; ctx.fillStyle = C.acc; ctx.fillRect(x0 - 4, ys[lineIdx] + 20, (wv + 8) * k, 11); ctx.globalAlpha = 1;
+}
+
+// ---------------------------------------------------------------- the video playing on the phone
+function drawVideo(r, t) {
+  ctx.save(); ctx.beginPath(); ctx.rect(r.x, r.y, r.w, r.h); ctx.clip();
+  const u = r.h;
+  ctx.fillStyle = "#EFE2D1"; ctx.fillRect(r.x, r.y, r.w, r.h);
+  ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(r.x + r.w * 0.66, r.y + u * 0.44, u * 0.15, 0, Math.PI * 2); ctx.fill();
+  const cols = ["#B8B0A6", "#8A847C", "#57534F"], base = [0.62, 0.72, 0.82], amp = [0.12, 0.1, 0.08];
+  for (let k = 0; k < 3; k++) {
+    const ph = RIDGE[k]; ctx.fillStyle = cols[k]; ctx.beginPath(); ctx.moveTo(r.x, r.y + r.h);
+    for (let x = 0; x <= r.w + 0.5; x += u * 0.04) { const s = x / u + k * 3; const y = base[k] - amp[k] * (0.6 * Math.abs(Math.sin(s * 1.3 + ph[0])) + 0.2 * Math.sin(s * 2.7 + ph[1]) + 0.25 * Math.sin(s * 5.1 + ph[2])); ctx.lineTo(r.x + x, r.y + u * y); }
+    ctx.lineTo(r.x + r.w, r.y + r.h); ctx.closePath(); ctx.fill();
+  }
+  ctx.fillStyle = "#2A2B2E"; ctx.fillRect(r.x, r.y + u * 0.86, r.w, u * 0.14);
+  ctx.fillStyle = "#EFE2D1"; for (let x = ((t * 0.35) % 0.3) * u; x < r.w; x += 0.3 * u) ctx.fillRect(r.x + r.w - x, r.y + u * 0.925, u * 0.13, u * 0.012);
+  const cx = r.x + (((t * 0.11 + 0.15) % 1.25) - 0.12) * r.w, cy = r.y + u * 0.875;
+  ctx.fillStyle = C.ink; rr(cx, cy - u * 0.06, u * 0.2, u * 0.055, u * 0.015); ctx.fill(); rr(cx + u * 0.04, cy - u * 0.095, u * 0.1, u * 0.045, u * 0.02); ctx.fill();
+  ctx.fillStyle = "#EFE2D1"; ctx.fillRect(cx + u * 0.06, cy - u * 0.085, u * 0.06, u * 0.025);
+  ctx.restore();
+}
+function psiAt(t) {                                   // UI rotation relative to the phone (deg)
+  if (t < T.snap1) return 0;
+  if (t < T.climb) return 90 * spring(t - T.snap1, 16, 0.7);
+  if (t < T.snap2) return 0;                          // back out the phone is upright with an upright picture; it turns, the picture lags
+  return 90 * spring(t - T.snap2, 16, 0.7);
+}
+let UIA = 1;
+function drawUI(t) {
+  const psi = psiAt(t), k = clamp(psi / 90);
+  ctx.globalAlpha = UIA; ctx.fillStyle = C.glass; ctx.fillRect(-40, -80, 80, 160);
+  ctx.save(); ctx.rotate(psi * RAD);
+  const P = { x: -34, y: -66, w: 68, h: 38.25 }, L = { x: -76, y: -34, w: 152, h: 68 };
+  if (k < 1) {
+    ctx.globalAlpha = (1 - k) * UIA;
+    ctx.fillStyle = "#141517"; ctx.fillRect(-34, -76, 68, 152);
+    ctx.fillStyle = "#D9D9D5"; rr(-29, -73.4, 7, 2, 1); ctx.fill(); rr(20, -73.4, 9, 2, 1); ctx.fill();
+    ctx.fillStyle = "#E4E4E0"; rr(-30, -23, 52, 3, 1.5); ctx.fill();
+    ctx.fillStyle = "#6E7074"; rr(-30, -17.5, 34, 2.2, 1.1); ctx.fill();
+    ctx.fillStyle = "#5C5E62"; ctx.beginPath(); ctx.arc(-26.5, -8.5, 3.4, 0, 7); ctx.fill();
+    ctx.fillStyle = "#8C8E92"; rr(-21, -10, 18, 2.2, 1.1); ctx.fill();
+    ctx.fillStyle = "#2B2C30"; for (let i = 0; i < 4; i++) { rr(-30 + i * 15.5, -1.5, 13, 5, 2.5); ctx.fill(); }
+    for (let i = 0; i < 6; i++) { const y = 9 + i * 10.5; ctx.fillStyle = "#3A3C40"; ctx.beginPath(); ctx.arc(-27, y + 2, 2.6, 0, 7); ctx.fill(); ctx.fillStyle = "#4A4C50"; rr(-22, y, 20 + ((i * 37) % 23), 1.9, 0.9); ctx.fill(); ctx.fillStyle = "#34363A"; rr(-22, y + 3.6, 40 - ((i * 13) % 17), 1.6, 0.8); ctx.fill(); }
+    ctx.globalAlpha = UIA;
+  }
+  const r = { x: lerp(P.x, L.x, k), y: lerp(P.y, L.y, k), w: lerp(P.w, L.w, k), h: lerp(P.h, L.h, k) };
+  drawVideo(r, t);
+  if (k > 0) {
+    ctx.globalAlpha = k * UIA;
+    ctx.fillStyle = "rgba(255,255,255,0.45)"; rr(-68, 27, 136, 1.1, 0.55); ctx.fill();
+    const pr = 0.3 + ((t * 0.006) % 0.5);
+    ctx.fillStyle = C.acc; rr(-68, 27, 136 * pr, 1.1, 0.55); ctx.fill(); ctx.beginPath(); ctx.arc(-68 + 136 * pr, 27.55, 1.5, 0, 7); ctx.fill();
+    ctx.globalAlpha = UIA;
+  }
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- the guess: a toy spinning top (ink line drawing)
+function gimbal(t, cx, cy, R, struck) {
+  ID(); ctx.save();
+  const lw = 11 * R / 250;
+  ctx.strokeStyle = C.ink; ctx.lineWidth = lw; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  const spinT = struck ? T.strike : t, st = R * 0.6;
+  ctx.beginPath(); ctx.moveTo(cx - R * 0.68, cy + R + st); ctx.lineTo(cx + R * 0.68, cy + R + st);
+  ctx.moveTo(cx - R * 0.48, cy + R + st); ctx.lineTo(cx - R * 0.12, cy + R + st * 0.27); ctx.lineTo(cx + R * 0.12, cy + R + st * 0.27); ctx.lineTo(cx + R * 0.48, cy + R + st); ctx.stroke();
+  line(cx, cy + R + st * 0.27, cx, cy + R);
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+  const a = spinT * 0.9;
+  ctx.beginPath(); ctx.ellipse(cx, cy, Math.max(4, R * 0.82 * Math.abs(Math.cos(a))), R * 0.82, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.translate(cx, cy); ctx.rotate(-0.35);
+  ctx.fillStyle = "rgba(20,20,20,0.16)"; ctx.beginPath(); ctx.ellipse(0, 0, R * 0.56, R * 0.17, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  line(0, -R * 0.82, 0, R * 0.82);
+  ctx.lineWidth = lw * 0.75;
+  for (let i = 0; i < 6; i++) { const p = spinT * 9 + (i * Math.PI) / 3; if (Math.sin(p) < 0) continue; line(Math.cos(p) * R * 0.56, Math.sin(p) * R * 0.17, Math.cos(p) * R * 0.42, Math.sin(p) * R * 0.13); }
+  if (!struck) {                                     // spin marks: the picture everyone has in mind
+    ctx.strokeStyle = C.acc; ctx.lineWidth = lw * 0.8;
+    for (let i = 0; i < 2; i++) { const a0 = spinT * 6 + i * Math.PI; ctx.beginPath(); ctx.ellipse(0, 0, R * 0.74, R * 0.26, 0, a0, a0 + 0.9); ctx.stroke(); }
+  }
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- phone internals (light x-ray look)
+function drawPassive(p, ppm) {
+  const w = p.big ? 1.6 : 1.0, h = p.big ? 0.8 : 0.5;
+  ctx.save(); ctx.translate(p.x, p.y); if (p.rot) ctx.rotate(Math.PI / 2);
+  ctx.fillStyle = "#9A8C7C"; ctx.fillRect(-w / 2, -h / 2, w, h);
+  ctx.fillStyle = "#C9C5BA"; ctx.fillRect(-w / 2, -h / 2, w * 0.22, h); ctx.fillRect(w / 2 - w * 0.22, -h / 2, w * 0.22, h);
+  if (ppm > 60) { ctx.strokeStyle = C.ink; ctx.lineWidth = 1.2 / ppm; ctx.strokeRect(-w / 2, -h / 2, w, h); }
+  ctx.restore();
+}
+function shield(x, y, w, h, ppm) {
+  ctx.fillStyle = "#E1E3E0"; rr(x, y, w, h, 0.8); ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = Math.max(0.12, 1.6 / ppm); ctx.stroke();
+  ctx.fillStyle = "#C8CCC9"; for (let i = 1; i < w / 3; i++) for (let j = 1; j < h / 3; j++) { ctx.beginPath(); ctx.arc(x + i * 3, y + j * 3, 0.32, 0, 7); ctx.fill(); }
+}
+function drawInternals(t, K) {
+  const ppm = K.Z * S0, lw = Math.max(0.15, 1.8 / ppm);
+  ctx.fillStyle = "#DEDFDA"; ctx.fillRect(-36, -78, 72, 156);
+  ctx.fillStyle = "#C9D2CA"; rr(-32.5, -74.5, 65, 54, 2); ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = lw; ctx.stroke();
+  ctx.strokeStyle = "#AEBBB1"; ctx.lineWidth = Math.max(0.16, 1.4 / ppm); ctx.lineJoin = "round";
+  TRACES.forEach((pts) => { ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke(); });
+  if (ppm > 20) { ctx.strokeStyle = "#9FAEA3"; ctx.lineWidth = 0.08; VIAS.forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 0.16, 0, 7); ctx.stroke(); }); }
+  ctx.fillStyle = "#D4D6D2"; rr(-31, -73, 18, 18, 3); ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = lw; ctx.stroke();
+  [[-26.5, -68.5, 3.6], [-17.5, -68.5, 3.6], [-22, -59.5, 3.2]].forEach(([x, y, r]) => { ctx.fillStyle = "#2A2C2F"; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.strokeStyle = "#8D9195"; ctx.lineWidth = 0.5; ctx.stroke(); ctx.fillStyle = "#4A4E53"; ctx.beginPath(); ctx.arc(x - r * 0.25, y - r * 0.25, r * 0.28, 0, 7); ctx.fill(); });
+  shield(-11, -73, 25, 21, ppm); shield(17, -73, 14, 13, ppm); shield(-30, -46, 12, 14, ppm);
+  ctx.fillStyle = "#B9BDB8"; rr(-30, -31, 12, 6, 0.6); ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = Math.max(0.12, 1.4 / ppm); ctx.stroke(); rr(17, -30, 13, 5, 0.6); ctx.fill(); ctx.stroke();
+  PASSIVES.forEach((p) => drawPassive(p, ppm));
+  ctx.fillStyle = "#E4E4DE"; rr(-31, -17, 62, 79, 3); ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = lw; ctx.stroke();
+  ctx.fillStyle = "#D2D2CB"; rr(-24, 2, 48, 3.2, 1.6); ctx.fill(); rr(-24, 9, 30, 2.4, 1.2); ctx.fill(); rr(-24, 15, 38, 2.4, 1.2); ctx.fill();
+  ctx.strokeStyle = "#C2C2BA"; ctx.lineWidth = 0.6; rr(-27, -13, 54, 71, 2); ctx.stroke();
+  ctx.fillStyle = "#CDD0CC"; rr(6, 64, 22, 9, 1.5); ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = Math.max(0.12, 1.4 / ppm); ctx.stroke();
+  ctx.fillStyle = "#8C9090"; for (let i = 0; i < 7; i++) { ctx.beginPath(); ctx.arc(-25 + i * 2.3, 69, 0.7, 0, 7); ctx.fill(); }
+  ctx.fillStyle = "#3A3C3F"; rr(-5.5, 70.5, 11, 4, 2); ctx.fill();
+  drawPackage(t, K, t >= T.lid);
+}
+function drawPackage(t, K, opened) {
+  const ppm = K.Z * S0, [cx, cy] = CHIP;
+  if (!opened) {
+    ctx.fillStyle = "#151516"; rr(cx - 1.5, cy - 1.25, 3.0, 2.5, 0.12); ctx.fill();
+    if (ppm > 30) {
+      const g = ctx.createLinearGradient(cx - 1.5, cy - 1.25, cx + 1.5, cy + 1.25);
+      g.addColorStop(0, "rgba(255,255,255,0.10)"); g.addColorStop(0.5, "rgba(255,255,255,0.02)"); g.addColorStop(1, "rgba(255,255,255,0.06)");
+      ctx.fillStyle = g; rr(cx - 1.5, cy - 1.25, 3.0, 2.5, 0.12); ctx.fill();
+      ctx.fillStyle = "#2B2B2D"; ctx.beginPath(); ctx.arc(cx - 1.18, cy - 0.93, 0.13, 0, 7); ctx.fill();
+      ctx.fillStyle = "#3A3A3D"; [[-0.7, -0.25, 1.3], [-0.7, 0.12, 0.95], [-0.7, 0.45, 1.15]].forEach(([x, y, w]) => ctx.fillRect(cx + x, cy + y, w, 0.12));
+    }
+    return;
+  }
+  ctx.fillStyle = "#26282B"; rr(cx - 1.5, cy - 1.25, 3.0, 2.5, 0.12); ctx.fill();
+  ctx.strokeStyle = "#3D4044"; ctx.lineWidth = 0.09; rr(cx - 1.42, cy - 1.17, 2.84, 2.34, 0.08); ctx.stroke();
+  ctx.fillStyle = "#A08B5D"; for (let i = 0; i < 9; i++) { ctx.fillRect(cx - 1.25 + i * 0.3, cy - 1.1, 0.12, 0.16); ctx.fillRect(cx - 1.25 + i * 0.3, cy + 0.94, 0.12, 0.16); }
+  const ax = cx + 0.95, ay = cy + 0.1;
+  ctx.fillStyle = "#33373B"; ctx.fillRect(ax - 0.45, ay - 0.55, 0.9, 1.1);
+  if (ppm > 60) { ctx.fillStyle = "#3F444A"; for (let i = 0; i < 9; i++) for (let j = 0; j < 11; j++) if ((i * 7 + j * 3) % 5) ctx.fillRect(ax - 0.4 + i * 0.09, ay - 0.5 + j * 0.09, 0.06, 0.05); }
+  ctx.fillStyle = "#B4B9BE"; for (let i = 0; i < 6; i++) ctx.fillRect(ax - 0.36 + i * 0.13, ay - 0.52, 0.06, 0.06);
+  drawDie(t, K);
+  ctx.strokeStyle = "#C8CDD2"; ctx.lineWidth = Math.max(0.012, 1.0 / ppm);
+  for (let i = 0; i < 6; i++) { const x0 = DIE[0] - 0.62 + i * 0.25, y0 = DIE[1] - 0.6; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(x0 - 0.05, y0 - 0.45, cx - 1.19 + i * 0.3, cy - 1.02); ctx.stroke(); }
+  for (let i = 0; i < 6; i++) { const x0 = ax - 0.33 + i * 0.13, y0 = ay - 0.49; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(x0, y0 - 0.35, cx + 0.31 + (i % 3) * 0.3, cy - 1.02); ctx.stroke(); }
+}
+
+// ---------------------------------------------------------------- the MEMS die (SEM look)
+function semFill(path, ppm, fill) {
+  ctx.save();
+  if (ppm > 300) { ctx.shadowColor = "rgba(0,0,0,0.55)"; ctx.shadowOffsetX = 5; ctx.shadowOffsetY = 7; ctx.shadowBlur = 6; }
+  ctx.fillStyle = fill; ctx.fill(path); ctx.restore();
+  if (ppm > 120) { ctx.strokeStyle = C.siEdge; ctx.globalAlpha = 0.85; ctx.lineWidth = 2.2 / (ppm / 1000); ctx.stroke(path); ctx.globalAlpha = 1; }
+}
+function drawDie(t, K) {
+  setT(K, DIE);
+  ctx.fillStyle = C.dark; ctx.fillRect(-0.85, -0.65, 1.7, 1.3);
+  ctx.strokeStyle = "#6F767D"; ctx.lineWidth = 0.05; ctx.strokeRect(-0.82, -0.62, 1.64, 1.24);
+  ctx.fillStyle = "#AEB4BA"; for (let i = 0; i < 6; i++) ctx.fillRect(-0.66 + i * 0.25, -0.62, 0.08, 0.08);
+  ctx.strokeStyle = "#3A4046"; ctx.lineWidth = 0.012;
+  for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.moveTo(-0.62 + i * 0.25, -0.54); ctx.lineTo(-0.62 + i * 0.25, -0.44); ctx.lineTo(i < 3 ? -0.35 : 0.45, -0.36); ctx.stroke(); }
+  drawGyro(t, K); drawAcc(t, K);
+  setT(K);
+}
+// drive amplitude 30 µm; the sideways drift (illustrative scale, labelled 慢放演示) grows with the turn rate
+const DRIFT = 46;
+function gyroState(t) {
+  const A = t >= T.vibe ? 30 * E.smooth(prog(t, T.vibe, T.vibe + 0.6)) : 0;
+  const ph = 2 * Math.PI * VIB_HZ * t, Om = omega(t), vis = Math.pow(Om, 0.5);
+  return { dx: A * Math.cos(ph), dy: DRIFT * vis * Math.sin(ph), A, Om, vis, v: -Math.sin(ph) };
+}
+function serp(x0, y0, x1, y1, folds, amp) {
+  const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy), nx = -dy / L, ny = dx / L, p = [[x0, y0]];
+  for (let i = 0; i < folds; i++) { const a = (i + 0.15) / folds, b = (i + 0.85) / folds, s = i % 2 ? -1 : 1; p.push([x0 + dx * a + nx * amp * s, y0 + dy * a + ny * amp * s]); p.push([x0 + dx * b + nx * amp * s, y0 + dy * b + ny * amp * s]); }
+  p.push([x1, y1]); return p;
+}
+function strokeBeam(pts, wUm, ppm) {
+  ctx.lineJoin = "miter"; ctx.lineCap = "butt";
+  ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  if (ppm > 120) { ctx.strokeStyle = C.siEdge; ctx.lineWidth = wUm + 2.4 / (ppm / 1000); ctx.stroke(); }
+  ctx.strokeStyle = C.si; ctx.lineWidth = wUm; ctx.stroke();
+}
+function drawGyro(t, K) {
+  const ppm = K.Z * S0, pum = ppm / 1000;
+  setT(K, GYRO, 0.001);
+  const s = gyroState(t), dx = s.dx, dy = s.dy;
+  const fixed = new Path2D(), moving = new Path2D();
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b]) => fixed.rect(a * 255 - 35, b * 255 - 35, 70, 70));
+  fixed.rect(-300, -140, 22, 280); fixed.rect(278, -140, 22, 280); fixed.rect(-120, -300, 240, 22); fixed.rect(-120, 278, 240, 22);
+  for (let i = 0; i < 2; i++) { const y = -55 + 110 * i; fixed.rect(-280, y - 3.5, 85, 7); fixed.rect(195, y - 3.5, 85, 7); }
+  for (let i = 0; i < 3; i++) { const x = -80 + 80 * i; fixed.rect(x - 3.5, -280, 7, 85); fixed.rect(x - 3.5, 195, 7, 85); }
+  moving.rect(-150 + dx, -150 + dy, 300, 300);
+  for (let i = 0; i < 3; i++) { const y = -110 + 110 * i + dy; moving.rect(-235 + dx, y - 3.5, 85, 7); moving.rect(150 + dx, y - 3.5, 85, 7); }
+  for (let i = 0; i < 4; i++) { const x = -120 + 80 * i + dx; moving.rect(x - 3.5, -235 + dy, 7, 85); moving.rect(x - 3.5, 150 + dy, 7, 85); }
+  semFill(fixed, ppm, C.siFixed);
+  if (pum > 0.05) [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b]) => strokeBeam(serp(a * 150 + dx, b * 150 + dy, a * 222, b * 222, 4, 16), 6, ppm));
+  semFill(moving, ppm, C.si);
+  if (pum * 12 > 2) { ctx.fillStyle = C.hole; for (let i = 0; i < 11; i++) for (let j = 0; j < 11; j++) ctx.fillRect(-126 + i * 24 + dx, -126 + j * 24 + dy, 12, 12); }
+  setT(K);
+}
+function accState(t) {                                // the mass "finds down": it drops when its half opens
+  const d = t < T.accDrop ? 0 : spring(t - T.accDrop, 9, 0.38);
+  return { ox: -22 * d, oy: 0, d };                   // phone-local -x = world down (the phone is on its side)
+}
+function drawAcc(t, K) {
+  const ppm = K.Z * S0, pum = ppm / 1000;
+  setT(K, ACC, 0.001);
+  const s = accState(t), ox = s.ox, oy = s.oy;
+  const fixed = new Path2D(), moving = new Path2D();
+  [[-200, 0], [200, 0], [0, -200], [0, 200]].forEach(([x, y]) => fixed.rect(x - 22, y - 22, 44, 44));
+  [-1, 1].forEach((sg) => { fixed.rect(-110, sg * 152 - 8, 80, 16); fixed.rect(30, sg * 152 - 8, 80, 16); fixed.rect(sg * 152 - 8, -110, 16, 80); fixed.rect(sg * 152 - 8, 30, 16, 80); });
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b]) => fixed.rect(a * 170 - 20, b * 170 - 20, 40, 40));
+  moving.rect(-120 + ox, -120 + oy, 240, 240);
+  semFill(fixed, ppm, C.siFixed);
+  if (pum > 0.05) { strokeBeam(serp(-120 + ox, oy, -178, 0, 3, 12), 5, ppm); strokeBeam(serp(120 + ox, oy, 178, 0, 3, 12), 5, ppm); strokeBeam(serp(ox, -120 + oy, 0, -178, 3, 12), 5, ppm); strokeBeam(serp(ox, 120 + oy, 0, 178, 3, 12), 5, ppm); }
+  semFill(moving, ppm, C.si);
+  if (pum * 11 > 2) { ctx.fillStyle = C.hole; for (let i = 0; i < 9; i++) for (let j = 0; j < 9; j++) ctx.fillRect(-102 + i * 24 + ox, -102 + j * 24 + oy, 11, 11); }
+  if (s.d > 0.05) { ctx.fillStyle = C.acc; ctx.globalAlpha = 0.6 * clamp(s.d); ctx.fillRect(-144, -110, Math.max(0, -120 + ox + 144), 80); ctx.fillRect(-144, 30, Math.max(0, -120 + ox + 144), 80); ctx.globalAlpha = 1; }
+  setT(K);
+}
+
+// ---------------------------------------------------------------- phone: body, then the screen's layers (screen | toy | real)
+function layers(t) {
+  const S = (a, b) => lerp(-80, 80, E.p2io(prog(t, a, b)));
+  if (t < T.scan1) return [[-80, 80, "screen"]];
+  if (t < T.scan1End) { const y = S(T.scan1, T.scan1End); return [[-80, y, "toy"], [y, 80, "screen"]]; }
+  if (t < T.scan2) return [[-80, 80, "toy"]];
+  if (t < T.scan2End) { const y = S(T.scan2, T.scan2End); return [[-80, y, "real"], [y, 80, "toy"]]; }
+  if (t < T.cover) return [[-80, 80, "real"]];
+  if (t < T.climbEnd) { const y = S(T.cover, T.climbEnd); return [[-80, y, "screen"], [y, 80, "real"]]; }
+  return [[-80, 80, "screen"]];
+}
+function sweeping(t) { return (t >= T.scan1 && t < T.scan1End) || (t >= T.scan2 && t < T.scan2End) || (t >= T.cover && t < T.climbEnd); }
+function drawPhone(t, K, fade = 0) {
+  setT(K);
+  ctx.save();
+  ctx.shadowColor = `rgba(20,20,20,${0.26 * clamp(K.Z) * (1 - fade)})`; ctx.shadowBlur = 70 * clamp(K.Z); ctx.shadowOffsetY = 34 * clamp(K.Z);
+  ctx.fillStyle = C.body; ctx.globalAlpha = 1 - fade; rr(-36, -78, 72, 156, 10); ctx.fill();
+  ctx.restore();
+  ctx.globalAlpha = 1 - fade;
+  ctx.strokeStyle = C.bodyEdge; ctx.lineWidth = 0.7; rr(-35.6, -77.6, 71.2, 155.2, 9.7); ctx.stroke();
+  ctx.fillStyle = C.body; rr(35.6, -46, 1.1, 12, 0.5); ctx.fill(); rr(35.6, -28, 1.1, 18, 0.5); ctx.fill();
+  ctx.save(); rr(-34, -76, 68, 152, 8.5); ctx.clip();
+  const Ls = layers(t);
+  Ls.forEach(([lo, hi, kind]) => {
+    if (hi <= lo) return;
+    ctx.save(); setT(K); ctx.beginPath(); ctx.rect(-40, lo, 80, hi - lo); ctx.clip();
+    if (kind === "screen") { UIA = 1 - fade; if (UIA > 0.002) drawUI(t); UIA = 1; }
+    else if (kind === "real") drawInternals(t, K);
+    else if (kind === "toy") {
+      ctx.fillStyle = "#E8E7E2"; ctx.fillRect(-40, -80, 80, 160);
+      const c = toS(K, [0, 0]), R = 150 * (K.Z / 1.2);
+      gimbal(t, c[0], c[1] - 0.3 * R, R, t >= T.strike);
+    }
+    ctx.restore();
+  });
+  if (sweeping(t) && Ls.length > 1) {
+    setT(K); const y = Ls[0][1];
+    ctx.fillStyle = "rgba(255,74,28,0.16)"; ctx.fillRect(-40, y - 3.5, 80, 7); ctx.fillStyle = C.acc; ctx.fillRect(-40, y - 0.45, 80, 0.9);
+  }
+  setT(K); ctx.fillStyle = "#050506"; ctx.beginPath(); ctx.arc(0, -71, 1.6, 0, 7); ctx.fill();
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+// ---------------------------------------------------------------- screen-space props
+function phoneGlyph(x, y, h, angDeg, col, lw = 7) {
+  ID(); ctx.save(); ctx.translate(x, y); ctx.rotate(angDeg * RAD);
+  const w = h * 0.5; ctx.strokeStyle = col; ctx.lineWidth = lw; rr(-w / 2, -h / 2, w, h, h * 0.12); ctx.stroke();
+  ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, -h / 2 + h * 0.09, h * 0.028, 0, 7); ctx.fill();
+  ctx.restore();
+}
+function dashedArc(cx, cy, r, a0, a1, col, lw, head) {
+  ID(); ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.setLineDash([18, 13]); ctx.lineCap = "butt";
+  ctx.beginPath(); ctx.arc(cx, cy, r, a0, a1, a1 < a0); ctx.stroke(); ctx.setLineDash([]);
+  if (head && Math.abs(a1 - a0) > 0.08) { const ex = cx + r * Math.cos(a1), ey = cy + r * Math.sin(a1), dir = a1 < a0 ? -1 : 1, tx = -Math.sin(a1) * dir, ty = Math.cos(a1) * dir; arrowS(ex - tx * 30, ey - ty * 30, ex + tx * 6, ey + ty * 6, lw, col, 3.2); }
+  ctx.restore();
+}
+const orangeK = (t) => E.p2io(prog(t, T.myth, T.myth + 0.3)) * (1 - E.p2io(prog(t, T.unOrange, T.unOrange + 0.3)));
+function groundCol(t) { const o = orangeK(t); return o > 0 ? mixHex(C.ground, C.acc, o) : C.ground; }
+function flood(t) {
+  if (t < T.flood) return 0;
+  if (t < T.floodEnd) return E.p2io(prog(t, T.flood, T.floodEnd));
+  if (t < T.unflood) return 1;
+  return 1 - E.p2io(prog(t, T.unflood, T.unflood + 0.2));
+}
+
+// ---------------------------------------------------------------- the world through one camera
+function drawWorld(t, K) {
+  const ppm = K.Z * S0;
+  ID(); ctx.fillStyle = groundCol(t); ctx.fillRect(0, 0, W, H);
+  const endFade = t >= T.end ? E.p2io(prog(t, T.end, T.endMorph)) : 0;
+  if (t >= T.say2A && t < T.end + 0.2) {
+    const k = E.p3out(prog(t, T.say2A + 0.2, T.say2A + 0.6)), fo = 1 - prog(t, T.end - 0.1, T.end + 0.2);
+    ctx.globalAlpha = fo; arrowS(540, 1346, 540, 1346 + 160 * k, 16, C.acc, 2.4); ctx.globalAlpha = 1;
+    label(COPY.grav, 574, 1484, 50, C.ink, t, T.say2A + 0.45, T.end + 0.2);
+  }
+  drawPhone(t, K, endFade);
+  if (endFade > 0) { setT(K); ctx.strokeStyle = C.ink; ctx.globalAlpha = endFade; ctx.lineWidth = 9 / ppm; rr(-36, -78, 72, 156, 10); ctx.stroke(); ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(0, -70, 2.0, 0, 7); ctx.fill(); ctx.globalAlpha = 1; }
+  // the guess is struck: an ink ✕ across the phone, gone when the real board is scanned in
+  if (t >= T.strike && t < T.scan2End) {
+    const c = toS(K, [0, 0]), fo = 1 - prog(t, T.scan2, T.scan2End);
+    ID(); ctx.save(); ctx.globalAlpha = fo; ctx.strokeStyle = C.ink; ctx.lineCap = "round"; ctx.lineWidth = 28;
+    const k1 = E.p3out(prog(t, T.strike, T.strike + 0.1)), k2 = E.p3out(prog(t, T.strike + 0.125, T.strike + 0.225));
+    line(c[0] - 260, c[1] - 220, lerp(c[0] - 260, c[0] + 260, k1), lerp(c[1] - 220, c[1] + 220, k1));
+    if (k2 > 0) line(c[0] + 260, c[1] - 220, lerp(c[0] + 260, c[0] - 260, k2), lerp(c[1] - 220, c[1] + 220, k2));
+    ctx.restore();
+  }
+  // find the chip, then a rice grain for scale
+  if (t >= T.ring && t < T.rice + 0.25) {
+    const k = E.p3out(prog(t, T.ring, T.ring + 0.3)), fo = 1 - prog(t, T.rice - 0.1, T.rice + 0.2);
+    const c = toS(K, CHIP), r = Math.max(34, 2.6 * ppm) * (0.6 + 0.4 * k);
+    if (fo > 0) { ID(); ctx.globalAlpha = fo; ctx.strokeStyle = C.acc; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(c[0], c[1], r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); ctx.stroke(); ctx.globalAlpha = 1; }
+  }
+  if (t >= T.rice && t < T.push2End) {
+    const k = E.p3out(prog(t, T.rice, T.rice + 0.35)), fo = 1 - prog(t, T.push2 - 0.05, T.push2 + 0.25);
+    setT(K, RICE); ctx.globalAlpha = fo;
+    ctx.save(); ctx.scale(lerp(0.85, 1, k), lerp(0.85, 1, k));
+    ctx.fillStyle = "rgba(250,247,238,0.94)"; ctx.beginPath(); ctx.ellipse(0, 0, 3.25, 1.3, -0.04, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = C.ink; ctx.lineWidth = 3 / ppm; ctx.setLineDash([10 / ppm, 7 / ppm]); ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle = "rgba(20,20,20,0.18)"; ctx.lineWidth = 2 / ppm; ctx.beginPath(); ctx.moveTo(-2.4, -0.15); ctx.quadraticCurveTo(0, -0.5, 2.5, -0.1); ctx.stroke();
+    ctx.restore(); ctx.globalAlpha = 1;
+    const dk = E.p3out(prog(t, T.dims, T.dims + 0.35));
+    if (dk > 0 && fo > 0) {
+      setT(K, CHIP); ctx.globalAlpha = fo; ctx.strokeStyle = C.acc; ctx.lineWidth = 4 / ppm;
+      const y = 1.8, x = 1.95;
+      ctx.beginPath(); ctx.moveTo(-1.5 * dk, y); ctx.lineTo(1.5 * dk, y); ctx.moveTo(-1.5, y - 0.22); ctx.lineTo(-1.5, y + 0.22); ctx.moveTo(1.5, y - 0.22); ctx.lineTo(1.5, y + 0.22); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, -1.25 * dk); ctx.lineTo(x, 1.25 * dk); ctx.moveTo(x - 0.22, -1.25); ctx.lineTo(x + 0.22, -1.25); ctx.moveTo(x - 0.22, 1.25); ctx.lineTo(x + 0.22, 1.25); ctx.stroke();
+      ctx.globalAlpha = 1;
+      const p1 = toS(K, [CHIP[0], CHIP[1] + 1.8]), pr = toS(K, [RICE[0], RICE[1] - 1.3]);
+      label(COPY.mm3, p1[0], p1[1] + 70, 54, C.acc, t, T.dims + 0.1, T.push2 + 0.1, { align: "center" });
+      label(COPY.rice, pr[0], pr[1] - 34, 54, C.ink, t, T.rice + 0.15, T.push2 + 0.1, { align: "center" });
+    }
+  }
+  const fl = flood(t);
+  if (fl > 0) { ID(); ctx.fillStyle = `rgba(23,25,28,${fl})`; ctx.fillRect(0, 0, W, H); }
+  if (t >= T.lid && layers(t).some((l) => l[2] === "real")) { setT(K); drawPackage(t, K, true); }
+  if (t >= T.lid && t < T.lidEnd) {
+    const u = prog(t, T.lid, T.lidEnd), c = toS(K, CHIP);
+    ID(); ctx.save(); ctx.translate(c[0] + 260 * E.p3in(u), c[1] - 1500 * E.p3in(u) - 40 * E.p3out(u)); ctx.rotate(0.22 * u); ctx.scale(1 + 0.45 * u, 1 + 0.45 * u);
+    const w = 3 * ppm, h = 2.5 * ppm;
+    ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 40; ctx.shadowOffsetY = 30;
+    ctx.fillStyle = "#151516"; rr(-w / 2, -h / 2, w, h, 0.12 * ppm); ctx.fill(); ctx.shadowColor = "transparent";
+    ctx.fillStyle = "#2B2B2D"; ctx.beginPath(); ctx.arc(-w / 2 + 0.32 * ppm, -h / 2 + 0.32 * ppm, 0.13 * ppm, 0, 7); ctx.fill();
+    ctx.restore();
+  }
+}
+
+// ---------------------------------------------------------------- the proof mass, read out
+function gyroOverlays(t, K, full) {
+  if (t < T.vibe + 0.25) return;
+  const ppm = K.Z * S0, s = gyroState(t), u = ppm / 1000;
+  const k = E.p3out(prog(t, T.vibe + 0.25, T.vibe + 0.75));
+  setT(K, GYRO, 0.001);
+  // its own rail: where it swings if nothing turns
+  ctx.save(); ctx.globalAlpha = 0.85 * k; ctx.strokeStyle = C.paper; ctx.lineWidth = 5 / u; ctx.setLineDash([16 / u, 11 / u]); line(-120, 0, 120, 0); ctx.restore();
+  // the ghost: where the mass would be without the push (same swing, no sideways offset); the gap is the push, in orange
+  if (s.vis > 0.02) {
+    setT(K, GYRO, 0.001);
+    const g = clamp(s.vis / 0.3);
+    ctx.save(); ctx.globalAlpha = 0.9 * g; ctx.strokeStyle = C.paper; ctx.lineWidth = 4 / u; ctx.setLineDash([18 / u, 12 / u]);
+    ctx.strokeRect(-150 + s.dx, -150, 300, 300); ctx.restore();
+    ctx.save(); ctx.globalAlpha = 0.55 * g; ctx.fillStyle = C.acc;
+    if (s.dy < 0) ctx.fillRect(-150 + s.dx, -150 + s.dy, 300, -s.dy); else ctx.fillRect(-150 + s.dx, 150, 300, s.dy);
+    ctx.restore();
+  }
+  // where it actually went: the last full swing (a line while still, a loop once the phone turns)
+  setT(K, GYRO, 0.001);
+  ctx.strokeStyle = C.acc; ctx.lineWidth = 12 / u; ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.globalAlpha = 0.95 * k; ctx.beginPath();
+  for (let i = 0; i <= 80; i++) { const st = gyroState(t - 1.0 + (i / 80) * 1.0); i ? ctx.lineTo(st.dx, st.dy) : ctx.moveTo(st.dx, st.dy); }
+  ctx.stroke(); ctx.globalAlpha = 1;
+  ctx.fillStyle = C.paper; ctx.beginPath(); ctx.arc(s.dx, s.dy, 10 / u, 0, 7); ctx.fill();
+  if (!full) return;
+  // the two directions, at right angles: the swing (white, horizontal) and the push (orange, vertical)
+  const c = toS(K, [GYRO[0] + s.dx / 1000, GYRO[1] + s.dy / 1000]), sv = Math.sign(s.v || 1), av = Math.abs(s.v);
+  const kv = E.p3out(prog(t, T.h3 + 0.4, T.h3 + 0.9)) * (1 - prog(t, T.split, T.split + 0.25));
+  if (kv > 0 && av > 0.08) { ctx.globalAlpha = kv; arrowS(c[0], c[1], c[0] + sv * 190 * av, c[1], 14, C.paper, 2.4); ctx.globalAlpha = 1; }
+  if (s.vis > 0.03 && av > 0.08) {
+    const Lp = 260 * s.vis * av;
+    ctx.globalAlpha = kv; arrowS(c[0], c[1], c[0], c[1] - sv * Lp, 18, C.acc, 2.2);
+    // right-angle mark between them
+    const q = 30 * Math.min(1, av * 1.5);
+    ID(); ctx.strokeStyle = C.paper; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(c[0] + sv * q, c[1]); ctx.lineTo(c[0] + sv * q, c[1] - sv * q); ctx.lineTo(c[0], c[1] - sv * q); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  // the phone turning (pictogram, top right) and how fast
+  if (t >= T.q5 - 0.2 && t < T.glyphOut) {
+    const fo = prog(t, T.q5 - 0.2, T.q5) * (1 - prog(t, T.glyphOut - 0.25, T.glyphOut)), a = -turn(t);
+    ctx.globalAlpha = fo; phoneGlyph(905, 400, 190, a, C.paper, 8);
+    const r = rate(t);
+    if (r > 0.5) { ID(); ctx.strokeStyle = C.acc; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(905, 400, 132, (-150 + a) * RAD, (-150 + a + 20 + 70 * clamp(r / 75)) * RAD); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+  }
+  if (t >= T.turnA - 0.25 && t < T.glyphOut) {          // the readout leaves with the pictogram, when the name lands
+    const fo = prog(t, T.turnA - 0.25, T.turnA) * (1 - prog(t, T.glyphOut - 0.25, T.glyphOut));
+    const r = Math.round(rate(t)), txt = `${r}${COPY.rateUnit}`, size = 70, font = `700 ${size}px ${UI}`, wv = mw(font, txt);
+    ID(); ctx.save(); ctx.globalAlpha = fo;
+    ctx.fillStyle = "rgba(23,25,28,0.85)"; rr(1012 - wv - 22, 640 - size * 0.98, wv + 40, size * 1.32, 14); ctx.fill();
+    ctx.font = font; ctx.fillStyle = r > 1 ? C.acc : "rgba(241,240,236,0.7)"; ctx.textAlign = "right"; ctx.fillText(txt, 1012, 640);
+    ctx.restore();
+  }
+}
+function accOverlays(t, K) {
+  if (t < T.accDrop) return;
+  const s = accState(t), c = toS(K, [ACC[0] + s.ox / 1000, ACC[1] + s.oy / 1000]), k = E.p3out(prog(t, T.accDrop, T.accDrop + 0.4));
+  arrowS(c[0], c[1], c[0], c[1] + 230 * k, 16, C.acc, 2.4);
+  label(COPY.grav, c[0] + 32, c[1] + 200, 54, C.paper, t, T.accDrop + 0.3, T.climb + 0.3);
+}
+
+function bubble(cx, top, str, t, t0, t1, fly) {    // a speech bubble: the sensor talks to the phone
+  if (t < t0 || t >= t1) return;                     // fly = [x, y]: on exit it shrinks back into the phone, toward that point
+  const size = 80, font = `${size}px ${DISPLAY}`, wv = mw(font, str), w = wv + 64, h = size + 46;
+  let sc = spring(t - t0, 15, 0.55), e = prog(t, t1 - 0.2, t1), x = cx, y = top + h + 26;
+  if (fly) { const u = E.p3in(prog(t, t1 - 0.32, t1)); x = lerp(x, fly[0], u); y = lerp(y, fly[1], u); sc *= 1 - 0.88 * u; e = prog(t, t1 - 0.08, t1); }
+  ID(); ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc); ctx.globalAlpha = 1 - e;
+  ctx.fillStyle = C.acc; rr(-w / 2, -h - 26, w, h, 24); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-22, -27); ctx.lineTo(22, -27); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
+  ctx.font = font; ctx.fillStyle = C.ink; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.fillText(str, 0, -26 - h / 2 + size * 0.36);
+  ctx.restore();
+}
+function scrim(t) {
+  let col = null, a = 0;
+  const K = cam(t);
+  if (t >= T.dive1 && t < T.flood + 0.2) { col = "236,235,230"; a = 0.9 * clamp((K.Z - 2) / 4) * (1 - prog(t, T.flood - 0.1, T.flood + 0.2)); }
+  else if (t >= T.flood + 0.2 && t < T.climbEnd) { col = "23,25,28"; a = 0.82 * flood(t); }
+  if (a <= 0.01) return;
+  ID(); const g = ctx.createLinearGradient(0, 0, 0, 700);
+  g.addColorStop(0, `rgba(${col},${a})`); g.addColorStop(0.72, `rgba(${col},${a})`); g.addColorStop(1, `rgba(${col},0)`);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, 700);
+}
+function hookOverlays(t) {
+  const arcK = t < T.h1Out + 0.2 ? clamp(-theta(t) / 90) : 0, arcFade = 1 - prog(t, T.h1Out, T.h1Out + 0.2);
+  if (arcK > 0 && arcFade > 0) {
+    ctx.globalAlpha = arcFade; dashedArc(540, 1060, 520, -Math.PI / 2, -Math.PI / 2 - (Math.PI / 2) * arcK, C.acc, 6, true); ctx.globalAlpha = 1;
+    const t0 = T.rotEnd;
+    if (t >= t0) { ID(); const sc = 0.6 + 0.4 * spring(t - t0, 18, 0.55); ctx.save(); ctx.globalAlpha = arcFade; ctx.translate(150, 690); ctx.scale(sc, sc); ctx.font = `700 68px ${UI}`; ctx.fillStyle = C.acc; ctx.textAlign = "center"; ctx.fillText(COPY.deg, 0, 0); ctx.restore(); }
+  }
+  underline(COPY.h1[1], "你把它", "横过来", 1, t, T.underline, T.h1Out + 0.16);
+}
+function textBand(t) {
+  const L = C.ink, D = C.paper, TAG = "rgba(241,240,236,0.8)";
+  scrim(t);
+  // 1 the phenomenon — no noun
+  lines(COPY.h1, t, -1, T.h1Out + 0.16, { style: "none", col: L });
+  // 2 the wrong guess (on orange), struck
+  lines(COPY.q2, t, T.q2, T.a2, { style: "blur", col: L, acc: C.paper, exit: 0.001 });
+  lines(COPY.a2, t, T.a2, T.q3, { style: "slam", col: L, acc: C.paper, lineGap: 0.2 });
+  // 3 dig in
+  lines(COPY.q3, t, T.q3, T.a3, { style: "blur", col: L });
+  lines(COPY.a3, t, T.a3, T.q4, { style: "blur", col: L });
+  lines(COPY.q4, t, T.q4, T.flood, { style: "blur", col: L });
+  // 4 one mechanism, slowly (the phone pictogram sits top right until the name: keep these lines narrower)
+  lines(COPY.h3, t, T.h3, T.q5, { style: "blur", col: D, maxW: 720 });
+  label(COPY.tag1, 98, 556, 50, TAG, t, T.tag1, T.q5, { weight: 400 });
+  lines(COPY.q5, t, T.q5, T.a5, { style: "blur", col: D, maxW: 720 });
+  lines(COPY.a5, t, T.a5, T.q6, { style: "slam", col: D, maxW: 720, lineGap: 0.12 });
+  label(COPY.tag2, 98, 556, 50, TAG, t, T.tag2, T.a6, { weight: 400 });
+  lines(COPY.q6, t, T.q6, T.a6, { style: "blur", col: D, maxW: 720 });
+  lines(COPY.a6, t, T.a6, T.name, { style: "wipe", col: D, maxW: 720 });
+  // the noun arrives as part of the answer
+  lines(COPY.name, t, T.name, T.q7, { style: "slam", col: D, ys: [318, 492], size: [96, 140], lineGap: 0.25 });
+  label(COPY.tagN, 98, 604, 52, TAG, t, T.tagN, T.q7, { weight: 400, plate: "rgba(23,25,28,0.86)" });
+  // 5 the missing step: the second sensor
+  lines(COPY.q7, t, T.q7, T.sayL - 0.25, { style: "blur", col: D });
+  if (t >= T.split && t < T.climb + 0.2) {
+    const bx = splitX(t), out = T.climb + 0.2;
+    lines([COPY.nameL], t, T.sayL - 0.25, out, { style: "blur", col: D, x: 64, ys: [330], size: 96, exit: 0.2 });
+    label(COPY.tells, 68, 412, 46, "rgba(241,240,236,0.82)", t, T.sayL - 0.1, out, { weight: 700 });
+    bubble(270, 470, COPY.sayL, t, T.sayL, out);
+    lines([COPY.nameR], t, T.sayR - 0.25, out, { style: "blur", col: D, x: bx + 50, ys: [330], size: 96, exit: 0.2 });
+    label(COPY.tells, bx + 54, 412, 46, "rgba(241,240,236,0.82)", t, T.sayR - 0.1, out, { weight: 700 });
+    bubble(bx + 270, 470, COPY.sayR, t, T.sayR, out);
+  }
+  // 6 back to the phenomenon: the same phone turns again and both sensors speak while it turns
+  lines(COPY.q8, t, T.q8, T.say2G - 0.1, { style: "blur", col: L });
+  if (t >= T.say2G - 0.25 && t < T.bubOut) {
+    const out = T.snap2 + 0.35, chip = toS(cam(t), CHIP);
+    lines([COPY.nameL], t, T.say2G - 0.25, out, { style: "blur", col: L, x: 64, ys: [300], size: 96, exit: 0.2 });
+    label(COPY.tells, 68, 378, 46, "rgba(20,20,20,0.72)", t, T.say2G - 0.1, out, { weight: 700 });
+    bubble(270, 420, COPY.sayL, t, T.say2G, T.bubOut, chip);
+    lines([COPY.nameR], t, T.say2A - 0.25, out, { style: "blur", col: L, x: 590, ys: [300], size: 96, exit: 0.2 });
+    label(COPY.tells, 594, 378, 46, "rgba(20,20,20,0.72)", t, T.say2A - 0.1, out, { weight: 700 });
+    bubble(810, 420, COPY.sayR, t, T.say2A, T.bubOut, chip);
+  }
+  lines(COPY.fin, t, T.fin, T.finOut, { style: "blur", col: L, lineGap: 0.25 });
+}
+function endCard(t) {
+  if (t < T.title1) return;
+  lines(COPY.end, t, T.title1, DUR + 1, { style: "type", col: C.ink, ys: [905, 1045, 1185], size: 124, stag: 0.045, lineGap: 0.3 });
+  lines([COPY.epNum], t, T.ep, DUR + 1, { style: "slam", col: C.ink, x: 400, ys: [520], size: 150 });
+  lines([COPY.epName], t, T.ep + 0.25, DUR + 1, { style: "blur", col: C.ink, x: 404, ys: [668], size: 112 });
+  if (t >= T.sting) {
+    const K = cam(t), c = toS(K, [0, 2]), sc = spring(t - T.sting, 16, 0.5);
+    ID(); ctx.save(); ctx.translate(c[0], c[1]); ctx.scale(sc, sc); ctx.font = `220px ${DISPLAY}`; ctx.fillStyle = C.acc; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("?", 6, 0); ctx.restore();
+  }
+}
+
+function frame(t) {
+  ctx.reset();                                     // no canvas state survives from the previous frame
+  ID();
+  const bx = splitX(t), K = cam(t);
+  if (bx < W) {
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, bx, H); ctx.clip();
+    drawWorld(t, K); gyroOverlays(t, K, false); ctx.restore();
+    const KR = KRbase(bx - 540);
+    ctx.save(); ctx.beginPath(); ctx.rect(bx, 0, W - bx, H); ctx.clip();
+    drawWorld(t, KR); accOverlays(t, KR); ctx.restore();
+    ID(); const g = ctx.createLinearGradient(0, 1300, 0, 1440); g.addColorStop(0, "rgba(23,25,28,0)"); g.addColorStop(1, "rgba(23,25,28,1)");
+    ctx.fillStyle = g; ctx.fillRect(0, 1300, W, 140); ctx.fillStyle = C.dark; ctx.fillRect(0, 1440, W, H - 1440);
+    ctx.fillStyle = C.paper; ctx.fillRect(bx - 3, 0, 6, 1440);
+  } else {
+    drawWorld(t, K);
+    gyroOverlays(t, K, t < T.split);
+  }
+  hookOverlays(t);
+  textBand(t);
+  endCard(t);
+}
+
+// ---------------------------------------------------------------- motion blur: temporal supersampling where things move fast
+const BLUR = [[0, 0.8], [1.0, 1.35], [4.0, 4.62], [9.5, 11.01], [14.0, 15.12], [15.25, 17.26], [17.0, 31.15], [33.5, 34.8], [36.25, 37.55], [37.68, 38.77], [40.75, 41.37], [42.5, 42.8]];
+const SUB = 6, SHUTTER = 0.5 / FPS;
+const CUTS = [T.snap2];
+window.seek = function seek(t) {
+  t = clamp(t, 0, DUR - 1e-6);
+  const blur = BLUR.some(([a, b]) => t >= a && t < b);
+  if (!blur) { ctx = MAIN; frame(t); return; }
+  MAIN.reset();
+  for (let i = 0; i < SUB; i++) {
+    ctx = OFFX;
+    let ts = t + SHUTTER * (i / (SUB - 1) - 0.5);
+    for (const c of CUTS) { if (t >= c && ts < c) ts = c; if (t < c && ts >= c) ts = c - 1e-4; }
+    frame(ts);
+    MAIN.setTransform(1, 0, 0, 1, 0, 0); MAIN.globalAlpha = 1 / (i + 1); MAIN.drawImage(OFF, 0, 0);
+  }
+  MAIN.globalAlpha = 1; ctx = MAIN;
+};
+window.DUR = DUR; window.FPS = FPS;
+window.addEventListener("hf-seek", (e) => window.seek(e.detail.time));
+window.ready = false;
+window.whenReady = Promise.all([
+  document.fonts.load(`100px ${DISPLAY}`, "陀螺仪手机"), document.fonts.load(`700 50px ${UI}`, "重力转了"), document.fonts.load(`400 50px ${UI}`, "慢放演示"),
+]).then(() => document.fonts.ready).then(() => { MEASURE.clear(); window.seek(0); window.ready = true; });
+</script>
+</body>
+</html>

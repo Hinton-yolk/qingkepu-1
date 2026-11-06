@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1080">
+<title>EP.04 距离传感器</title>
+<style>
+  @font-face { font-family: "Smiley"; src: url("assets/fonts/smiley.woff2") format("woff2"); }
+  @font-face { font-family: "NotoSC"; font-weight: 700; src: url("assets/fonts/noto-sc-bold.woff2") format("woff2"); }
+  @font-face { font-family: "NotoSC"; font-weight: 400; src: url("assets/fonts/noto-sc-regular.woff2") format("woff2"); }
+  html, body { margin: 0; background: #ECEBE6; }
+  #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="59.75" data-width="1080" data-height="1920">
+  <canvas id="c" width="1080" height="1920"></canvas>
+</div>
+<script src="timeline.js"></script>
+<script>
+"use strict";
+// ============================================================================================
+// EP.04 距离传感器 — a pure function of time. window.seek(t) paints frame t.
+// One continuous space: a face seen from the front, a phone brought up to the ear. One camera: the face and the phone
+// → the guess at the ear → the phone turned to us → the dark window by the earpiece → under the glass (a lamp, an eye)
+// → into the lamp (dark: a side cut through the top of the phone, the cheek coming in) → the phone's face (the cheek on it)
+// → the face and the phone again → the end badge.
+// No timers, no rAF, no CSS transitions, no state between frames (the context is reset every frame); seeded noise only.
+// World units are millimetres; y points down; the face is centred on the origin.
+// ============================================================================================
+const { T, COPY, W, H, DUR, FPS, screenOn, callState } = TL;
+const cv = document.getElementById("c");
+const MAIN = cv.getContext("2d");
+const OFF = document.createElement("canvas"); OFF.width = W; OFF.height = H;
+const OFFX = OFF.getContext("2d");
+let ctx = MAIN;
+
+const C = {
+  ground: "#ECEBE6", ink: "#141414", acc: "#FF4A1C", paper: "#F1F0EC",
+  skin: "#E3DDD2", skinDeep: "#D8D1C4", grey: "#8A847C", dark: "#17191C",
+};
+const DISPLAY = "Smiley", UI = "NotoSC";
+
+// ---------------------------------------------------------------- math
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const TAU = Math.PI * 2;
+const E = {
+  sine: (x) => 0.5 - 0.5 * Math.cos(Math.PI * x),
+  p2io: (x) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2),
+  p3io: (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2),
+  p2in: (x) => x * x, p3in: (x) => x * x * x,
+  p3out: (x) => 1 - Math.pow(1 - x, 3), p4out: (x) => 1 - Math.pow(1 - x, 4),
+  smooth: (x) => x * x * (3 - 2 * x),
+};
+function spring(x, w = 15, z = 0.72) {
+  if (x <= 0) return 0;
+  if (z >= 1) return 1 - Math.exp(-w * x) * (1 + w * x);
+  const wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * x) * (Math.cos(wd * x) + ((z * w) / wd) * Math.sin(wd * x));
+}
+function slamScale(u) {                              // 0.17 s: 1.55 -> 0.94 -> 1.0
+  if (u <= 0) return 1.55;
+  if (u < 0.09) return lerp(1.55, 0.94, E.p2in(u / 0.09));
+  if (u < 0.17) return lerp(0.94, 1.0, E.p3out((u - 0.09) / 0.08));
+  return 1;
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const hexRGB = (h) => [0, 1, 2].map((i) => parseInt(h.slice(1 + 2 * i, 3 + 2 * i), 16));
+const mixHex = (a, b, k) => { const p = hexRGB(a), q = hexRGB(b); return `rgb(${[0, 1, 2].map((i) => Math.round(lerp(p[i], q[i], k))).join(",")})`; };
+const ACC = hexRGB("#FF4A1C").join(",");
+
+// ---------------------------------------------------------------- camera: similarity s = A·p + B (complex), log-spiral between keys
+const S0 = 3.0;                                       // px per mm at Z = 1 (the opening shot)
+const cmul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
+const cdiv = (a, b) => { const d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; };
+const cadd = (a, b) => [a[0] + b[0], a[1] + b[1]];
+const csub = (a, b) => [a[0] - b[0], a[1] - b[1]];
+const cpol = (r, th) => [r * Math.cos(th), r * Math.sin(th)];
+const RAD = Math.PI / 180;
+function key(F, anchor, Z, phiDeg = 0) { const A = cpol(Z * S0, phiDeg * RAD); return { A, B: csub(anchor, cmul(A, F)), Z, phi: phiDeg * RAD }; }
+function interp(k0, k1, u) {
+  const lr = Math.log(k1.Z / k0.Z), th = k1.phi - k0.phi;
+  const kk = cpol(Math.exp(lr), th), ku = cpol(Math.exp(lr * u), th * u);
+  const c = csub(k1.B, cmul(kk, k0.B)), omk = csub([1, 0], kk);
+  if (Math.hypot(omk[0], omk[1]) < 1e-9) return { A: k0.A, B: cadd(k0.B, [c[0] * u, c[1] * u]), Z: k0.Z, phi: k0.phi };
+  const ws = cdiv(c, omk);
+  return { A: cmul(ku, k0.A), B: cadd(cmul(ku, csub(k0.B, ws)), ws), Z: k0.Z * Math.exp(lr * u), phi: k0.phi + th * u };
+}
+const toS = (K, p) => cadd(cmul(K.A, p), K.B);
+function setT(K, o = [0, 0], u = 1) { const a = K.A[0] * u, b = K.A[1] * u, B = cadd(cmul(K.A, o), K.B); ctx.setTransform(a, b, -b, a, B[0], B[1]); }
+const ID = () => ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+// ---------------------------------------------------------------- the world (mm): a face seen from the front, a phone
+// the phone's own coordinates: x −36…36, y −74…74 (front face); the earpiece and the sensor window sit at the top
+const PH = { w: 72, h: 148, r: 9, th: 8 };
+const EARP = [-8, -71.2, 16, 1.6];
+const WIN = [8.6, -71.6, 9, 2.4];                                 // the dark window right of the earpiece
+const LED = [10.8, -70.4], EYE = [15.6, -70.4];                   // under it: the lamp and the eye
+const SENS = [13.2, -70.4];
+const P = {
+  hand: { x: 100, y: 95, th: 0, ph: -8 },
+  near: { x: 130, y: -2, th: 60, ph: 10 },
+  ear: { x: 106, y: -2, th: 64, ph: 12 },
+  mid: { x: 152, y: 8, th: 50, ph: 6 },
+  touch: { x: 98, y: -2, th: 66, ph: 12 },
+  gap: { x: 146, y: -2, th: 64, ph: 12 },
+  front: { x: -10, y: -10, th: 0, ph: 0 },
+};
+const lerpP = (a, b, u) => ({ x: lerp(a.x, b.x, u), y: lerp(a.y, b.y, u), th: lerp(a.th, b.th, u), ph: lerp(a.ph, b.ph, u) });
+function pose(t) {
+  const seg = (a, b, t0, t1, ease = E.p2io) => lerpP(a, b, ease(prog(t, t0, t1)));
+  if (t < 1.75) return seg(P.hand, P.near, 0.15, 1.75, E.sine);
+  if (t < 2.6) return seg(P.near, P.ear, 1.75, 2.25);
+  if (t < 2.95) return seg(P.ear, P.mid, 2.6, 2.95);
+  if (t < T.myth) return seg(P.mid, P.ear, 2.95, 3.3);
+  if (t < T.gap) { const g = seg(P.ear, P.touch, T.myth, T.contact); return t > T.contact ? { ...g, x: g.x + 1.6 * Math.sin((t - T.contact) * 6.0), ph: g.ph + 0.8 * Math.sin((t - T.contact) * 3.1) } : g; }   // pressed on, pressing
+  if (t < T.swing) { const g = seg(P.touch, P.gap, T.gap, T.gapEnd); return t > T.gapEnd ? { ...g, x: g.x + 3 * Math.sin((t - T.gapEnd) * 4.2) } : g; }   // hovering, dark, not touching
+  if (t < T.climb) return seg(P.gap, P.front, T.swing, T.swingEnd, E.p3io);
+  if (t < T.lift) return seg(P.front, P.hand, T.climb, T.climbEnd);
+  if (t < T.off3 + 0.3) return t < T.off3 ? seg(P.hand, P.near, T.lift, T.off3, E.sine) : seg(P.near, P.ear, T.off3, T.off3 + 0.3);
+  if (t < 48.9) return seg(P.ear, P.mid, 48.5, 48.9);
+  if (t < T.end) { const g = seg(P.mid, P.ear, 49.25, T.off4); return t > T.off4 ? { ...g, x: g.x + 2.2 * Math.sin((t - T.off4) * 1.7), y: g.y + 1.6 * Math.sin((t - T.off4) * 1.1 + 1), ph: g.ph + 1.2 * Math.sin((t - T.off4) * 1.3) } : g; }
+  return seg(P.ear, P.front, T.end, T.endMorph, E.p3io);
+}
+const phoneW = (q, p) => { const c = Math.cos(q.th * RAD), s = Math.sin(q.th * RAD), a = q.ph * RAD; const x = p[0] * c - 4 * s, y = p[1]; return [q.x + x * Math.cos(a) - y * Math.sin(a), q.y + x * Math.sin(a) + y * Math.cos(a)]; };   // a point on the phone's face → world
+
+// ---------------------------------------------------------------- cameras
+const KH0 = key([40, 20], [540, 1180], 1.12);                 // the face and the phone, pushing in from frame 0
+const KH = key([50, 12], [540, 1180], 1.26);
+const KH2 = key([54, 10], [540, 1180], 1.34);
+const KM = key([84, -4], [540, 1180], 2.15);                  // the guess: the ear and the phone
+const KMz = key([90, -6], [540, 1180], 2.55);
+const KF = key([-10, -12], [540, 1180], 1.85);                // the phone, turned to us
+const KFz = key([-6, -30], [540, 1180], 2.1);
+const SENSW = phoneW(P.front, SENS), LEDW = phoneW(P.front, LED), EYEW = phoneW(P.front, EYE);
+const K1 = key(SENSW, [540, 1080], 21);                       // the window by the earpiece
+const K1z = key(SENSW, [540, 1080], 25);
+const K1in = key(LEDW, [540, 1080], 130);                      // into the lamp
+const KMissFar = key([0, 30], [540, 1200], 7);
+const KMiss = key([-6, 16], [540, 1200], 2.25);               // the missing step: the phone's face, the cheek on it
+const KMissz = key([0, 22], [540, 1200], 2.65);
+const KHe = key([98, -6], [540, 1150], 2.3);
+const KHe2 = key([102, -10], [540, 1150], 2.85);                  // the closing: pushing in on the ear and the phone
+const K7 = key([-10, -10], [225, 560], 0.55);                 // the end badge
+const inLin = (x, a = 0.22) => (x < a ? (x * x) / (2 * a) : x - a / 2) / (1 - a / 2);
+function cam(t) {
+  if (t < T.off1) return interp(KH0, KH, E.sine(prog(t, 0, T.off1)));
+  if (t < T.myth) return interp(KH, KH2, E.sine(prog(t, T.off1, T.myth)));
+  if (t < T.myth + 0.7) return interp(KH2, KM, E.p3io(prog(t, T.myth, T.myth + 0.7)));
+  if (t < T.swing) return interp(KM, KMz, E.sine(prog(t, T.myth + 0.7, T.swing)));
+  if (t < T.swingEnd) return interp(KMz, KF, E.p3io(prog(t, T.swing, T.swingEnd)));
+  if (t < T.dive1) return interp(KF, KFz, E.sine(prog(t, T.swingEnd, T.dive1)));
+  if (t < T.dive1End) return interp(KFz, K1, E.p3io(prog(t, T.dive1, T.dive1End)));
+  if (t < T.dive2) return interp(K1, K1z, E.sine(prog(t, T.dive1End, T.dive2)));
+  if (t < T.climbA) return interp(K1z, K1in, inLin(prog(t, T.dive2, T.dive2End)));
+  if (t < T.climbAEnd) return interp(KMissFar, KMiss, E.p3out(prog(t, T.climbA, T.climbAEnd)));
+  if (t < T.climb) return interp(KMiss, KMissz, E.sine(prog(t, T.climbAEnd, T.climb)));
+  if (t < T.climbEnd) return interp(KMissz, KH, E.p3io(prog(t, T.climb, T.climbEnd)));
+  if (t < T.lift) return interp(KH, KH2, E.sine(prog(t, T.climbEnd, T.lift)));
+  if (t < T.off4) return interp(KH2, KHe, E.sine(prog(t, T.lift, T.off3 + 0.5)));
+  if (t < T.end) return interp(KHe, KHe2, E.sine(prog(t, T.off4, T.end)));
+  return interp(KHe2, K7, E.p3io(prog(t, T.end, T.endMorph)));
+}
+
+// ---------------------------------------------------------------- states
+const orangeK = (t) => E.p2io(prog(t, T.myth, T.myth + 0.3)) * (1 - E.p2io(prog(t, T.unOrange, T.unOrange + 0.3)));
+function groundCol(t) { const o = orangeK(t); return o > 0 ? mixHex(C.ground, C.acc, o) : C.ground; }
+function flood(t) {
+  if (t < T.flood) return 0;
+  if (t < T.floodEnd) return E.p2io(prog(t, T.flood, T.floodEnd));
+  if (t < T.unflood) return 1;
+  return 1 - E.p2io(prog(t, T.unflood, T.unflood + 0.15));
+}
+// the missing step: the cheek (in the phone's own coordinates, its left edge) comes onto the screen
+function cheekL(t) {
+  const s = (a, b, x0, x1) => lerp(x0, x1, E.p2io(prog(t, a, b)));
+  if (t < T.press) return 140;
+  if (t < T.touch) return s(T.press, T.touch, 140, 6);
+  if (t < T.rewind) return 6;
+  if (t < T.a8) return s(T.rewind, T.rewindEnd, 6, 140);
+  if (t < T.away) return s(T.a8, T.touch2, 140, 6);
+  return s(T.away, T.away + 0.5, 6, 140);
+}
+
+// ---------------------------------------------------------------- the light world: the face
+function drawPerson(t, K, fade) {
+  const ppm = K.Z * S0, lw = (n) => Math.max(0.2, n / ppm);
+  ctx.save(); ctx.globalAlpha = 1 - fade; ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.strokeStyle = C.ink;
+  // shirt, neck
+  ctx.fillStyle = "#C9CED4"; ctx.beginPath(); ctx.moveTo(-160, 330); ctx.bezierCurveTo(-160, 230, -120, 196, -40, 186); ctx.lineTo(40, 186); ctx.bezierCurveTo(120, 196, 160, 230, 160, 330); ctx.closePath(); ctx.fill(); ctx.lineWidth = lw(5); ctx.stroke();
+  ctx.fillStyle = C.skinDeep; ctx.beginPath(); ctx.moveTo(-30, 80); ctx.lineTo(-32, 192); ctx.quadraticCurveTo(0, 206, 32, 192); ctx.lineTo(30, 80); ctx.closePath(); ctx.fill(); ctx.stroke();
+  // ears
+  [-1, 1].forEach((sg) => { ctx.fillStyle = C.skin; ctx.beginPath(); ctx.ellipse(sg * 79, -4, 12, 25, sg * 0.12, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.lineWidth = lw(3.5); ctx.beginPath(); ctx.moveTo(sg * 76, -20); ctx.quadraticCurveTo(sg * 86, -6, sg * 77, 12); ctx.stroke(); ctx.lineWidth = lw(5); });
+  // face
+  ctx.fillStyle = C.skin; ctx.beginPath(); ctx.moveTo(0, -112); ctx.bezierCurveTo(48, -112, 76, -78, 76, -30); ctx.bezierCurveTo(76, 20, 62, 70, 32, 98); ctx.quadraticCurveTo(0, 118, -32, 98);
+  ctx.bezierCurveTo(-62, 70, -76, 20, -76, -30); ctx.bezierCurveTo(-76, -78, -48, -112, 0, -112); ctx.closePath(); ctx.fill(); ctx.stroke();
+  // hair
+  ctx.fillStyle = "#CFC6B6"; ctx.beginPath(); ctx.moveTo(-80, -22); ctx.bezierCurveTo(-90, -96, -50, -134, 0, -134); ctx.bezierCurveTo(50, -134, 90, -96, 80, -22);
+  ctx.bezierCurveTo(72, -64, 44, -86, 6, -88); ctx.bezierCurveTo(-34, -86, -70, -64, -80, -22); ctx.closePath(); ctx.fill(); ctx.stroke();
+  // eyes: they glance toward the phone; a blink now and then
+  const q = pose(t), look = clamp((q.x - 20) / 120, -1, 1) * 2.4, bl = ((t + 0.7) % 4.1) < 0.12 ? 0.15 : 1;
+  [-1, 1].forEach((sg) => {
+    ctx.fillStyle = "#F7F5F0"; ctx.beginPath(); ctx.ellipse(sg * 27, -16, 7, 4.6 * bl, 0, 0, TAU); ctx.fill(); ctx.lineWidth = lw(3.5); ctx.stroke();
+    if (bl > 0.5) { ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(sg * 27 + look, -16, 2.8, 0, TAU); ctx.fill(); }
+    ctx.lineWidth = lw(4); line(sg * 18, -31, sg * 36, -32);
+  });
+  // nose, mouth: talking while the call is on and the phone is at the ear
+  ctx.lineWidth = lw(3.5); ctx.beginPath(); ctx.moveTo(-1, -6); ctx.quadraticCurveTo(-7, 18, 0, 22); ctx.stroke();
+  const cs = callState(t), atEar = q.th > 40 ? 1 : 0, talk = cs.s === "talking" && atEar ? Math.max(0, Math.sin(t * 9.3) * Math.sin(t * 3.1 + 1)) : 0;
+  ctx.lineWidth = lw(4);
+  if (talk > 0.05) { ctx.fillStyle = "#7A4A42"; ctx.beginPath(); ctx.ellipse(0, 46, 11, 2 + 5 * talk, 0, 0, TAU); ctx.fill(); ctx.stroke(); }
+  else { ctx.beginPath(); ctx.moveTo(-11, 45); ctx.quadraticCurveTo(0, 51, 11, 45); ctx.stroke(); }
+  ctx.restore();
+}
+// ---------------------------------------------------------------- the phone
+function handset(cx, cy, r, col) {                                  // a little phone glyph for the hang-up button
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.PI * 0.75); ctx.fillStyle = col;
+  ctx.beginPath(); ctx.roundRect(-r * 0.75, -r * 0.18, r * 1.5, r * 0.36, r * 0.18); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(-r * 0.78, -r * 0.18, r * 0.36, r * 0.62, r * 0.12); ctx.fill(); ctx.beginPath(); ctx.roundRect(r * 0.42, -r * 0.18, r * 0.36, r * 0.62, r * 0.12); ctx.fill();
+  ctx.restore();
+}
+function drawScreen(t, K, on) {                                      // the call screen, in the phone's own coordinates
+  const sx = -PH.w / 2 + 2.6, sy = -PH.h / 2 + 2.6, sw = PH.w - 5.2, sh = PH.h - 5.2;
+  ctx.fillStyle = "#0A0B0D"; rr(sx, sy, sw, sh, PH.r - 2); ctx.fill();
+  if (on <= 0.01) return;
+  ctx.save(); ctx.globalAlpha *= on; rr(sx, sy, sw, sh, PH.r - 2); ctx.clip();
+  ctx.fillStyle = "#24282E"; ctx.fillRect(sx, sy, sw, sh);
+  const cs = callState(t), mmss = (n) => `${String(Math.floor(n / 60)).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillStyle = "#5C636C"; ctx.beginPath(); ctx.arc(0, -42, 10, 0, TAU); ctx.fill();
+  ctx.fillStyle = C.paper; ctx.font = `700 9px ${UI}`; ctx.fillText(COPY.who[0], 0, -41.5);
+  ctx.font = `700 8px ${UI}`; ctx.fillText(COPY.who, 0, -22);
+  ctx.font = `400 4.4px ${UI}`; ctx.fillStyle = "rgba(241,240,236,0.75)";
+  ctx.fillText(cs.s === "calling" ? COPY.calling : cs.s === "ended" ? `${COPY.endedTxt}  ${mmss(cs.sec)}` : `${COPY.talking}  ${mmss(cs.sec)}`, 0, -12);
+  if (cs.s !== "ended") {
+    COPY.btns.forEach((b, i) => { const x = -20 + i * 20; ctx.fillStyle = "#3B4048"; ctx.beginPath(); ctx.arc(x, 14, 7.4, 0, TAU); ctx.fill();
+      ctx.fillStyle = "rgba(241,240,236,0.8)"; ctx.beginPath(); ctx.arc(x, 14, 1.6, 0, TAU); ctx.fill(); ctx.font = `400 3.4px ${UI}`; ctx.fillText(b, x, 25.5); });
+    ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(0, 48, 9, 0, TAU); ctx.fill(); handset(0, 48, 6.5, "#F7F5F0");
+  } else {
+    ctx.fillStyle = "rgba(241,240,236,0.9)"; ctx.font = `700 7px ${UI}`; ctx.fillText(COPY.endedTxt, 0, 22);
+  }
+  ctx.restore();
+}
+function drawHand(K) {                                               // the hand holding it (drawn under the phone)
+  const ppm = K.Z * S0, lw = Math.max(0.2, 5 / ppm);
+  ctx.fillStyle = C.skin; ctx.strokeStyle = C.ink; ctx.lineWidth = lw; ctx.lineJoin = "round";
+  ctx.beginPath(); ctx.moveTo(10, 40); ctx.bezierCurveTo(40, 60, 62, 120, 70, 210); ctx.lineTo(18, 222); ctx.bezierCurveTo(14, 150, -4, 90, -30, 60); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#C9CED4"; ctx.beginPath(); ctx.moveTo(52, 118); ctx.bezierCurveTo(62, 150, 70, 190, 74, 240); ctx.lineTo(10, 250); ctx.bezierCurveTo(10, 200, 4, 160, -2, 128); ctx.closePath(); ctx.fill(); ctx.stroke();   // the sleeve
+  ctx.fillStyle = C.skin;
+  ctx.beginPath(); ctx.ellipse(-34, 26, 7, 12, 0.2, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(-35, 46, 7, 11, 0.25, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(38, 30, 6.5, 15, -0.2, 0, TAU); ctx.fill(); ctx.stroke();
+}
+function drawPhone(t, K, q, o = {}) {
+  const ppm = K.Z * S0, lw = (n) => Math.max(0.06, n / ppm), c = Math.cos(q.th * RAD), s = Math.sin(q.th * RAD);
+  setT(K); ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.ph * RAD);
+  if (!o.noHand) drawHand(K);
+  // the edge you see as it turns toward the face
+  if (s > 0.02) { ctx.fillStyle = "#2B2E33"; rr(PH.w / 2 * c - 4 * s, -PH.h / 2 + 3, 8 * s, PH.h - 6, 3 * s); ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = lw(4); ctx.stroke(); }
+  ctx.save(); ctx.translate(-4 * s, 0); ctx.scale(c, 1);
+  ctx.fillStyle = "#16181B"; rr(-PH.w / 2, -PH.h / 2, PH.w, PH.h, PH.r); ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = lw(5) / Math.max(0.3, c); ctx.stroke();
+  drawScreen(t, K, o.on ?? screenOn(t));
+  ctx.fillStyle = "#050506"; rr(EARP[0], EARP[1], EARP[2], EARP[3], 0.8); ctx.fill();
+  ctx.fillStyle = "#1C1519"; rr(WIN[0], WIN[1], WIN[2], WIN[3], 1.2); ctx.fill();
+  // x-ray: the lamp and the eye under the window
+  const xk = o.xray ?? 0;
+  if (xk > 0.01) {
+    ctx.save(); ctx.globalAlpha *= xk;
+    ctx.fillStyle = "#2D3036"; rr(WIN[0] - 0.4, WIN[1] - 0.6, WIN[2] + 0.8, WIN[3] + 1.2, 0.8); ctx.fill();
+    ctx.fillStyle = "#8C939B"; ctx.fillRect(13.1, WIN[1] - 0.6, 0.3, WIN[3] + 1.2);
+    const lit = o.lampLit ?? 0;
+    ctx.fillStyle = mixHex("#B9BEC4", C.acc, lit); ctx.beginPath(); ctx.arc(LED[0], LED[1] + 0.3, 1.25, Math.PI, 0); ctx.fill(); ctx.fillRect(LED[0] - 1.25, LED[1] + 0.3, 2.5, 0.6);
+    ctx.fillStyle = "#4A5058"; ctx.fillRect(EYE[0] - 1.25, EYE[1] - 0.9, 2.5, 2.1); ctx.fillStyle = "#7E8790"; ctx.fillRect(EYE[0] - 0.8, EYE[1] - 0.45, 1.6, 1.2);
+    ctx.restore();
+  }
+  ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.beginPath(); ctx.moveTo(-PH.w / 2 + 4, -PH.h / 2 + 4); ctx.lineTo(PH.w / 2 - 20, -PH.h / 2 + 4); ctx.lineTo(-PH.w / 2 + 4, PH.h / 2 - 50); ctx.closePath(); ctx.fill();
+  ctx.restore(); ctx.restore(); ID();
+}
+function drawCheekOnScreen(t, K) {                                   // the missing step: a cheek pressed on the phone's face
+  const q = P.front, xl = cheekL(t); if (xl > 120) return;
+  const ppm = K.Z * S0, lw = Math.max(0.2, 5 / ppm);
+  setT(K); ctx.save(); ctx.translate(q.x, q.y);
+  ctx.fillStyle = "rgba(227,221,210,0.96)"; ctx.strokeStyle = C.ink; ctx.lineWidth = lw;
+  ctx.beginPath(); ctx.moveTo(xl + 60, -40); ctx.bezierCurveTo(xl + 10, -36, xl - 10, 10, xl - 4, 48); ctx.bezierCurveTo(xl + 2, 80, xl + 40, 96, xl + 90, 100); ctx.lineTo(xl + 200, 100); ctx.lineTo(xl + 200, -40); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#DCD5C9"; ctx.beginPath(); ctx.ellipse(xl + 62, -2, 16, 30, 0.1, 0, TAU); ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = lw; ctx.stroke();   // an ear
+  ctx.beginPath(); ctx.moveTo(xl + 58, -18); ctx.quadraticCurveTo(xl + 70, -2, xl + 60, 16); ctx.stroke();
+  ctx.restore(); ID();
+  // where it lands: the hang-up button (first time: it counts; second time, in the dark: it does not)
+  const ring = (tt, col, cross) => { if (t < tt || t > tt + 0.7) return; const u = prog(t, tt, tt + 0.7), c = toS(K, [q.x, q.y + 48]);
+    ID(); ctx.save(); ctx.globalAlpha = 1 - u; ctx.strokeStyle = col; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(c[0], c[1], lerp(24, 120, E.p3out(u)), 0, TAU); ctx.stroke();
+    if (cross) { ctx.lineWidth = 12; ctx.lineCap = "round"; line(c[0] - 40, c[1] - 40, c[0] + 40, c[1] + 40); line(c[0] + 40, c[1] - 40, c[0] - 40, c[1] + 40); } ctx.restore(); };
+  ring(T.touch, C.acc, false); ring(T.touch2, "rgba(241,240,236,0.9)", true);
+}
+// the light, drawn (the closing): from the window by the earpiece to the cheek and back
+function drawBeam(t, K) {
+  if (t < T.lift + 0.6 || t >= T.end) return;
+  const q = pose(t), k = E.p3out(prog(t, T.lift + 0.6, T.lift + 1.0)) * (1 - prog(t, T.end - 0.3, T.end));
+  const src = phoneW(q, SENS), sx = src[0] - 2, sy = src[1];
+  const target = 92, d = Math.max(0, sx - target), near = clamp(1 - (d - 8) / 50);
+  setT(K); ctx.save(); ctx.globalAlpha = k * (0.35 + 0.65 * TL.blink(t)); ctx.strokeStyle = C.acc; ctx.lineCap = "round";
+  ctx.lineWidth = Math.max(0.9, 10 / (K.Z * S0)); ctx.setLineDash([3.4, 2.6]); ctx.lineDashOffset = t * 30;
+  for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(sx, sy + i * 1.5); ctx.lineTo(Math.max(target, sx - 80), sy + i * 6); ctx.stroke(); }
+  if (near > 0.02) { ctx.globalAlpha *= near; ctx.lineDashOffset = -t * 30; for (let i = -2; i <= 2; i += 1) { ctx.beginPath(); ctx.moveTo(target, sy + i * 6 + 2); ctx.lineTo(sx, sy + 4 + i * 1.2); ctx.stroke(); } }
+  ctx.restore(); ID();
+}
+function drawLight(t, K) {
+  const endFade = t >= T.end ? E.p2io(prog(t, T.end, T.endMorph)) : 0;
+  ID(); ctx.fillStyle = groundCol(t); ctx.fillRect(0, 0, W, H);
+  const miss = t >= T.climbA && t < T.climbEnd ? E.p2io(prog(t, T.climbA, T.climbAEnd)) * (1 - E.p2io(prog(t, T.climb, T.climbEnd))) : 0;
+  setT(K); drawPerson(t, K, Math.max(endFade, miss));
+  const q = pose(t);
+  const xray = t >= T.scan3 && t < T.climbA ? prog(t, T.scan3, T.scan3End) : 0;
+  const lampLit = t >= T.scan3End && t < T.dive2 + 0.6 ? (t >= T.pulse ? 1 : 0.6) * TL.blink(t) : 0;
+  if (endFade < 1) { ctx.save(); ctx.globalAlpha = 1; drawPhone(t, K, q, { xray, lampLit }); ctx.restore(); }
+  if (t >= T.climbA && t < T.climb + 0.4) drawCheekOnScreen(t, K);
+  drawBeam(t, K);
+  if (endFade > 0) {                                                // the badge: the phone as an outline
+    setT(K); const ppm = K.Z * S0; ctx.save(); ctx.globalAlpha = endFade; ctx.translate(q.x, q.y); ctx.strokeStyle = C.ink; ctx.lineWidth = 9 / ppm;
+    ctx.fillStyle = C.ground; rr(-PH.w / 2, -PH.h / 2, PH.w, PH.h, PH.r); ctx.fill(); ctx.stroke(); rr(EARP[0], EARP[1], EARP[2], EARP[3], 0.8); ctx.stroke(); ctx.restore(); ID();
+  }
+  // the guess: pressed on the cheek (an orange touch where they meet); then the real gap
+  if (t >= T.contact - 0.05 && t < T.strike) {
+    const c = toS(K, [q.x - 30, q.y + 8]), u = ((t - T.contact) * 1.4) % 1;
+    ID(); ctx.save(); ctx.globalAlpha = 0.9 * (1 - u); ctx.strokeStyle = C.paper; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(c[0], c[1], lerp(16, 80, u), 0, TAU); ctx.stroke(); ctx.restore();
+  }
+  if (t >= T.strike && t < T.unOrange + 0.3) {
+    const c = toS(K, [q.x - 22, q.y]), fo = 1 - prog(t, T.unOrange, T.unOrange + 0.3);
+    ID(); ctx.save(); ctx.globalAlpha = fo * (1 - prog(t, T.gapEnd + 0.3, T.gapEnd + 0.6)); ctx.strokeStyle = C.ink; ctx.lineCap = "round"; ctx.lineWidth = 28;
+    const k1 = E.p3out(prog(t, T.strike, T.strike + 0.1)), k2 = E.p3out(prog(t, T.strike + 0.125, T.strike + 0.225));
+    line(c[0] - 230, c[1] - 260, lerp(c[0] - 230, c[0] + 230, k1), lerp(c[1] - 260, c[1] + 260, k1));
+    if (k2 > 0) line(c[0] + 230, c[1] - 260, lerp(c[0] + 230, c[0] - 230, k2), lerp(c[1] - 260, c[1] + 260, k2));
+    ctx.restore();
+    // the gap that is really there: an ink bracket between the ear and the phone
+    const g = E.p3out(prog(t, T.gapEnd - 0.1, T.gapEnd + 0.3)) * fo;
+    if (g > 0) { const yb = q.y + 2, a = toS(K, [93, yb]), b = toS(K, [q.x - 4 * Math.sin(q.th * RAD) - PH.w / 2 * Math.cos(q.th * RAD) + 2, yb]);
+      ID(); ctx.save(); ctx.globalAlpha = g; ctx.strokeStyle = C.paper; ctx.lineWidth = 10; ctx.lineCap = "round";
+      line(a[0] + 8, a[1], b[0] - 8, b[1]); line(a[0], a[1] - 40, a[0], a[1] + 40); line(b[0], b[1] - 40, b[0], b[1] + 40);
+      [[a[0] + 8, 1], [b[0] - 8, -1]].forEach(([x, d]) => { ctx.beginPath(); ctx.moveTo(x, a[1]); ctx.lineTo(x + d * 26, a[1] - 16); ctx.moveTo(x, a[1]); ctx.lineTo(x + d * 26, a[1] + 16); ctx.stroke(); });
+      ctx.restore(); }
+  }
+  // find the window by the earpiece
+  if (t >= T.ring && t < T.dive1End + 0.3) {
+    const k = E.p3out(prog(t, T.ring, T.ring + 0.3)), fo = 1 - prog(t, T.dive1End - 0.2, T.dive1End + 0.3), c = toS(K, SENSW), ppm = K.Z * S0;
+    ID(); ctx.save(); ctx.globalAlpha = fo; ctx.strokeStyle = C.acc; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(c[0], c[1], Math.max(40, 9 * ppm), -Math.PI / 2, -Math.PI / 2 + TAU * k); ctx.stroke(); ctx.restore();
+  }
+  // under the glass: name the two parts
+  if (xray > 0.5) {
+    const a = toS(K, [LEDW[0], LEDW[1] + 3.4]), b = toS(K, [EYEW[0], EYEW[1] + 3.4]);
+    label(COPY.lamp, a[0], a[1] + 80, 76, C.paper, t, T.a3, T.dive2 + 0.4, { align: "center" });
+    label(COPY.eye, b[0], b[1] + 80, 76, C.paper, t, T.a3 + 0.15, T.dive2 + 0.4, { align: "center" });
+  }
+  // the lamp fires: light comes out of the window toward us (rings), and nothing comes back
+  if (t >= T.a3 && t < T.pulse) {                                    // before the pulse: small faint rings, it is always blinking
+    const c = toS(K, LEDW); ID(); ctx.save(); ctx.strokeStyle = C.acc; ctx.lineWidth = 4;
+    for (let i = 0; i < 3; i++) { const u = ((t - T.a3) * 1.6 + i / 3) % 1; ctx.globalAlpha = 0.45 * (1 - u) * E.p3out(prog(t, T.a3, T.a3 + 0.4)); ctx.beginPath(); ctx.arc(c[0], c[1], 40 + 180 * u, 0, TAU); ctx.stroke(); }
+    ctx.restore();
+  }
+  if (t >= T.pulse && t < T.dive2 + 0.6) {
+    const c = toS(K, LEDW), fo = 1 - prog(t, T.dive2, T.dive2 + 0.6);
+    ID(); ctx.save(); ctx.strokeStyle = C.acc;
+    for (let i = 0; i < 4; i++) { const u = ((t - T.pulse) * 1.3 + i / 4) % 1; ctx.globalAlpha = fo * (1 - u) * 0.9 * E.p3out(prog(t, T.pulse, T.pulse + 0.3)); ctx.lineWidth = 8 * (1 - u) + 2; ctx.setLineDash([22, 16]); ctx.beginPath(); ctx.arc(c[0], c[1], 30 + 520 * u, 0, TAU); ctx.stroke(); }
+    ctx.restore();
+  }
+  ID();
+}
+
+// ---------------------------------------------------------------- the dark world: a side cut through the top of the phone
+// screen px. The glass stands at x = 720 (the phone to its right, the lamp above the eye); the cheek comes in from the left.
+const LX = 790, LY = 1000, EX = 790, EY = 1240, GX = TL.GLASS_X;
+function darkZoom(t) {
+  if (t < T.h3 + 0.6) return 0.62 * Math.exp(Math.log(1 / 0.62) * prog(t, T.flood, T.h3 + 0.6));     // the same push, continued
+  if (t < T.climbA) return lerp(1, 1.1, E.sine(prog(t, T.h3 + 0.6, T.climbA)));
+  return lerp(1.05, 1.4, E.p3in(prog(t, T.climbA, T.unflood + 0.15)));
+}
+function drawDark(t, a) {
+  if (a <= 0.002) return;
+  ID(); ctx.fillStyle = `rgba(23,25,28,${a})`; ctx.fillRect(0, 0, W, H);
+  ctx.save(); ctx.globalAlpha = a;
+  const z = darkZoom(t); ctx.translate(780, 1120); ctx.scale(z, z); ctx.translate(-780, -1120);
+  const sun = TL.sunK(t), cx = TL.cheekX(t), rd = TL.reading(t), bl = TL.blink(t), dark = TL.darkScreen(t);
+  // sunlight: broad faint beams from the top left (and the sun)
+  if (sun > 0.01) {
+    ctx.save(); ctx.globalAlpha = a * sun; ctx.fillStyle = "rgba(241,240,236,0.07)";
+    for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-200 + i * 260, 640); ctx.lineTo(-60 + i * 260, 640); ctx.lineTo(760 + i * 120, 1560); ctx.lineTo(600 + i * 120, 1560); ctx.closePath(); ctx.fill(); }
+    ctx.strokeStyle = "rgba(241,240,236,0.85)"; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(150, 830, 42, 0, TAU); ctx.stroke();
+    for (let i = 0; i < 10; i++) { const an = i * TAU / 10 + t * 0.3; line(150 + Math.cos(an) * 58, 830 + Math.sin(an) * 58, 150 + Math.cos(an) * 78, 830 + Math.sin(an) * 78); }
+    ctx.restore();
+  }
+  // the cheek
+  if (cx > -400) {
+    ctx.save(); ctx.fillStyle = "rgba(216,207,193,0.96)"; ctx.strokeStyle = C.ink; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(-300, 640); ctx.lineTo(cx - 120, 640); ctx.bezierCurveTo(cx - 20, 800, cx + 10, 1000, cx, 1120); ctx.bezierCurveTo(cx - 10, 1260, cx - 40, 1420, cx - 140, 1600); ctx.lineTo(-300, 1600); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+  // the phone: body, glass, the screen behind the glass, the lamp and the eye with a wall between them
+  ctx.fillStyle = "#24272C"; ctx.beginPath(); ctx.moveTo(GX, 1600); ctx.lineTo(GX, 820); ctx.quadraticCurveTo(GX, 700, GX + 120, 700); ctx.lineTo(GX + 600, 700); ctx.lineTo(GX + 600, 1600); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = "rgba(241,240,236,0.5)"; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(GX, 820); ctx.quadraticCurveTo(GX, 700, GX + 120, 700); ctx.lineTo(GX + 600, 700); ctx.stroke();
+  ctx.fillStyle = "#050506"; ctx.fillRect(GX - 2, 860, 26, 70);                                          // the earpiece slot
+  const lit = 1 - dark;
+  ctx.fillStyle = mixHex("#050506", "#F1EEE6", 0.95 * lit); ctx.fillRect(GX + 5, 960, 34, 640);
+  ctx.strokeStyle = "rgba(241,240,236,0.9)"; ctx.lineWidth = 6; line(GX, 820, GX, 1600);
+  ctx.fillStyle = "#3A3F46"; ctx.fillRect(GX + 40, 1112, 134, 16);
+  const lampOn = bl * (t >= T.vibe ? 1 : 0);
+  ctx.fillStyle = mixHex("#8C939B", C.acc, lampOn); ctx.beginPath(); ctx.arc(LX + 30, LY, 26, Math.PI * 0.5, Math.PI * 1.5); ctx.fill();
+  ctx.fillStyle = "#4A5058"; ctx.fillRect(LX + 30, LY - 30, 40, 60);
+  const seen = clamp(rd * bl + 0.55 * sun * (1 - TL.sunIgnoredK(t)) + 0.55 * sun * TL.sunIgnoredK(t) * 0.0);
+  ctx.fillStyle = "#4A5058"; ctx.fillRect(EX + 4, EY - 30, 60, 60);
+  ctx.fillStyle = mixHex("#7E8790", C.acc, clamp(rd * bl * 1.6)); ctx.fillRect(EX + 14, EY - 20, 40, 40);
+  if (sun > 0.01) { ctx.fillStyle = `rgba(241,240,236,${0.5 * sun})`; ctx.fillRect(EX + 14, EY - 20, 40, 40); }
+  // the lamp's light: dashes going out to the left (it blinks); where the cheek is, they bounce back into the eye
+  if (t >= T.vibe) {
+    ctx.save(); ctx.lineCap = "round"; ctx.setLineDash([26, 18]);
+    for (let i = -3; i <= 3; i++) {
+      const an = Math.PI + i * 0.11, ux = Math.cos(an), uy = Math.sin(an), x0 = LX, y0 = LY;
+      const hit = cx > -300 && cx < GX - 4, L = hit ? (x0 - (cx + 6 * Math.sin((y0 - 1120) / 260))) / -ux : 900;
+      ctx.strokeStyle = `rgba(255,74,28,${(0.9 - Math.abs(i) * 0.08) * bl})`; ctx.lineWidth = 7; ctx.lineDashOffset = -t * 700;
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + ux * L, y0 + uy * L); ctx.stroke();
+      if (hit) {
+        const hx = x0 + ux * L, hy = y0 + uy * L, back = clamp(rd * 1.6);
+        ctx.strokeStyle = `rgba(255,74,28,${back * (0.85 - Math.abs(i) * 0.07) * bl})`; ctx.lineDashOffset = -t * 700;
+        ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(EX, EY + i * 6); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+  ctx.restore();
+}
+function darkOverlays(t, a) {                                          // labels and the meter (screen space, not zoomed)
+  if (a <= 0.01) return;
+  const z = darkZoom(t), P2 = (x, y) => [780 + (x - 780) * z, 1120 + (y - 1120) * z], o = { alpha: a };
+  const la = P2(LX + 90, LY + 18), ea = P2(EX + 90, EY + 18);
+  label(COPY.lamp, la[0], la[1], 60, C.paper, t, T.h3 + 0.3, T.q6, { alpha: a });
+  label(COPY.eye, ea[0], ea[1], 60, C.paper, t, T.h3 + 0.5, T.q6, { alpha: a });
+  const sc = P2(GX - 22, 1330); label(COPY.screen, sc[0], sc[1], 50, "rgba(241,240,236,0.85)", t, T.push, T.climbA, { align: "right", alpha: a });
+  // the meter: how much of its own light comes back (orange); sunlight (grey) is not counted once it blinks
+  if (t >= T.h3 + 0.4) {
+    const k = E.p3out(prog(t, T.h3 + 0.4, T.h3 + 0.8)) * a, x = 96, w = 600, y = 1400, rd = TL.reading(t), sun = TL.sunK(t), ig = TL.sunIgnoredK(t);
+    ID(); ctx.save(); ctx.globalAlpha = k;
+    ctx.font = `700 44px ${UI}`; ctx.fillStyle = "rgba(241,240,236,0.88)"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillText(COPY.meter, x, y - 30);
+    ctx.fillStyle = "rgba(241,240,236,0.16)"; rr(x, y, w, 28, 14); ctx.fill();
+    ctx.fillStyle = C.acc; rr(x, y, Math.max(0.1, w * rd), 28, 14); ctx.fill();
+    if (sun > 0.01) {                                                   // sunlight: counted at first (alarm), then struck out
+      const sw = w * 0.55 * sun, x0 = x + w * rd;
+      ctx.fillStyle = ig < 0.5 ? `rgba(255,74,28,${0.75 * (1 - ig * 2)})` : `rgba(241,240,236,${0.22 * (ig - 0.5) * 2})`; ctx.fillRect(x0, y, Math.min(sw, x + w - x0), 28);
+      if (ig > 0.5) { ctx.strokeStyle = `rgba(241,240,236,${0.6 * (ig - 0.5) * 2})`; ctx.lineWidth = 3; for (let hx = x0; hx < Math.min(x0 + sw, x + w); hx += 16) line(hx, y + 28, hx + 14, y); }
+    }
+    if (t >= T.push - 0.2) {                                            // the line
+      const lk = E.p3out(prog(t, T.push - 0.2, T.push + 0.2)), lx = x + w * 0.5;
+      ctx.globalAlpha = k * lk; ctx.strokeStyle = C.paper; ctx.lineWidth = 6; line(lx, y - 16, lx, y + 44);
+      ctx.font = `700 46px ${UI}`; ctx.fillStyle = C.paper; ctx.textAlign = "left"; ctx.fillText(COPY.line, lx + 24, y - 30);
+    }
+    ctx.restore();
+  }
+}
+// ---------------------------------------------------------------- drawing helpers
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function line(x0, y0, x1, y1) { ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
+function poly(P) { ctx.beginPath(); P.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath(); }
+function arrowS(x0, y0, x1, y1, w, col, head = 2.6) {
+  ID();
+  const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy); if (L < 1) return;
+  const ux = dx / L, uy = dy / L, hl = Math.min(L * 0.6, w * head), hw = w * 1.45;
+  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = w; ctx.lineCap = "butt";
+  line(x0, y0, x1 - ux * hl * 0.9, y1 - uy * hl * 0.9);
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - ux * hl - uy * hw, y1 - uy * hl + ux * hw); ctx.lineTo(x1 - ux * hl + uy * hw, y1 - uy * hl - ux * hw); ctx.closePath(); ctx.fill();
+}
+const MEASURE = new Map();
+function mw(font, s) { const k = font + "|" + s; let v = MEASURE.get(k); if (v === undefined) { ctx.font = font; v = ctx.measureText(s).width; MEASURE.set(k, v); } return v; }
+function parse(str) { const out = []; let a = 0; for (const ch of str) { if (ch === "[") { a = 1; continue; } if (ch === "]") { a = 0; continue; } out.push({ ch, a }); } return out; }
+const plain = (str) => str.replace(/[\[\]]/g, "");
+function fitSize(str, size, maxW, face = DISPLAY, wt = "") { const f = `${wt} ${size}px ${face}`.trim(), w = mw(f, plain(str)); return w > maxW ? Math.floor(size * maxW / w) : size; }
+
+// Text band: style none | blur | grey | type | slam | wipe; left aligned at x.
+function lines(L, t, t0, t1, o = {}) {
+  if (t < t0 || t >= t1) return;
+  const x = o.x ?? 96, ys = o.ys ?? [330, 472], face = o.face ?? DISPLAY, wt = o.weight ?? "";
+  const col = o.col ?? C.ink, acc = o.acc ?? C.acc, style = o.style ?? "blur";
+  const stag = o.stag ?? 0.055, lineGap = o.lineGap ?? 0.16, exitDur = o.exit ?? 0.16, maxW = o.maxW ?? 870;
+  ID();
+  L.forEach((str, i) => {
+    const size = fitSize(str, Array.isArray(o.size) ? o.size[i] : (o.size ?? 112), maxW, face, wt);
+    const font = `${wt} ${size}px ${face}`.trim();
+    const chars = parse(str), ls = t0 + i * lineGap;
+    if (t < ls) return;
+    let pre = "";
+    ctx.save();
+    if (style === "slam") { const sc = slamScale(t - ls), cy = ys[i] - size * 0.35; ctx.translate(x, cy); ctx.scale(sc, sc); ctx.translate(-x, -cy); }
+    if (style === "wipe") { const wv = mw(font, plain(str)); ctx.beginPath(); ctx.rect(0, ys[i] - size * 1.2, x + wv * E.p3out(prog(t, ls, ls + 0.32)) + 4, size * 1.6); ctx.clip(); }
+    ctx.font = font; ctx.textBaseline = "alphabetic";
+    chars.forEach((c, j) => {
+      const cx = x + mw(font, pre); pre += c.ch;
+      const lt = t - (ls + j * stag);
+      let a = 1, blur = 0;
+      if (style === "blur") { const k = clamp(lt / 0.13); a = k; blur = 9 * (1 - k); }
+      else if (style === "type") { a = lt >= 0 ? 1 : 0; }
+      if (t > t1 - exitDur) { const e = clamp((t - (t1 - exitDur)) / exitDur); a *= 1 - e; blur = Math.max(blur, 10 * e); }
+      if (a <= 0.003) return;
+      ctx.globalAlpha = a; ctx.filter = blur > 0.3 ? `blur(${blur.toFixed(1)}px)` : "none";
+      ctx.fillStyle = c.a ? acc : col; ctx.fillText(c.ch, cx, ys[i]);
+    });
+    ctx.restore(); ctx.filter = "none"; ctx.globalAlpha = 1;
+  });
+}
+function label(str, x, y, size, col, t, t0, t1, o = {}) {
+  if (t < t0 || t >= t1) return;
+  ID(); const font = `${o.weight ?? 700} ${size}px ${o.face ?? UI}`; const wv = mw(font, str);
+  const k = E.p3out(prog(t, t0, t0 + 0.28)), e = prog(t, t1 - 0.15, t1);
+  ctx.save(); ctx.font = font; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  const left = o.align === "right" ? x - wv : o.align === "center" ? x - wv / 2 : x;
+  ctx.beginPath(); ctx.rect(left - 4, y - size * 1.2, (wv + 8) * k, size * 1.6); ctx.clip();
+  ctx.globalAlpha = (o.alpha ?? 1) * (1 - e); if (e > 0) ctx.filter = `blur(${(8 * e).toFixed(1)}px)`;
+  ctx.fillStyle = col; ctx.fillText(str, left, y); ctx.restore(); ctx.filter = "none";
+}
+function underline(str, prefix, word, lineIdx, t, t0, t1, ys = [330, 472], size0 = 112) {
+  if (t < t0 || t >= t1) return;
+  const size = fitSize(str, size0, 870), f = `${size}px ${DISPLAY}`;
+  const x0 = 96 + mw(f, prefix), wv = mw(f, word), k = E.p3out(prog(t, t0, t0 + 0.3)), fo = 1 - prog(t, t1 - 0.16, t1);
+  ID(); ctx.globalAlpha = fo; ctx.fillStyle = C.acc; ctx.fillRect(x0 - 4, ys[lineIdx] + 20, (wv + 8) * k, 11); ctx.globalAlpha = 1;
+}
+function bubble(cx, top, str, t, t0, t1) {           // a speech bubble; the tail points down at (cx, top + h + 26)
+  if (t < t0 || t >= t1) return;
+  const size = 76, font = `${size}px ${DISPLAY}`, wv = mw(font, str), w = wv + 64, h = size + 44;
+  const sc = spring(t - t0, 15, 0.55), e = prog(t, t1 - 0.2, t1), x = cx, y = top + h + 26;
+  const off = clamp(cx, 30 + w / 2, W - 30 - w / 2) - cx;
+  ID(); ctx.save(); ctx.translate(x, y); ctx.scale(sc * (1 - 0.15 * e), sc * (1 - 0.15 * e)); ctx.globalAlpha = 1 - e;
+  ctx.fillStyle = C.acc; rr(-w / 2 + off, -h - 26, w, h, 24); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-20, -27); ctx.lineTo(20, -27); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
+  ctx.font = font; ctx.fillStyle = C.ink; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.fillText(str, off, -26 - h / 2 + size * 0.36);
+  ctx.restore();
+}
+function wavePath(f, x0, x1, y0 = 0, n = 140) { ctx.beginPath(); for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * (i / n), y = y0 + f(x); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } }
+// a wiggle along a polyline (world): the microwave, travelling
+function pathLen(P) { let L = 0; for (let i = 1; i < P.length; i++) L += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]); return L; }
+function pathAt(P, s) {
+  for (let i = 1; i < P.length; i++) { const L = Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]); if (s <= L || i === P.length - 1) { const u = clamp(s / L); const dx = (P[i][0] - P[i - 1][0]) / L, dy = (P[i][1] - P[i - 1][1]) / L; return [lerp(P[i - 1][0], P[i][0], u), lerp(P[i - 1][1], P[i][1], u), -dy, dx]; } s -= L; }
+  return [P[0][0], P[0][1], 0, 1];
+}
+function wiggle(P, s0, s1, amp, lam, ph) {
+  ctx.beginPath(); const n = Math.max(8, Math.ceil((s1 - s0) / 1.2));
+  for (let i = 0; i <= n; i++) { const s = lerp(s0, s1, i / n), p = pathAt(P, s), o = amp * Math.sin(TAU * (s / lam) - ph); const x = p[0] + p[2] * o, y = p[1] + p[3] * o; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+}
+
+
+// ---------------------------------------------------------------- text
+function groundRGB(t) { const o = orangeK(t), g = hexRGB(C.ground), q = hexRGB(C.acc); return [0, 1, 2].map((i) => Math.round(lerp(g[i], q[i], o))).join(","); }
+function scrim(t) {                                    // a soft wash of the ground colour behind the text band
+  const fl = flood(t);
+  if (fl > 0.02) { ID(); const g = ctx.createLinearGradient(0, 0, 0, 700); g.addColorStop(0, `rgba(23,25,28,${0.82 * fl})`); g.addColorStop(0.75, `rgba(23,25,28,${0.82 * fl})`); g.addColorStop(1, "rgba(23,25,28,0)"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, 700); }
+  const a = 0.86 * (1 - fl) * (t >= T.end ? 1 - prog(t, T.end, T.end + 0.3) : 1);
+  if (a <= 0.01) return;
+  const col = groundRGB(t);
+  ID(); const g = ctx.createLinearGradient(0, 0, 0, 700);
+  g.addColorStop(0, `rgba(${col},${a})`); g.addColorStop(0.75, `rgba(${col},${a})`); g.addColorStop(1, `rgba(${col},0)`);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, 700);
+}
+function textBand(t) {
+  const L = C.ink, D = C.paper;
+  scrim(t);
+  // 1 the phenomenon — no noun
+  lines(COPY.h1, t, -1, T.h1Out + 0.16, { style: "none", col: L });
+  underline(COPY.h1[1], "屏幕怎么", "自己", 1, t, T.underline, T.h1Out + 0.16);
+  // 2 the wrong guess (on orange), struck
+  lines(COPY.q2, t, T.q2, T.a2, { style: "blur", col: L, acc: C.paper, exit: 0.001 });
+  lines(COPY.a2, t, T.a2, T.q3, { style: "slam", col: L, acc: C.paper, lineGap: 0.2 });
+  // 3 dig in
+  lines(COPY.q3, t, T.q3, T.a3, { style: "blur", col: L });
+  lines(COPY.a3, t, T.a3, T.q4, { style: "blur", col: L });
+  lines(COPY.q4, t, T.q4, T.flood, { style: "blur", col: L });
+  // 4 one mechanism, slowly (dark)
+  lines(COPY.h3, t, T.h3, T.q5, { style: "blur", col: D });
+  lines(COPY.q5, t, T.q5, T.push, { style: "blur", col: D });
+  lines(COPY.push, t, T.push, T.a5, { style: "blur", col: D });
+  lines(COPY.a5, t, T.a5, T.q6, { style: "slam", col: D });
+  lines(COPY.q6, t, T.q6, T.a6, { style: "blur", col: D });
+  lines(COPY.a6, t, T.a6, T.name, { style: "blur", col: D });
+  lines(COPY.name, t, T.name, T.q7, { style: "slam", col: D, ys: [318, 492], size: [96, 132], lineGap: 0.25 });
+  // 5 the missing step
+  lines(COPY.q7, t, T.q7, T.a7, { style: "blur", col: L });
+  lines(COPY.a7, t, T.a7, T.a8, { style: "blur", col: L });
+  lines(COPY.a8, t, T.a8, T.climb + 0.3, { style: "blur", col: L });
+  // 6 back to the start
+  lines(COPY.q9, t, T.q9, T.fin, { style: "blur", col: L });
+  lines(COPY.fin, t, T.fin, T.finOut, { style: "blur", col: L, lineGap: 0.25 });
+  // a small tip in the same place, after the last line
+  label(COPY.tipTag, 98, 282, 44, C.acc, t, T.tip, T.tipOut, { weight: 700 });
+  lines(COPY.tip, t, T.tip + 0.15, T.tipOut, { style: "blur", col: "rgba(20,20,20,0.85)", face: UI, weight: 400, size: 58, x: 98, ys: [366, 444], lineGap: 0.3, stag: 0.02, maxW: 900 });
+}
+function endCard(t) {
+  if (t < T.title1) return;
+  lines(COPY.end, t, T.title1, DUR + 1, { style: "type", col: C.ink, ys: [905, 1045, 1185], size: 124, stag: 0.045, lineGap: 0.3 });
+  lines([COPY.epNum], t, T.ep, DUR + 1, { style: "slam", col: C.ink, x: 400, ys: [520], size: 150 });
+  lines([COPY.epName], t, T.ep + 0.25, DUR + 1, { style: "blur", col: C.ink, x: 404, ys: [668], size: 104 });
+  if (t >= T.sting) {
+    const K = cam(t), q = pose(t), c = toS(K, [q.x, q.y]), sc = spring(t - T.sting, 16, 0.5);
+    ID(); ctx.save(); ctx.translate(c[0], c[1]); ctx.scale(sc, sc); ctx.font = `100px ${DISPLAY}`; ctx.fillStyle = C.acc; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("?", 2, 6); ctx.restore();
+  }
+}
+
+function frame(t) {
+  ctx.reset();                                     // no canvas state survives from the previous frame
+  ID();
+  const K = cam(t), fl = flood(t);
+  drawLight(t, K);
+  drawDark(t, fl);
+  darkOverlays(t, fl);
+  textBand(t);
+  endCard(t);
+}
+
+// ---------------------------------------------------------------- motion blur: temporal supersampling where things move fast
+const BLUR = [[0, 3.5], [5.0, 5.75], [8.25, 8.8], [10.5, 11.7], [12.25, 14.05], [19.25, 22.7], [37.7, 39.05], [39.25, 41.0], [42.0, 43.8], [44.25, 46.3], [46.5, 50.3], [56.5, 57.12], [58.0, 58.3]];
+const SUB = 6, SHUTTER = 0.5 / FPS;
+const CUTS = [];
+window.seek = function seek(t) {
+  t = clamp(t, 0, DUR - 1e-6);
+  const blur = BLUR.some(([a, b]) => t >= a && t < b);
+  if (!blur) { ctx = MAIN; frame(t); return; }
+  MAIN.reset();
+  for (let i = 0; i < SUB; i++) {
+    ctx = OFFX;
+    let ts = t + SHUTTER * (i / (SUB - 1) - 0.5);
+    for (const c of CUTS) { if (t >= c && ts < c) ts = c; if (t < c && ts >= c) ts = c - 1e-4; }
+    frame(clamp(ts, 0, DUR - 1e-6));
+    MAIN.setTransform(1, 0, 0, 1, 0, 0); MAIN.globalAlpha = 1 / (i + 1); MAIN.drawImage(OFF, 0, 0);
+  }
+  MAIN.globalAlpha = 1; ctx = MAIN;
+};
+window.DUR = DUR; window.FPS = FPS;
+window.addEventListener("hf-seek", (e) => window.seek(e.detail.time));
+window.ready = false;
+window.whenReady = Promise.all([
+  document.fonts.load(`100px ${DISPLAY}`, "打电话时屏幕黑"), document.fonts.load(`700 50px ${UI}`, "弹回来的光够近了"), document.fonts.load(`400 50px ${UI}`, "通话中妈妈"),
+]).then(() => document.fonts.ready).then(() => { MEASURE.clear(); window.seek(0); window.ready = true; });
+</script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+// shots.mjs — re-render frames from the films with a custom camera (no captions), and report anchor points.
+import { createRequire } from "node:module";
+import path from "node:path";
+import fs from "node:fs";
+const { chromium } = createRequire(import.meta.url)("playwright");
+const JOBS = [
+  // film, out name, t, camera (null = the film's own), anchor point in world coords for the leader line
+  ["../ep01-gyroscope", "ep01-hero-dy", 0.5, "key([0, 0], [470, 1150], 0.98, -36)", "CHIP"],
+  ["../ep01-gyroscope", "ep01-hero-xhs", 0.5, "key([0, 0], [470, 880], 0.84, -36)", "CHIP"],
+  ["../ep01-gyroscope", "ep01-inset", 24.6, null, null],
+  ["../ep02-microwave", "ep02-hero-dy", 1.4, "key([-5, 0], [540, 1170], 1.12)", "bowlW(bowlAt(1.4), [0, -25])"],
+  ["../ep02-microwave", "ep02-hero-xhs", 1.4, "key([-5, 0], [540, 930], 1.12)", "bowlW(bowlAt(1.4), [0, -25])"],
+  ["../ep02-microwave", "ep02-inset", 4.2, null, null],
+  ["../ep03-anc", "ep03-hero-dy", 3.6, "key([9, -10], [560, 1180], 0.92)", "[13, 0]"],
+  ["../ep03-anc", "ep03-hero-xhs", 3.6, "key([9, -10], [560, 900], 0.8)", "[13, 0]"],
+  ["../ep03-anc", "ep03-inset", 28.6, null, null],
+];
+const browser = await chromium.launch();
+const anchors = {};
+for (const [dir, name, t, camExpr, anchor] of JOBS) {
+  const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
+  await page.goto("file://" + path.resolve(dir, "index.html"));
+  await page.waitForFunction(() => window.ready === true);
+  const a = await page.evaluate(({ t, camExpr, anchor }) => {
+    window.textBand = () => {}; window.endCard = () => {};
+    if (typeof window.hookOverlays === "function") window.hookOverlays = () => {};
+    if (typeof window.darkOverlays === "function") window.darkOverlays = () => {};
+    if (typeof window.microOverlays === "function") window.microOverlays = () => {};
+    if (camExpr) { const K = eval(camExpr); window.cam = () => K; }
+    if (camExpr && typeof window.sweeping === "function" && typeof window.drawPhone === "function") {
+      // EP.01: the phone half seen through — the board above an orange scan line, the screen below it
+      window.layers = () => [[-80, -6, "real"], [-6, 80, "screen"]]; window.sweeping = () => true;
+    }
+    if (typeof window.frame === "function") frame(t); else window.seek(t);   // one sharp frame, no motion blur
+    if (!anchor) return null;
+    const p = toS(cam(t), eval(anchor)); return [Math.round(p[0]), Math.round(p[1])];
+  }, { t, camExpr, anchor });
+  await page.locator("#c").screenshot({ path: `art/${name}.png` });
+  anchors[name] = a; await page.close();
+}
+await browser.close();
+fs.writeFileSync("art/anchors.json", JSON.stringify(anchors, null, 1));
+console.log(anchors);

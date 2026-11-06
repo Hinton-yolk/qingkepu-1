@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1080">
+<title>EP.02 微波炉</title>
+<style>
+  @font-face { font-family: "Smiley"; src: url("assets/fonts/smiley.woff2") format("woff2"); }
+  @font-face { font-family: "NotoSC"; font-weight: 700; src: url("assets/fonts/noto-sc-bold.woff2") format("woff2"); }
+  @font-face { font-family: "NotoSC"; font-weight: 400; src: url("assets/fonts/noto-sc-regular.woff2") format("woff2"); }
+  html, body { margin: 0; background: #ECEBE6; }
+  #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="59.75" data-width="1080" data-height="1920">
+  <canvas id="c" width="1080" height="1920"></canvas>
+</div>
+<script src="timeline.js"></script>
+<script>
+"use strict";
+// ============================================================================================
+// EP.03 微波炉 — a pure function of time. window.seek(t) paints frame t.
+// One continuous space: a microwave oven seen from the front (a little from above), a bowl of leftover rice inside,
+// drawn as a section. One camera: the oven → the bowl → back to the cavity → the little plate on the side wall → the tube
+// behind the control panel → follow the microwave into the rice → its outer layer (dark: water molecules) → back to the
+// cavity (hot spots, the turntable) → the whole oven → the end badge.
+// No timers, no rAF, no CSS transitions, no state between frames (the context is reset every frame); seeded noise only.
+// World units are millimetres; y points down; the oven is centred on the origin.
+// ============================================================================================
+const { T, COPY, W, H, DUR, FPS, running, turn, rim, sideHeat, core, oneK, fieldK, field, heatK, depthK, frontK, spotsK } = TL;
+const cv = document.getElementById("c");
+const MAIN = cv.getContext("2d");
+const OFF = document.createElement("canvas"); OFF.width = W; OFF.height = H;
+const OFFX = OFF.getContext("2d");
+let ctx = MAIN;
+
+const C = {
+  ground: "#ECEBE6", ink: "#141414", acc: "#FF4A1C", paper: "#F1F0EC",
+  body: "#E2DFD8", door: "#EAE8E2", panel: "#DCD9D2", screen: "#25272B",
+  cavOff: "#B9B6AF", cavOn: "#EFE9DA", wallOff: "#AAA79F", wallOn: "#E2DBCA", floorOff: "#A39F97", floorOn: "#DCD4C1",
+  mica: "#B7AE9C", bowl: "#F8F7F3", rice: "#D6D1C6", grey: "#8A847C", dark: "#17191C", line: "#6C737A",
+  mol: "#ECE9E2", molH: "#AEB5BC",
+};
+const DISPLAY = "Smiley", UI = "NotoSC";
+
+// ---------------------------------------------------------------- math
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const TAU = Math.PI * 2;
+const E = {
+  sine: (x) => 0.5 - 0.5 * Math.cos(Math.PI * x),
+  p2io: (x) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2),
+  p3io: (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2),
+  p2in: (x) => x * x, p3in: (x) => x * x * x,
+  p3out: (x) => 1 - Math.pow(1 - x, 3), p4out: (x) => 1 - Math.pow(1 - x, 4),
+  smooth: (x) => x * x * (3 - 2 * x),
+};
+function spring(x, w = 15, z = 0.72) {
+  if (x <= 0) return 0;
+  if (z >= 1) return 1 - Math.exp(-w * x) * (1 + w * x);
+  const wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * x) * (Math.cos(wd * x) + ((z * w) / wd) * Math.sin(wd * x));
+}
+function slamScale(u) {                              // 0.17 s: 1.55 -> 0.94 -> 1.0
+  if (u <= 0) return 1.55;
+  if (u < 0.09) return lerp(1.55, 0.94, E.p2in(u / 0.09));
+  if (u < 0.17) return lerp(0.94, 1.0, E.p3out((u - 0.09) / 0.08));
+  return 1;
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const hexRGB = (h) => [0, 1, 2].map((i) => parseInt(h.slice(1 + 2 * i, 3 + 2 * i), 16));
+const mixHex = (a, b, k) => { const p = hexRGB(a), q = hexRGB(b); return `rgb(${[0, 1, 2].map((i) => Math.round(lerp(p[i], q[i], k))).join(",")})`; };
+const ACC = hexRGB("#FF4A1C").join(",");
+
+// ---------------------------------------------------------------- camera: similarity s = A·p + B (complex), log-spiral between keys
+const S0 = 1.8;                                       // px per mm at Z = 1 (the opening shot)
+const cmul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
+const cdiv = (a, b) => { const d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; };
+const cadd = (a, b) => [a[0] + b[0], a[1] + b[1]];
+const csub = (a, b) => [a[0] - b[0], a[1] - b[1]];
+const cpol = (r, th) => [r * Math.cos(th), r * Math.sin(th)];
+const RAD = Math.PI / 180;
+function key(F, anchor, Z, phiDeg = 0) { const A = cpol(Z * S0, phiDeg * RAD); return { A, B: csub(anchor, cmul(A, F)), Z, phi: phiDeg * RAD }; }
+function interp(k0, k1, u) {
+  const lr = Math.log(k1.Z / k0.Z), th = k1.phi - k0.phi;
+  const kk = cpol(Math.exp(lr), th), ku = cpol(Math.exp(lr * u), th * u);
+  const c = csub(k1.B, cmul(kk, k0.B)), omk = csub([1, 0], kk);
+  if (Math.hypot(omk[0], omk[1]) < 1e-9) return { A: k0.A, B: cadd(k0.B, [c[0] * u, c[1] * u]), Z: k0.Z, phi: k0.phi };
+  const ws = cdiv(c, omk);
+  return { A: cmul(ku, k0.A), B: cadd(cmul(ku, csub(k0.B, ws)), ws), Z: k0.Z * Math.exp(lr * u), phi: k0.phi + th * u };
+}
+const toS = (K, p) => cadd(cmul(K.A, p), K.B);
+function setT(K, o = [0, 0], u = 1) { const a = K.A[0] * u, b = K.A[1] * u, B = cadd(cmul(K.A, o), K.B); ctx.setTransform(a, b, -b, a, B[0], B[1]); }
+const ID = () => ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+// ---------------------------------------------------------------- the world (mm)
+const BODY = { x0: -250, x1: 250, y0: -150, y1: 150 };
+const DOOR = { x0: -240, x1: 118, y0: -140, y1: 140 };
+const WIN = { x0: -212, x1: 92, y0: -108, y1: 108 };
+const BACK = { x0: -170, x1: 50, y0: -80, y1: 18 };              // the back wall: seen a little from above, so the floor shows
+const DISP = { x0: 146, x1: 224, y0: -112, y1: -82 };
+const BTN = { x0: 146, x1: 224, y0: 46, y1: 78 };               // 开始
+const PLATE = { c: [-60, 66], rx: 98, ry: 27 };
+const ORBIT = { rx: 32, ry: 8.5 };
+const floorP = (u, v) => [lerp(lerp(WIN.x0, WIN.x1, u), lerp(BACK.x0, BACK.x1, u), v), lerp(WIN.y1, BACK.y1, v)];
+const rwallP = (d, h) => [lerp(WIN.x1, BACK.x1, d), lerp(lerp(WIN.y0, WIN.y1, h), lerp(BACK.y0, BACK.y1, h), d)];
+const MICA = [rwallP(0.3, 0.22), rwallP(0.7, 0.22), rwallP(0.7, 0.46), rwallP(0.3, 0.46)];
+const MICAC = rwallP(0.5, 0.34);
+const MAG = { x0: 150, x1: 214, y0: -76, y1: -6 };                // the tube (magnetron) behind the panel
+const GUIDE = { x0: 76, x1: 152, y0: -56, y1: -26 };              // and the duct to the little plate
+const ANT = [150, -41];
+// hot spots on the floor (floor coordinates u, v): one sits under the left half of the parked bowl, none under its right half
+const SPOTS = [[0.30, 0.51], [0.73, 0.40], [0.12, 0.17], [0.52, 0.14], [0.86, 0.80], [0.46, 0.86], [0.08, 0.78]];
+
+// the bowl, drawn as a section (bowl coordinates: origin at the foot, y up is negative)
+const BOWLP = (() => { const p = new Path2D(); p.moveTo(-50, -40); p.bezierCurveTo(-48, -14, -31, -2, -22, 0); p.lineTo(22, 0); p.bezierCurveTo(31, -2, 48, -14, 50, -40);
+  p.lineTo(45, -40); p.bezierCurveTo(43, -17, 29, -5, 20, -4.5); p.lineTo(-20, -4.5); p.bezierCurveTo(-29, -5, -43, -17, -45, -40); p.closePath(); return p; })();
+const RICEP = (() => { const p = new Path2D(); p.moveTo(-45, -40); p.bezierCurveTo(-43, -17, -29, -5, -20, -4.5); p.lineTo(20, -4.5); p.bezierCurveTo(29, -5, 43, -17, 45, -40);
+  p.bezierCurveTo(37, -50, 15, -55, 0, -55); p.bezierCurveTo(-15, -55, -37, -50, -45, -40); p.closePath(); return p; })();
+const RC = [0, -25];                                                // the middle of the rice
+const HG = { x: -36, y: -24, a: 0.45, l: 2.4, w: 1.05 };          // the grain we dive into (in the outer layer)
+const HGDOTS = (() => { const r = mulberry32(88), out = []; while (out.length < 40) { const u = r() * 2 - 1, v = r() * 2 - 1; if (u * u + v * v < 0.82) out.push([u, v]); } return out; })();
+const GRAINS = (() => { const r = mulberry32(31), out = []; let n = 0; while (out.length < 46 && n++ < 4000) { const x = -44 + 88 * r(), y = -54 + 50 * r(); if (OFFX.isPointInPath(RICEP, x, y)) out.push([x, y, r() * Math.PI, 1.6 + 0.6 * r()]); } return out; })();
+function bowlAt(t) {                                                // where the bowl is on the turning plate
+  const a = turn(t), s = 1 + 0.05 * Math.sin(a);
+  return { x: PLATE.c[0] + ORBIT.rx * Math.cos(a), y: PLATE.c[1] + ORBIT.ry * Math.sin(a) + 7, s, a };
+}
+const bowlW = (b, p) => [b.x + p[0] * b.s, b.y + p[1] * b.s];      // bowl coordinates → world
+
+// ---------------------------------------------------------------- cameras
+const KH0 = key([-10, 5], [540, 1180], 1.12);                 // the whole oven, pushing in from frame 0
+const KH = key([-30, 10], [540, 1180], 1.3);
+const KB = key([-60, 46], [540, 1250], 5.0);                  // the bowl, as a section
+const KBz = key([-63, 42], [540, 1250], 5.9);
+const KCav = key([-40, 0], [540, 1180], 1.75);                // the cavity, the little plate on the right wall
+const KCavz = key([-30, -5], [540, 1180], 1.85);
+const KMag = key([140, -30], [540, 1150], 3.4);               // the right side: the plate, the panel, the tube behind it
+const KMagz = key([146, -32], [540, 1150], 3.95);
+const KFol = key([0, 0], [540, 1180], 1.4);                   // follow the microwave: tube → duct → plate → walls → rice
+const KFolz = key([-5, 5], [540, 1180], 1.5);
+const KRim = key([-97, 40], [540, 1150], 26);                 // (the way back out of the rice)
+const HGW = (() => { const a = Math.PI / 2, s = 1 + 0.05 * Math.sin(a); return [PLATE.c[0] + ORBIT.rx * Math.cos(a) + HG.x * s, PLATE.c[1] + ORBIT.ry * Math.sin(a) + 7 + HG.y * s]; })();
+const KGrain = key(HGW, [540, 1150], 300);                    // one grain fills the screen: we go inside it
+const inLin = (x, a = 0.22) => (x < a ? (x * x) / (2 * a) : x - a / 2) / (1 - a / 2);   // ease in, then a constant push
+const KCav2 = key([-60, 38], [540, 1220], 2.5);               // the missing step: the floor, the plate, the hot spots
+const KCav2z = key([-66, 42], [540, 1220], 2.95);
+const KHq = key([-30, 12], [540, 1180], 1.36);
+const K7 = key([0, 0], [225, 560], 0.31);                     // the end badge
+function bowlKey(t, Z) { const b = bowlAt(t); return key([b.x, b.y - 27 * b.s], [540, 1260], Z); }
+function cam(t) {
+  if (t < T.push0) return interp(KH0, KH, E.sine(prog(t, 0, T.push0)));
+  if (t < T.push0End) return interp(KH, KB, E.p3io(prog(t, T.push0, T.push0End)));
+  if (t < T.back1) return interp(KB, KBz, E.sine(prog(t, T.push0End, T.back1)));
+  if (t < T.back1End) return interp(KBz, KCav, E.p3io(prog(t, T.back1, T.back1End)));
+  if (t < T.dive1) return interp(KCav, KCavz, E.sine(prog(t, T.back1End, T.dive1)));
+  if (t < T.dive1End) return interp(KCavz, KMag, E.p3io(prog(t, T.dive1, T.dive1End)));
+  if (t < T.follow) return interp(KMag, KMagz, E.sine(prog(t, T.dive1End, T.follow)));
+  if (t < T.followEnd) return interp(KMagz, KFol, E.p3io(prog(t, T.follow, T.followEnd)));
+  if (t < T.dive2) return interp(KFol, KFolz, E.sine(prog(t, T.followEnd, T.dive2)));
+  if (t < T.climbA) return interp(KFolz, KGrain, inLin(prog(t, T.dive2, T.dive2End)));   // one take: a constant push, never stops
+  if (t < T.climbAEnd) return interp(KRim, KCav2, E.p3out(prog(t, T.climbA, T.climbAEnd)));   // out fast: no muddy close frames
+  if (t < T.climb) return interp(KCav2, KCav2z, E.sine(prog(t, T.climbAEnd, T.climb)));
+  if (t < T.climbEnd) return interp(KCav2z, KH, E.p3io(prog(t, T.climb, T.climbEnd)));
+  if (t < T.tap2) return interp(KH, KHq, E.sine(prog(t, T.climbEnd, T.tap2)));
+  if (t < T.end) {                                                  // after the tap: push in on the bowl and ride along with it
+    const k1 = interp(KHq, bowlKey(t, 3.3), E.p3io(prog(t, T.tap2 + 0.1, T.tap2 + 1.4)));
+    return t < T.fin ? k1 : interp(bowlKey(t, 3.3), bowlKey(t, 4.1), E.sine(prog(t, T.fin, T.end)));
+  }
+  return interp(bowlKey(t, 4.1), K7, E.p3io(prog(t, T.end, T.endMorph)));
+}
+
+// ---------------------------------------------------------------- drawing helpers
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function line(x0, y0, x1, y1) { ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
+function poly(P) { ctx.beginPath(); P.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath(); }
+function arrowS(x0, y0, x1, y1, w, col, head = 2.6) {
+  ID();
+  const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy); if (L < 1) return;
+  const ux = dx / L, uy = dy / L, hl = Math.min(L * 0.6, w * head), hw = w * 1.45;
+  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = w; ctx.lineCap = "butt";
+  line(x0, y0, x1 - ux * hl * 0.9, y1 - uy * hl * 0.9);
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - ux * hl - uy * hw, y1 - uy * hl + ux * hw); ctx.lineTo(x1 - ux * hl + uy * hw, y1 - uy * hl - ux * hw); ctx.closePath(); ctx.fill();
+}
+const MEASURE = new Map();
+function mw(font, s) { const k = font + "|" + s; let v = MEASURE.get(k); if (v === undefined) { ctx.font = font; v = ctx.measureText(s).width; MEASURE.set(k, v); } return v; }
+function parse(str) { const out = []; let a = 0; for (const ch of str) { if (ch === "[") { a = 1; continue; } if (ch === "]") { a = 0; continue; } out.push({ ch, a }); } return out; }
+const plain = (str) => str.replace(/[\[\]]/g, "");
+function fitSize(str, size, maxW, face = DISPLAY, wt = "") { const f = `${wt} ${size}px ${face}`.trim(), w = mw(f, plain(str)); return w > maxW ? Math.floor(size * maxW / w) : size; }
+
+// Text band: style none | blur | grey | type | slam | wipe; left aligned at x.
+function lines(L, t, t0, t1, o = {}) {
+  if (t < t0 || t >= t1) return;
+  const x = o.x ?? 96, ys = o.ys ?? [330, 472], face = o.face ?? DISPLAY, wt = o.weight ?? "";
+  const col = o.col ?? C.ink, acc = o.acc ?? C.acc, style = o.style ?? "blur";
+  const stag = o.stag ?? 0.055, lineGap = o.lineGap ?? 0.16, exitDur = o.exit ?? 0.16, maxW = o.maxW ?? 870;
+  ID();
+  L.forEach((str, i) => {
+    const size = fitSize(str, Array.isArray(o.size) ? o.size[i] : (o.size ?? 112), maxW, face, wt);
+    const font = `${wt} ${size}px ${face}`.trim();
+    const chars = parse(str), ls = t0 + i * lineGap;
+    if (t < ls) return;
+    let pre = "";
+    ctx.save();
+    if (style === "slam") { const sc = slamScale(t - ls), cy = ys[i] - size * 0.35; ctx.translate(x, cy); ctx.scale(sc, sc); ctx.translate(-x, -cy); }
+    if (style === "wipe") { const wv = mw(font, plain(str)); ctx.beginPath(); ctx.rect(0, ys[i] - size * 1.2, x + wv * E.p3out(prog(t, ls, ls + 0.32)) + 4, size * 1.6); ctx.clip(); }
+    ctx.font = font; ctx.textBaseline = "alphabetic";
+    chars.forEach((c, j) => {
+      const cx = x + mw(font, pre); pre += c.ch;
+      const lt = t - (ls + j * stag);
+      let a = 1, blur = 0;
+      if (style === "blur") { const k = clamp(lt / 0.13); a = k; blur = 9 * (1 - k); }
+      else if (style === "type") { a = lt >= 0 ? 1 : 0; }
+      if (t > t1 - exitDur) { const e = clamp((t - (t1 - exitDur)) / exitDur); a *= 1 - e; blur = Math.max(blur, 10 * e); }
+      if (a <= 0.003) return;
+      ctx.globalAlpha = a; ctx.filter = blur > 0.3 ? `blur(${blur.toFixed(1)}px)` : "none";
+      ctx.fillStyle = c.a ? acc : col; ctx.fillText(c.ch, cx, ys[i]);
+    });
+    ctx.restore(); ctx.filter = "none"; ctx.globalAlpha = 1;
+  });
+}
+function label(str, x, y, size, col, t, t0, t1, o = {}) {
+  if (t < t0 || t >= t1) return;
+  ID(); const font = `${o.weight ?? 700} ${size}px ${o.face ?? UI}`; const wv = mw(font, str);
+  const k = E.p3out(prog(t, t0, t0 + 0.28)), e = prog(t, t1 - 0.15, t1);
+  ctx.save(); ctx.font = font; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  const left = o.align === "right" ? x - wv : o.align === "center" ? x - wv / 2 : x;
+  ctx.beginPath(); ctx.rect(left - 4, y - size * 1.2, (wv + 8) * k, size * 1.6); ctx.clip();
+  ctx.globalAlpha = (o.alpha ?? 1) * (1 - e); if (e > 0) ctx.filter = `blur(${(8 * e).toFixed(1)}px)`;
+  ctx.fillStyle = col; ctx.fillText(str, left, y); ctx.restore(); ctx.filter = "none";
+}
+function underline(str, prefix, word, lineIdx, t, t0, t1, ys = [330, 472], size0 = 112) {
+  if (t < t0 || t >= t1) return;
+  const size = fitSize(str, size0, 870), f = `${size}px ${DISPLAY}`;
+  const x0 = 96 + mw(f, prefix), wv = mw(f, word), k = E.p3out(prog(t, t0, t0 + 0.3)), fo = 1 - prog(t, t1 - 0.16, t1);
+  ID(); ctx.globalAlpha = fo; ctx.fillStyle = C.acc; ctx.fillRect(x0 - 4, ys[lineIdx] + 20, (wv + 8) * k, 11); ctx.globalAlpha = 1;
+}
+function bubble(cx, top, str, t, t0, t1) {           // a speech bubble; the tail points down at (cx, top + h + 26)
+  if (t < t0 || t >= t1) return;
+  const size = 76, font = `${size}px ${DISPLAY}`, wv = mw(font, str), w = wv + 64, h = size + 44;
+  const sc = spring(t - t0, 15, 0.55), e = prog(t, t1 - 0.2, t1), x = cx, y = top + h + 26;
+  const off = clamp(cx, 30 + w / 2, W - 30 - w / 2) - cx;
+  ID(); ctx.save(); ctx.translate(x, y); ctx.scale(sc * (1 - 0.15 * e), sc * (1 - 0.15 * e)); ctx.globalAlpha = 1 - e;
+  ctx.fillStyle = C.acc; rr(-w / 2 + off, -h - 26, w, h, 24); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-20, -27); ctx.lineTo(20, -27); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
+  ctx.font = font; ctx.fillStyle = C.ink; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.fillText(str, off, -26 - h / 2 + size * 0.36);
+  ctx.restore();
+}
+function wavePath(f, x0, x1, y0 = 0, n = 140) { ctx.beginPath(); for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * (i / n), y = y0 + f(x); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } }
+// a wiggle along a polyline (world): the microwave, travelling
+function pathLen(P) { let L = 0; for (let i = 1; i < P.length; i++) L += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]); return L; }
+function pathAt(P, s) {
+  for (let i = 1; i < P.length; i++) { const L = Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]); if (s <= L || i === P.length - 1) { const u = clamp(s / L); const dx = (P[i][0] - P[i - 1][0]) / L, dy = (P[i][1] - P[i - 1][1]) / L; return [lerp(P[i - 1][0], P[i][0], u), lerp(P[i - 1][1], P[i][1], u), -dy, dx]; } s -= L; }
+  return [P[0][0], P[0][1], 0, 1];
+}
+function wiggle(P, s0, s1, amp, lam, ph) {
+  ctx.beginPath(); const n = Math.max(8, Math.ceil((s1 - s0) / 1.2));
+  for (let i = 0; i <= n; i++) { const s = lerp(s0, s1, i / n), p = pathAt(P, s), o = amp * Math.sin(TAU * (s / lam) - ph); const x = p[0] + p[2] * o, y = p[1] + p[3] * o; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+}
+
+// ---------------------------------------------------------------- states
+function lightK(t) {
+  if (t < T.ding1 + 0.12) return 1 - prog(t, T.ding1, T.ding1 + 0.12);
+  if (t >= T.lightA && t < T.climb + 0.12) return prog(t, T.lightA, T.lightA + 0.12) * (1 - prog(t, T.climb, T.climb + 0.12));
+  if (t >= T.tap2 && t < T.ding2 + 0.12) return prog(t, T.tap2 + 0.05, T.tap2 + 0.17) * (1 - prog(t, T.ding2, T.ding2 + 0.12));
+  return 0;
+}
+const orangeK = (t) => E.p2io(prog(t, T.myth, T.myth + 0.3)) * (1 - E.p2io(prog(t, T.unOrange, T.unOrange + 0.3)));
+function groundCol(t) { const o = orangeK(t); return o > 0 ? mixHex(C.ground, C.acc, o) : C.ground; }
+function flood(t) {
+  if (t < T.flood) return 0;
+  if (t < T.floodEnd) return E.p2io(prog(t, T.flood, T.floodEnd));
+  if (t < T.unflood) return 1;
+  return 1 - E.p2io(prog(t, T.unflood, T.unflood + 0.15));
+}
+// the rice section: the wrong picture (hottest in the middle) is swept in, then swept out again
+const RY0 = -62, RY1 = 4;
+function riceLayers(t) {
+  const S = (a, b) => lerp(RY0, RY1, E.p2io(prog(t, a, b)));
+  if (t < T.scan1 || t >= T.scan2End) return [[RY0, RY1, "real"]];
+  if (t < T.scan1End) { const y = S(T.scan1, T.scan1End); return [[RY0, y, "toy"], [y, RY1, "real"]]; }
+  if (t < T.scan2) return [[RY0, RY1, "toy"]];
+  const y = S(T.scan2, T.scan2End); return [[RY0, y, "real"], [y, RY1, "toy"]];
+}
+// the control panel: x-ray from the scan until we are deep inside (hidden by the dark)
+const PY0 = -150, PY1 = 150;
+function panelLayers(t) {
+  if (t < T.scan3 || t >= T.climbA) return [[PY0, PY1, "solid"]];
+  if (t < T.scan3End) { const y = lerp(PY0, PY1, E.p2io(prog(t, T.scan3, T.scan3End))); return [[PY0, y, "xray"], [y, PY1, "solid"]]; }
+  return [[PY0, PY1, "xray"]];
+}
+
+// ---------------------------------------------------------------- the light world: the oven
+function drawCavity(t, K, lk) {
+  const ppm = K.Z * S0, lw = (n) => Math.max(0.12, n / ppm);
+  ctx.save(); rr(WIN.x0, WIN.y0, WIN.x1 - WIN.x0, WIN.y1 - WIN.y0, 10); ctx.clip();
+  ctx.fillStyle = mixHex(C.cavOff, C.cavOn, lk); ctx.fillRect(WIN.x0, WIN.y0, WIN.x1 - WIN.x0, WIN.y1 - WIN.y0);
+  const TL0 = [WIN.x0, WIN.y0], TR0 = [WIN.x1, WIN.y0], BL0 = [WIN.x0, WIN.y1], BR0 = [WIN.x1, WIN.y1];
+  const TL1 = [BACK.x0, BACK.y0], TR1 = [BACK.x1, BACK.y0], BL1 = [BACK.x0, BACK.y1], BR1 = [BACK.x1, BACK.y1];
+  ctx.fillStyle = mixHex(C.wallOff, C.wallOn, lk); poly([TL0, TL1, BL1, BL0]); ctx.fill(); poly([TR0, TR1, BR1, BR0]); ctx.fill();
+  ctx.fillStyle = mixHex(C.floorOff, C.floorOn, lk); poly([BL0, BL1, BR1, BR0]); ctx.fill();
+  ctx.fillStyle = mixHex("#A9A69E", "#E6E0D0", lk); poly([TL0, TL1, TR1, TR0]); ctx.fill();
+  ctx.strokeStyle = "rgba(20,20,20,0.35)"; ctx.lineWidth = lw(2.5);
+  line(TL0[0], TL0[1], TL1[0], TL1[1]); line(TR0[0], TR0[1], TR1[0], TR1[1]); line(BL0[0], BL0[1], BL1[0], BL1[1]); line(BR0[0], BR0[1], BR1[0], BR1[1]);
+  ctx.strokeRect(BACK.x0, BACK.y0, BACK.x1 - BACK.x0, BACK.y1 - BACK.y0);
+  // the little plate on the right wall (where the microwaves come in)
+  ctx.fillStyle = C.mica; poly(MICA); ctx.fill(); ctx.strokeStyle = "rgba(20,20,20,0.6)"; ctx.lineWidth = lw(2.5); ctx.stroke();
+  // hot spots on the floor (the missing step)
+  const sk = spotsK(t);
+  if (sk > 0.01) SPOTS.forEach(([u, v], i) => {
+    const p = floorP(u, v), sc = lerp(1.15, 0.8, v), pulse = 1 + 0.14 * Math.sin(TAU * 2 * t + i);
+    ctx.save(); ctx.translate(p[0], p[1]); ctx.scale(1, 0.3);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 30 * sc * pulse);
+    g.addColorStop(0, `rgba(${ACC},${0.85 * sk})`); g.addColorStop(0.55, `rgba(${ACC},${0.45 * sk})`); g.addColorStop(1, `rgba(${ACC},0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 30 * sc * pulse, 0, TAU); ctx.fill(); ctx.restore();
+  });
+  // the turntable: a glass plate with three ridges that turn with it
+  const a0 = turn(t);
+  ctx.fillStyle = "rgba(245,243,238,0.55)"; ctx.beginPath(); ctx.ellipse(PLATE.c[0], PLATE.c[1], PLATE.rx, PLATE.ry, 0, 0, TAU); ctx.fill();
+  ctx.strokeStyle = "rgba(20,20,20,0.55)"; ctx.lineWidth = lw(3); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(PLATE.c[0], PLATE.c[1], PLATE.rx * 0.82, PLATE.ry * 0.82, 0, 0, TAU); ctx.strokeStyle = "rgba(20,20,20,0.2)"; ctx.stroke();
+  ctx.strokeStyle = "rgba(20,20,20,0.35)"; ctx.lineWidth = lw(3);
+  for (let i = 0; i < 6; i++) { const a = a0 + i * TAU / 6, c = Math.cos(a), s = Math.sin(a); line(PLATE.c[0] + c * PLATE.rx * 0.84, PLATE.c[1] + s * PLATE.ry * 0.84, PLATE.c[0] + c * PLATE.rx * 0.95, PLATE.c[1] + s * PLATE.ry * 0.95); }
+  // the microwaves bouncing about while the oven runs (faint in the opening, clear in the missing step)
+  const wk = lk * (t < T.ding1 ? 0.22 : t >= T.lightA && t < T.climb ? 0.55 * prog(t, T.lightA, T.spots) + 0.1 : t >= T.tap2 ? 0.22 : 0);
+  if (wk > 0.01) bouncing(t, K, wk);
+  drawBowl(t, K);
+  ctx.restore();
+}
+const RAYS = [
+  [MICAC, [-212, -20], [-60, 104], [92, 30]],
+  [MICAC, [-110, -108], [-212, 50], [-10, 104]],
+];
+function bouncing(t, K, a) {
+  const ppm = K.Z * S0;
+  ctx.save(); ctx.strokeStyle = `rgba(20,20,20,${0.5 * a})`; ctx.lineWidth = Math.max(0.15, 3.5 / ppm); ctx.lineCap = "round"; ctx.lineJoin = "round";
+  RAYS.forEach((P, i) => { const L = pathLen(P); wiggle(P, 0, L, 2.4, 18, TAU * (2.2 * t + i / 3)); ctx.stroke(); });
+  ctx.restore();
+}
+const WAVEIN = [[-40, -45], [-24, -52], [-8, -55], [8, -55], [24, -52], [40, -45], [-45, -30], [45, -30], [-38, -14], [38, -14]];
+function drawRiceSection(t, K, kind, lyr) {
+  const ppm = K.Z * S0 * bowlAt(t).s, lw = (n) => Math.max(0.03, n / ppm);
+  ctx.fillStyle = C.rice; ctx.fill(RICEP);
+  ctx.save(); ctx.clip(RICEP);
+  if (kind === "toy") {                                              // the wrong picture: hottest in the middle
+    ctx.save(); ctx.translate(RC[0], RC[1]); ctx.scale(1, 0.66);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 48); g.addColorStop(0, `rgba(${ACC},1)`); g.addColorStop(0.45, `rgba(${ACC},0.75)`); g.addColorStop(1, `rgba(${ACC},0)`);
+    ctx.fillStyle = g; ctx.fillRect(-60, -80, 120, 160); ctx.restore();
+  } else {
+    const r = rim(t), c = core(t), sh = sideHeat(t);
+    if (r > 0.005) {
+      ctx.save(); ctx.translate(RC[0], RC[1]); ctx.scale(1, 0.66);
+      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 50);
+      g.addColorStop(0, `rgba(${ACC},${0.12 * r * (1 - c)})`); g.addColorStop(Math.max(0.01, c), `rgba(${ACC},${0.12 * r * (1 - c)})`);
+      g.addColorStop(Math.min(0.99, c + (1 - c) * 0.45), `rgba(${ACC},${0.55 * r})`); g.addColorStop(1, `rgba(${ACC},${r})`);
+      ctx.fillStyle = g; ctx.fillRect(-60, -90, 120, 180); ctx.restore();
+    }
+    if (sh > 0.005) { const g = ctx.createLinearGradient(-46, 0, 6, 0); g.addColorStop(0, `rgba(${ACC},${0.95 * sh})`); g.addColorStop(0.55, `rgba(${ACC},${0.5 * sh})`); g.addColorStop(1, `rgba(${ACC},0)`); ctx.fillStyle = g; ctx.fillRect(-50, -60, 60, 62); }
+  }
+  ctx.fillStyle = "rgba(20,20,20,0.13)";
+  GRAINS.forEach(([x, y, a, l]) => { ctx.beginPath(); ctx.ellipse(x, y, l, 0.75, a, 0, TAU); ctx.fill(); });
+  const zk = clamp((ppm - 25) / 80);                                  // the grain we dive into: a real grain once we are close
+  if (zk > 0) {
+    ctx.save(); ctx.translate(HG.x, HG.y); ctx.rotate(HG.a);
+    ctx.globalAlpha = zk; ctx.fillStyle = "#F3EFE6"; ctx.beginPath(); ctx.ellipse(0, 0, HG.l, HG.w, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = "rgba(20,20,20,0.55)"; ctx.lineWidth = lw(3); ctx.stroke();
+    const dk = clamp((ppm - 120) / 200);                              // inside it: water (it becomes the molecules)
+    if (dk > 0) { ctx.globalAlpha = dk; ctx.fillStyle = "rgba(60,64,70,0.55)"; HGDOTS.forEach(([u, v]) => { ctx.beginPath(); ctx.arc(u * HG.l * 0.85, v * HG.w * 0.85, 0.055, 0, TAU); ctx.fill(); }); }
+    ctx.restore();
+  }
+  // the closing (and the rest after it): how far the microwaves reach — a dashed line around the cold middle
+  const reachK = t >= T.waveIn ? E.p3out(prog(t, T.waveIn + 0.3, T.waveIn + 0.9)) * (1 - prog(t, T.tipOut - 0.4, T.tipOut)) : 0;
+  if (reachK > 0 && kind !== "toy") {
+    const c = core(t); ctx.save(); ctx.globalAlpha = reachK; ctx.translate(RC[0], RC[1]); ctx.scale(1, 0.66);
+    ctx.strokeStyle = "rgba(20,20,20,0.6)"; ctx.lineWidth = lw(3.5); ctx.setLineDash([lw(10), lw(8)]); ctx.beginPath(); ctx.arc(0, 0, 50 * Math.max(0.15, c + 0.12), 0, TAU); ctx.stroke(); ctx.restore();
+  }
+  ctx.restore();
+  // the closing: microwaves going in through the surface (and through the bowl), dying within the outer layer
+  if (t >= T.waveIn && t < T.ding2 + 0.15 && kind !== "toy") {
+    const k = E.p3out(prog(t, T.waveIn, T.waveIn + 0.3)) * (1 - prog(t, T.ding2, T.ding2 + 0.15));
+    ctx.save(); ctx.strokeStyle = C.ink; ctx.lineWidth = lw(5); ctx.lineCap = "round"; ctx.lineJoin = "round";
+    WAVEIN.forEach(([px, py], i) => {
+      const dx = RC[0] - px, dy = RC[1] - py, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L;
+      const ph = ((t - T.waveIn) * 1.2 + i * 0.37) % 1, head = -20 + 32 * ph;       // from 20 mm outside to 12 mm inside
+      ctx.globalAlpha = k * (head > 0 ? Math.max(0, 1 - head / 12) : 1);
+      const P = [[px + ux * (head - 13), py + uy * (head - 13)], [px + ux * head, py + uy * head]];
+      wiggle(P, 0, 13, 2.8 * (head > 0 ? Math.max(0.1, 1 - head / 12) : 1), 6, TAU * 2.4 * t); ctx.stroke();
+    });
+    ctx.restore();
+  }
+  ctx.strokeStyle = C.ink; ctx.lineWidth = lw(3.5); ctx.setLineDash([lw(9), lw(7)]); ctx.stroke(RICEP); ctx.setLineDash([]);
+  if (kind === "toy") {                                              // heat pushing out from the middle
+    const k = clamp(prog(t, T.scan1End - 0.2, T.scan1End + 0.3)) * (1 - prog(t, T.scan2, T.scan2 + 0.2));
+    ctx.save(); ctx.globalAlpha = k; ctx.strokeStyle = C.ink; ctx.fillStyle = C.ink; ctx.lineWidth = 2.2; ctx.lineCap = "round";
+    const ph = ((t * 1.2) % 1);
+    [[-1, 0], [1, 0], [-0.7, -0.7], [0.7, -0.7], [0, -1]].forEach(([dx, dy]) => {
+      const L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L, r0 = 8 + 5 * ph, r1 = 20 + 5 * ph;
+      line(RC[0] + ux * r0, RC[1] + uy * r0 * 0.8, RC[0] + ux * r1, RC[1] + uy * r1 * 0.8);
+      const hx = RC[0] + ux * (r1 + 3), hy = RC[1] + uy * (r1 + 3) * 0.8; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx - ux * 5 - uy * 3.4, hy - uy * 4 + ux * 3.4); ctx.lineTo(hx - ux * 5 + uy * 3.4, hy - uy * 4 - ux * 3.4); ctx.closePath(); ctx.fill();
+    });
+    ctx.restore();
+  }
+}
+function drawBowl(t, K) {
+  const b = bowlAt(t), ppm = K.Z * S0 * b.s, lw = (n) => Math.max(0.12, n / ppm);
+  ctx.save(); ctx.translate(b.x, b.y); ctx.scale(b.s, b.s);
+  // a soft shadow on the plate
+  ctx.fillStyle = "rgba(20,20,20,0.12)"; ctx.beginPath(); ctx.ellipse(0, 1, 30, 4, 0, 0, TAU); ctx.fill();
+  riceLayers(t).forEach(([y0, y1, kind]) => {
+    if (y1 <= y0) return;
+    ctx.save(); ctx.beginPath(); ctx.rect(-60, y0, 120, y1 - y0); ctx.clip();
+    drawRiceSection(t, K, kind);
+    ctx.restore();
+  });
+  const L = riceLayers(t);
+  if (L.length > 1) { const y = L[0][1]; ctx.fillStyle = `rgba(${ACC},0.18)`; ctx.fillRect(-56, y - 1.6, 112, 3.2); ctx.fillStyle = C.acc; ctx.fillRect(-56, y - 0.25, 112, 0.5); }
+  ctx.fillStyle = C.bowl; ctx.fill(BOWLP); ctx.strokeStyle = C.ink; ctx.lineWidth = lw(4); ctx.lineJoin = "round"; ctx.stroke(BOWLP);
+  ctx.fillStyle = C.bowl; rr(-21, -1.5, 42, 3.5, 1); ctx.fill(); ctx.stroke();
+  // steam off the hot rice
+  const st = (t < T.climbA ? rim(t) : t < T.climb ? 0.6 * rim(t) : rim(t)) * (t >= T.scan1 && t < T.scan2End ? 0.3 : 1);
+  if (st > 0.25) {
+    ctx.strokeStyle = `rgba(20,20,20,${0.32 * (st - 0.25) / 0.75})`; ctx.lineWidth = lw(3.5); ctx.lineCap = "round";
+    [-30, -10, 10, 28].forEach((x0, i) => {
+      ctx.beginPath(); for (let k = 0; k <= 24; k++) { const q = k / 24, y = -58 - q * 40, ph = TAU * (q * 1.6 - 1.6 * t) + i * 2; const x = x0 + 4.5 * Math.sin(ph) * (0.4 + q); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+      ctx.stroke();
+    });
+  }
+  ctx.restore();
+}
+function drawPanel(t, K, kind) {
+  const ppm = K.Z * S0, lw = (n) => Math.max(0.12, n / ppm);
+  if (kind === "solid") {
+    ctx.fillStyle = C.panel; rr(128, -140, 112, 280, 8); ctx.fill(); ctx.strokeStyle = "rgba(20,20,20,0.35)"; ctx.lineWidth = lw(2.5); ctx.stroke();
+    ctx.fillStyle = C.screen; rr(DISP.x0, DISP.y0, DISP.x1 - DISP.x0, DISP.y1 - DISP.y0, 3); ctx.fill();
+    const txt = displayText(t);
+    if (txt) { ctx.fillStyle = "rgba(241,240,236,0.92)"; ctx.font = `700 19px ${UI}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(txt, (DISP.x0 + DISP.x1) / 2, (DISP.y0 + DISP.y1) / 2 + 1); }
+    ctx.strokeStyle = "rgba(20,20,20,0.45)"; ctx.lineWidth = lw(2.5); ctx.fillStyle = "#E8E6E0";
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 2; c++) { rr(146 + c * 41, -62 + r * 30, 37, 22, 4); ctx.fill(); ctx.stroke(); }
+    const press = t >= T.tap2 - 0.04 && t < T.tap2 + 0.2 ? 0.08 * Math.sin(Math.PI * prog(t, T.tap2 - 0.04, T.tap2 + 0.2)) : 0;
+    ctx.save(); ctx.translate((BTN.x0 + BTN.x1) / 2, (BTN.y0 + BTN.y1) / 2); ctx.scale(1 - press, 1 - press);
+    ctx.fillStyle = "#C9C5BC"; rr(-(BTN.x1 - BTN.x0) / 2, -(BTN.y1 - BTN.y0) / 2, BTN.x1 - BTN.x0, BTN.y1 - BTN.y0, 6); ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = lw(3); ctx.stroke();
+    ctx.fillStyle = C.ink; ctx.font = `700 15px ${UI}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(COPY.start, 0, 1); ctx.restore();
+    ctx.fillStyle = "#E8E6E0"; rr(146, 96, 78, 22, 4); ctx.fill(); ctx.strokeStyle = "rgba(20,20,20,0.45)"; ctx.lineWidth = lw(2.5); ctx.stroke();
+  } else {                                                           // x-ray: what is behind the panel
+    ctx.fillStyle = "rgba(236,235,230,0.92)"; rr(128, -140, 112, 280, 8); ctx.fill();
+    ctx.strokeStyle = "rgba(20,20,20,0.35)"; ctx.lineWidth = lw(2.5); ctx.setLineDash([lw(10), lw(8)]); ctx.stroke(); ctx.setLineDash([]);
+    // the tube: a block with cooling fins and a short antenna that faces the duct
+    ctx.fillStyle = "#C9CCD0"; rr(MAG.x0, MAG.y0, MAG.x1 - MAG.x0, MAG.y1 - MAG.y0, 4); ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = lw(3); ctx.stroke();
+    ctx.strokeStyle = "rgba(20,20,20,0.55)"; ctx.lineWidth = lw(2.5); for (let i = 1; i < 8; i++) line(MAG.x0 + 6, MAG.y0 + i * 8.8, MAG.x1 - 6, MAG.y0 + i * 8.8);
+    ctx.fillStyle = "#9EA3A8"; ctx.beginPath(); ctx.arc(ANT[0], ANT[1], 7, Math.PI / 2, Math.PI * 1.5); ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = lw(3); ctx.stroke();
+    const hk = t >= T.a3 - 0.2 && t < T.dive2 + 0.4 ? E.p3out(prog(t, T.a3 - 0.2, T.a3 + 0.15)) * (1 - prog(t, T.dive2, T.dive2 + 0.4)) : 0;
+    if (hk > 0) { ctx.save(); ctx.globalAlpha = hk; ctx.strokeStyle = C.acc; ctx.lineWidth = lw(8); rr(MAG.x0 - 5, MAG.y0 - 5, MAG.x1 - MAG.x0 + 10, MAG.y1 - MAG.y0 + 10, 7); ctx.stroke(); ctx.restore(); }
+    // a transformer and wires below
+    ctx.fillStyle = "#BFC2C5"; rr(156, 30, 64, 70, 4); ctx.fill(); ctx.strokeStyle = C.ink; ctx.stroke();
+    ctx.strokeStyle = "rgba(20,20,20,0.5)"; for (let i = 0; i < 6; i++) line(164 + i * 9.5, 38, 164 + i * 9.5, 92);
+    ctx.strokeStyle = "#B49A6A"; ctx.lineWidth = lw(4); ctx.beginPath(); ctx.moveTo(188, 30); ctx.bezierCurveTo(188, 14, 182, 8, 182, -6); ctx.stroke();
+  }
+}
+function displayText(t) {
+  if (t < T.ding1) return `0:0${Math.max(1, Math.ceil(T.ding1 - t))}`;
+  if (t < T.ding1 + 1.2) return "0:00";
+  if (t >= T.lightA && t < T.climb) return "0:30";
+  if (t >= T.tap2 && t < T.ding2) return `0:0${Math.max(1, Math.ceil(T.ding2 - t))}`;
+  if (t >= T.ding2 && t < T.ding2 + 1.2) return "0:00";
+  return "";
+}
+function drawGuide(t, K) {                                         // the duct, seen through the door frame in x-ray
+  const k = t >= T.scan3 && t < T.climbA ? prog(t, T.scan3 + 0.2, T.scan3End) : 0;
+  if (k <= 0) return;
+  const ppm = K.Z * S0, lw = (n) => Math.max(0.12, n / ppm);
+  ctx.save(); ctx.globalAlpha = k;
+  ctx.fillStyle = "rgba(205,208,212,0.9)"; ctx.fillRect(GUIDE.x0, GUIDE.y0, GUIDE.x1 - GUIDE.x0, GUIDE.y1 - GUIDE.y0);
+  ctx.strokeStyle = C.ink; ctx.lineWidth = lw(3); ctx.setLineDash([lw(10), lw(7)]); ctx.strokeRect(GUIDE.x0, GUIDE.y0, GUIDE.x1 - GUIDE.x0, GUIDE.y1 - GUIDE.y0); ctx.setLineDash([]);
+  ctx.restore();
+}
+function drawOven(t, K, fade) {
+  const ppm = K.Z * S0, lw = (n) => Math.max(0.12, n / ppm), lk = lightK(t);
+  ctx.save(); ctx.globalAlpha = 1 - fade; ctx.lineJoin = "round";
+  ctx.fillStyle = "rgba(20,20,20,0.1)"; ctx.beginPath(); ctx.ellipse(0, 162, 255, 9, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = C.ink; ctx.fillRect(-222, 148, 26, 10); ctx.fillRect(196, 148, 26, 10);
+  ctx.fillStyle = C.body; rr(BODY.x0, BODY.y0, BODY.x1 - BODY.x0, BODY.y1 - BODY.y0, 20); ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = lw(6); ctx.stroke();
+  ctx.fillStyle = C.door; rr(DOOR.x0, DOOR.y0, DOOR.x1 - DOOR.x0, DOOR.y1 - DOOR.y0, 12); ctx.fill(); ctx.lineWidth = lw(4); ctx.stroke();
+  drawCavity(t, K, lk);
+  // the door glass: a tint and the metal mesh, both thin out as we get close (we are looking in)
+  const zk = 1 - clamp((K.Z - 1.6) / 0.5), tint = (lk > 0.5 ? 0.1 : 0.4) * zk;
+  ctx.save(); rr(WIN.x0, WIN.y0, WIN.x1 - WIN.x0, WIN.y1 - WIN.y0, 10); ctx.clip();
+  if (tint > 0.005) { ctx.fillStyle = `rgba(28,30,34,${tint})`; ctx.fillRect(WIN.x0, WIN.y0, WIN.x1 - WIN.x0, WIN.y1 - WIN.y0); }
+  if (zk > 0.02 && ppm > 1.2) { ctx.fillStyle = `rgba(20,20,20,${0.2 * zk})`; for (let y = WIN.y0 + 3; y < WIN.y1; y += 5) for (let x = WIN.x0 + 3; x < WIN.x1; x += 5) ctx.fillRect(x - 0.55, y - 0.55, 1.1, 1.1); }
+  ctx.restore();
+  ctx.strokeStyle = C.ink; ctx.lineWidth = lw(4); rr(WIN.x0, WIN.y0, WIN.x1 - WIN.x0, WIN.y1 - WIN.y0, 10); ctx.stroke();
+  // the panel: solid, or x-rayed in bands
+  panelLayers(t).forEach(([y0, y1, kind]) => {
+    if (y1 <= y0) return;
+    ctx.save(); ctx.beginPath(); ctx.rect(120, y0, 140, y1 - y0); ctx.clip(); drawPanel(t, K, kind); ctx.restore();
+  });
+  const PL = panelLayers(t); if (PL.length > 1) { const y = PL[0][1]; ctx.fillStyle = `rgba(${ACC},0.18)`; ctx.fillRect(122, y - 3, 126, 6); ctx.fillStyle = C.acc; ctx.fillRect(122, y - 0.5, 126, 1); }
+  drawGuide(t, K);
+  ctx.restore();
+}
+function drawFinger(t, K) {                                         // a fingertip presses 开始
+  const tt = T.tap2, th = T.hand2;
+  const app = E.p3out(prog(t, th, tt - 0.04)), back = E.p2io(prog(t, tt + 0.25, tt + 0.8)), press = t >= tt - 0.04 && t < tt + 0.18 ? 2.2 * Math.sin(Math.PI * prog(t, tt - 0.04, tt + 0.18)) : 0;
+  const k = app * (1 - back); if (k <= 0.001) return;
+  const dir = [-0.55, -0.83], off = 150 * (1 - k) - press, tip = [(BTN.x0 + BTN.x1) / 2 + 4 - dir[0] * off, (BTN.y0 + BTN.y1) / 2 + 4 - dir[1] * off];
+  setT(K, tip); ctx.save(); ctx.rotate(Math.atan2(dir[1], dir[0])); ctx.scale(2.4, 2.4);
+  ctx.fillStyle = "#E3DDD2"; ctx.strokeStyle = C.ink; ctx.lineWidth = Math.max(0.12, 5 / (K.Z * S0 * 2.4)); ctx.lineJoin = "round";
+  ctx.beginPath(); ctx.moveTo(0, -0.2); ctx.bezierCurveTo(0.2, -4.6, -4.5, -5.4, -8.5, -5.1); ctx.lineTo(-60, -5.6); ctx.lineTo(-60, 5.4); ctx.lineTo(-8.5, 5.0); ctx.bezierCurveTo(-4.5, 5.2, -0.2, 4.2, 0, -0.2); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#EDE7DC"; ctx.beginPath(); ctx.ellipse(-3.4, -2.2, 2.6, 1.7, 0.1, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+function ring(t, K, tt, p) {                                        // an orange ring that draws itself around a part
+  const c = toS(K, p);
+  ID(); ctx.save(); ctx.strokeStyle = C.acc; ctx.lineWidth = 7;
+  if (tt === "tap") { const u = prog(t, T.tap2, T.tap2 + 0.6); if (t < T.tap2 || u >= 1) { ctx.restore(); return; } ctx.globalAlpha = 1 - u; ctx.beginPath(); ctx.arc(c[0], c[1], lerp(20, 120, E.p3out(u)), 0, TAU); ctx.stroke(); }
+  else { const k = E.p3out(prog(t, T.ring, T.ring + 0.3)), fo = 1 - prog(t, T.dive1End - 0.3, T.dive1End + 0.2); if (t >= T.ring && fo > 0) { ctx.globalAlpha = fo; ctx.beginPath(); ctx.arc(c[0], c[1], Math.max(46, 30 * K.Z * S0), -Math.PI / 2, -Math.PI / 2 + TAU * k); ctx.stroke(); } }
+  ctx.restore();
+}
+// the microwave, followed from the tube to the rice
+function pulsePath(t) { const b = bowlAt(t), r = bowlW(b, [-26, -50]); return [ANT, [GUIDE.x0 - 2, ANT[1]], [-212, -6], r]; }
+function drawPulse(t, K) {
+  if (t < T.pulse || t >= T.flood + 0.1) return;
+  const P = pulsePath(t), L = pathLen(P), u = E.smooth(prog(t, T.pulse, T.pulseEnd)), head = u * L, tail = Math.max(0, head - 150);
+  setT(K); ctx.save(); ctx.strokeStyle = C.ink; ctx.lineWidth = Math.max(0.5, 5 / (K.Z * S0)); ctx.lineCap = "round"; ctx.lineJoin = "round";
+  if (head > 1) { wiggle(P, tail, head, 4.5, 13, TAU * 4 * t); ctx.stroke(); }
+  if (u >= 0.999 && t < T.dive2 + 0.4) {                            // arrived: the rice's outer layer lights up where it went in
+    const r = P[P.length - 1], k = E.p3out(prog(t, T.pulseEnd, T.pulseEnd + 0.4)) * (1 - prog(t, T.dive2, T.dive2 + 0.4));
+    ctx.fillStyle = `rgba(${ACC},${0.5 * k})`; ctx.beginPath(); ctx.arc(r[0], r[1], 5 + 4 * k, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawLight(t, K) {
+  const endFade = t >= T.end ? E.p2io(prog(t, T.end, T.endMorph)) : 0;
+  ID(); ctx.fillStyle = groundCol(t); ctx.fillRect(0, 0, W, H);
+  setT(K); drawOven(t, K, endFade);
+  if (endFade > 0) {                                                // the badge: the oven as an outline
+    const ppm = K.Z * S0; setT(K); ctx.save(); ctx.globalAlpha = endFade; ctx.strokeStyle = C.ink; ctx.lineWidth = 9 / ppm; ctx.lineJoin = "round";
+    rr(BODY.x0, BODY.y0, BODY.x1 - BODY.x0, BODY.y1 - BODY.y0, 20); ctx.stroke(); rr(WIN.x0, WIN.y0, WIN.x1 - WIN.x0, WIN.y1 - WIN.y0, 10); ctx.stroke();
+    line(124, BODY.y0 + 8, 124, BODY.y1 - 8); rr(DISP.x0, DISP.y0, DISP.x1 - DISP.x0, DISP.y1 - DISP.y0, 3); ctx.stroke(); ctx.restore();
+  }
+  // the guess is struck: an ink ✕ across the section, gone when the real picture is scanned back in
+  if (t >= T.strike && t < T.scan2End) {
+    const c = toS(K, bowlW(bowlAt(t), RC)), fo = 1 - prog(t, T.scan2, T.scan2End);
+    ID(); ctx.save(); ctx.globalAlpha = fo; ctx.strokeStyle = C.ink; ctx.lineCap = "round"; ctx.lineWidth = 28;
+    const k1 = E.p3out(prog(t, T.strike, T.strike + 0.1)), k2 = E.p3out(prog(t, T.strike + 0.125, T.strike + 0.225));
+    line(c[0] - 270, c[1] - 220, lerp(c[0] - 270, c[0] + 270, k1), lerp(c[1] - 220, c[1] + 220, k1));
+    if (k2 > 0) line(c[0] + 270, c[1] - 220, lerp(c[0] + 270, c[0] - 270, k2), lerp(c[1] - 220, c[1] + 220, k2));
+    ctx.restore();
+  }
+  ring(t, K, "plate", MICAC);
+  drawPulse(t, K);
+  drawFinger(t, K); ring(t, K, "tap", [(BTN.x0 + BTN.x1) / 2, (BTN.y0 + BTN.y1) / 2]);
+  ID();
+}
+
+// ---------------------------------------------------------------- the dark world: water molecules in the rice's outer layer
+const MOLS = (() => { const r = mulberry32(2026), out = [{ x: 0, y: 0, b: 0.35, w: 1.0, p: 0.3, p2: 1.1 }]; let n = 0;
+  while (out.length < 40 && n++ < 6000) { const x = -560 + 1120 * r(), y = -290 + 580 * r(); if (out.every((m) => Math.hypot(m.x - x, m.y - y) > 128)) out.push({ x, y, b: TAU * r(), w: 0.7 + 0.6 * r(), p: TAU * r(), p2: TAU * r() }); }
+  return out; })();
+const MCX = 540, MCY = 1120, SURF = 70;
+// the depth demo: the molecules stand in 8 columns of 5; the microwave comes in from the left (the rice's surface) and every
+// column it passes takes a bite — those molecules twist and warm, and the wave is that much smaller — so after a few columns
+// nothing is left and the middle never moves. The front crosses one column every 0.25 s (on the beat grid).
+const COLX = (c) => 120 + c * 120, COLY = (r) => 900 + r * 100, WY = 1100, BITE = 0.55, FRONT_V = 480;
+const frontX = (t) => SURF + FRONT_V * clamp(t - T.front, 0, T.frontEnd - T.front);
+const remain = (x) => { let n = 0; for (let c = 0; c < 8; c++) n += E.smooth(clamp((x - COLX(c) + 18) / 36)); return Math.pow(BITE, n); };
+function microZoom(t) {
+  if (t < T.h3 + 0.4) return 0.55 * Math.exp(Math.log(4.0 / 0.55) * prog(t, T.flood, T.h3 + 0.4));     // the same constant push
+  if (t < T.pullOut) return lerp(4.0, 4.3, E.sine(prog(t, T.h3 + 0.4, T.pullOut)));
+  if (t < T.pullOutEnd) return lerp(4.3, 1.15, E.p3io(prog(t, T.pullOut, T.pullOutEnd)));
+  if (t < T.depth) return lerp(1.15, 1.22, E.sine(prog(t, T.pullOutEnd, T.depth)));
+  if (t < T.climbA) return 1.22;
+  return lerp(1.22, 0.8, E.p3in(prog(t, T.climbA, T.unflood + 0.15)));
+}
+function drawMicro(t, a) {
+  if (a <= 0.002) return;
+  ID(); ctx.fillStyle = `rgba(23,25,28,${a})`; ctx.fillRect(0, 0, W, H);
+  ctx.save(); ctx.globalAlpha = a;
+  const zd = microZoom(t), dk = depthK(t), fk = fieldK(t), hk = heatK(t), Ef = field(t), one = oneK(t), xf = frontX(t);
+  // the depth view: air to the left of the rice's surface, and the microwave going in (behind the molecules)
+  if (dk > 0.01) {
+    ctx.fillStyle = `rgba(255,255,255,${0.06 * dk})`; ctx.fillRect(0, 850, SURF, 500);
+    ctx.strokeStyle = `rgba(241,240,236,${0.5 * dk})`; ctx.lineWidth = 4; ctx.setLineDash([16, 12]); line(SURF, 850, SURF, 1350); ctx.setLineDash([]);
+    if (t >= T.front - 0.4) {
+      const k = dk * E.p3out(prog(t, T.front - 0.4, T.front));
+      ctx.strokeStyle = `rgba(241,240,236,${0.95 * k})`; ctx.lineWidth = 11; ctx.lineCap = "round"; ctx.lineJoin = "round";
+      const x0 = -40 + 140 * (1 - E.p3out(prog(t, T.front - 0.4, T.front))), x1 = Math.max(x0 + 1, xf);
+      wavePath((x) => 150 * remain(x) * Math.min(1, (x1 - x) / 40) * Math.sin(TAU * (x / 170 - 2.8 * t)), x0, x1, WY, 300); ctx.stroke();
+      // its envelope: a staircase that steps down at every column
+      ctx.strokeStyle = `rgba(241,240,236,${0.35 * k})`; ctx.lineWidth = 3; ctx.setLineDash([10, 9]);
+      [1, -1].forEach((sg) => { wavePath((x) => -sg * 150 * remain(x), Math.max(SURF, x0), x1, WY, 200); ctx.stroke(); }); ctx.setLineDash([]);
+    }
+  }
+  // the field: vertical arrows that flip with the microwave (slowed); gone in the depth view
+  if (fk > 0.01 && dk < 0.99) {
+    for (let i = 0; i < 7; i++) {
+      const x = 105 + i * 145, L = 300 * fk * Ef * (1 - dk);
+      if (Math.abs(L) < 6) continue;
+      ctx.save(); ctx.globalAlpha = a * 0.75; arrowS(x, MCY + L, x, MCY - L, 9, "rgba(241,240,236,0.6)", 2.4); ctx.restore();
+    }
+  }
+  // the molecules
+  const gx = 34 * Math.sin(0.23 * t), gy = 14 * Math.cos(0.19 * t);
+  MOLS.forEach((m, i) => {
+    const mx = m.x + 26 * Math.sin(0.41 * t * m.w + m.p), my = m.y + 20 * Math.cos(0.33 * t * m.w + m.p2);
+    const c = i % 8, r = Math.floor(i / 8), wob = 6 * Math.sin(0.9 * t * m.w + m.p);
+    const sx = lerp(MCX + gx + mx * zd, COLX(c) + wob, dk), sy = lerp(MCY + gy + my * zd, COLY(r) + wob * 0.6, dk), z = lerp(zd, 1.0, dk);
+    if (sx < -160 || sx > W + 160 || sy < 560 || sy > 1760) return;
+    const hit = clamp((xf - COLX(c)) / 40) * Math.pow(BITE, c);         // the bite this column took (depth view)
+    const am = lerp(1, Math.sqrt(hit), dk), hh = lerp(hk, hit, dk);
+    const cb = Math.cos(m.b), twist = -1.05 * (dk > 0.5 ? 1 : fk) * Ef * am * (cb + 0.35 * Math.sign(cb || 1));
+    const th = m.b + twist + 0.24 * Math.sin(t * 1.7 * m.w + m.p) + 0.3 * hh * Math.sin(t * 11 * m.w + m.p2);
+    const jx = 8 * hh * Math.sin(t * 17 * m.w + m.p), jy = 8 * hh * Math.cos(t * 19 * m.w + m.p2);
+    const dim = i === 0 ? 1 : 1 - 0.7 * one;
+    drawMol(sx + jx * z, sy + jy * z, th, z, hh, dim, one * (i === 0 ? 1 : 0));
+  });
+  // the reach: a bracket over the columns that got anything, once the wave has died
+  if (dk > 0.01) {
+    const xe = 580, k = E.p3out(prog(t, T.front + (xe - SURF) / FRONT_V, T.front + (xe - SURF) / FRONT_V + 0.4));
+    if (k > 0) { ctx.strokeStyle = `rgba(255,74,28,${k * dk})`; ctx.lineWidth = 6; const yb = 812; line(SURF, yb, lerp(SURF, xe, k), yb); line(SURF, yb - 16, SURF, yb + 16); if (k > 0.98) line(xe, yb - 16, xe, yb + 16); }
+  }
+  ctx.restore();
+}
+function drawMol(x, y, th, z, heat, alpha, big) {
+  const rO = 30 * z, rH = 18 * z, d = 41 * z, ha = 0.912;
+  const h1 = [x + d * Math.cos(th - ha), y + d * Math.sin(th - ha)], h2 = [x + d * Math.cos(th + ha), y + d * Math.sin(th + ha)];
+  ctx.save(); ctx.globalAlpha *= alpha;
+  ctx.strokeStyle = "rgba(241,240,236,0.55)"; ctx.lineWidth = 6 * z; line(x, y, h1[0], h1[1]); line(x, y, h2[0], h2[1]);
+  ctx.fillStyle = mixHex(C.molH, "#FF8F6B", heat); [h1, h2].forEach((h) => { ctx.beginPath(); ctx.arc(h[0], h[1], rH, 0, TAU); ctx.fill(); });
+  ctx.fillStyle = mixHex(C.mol, C.acc, 0.92 * heat); ctx.beginPath(); ctx.arc(x, y, rO, 0, TAU); ctx.fill();
+  // the charges: − on the oxygen side, + on the hydrogens
+  const ca = 0.45 + 0.55 * big;
+  ctx.globalAlpha *= ca; ctx.fillStyle = C.ink; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.font = `700 ${Math.round(38 * z)}px ${UI}`; ctx.fillText("−", x - 8 * z * Math.cos(th), y - 8 * z * Math.sin(th) + 1);
+  ctx.font = `700 ${Math.round(28 * z)}px ${UI}`; [h1, h2].forEach((h) => ctx.fillText("+", h[0], h[1] + 1));
+  ctx.restore();
+}
+function microOverlays(t, a) {                                     // labels in the dark: few and short
+  if (a <= 0.01) return;
+  const o = { alpha: a };
+  label(COPY.field, 72, 762, 44, "rgba(241,240,236,0.8)", t, T.fieldOn + 0.3, T.depth, o);
+  label(COPY.slow, 1008, 762, 44, "rgba(241,240,236,0.55)", t, T.fieldOn + 0.5, T.depth, { align: "right", alpha: a, weight: 400 });
+  const tr = T.front + (580 - SURF) / FRONT_V;
+  label(COPY.depth, (SURF + 580) / 2, 784, 52, C.acc, t, tr + 0.2, T.climbA, { align: "center", alpha: a });
+  label(COPY.mid, 1008, 784, 48, "rgba(241,240,236,0.7)", t, tr + 0.4, T.climbA, { align: "right", alpha: a });
+}
+
+// ---------------------------------------------------------------- text
+function groundRGB(t) { const o = orangeK(t), g = hexRGB(C.ground), q = hexRGB(C.acc); return [0, 1, 2].map((i) => Math.round(lerp(g[i], q[i], o))).join(","); }
+function scrim(t) {                                    // a soft wash of the ground colour behind the text band
+  let col = null, a = 0;
+  const fl = flood(t);
+  if (t < T.flood + 0.2 || t >= T.unflood) { col = groundRGB(t); a = 0.86 * (1 - fl) * (t >= T.end ? 1 - prog(t, T.end, T.end + 0.3) : 1); }
+  if (fl > 0.02) { ID(); const g = ctx.createLinearGradient(0, 0, 0, 700); g.addColorStop(0, `rgba(23,25,28,${0.82 * fl})`); g.addColorStop(0.75, `rgba(23,25,28,${0.82 * fl})`); g.addColorStop(1, "rgba(23,25,28,0)"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, 700); }
+  if (a <= 0.01) return;
+  ID(); const g = ctx.createLinearGradient(0, 0, 0, 700);
+  g.addColorStop(0, `rgba(${col},${a})`); g.addColorStop(0.75, `rgba(${col},${a})`); g.addColorStop(1, `rgba(${col},0)`);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, 700);
+}
+function textBand(t) {
+  const L = C.ink, D = C.paper;
+  scrim(t);
+  // 1 the phenomenon — no noun
+  lines(COPY.h1, t, -1, T.h1Out + 0.16, { style: "none", col: L });
+  underline(COPY.h1[1], "中间怎么还是", "凉", 1, t, T.underline, T.h1Out + 0.16);
+  // 2 the wrong guess (on orange), struck
+  lines(COPY.q2, t, T.q2, T.a2, { style: "blur", col: L, acc: C.paper, exit: 0.001 });
+  lines(COPY.a2, t, T.a2, T.q3, { style: "slam", col: L, acc: C.paper, lineGap: 0.2 });
+  // 3 dig in
+  lines(COPY.q3, t, T.q3, T.a3, { style: "blur", col: L });
+  lines(COPY.a3, t, T.a3, T.q4, { style: "blur", col: L });
+  lines(COPY.q4, t, T.q4, T.flood, { style: "blur", col: L });
+  // 4 one mechanism, slowly (dark)
+  lines(COPY.h3, t, T.h3, T.q5, { style: "blur", col: D });
+  lines(COPY.q5, t, T.q5, T.push, { style: "blur", col: D });
+  lines(COPY.push, t, T.push, T.a5, { style: "blur", col: D, x: 72, maxW: 940, size: 92, lineGap: 0.5 });
+  lines(COPY.a5, t, T.a5, T.q6, { style: "blur", col: D });
+  lines(COPY.q6, t, T.q6, T.a6, { style: "blur", col: D });
+  lines(COPY.a6, t, T.a6, T.name, { style: "blur", col: D, size: 96 });
+  lines(COPY.name, t, T.name, T.q7, { style: "slam", col: D, ys: [318, 492], size: [96, 140], lineGap: 0.25 });
+  // 5 the missing step: the turntable
+  lines(COPY.q7, t, T.q7, T.a7, { style: "blur", col: L });
+  lines(COPY.a7, t, T.a7, T.a8, { style: "blur", col: L, size: 96, ys: [292, 412, 532], lineGap: 0.35 });
+  lines(COPY.a8, t, T.a8, T.climb + 0.3, { style: "blur", col: L });
+  // 6 back to the phenomenon: press start again; the water speaks; ding
+  lines(COPY.q9, t, T.q9, T.fin, { style: "blur", col: L });
+  lines(COPY.fin, t, T.fin, T.finOut, { style: "blur", col: L, lineGap: 0.25 });
+  // a small tip in the same place, after the last line
+  label(COPY.tipTag, 98, 282, 44, C.acc, t, T.tip, T.tipOut, { weight: 700 });
+  lines(COPY.tip, t, T.tip + 0.15, T.tipOut, { style: "blur", col: "rgba(20,20,20,0.85)", face: UI, weight: 400, size: 54, x: 98, ys: [362, 434, 506], lineGap: 0.3, stag: 0.02, maxW: 900 });
+}
+function endCard(t) {
+  if (t < T.title1) return;
+  lines(COPY.end, t, T.title1, DUR + 1, { style: "type", col: C.ink, ys: [905, 1045, 1185], size: 124, stag: 0.045, lineGap: 0.3 });
+  lines([COPY.epNum], t, T.ep, DUR + 1, { style: "slam", col: C.ink, x: 400, ys: [520], size: 150 });
+  lines([COPY.epName], t, T.ep + 0.25, DUR + 1, { style: "blur", col: C.ink, x: 404, ys: [668], size: 112 });
+  if (t >= T.sting) {
+    const K = cam(t), c = toS(K, [-60, 0]), sc = spring(t - T.sting, 16, 0.5);
+    ID(); ctx.save(); ctx.translate(c[0], c[1]); ctx.scale(sc, sc); ctx.font = `92px ${DISPLAY}`; ctx.fillStyle = C.acc; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("?", 2, 6); ctx.restore();
+  }
+}
+
+function frame(t) {
+  ctx.reset();                                     // no canvas state survives from the previous frame
+  ID();
+  const K = cam(t), fl = flood(t);
+  drawLight(t, K);
+  drawMicro(t, fl);
+  microOverlays(t, fl);
+  textBand(t);
+  endCard(t);
+}
+
+// ---------------------------------------------------------------- motion blur: temporal supersampling where things move fast
+const BLUR = [[0, 2.15], [2.0, 3.05], [5.0, 5.72], [10.75, 12.05], [12.75, 14.3], [17.0, 22.01], [37.7, 39.05], [42.5, 46.3], [46.5, 50.05], [56.5, 57.12], [58.0, 58.3]];
+const SUB = 6, SHUTTER = 0.5 / FPS;
+const CUTS = [];
+window.seek = function seek(t) {
+  t = clamp(t, 0, DUR - 1e-6);
+  const blur = BLUR.some(([a, b]) => t >= a && t < b);
+  if (!blur) { ctx = MAIN; frame(t); return; }
+  MAIN.reset();
+  for (let i = 0; i < SUB; i++) {
+    ctx = OFFX;
+    let ts = t + SHUTTER * (i / (SUB - 1) - 0.5);
+    for (const c of CUTS) { if (t >= c && ts < c) ts = c; if (t < c && ts >= c) ts = c - 1e-4; }
+    frame(clamp(ts, 0, DUR - 1e-6));
+    MAIN.setTransform(1, 0, 0, 1, 0, 0); MAIN.globalAlpha = 1 / (i + 1); MAIN.drawImage(OFF, 0, 0);
+  }
+  MAIN.globalAlpha = 1; ctx = MAIN;
+};
+window.DUR = DUR; window.FPS = FPS;
+window.addEventListener("hf-seek", (e) => window.seek(e.detail.time));
+window.ready = false;
+window.whenReady = Promise.all([
+  document.fonts.load(`100px ${DISPLAY}`, "微波炉热了两分钟"), document.fonts.load(`700 50px ${UI}`, "开始电场两三厘米"), document.fonts.load(`400 50px ${UI}`, "慢放热剩饭"),
+]).then(() => document.fonts.ready).then(() => { MEASURE.clear(); window.seek(0); window.ready = true; });
+</script>
+</body>
+</html>

@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1080">
+<title>EP.03 降噪耳机</title>
+<style>
+  @font-face { font-family: "Smiley"; src: url("assets/fonts/smiley.woff2") format("woff2"); }
+  @font-face { font-family: "NotoSC"; font-weight: 700; src: url("assets/fonts/noto-sc-bold.woff2") format("woff2"); }
+  @font-face { font-family: "NotoSC"; font-weight: 400; src: url("assets/fonts/noto-sc-regular.woff2") format("woff2"); }
+  html, body { margin: 0; background: #ECEBE6; }
+  #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="59.75" data-width="1080" data-height="1920">
+  <canvas id="c" width="1080" height="1920"></canvas>
+</div>
+<script src="timeline.js"></script>
+<script>
+"use strict";
+// ============================================================================================
+// EP.02 降噪耳机 — a pure function of time. window.seek(t) paints frame t.
+// One continuous space: a cross-section of an ear with an earbud in it, the subway to the left. One camera:
+// the whole → the earbud → the microphone in its shell → follow the signal → into the ear canal (dark) → split → back out.
+// No timers, no rAF, no CSS transitions, no state between frames (the context is reset every frame); seeded noise only.
+// World units are millimetres; y points down; the ear canal runs along y = 0 from its entrance (x = 0) to the eardrum.
+// ============================================================================================
+const { T, COPY, W, H, DUR, FPS, antiK, lag, residual, leakK, fixK, leftover, envK, envF, residualAll, cancelReal } = TL;
+const cv = document.getElementById("c");
+const MAIN = cv.getContext("2d");
+const OFF = document.createElement("canvas"); OFF.width = W; OFF.height = H;
+const OFFX = OFF.getContext("2d");
+let ctx = MAIN;
+
+const C = {
+  ground: "#ECEBE6", ink: "#141414", acc: "#FF4A1C", paper: "#F1F0EC",
+  body: "#1C1D20", bodyEdge: "#4A4D52", tip: "#5E6166",
+  skin: "#E3DDD2", skinDeep: "#D8D1C4", air: "#F2F1ED",
+  dark: "#17191C", canalDark: "#1F2226", line: "#6C737A", grey: "#8A847C",
+};
+const DISPLAY = "Smiley", UI = "NotoSC";
+
+// ---------------------------------------------------------------- math
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const TAU = Math.PI * 2;
+const E = {
+  sine: (x) => 0.5 - 0.5 * Math.cos(Math.PI * x),
+  p2io: (x) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2),
+  p3io: (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2),
+  p2in: (x) => x * x, p3in: (x) => x * x * x,
+  p3out: (x) => 1 - Math.pow(1 - x, 3), p4out: (x) => 1 - Math.pow(1 - x, 4),
+  smooth: (x) => x * x * (3 - 2 * x),
+};
+function spring(x, w = 15, z = 0.72) {
+  if (x <= 0) return 0;
+  if (z >= 1) return 1 - Math.exp(-w * x) * (1 + w * x);
+  const wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * x) * (Math.cos(wd * x) + ((z * w) / wd) * Math.sin(wd * x));
+}
+function slamScale(u) {                              // 0.17 s: 1.55 -> 0.94 -> 1.0
+  if (u <= 0) return 1.55;
+  if (u < 0.09) return lerp(1.55, 0.94, E.p2in(u / 0.09));
+  if (u < 0.17) return lerp(0.94, 1.0, E.p3out((u - 0.09) / 0.08));
+  return 1;
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const mixHex = (a, b, k) => { const p = (h, i) => parseInt(h.slice(1 + 2 * i, 3 + 2 * i), 16); return `rgb(${[0, 1, 2].map((i) => Math.round(lerp(p(a, i), p(b, i), k))).join(",")})`; };
+
+// ---------------------------------------------------------------- camera: similarity s = A·p + B (complex), log-spiral between keys
+const S0 = 14;                                       // px per mm at Z = 1 (the opening shot)
+const cmul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
+const cdiv = (a, b) => { const d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; };
+const cadd = (a, b) => [a[0] + b[0], a[1] + b[1]];
+const csub = (a, b) => [a[0] - b[0], a[1] - b[1]];
+const cpol = (r, th) => [r * Math.cos(th), r * Math.sin(th)];
+const RAD = Math.PI / 180;
+function key(F, anchor, Z, phiDeg = 0) { const A = cpol(Z * S0, phiDeg * RAD); return { A, B: csub(anchor, cmul(A, F)), Z, phi: phiDeg * RAD }; }
+function interp(k0, k1, u) {
+  const lr = Math.log(k1.Z / k0.Z), th = k1.phi - k0.phi;
+  const kk = cpol(Math.exp(lr), th), ku = cpol(Math.exp(lr * u), th * u);
+  const c = csub(k1.B, cmul(kk, k0.B)), omk = csub([1, 0], kk);
+  if (Math.hypot(omk[0], omk[1]) < 1e-9) return { A: k0.A, B: cadd(k0.B, [c[0] * u, c[1] * u]), Z: k0.Z, phi: k0.phi };
+  const ws = cdiv(c, omk);
+  return { A: cmul(ku, k0.A), B: cadd(cmul(ku, csub(k0.B, ws)), ws), Z: k0.Z * Math.exp(lr * u), phi: k0.phi + th * u };
+}
+const toS = (K, p) => cadd(cmul(K.A, p), K.B);
+function setT(K, o = [0, 0], u = 1) { const a = K.A[0] * u, b = K.A[1] * u, B = cadd(cmul(K.A, o), K.B); ctx.setTransform(a, b, -b, a, B[0], B[1]); }
+const ID = () => ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+// ---------------------------------------------------------------- the world (mm)
+const BUD = { cx: -8, cy: -2, rx: 8.5, ry: 7 };                  // earbud body
+const STEM = { x0: -14.5, x1: -9.5, y0: 2, y1: 26 };
+const NOZ = { x0: -1.5, x1: 6.5, r: 2.2 }, TIP = { x0: 0.6, x1: 7.2, r: 3.6 };
+const DRUM = 24;
+const WAVE_Y = -4;                                                 // the rumble arrives at the height of the microphone hole
+const PORT = [-16.15, WAVE_Y], OMIC = [-14.4, WAVE_Y], CHIP = [-9.5, -1], SPK = [-3, -1], IMIC = [1.4, -1.65];
+const TAP = [-14.7, 18];
+const EYE = [46, -34];
+const canalTop = (x) => -3.5 - 0.035 * x, canalBot = (x) => 3.5 + 0.035 * x;
+
+const KH = key([9, -8], [540, 1150], 0.75);                  // the whole: subway, a head with an earbud, the ear canal cut open
+const KM = key([5, 0], [540, 1240], 1.4);                    // pushed in on the ear for the guess
+const K1 = key([-15.8, -4.4], [540, 1080], 7.0);             // the microphone behind the hole
+const K1z = key([-15.8, -4.4], [540, 1080], 7.6);
+const KF = key([-6, -1], [540, 1080], 2.55);                 // the whole earbud: follow the signal
+const KC = key([15, 0], [540, 1000], 3.15);                  // inside the ear canal
+const KFix = key([1.2, -1], [540, 960], 2.85);               // the missing step: chip, speaker, inner microphone and canal in one view
+const KFix2 = key([0.8, -1], [540, 960], 3.0);               //   ... and a slow push while the loop runs
+const KH0 = key([12, -11], [540, 1150], 0.6);                // the opening starts wider and pushes in from frame 0
+const KMz = key([4, 0], [540, 1240], 1.66);                  // the guess: drifting in while it is asked and struck
+const KHe = key([10, -7], [540, 1150], 0.9);                 // the closing: pushing in on the cut-away (eye still in frame)
+const K7 = key([-7, 8], [205, 560], 0.75);                   // the end badge
+function cam(t) {
+  if (t < T.myth) return interp(KH0, KH, E.sine(prog(t, 0, T.myth)));                 // a slow push from frame 0
+  if (t < T.push1End) return interp(KH, KM, E.p2io(prog(t, T.myth, T.push1End)));
+  if (t < T.dive1) return interp(KM, KMz, E.sine(prog(t, T.push1End, T.dive1)));
+  if (t < T.dive1End) return interp(KMz, K1, E.p3io(prog(t, T.dive1, T.dive1End)));
+  if (t < T.follow) return interp(K1, K1z, E.sine(prog(t, T.dive1End, T.follow)));
+  if (t < T.dive2) return interp(K1z, KF, E.p3io(prog(t, T.follow, T.followEnd)));
+  if (t < T.dive2End) return interp(KF, KC, E.p3io(prog(t, T.dive2, T.dive2End)));
+  if (t < T.panR) {                                                                  // the canal: a slow drift along it the whole time
+    const u = E.sine(prog(t, T.dive2End, T.panR));
+    return key([lerp(13.6, 17.0, u), lerp(0.4, -0.4, u)], [540, 1000], lerp(3.0, 3.85, u));
+  }
+  if (t < T.panREnd) return interp(key([17.0, -0.4], [540, 1000], 3.85), KFix, E.p3io(prog(t, T.panR, T.panREnd)));
+  if (t < T.climb) return interp(KFix, KFix2, E.sine(prog(t, T.panREnd, T.climb)));
+  if (t < T.climbEnd) return interp(KFix2, KH, E.p3io(prog(t, T.climb, T.climbEnd)));
+  if (t < T.end) return interp(KH, KHe, E.sine(prog(t, T.climbEnd, T.end)));
+  return interp(KHe, K7, E.p3io(prog(t, T.end, T.endMorph)));
+}
+
+// ---------------------------------------------------------------- the sound, drawn (pure functions of x and t)
+// outside: the subway's rumble, jagged; inside the canal: music (smooth) + whatever noise is not cancelled
+const NZ = (() => { const r = mulberry32(2026); return Array.from({ length: 6 }, (_, i) => ({ k: TAU / (1.3 + 2.6 * r()), w: 2 + 7 * r(), p: TAU * r(), a: 1 / (1 + i * 0.55) })); })();
+function jag(x, t) { let s = 0; for (const c of NZ) s += c.a * Math.sin(c.k * x - c.w * t + c.p); return 0.62 * s; }
+const music = (x, t) => Math.sin(TAU * (x / 7.5 - 0.9 * t));
+// inside the canal, slowed down for the mechanism: one wave of ~9 mm, 1 Hz
+const LAMBDA = 7.5, F1 = 1.5;
+function Wv(u) { return (Math.sin(u) + 0.3 * Math.sin(2.13 * u + 1.1) + 0.16 * Math.sin(3.7 * u + 2.4)) / 1.25; }
+const AMP = 2.25;
+const noiseW = (x, t, sh = 0) => AMP * Wv(TAU * (x / LAMBDA - F1 * t + sh));
+function vibeK(t) { return E.smooth(prog(t, T.vibe, T.vibe + 0.6)); }
+const leakW = (x, t) => 0.3 * AMP * Wv(TAU * (x / (LAMBDA * 0.6) - 1.4 * F1 * t) + 1.3);     // what sneaks past a loose ear tip
+const noiseAll = (x, t) => envK(t) * noiseW(x, t) + leakK(t) * leakW(x, t);
+const antiW = (x, t) => -antiK(t) * envF(t) * noiseW(x, t, lag(t)) - fixK(t) * leakK(t) * leakW(x, t);
+const sumW = (x, t) => vibeK(t) * (noiseAll(x, t) + antiW(x, t));
+
+// ---------------------------------------------------------------- static geometry (seeded, built once)
+const DOTS = []; (function () { const r = mulberry32(77); while (DOTS.length < 190) { const x = 7.4 + r() * 16.2, y = -3.2 + r() * 6.4; DOTS.push([x, y, 0.1 + 0.08 * r()]); } })();
+const CORK = []; (function () { const r = mulberry32(5); for (let i = 0; i < 70; i++) CORK.push([0.5 + r() * 21, -3.2 + r() * 6.4, 0.12 + 0.25 * r()]); })();
+
+// ---------------------------------------------------------------- drawing helpers
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function line(x0, y0, x1, y1) { ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
+function arrowS(x0, y0, x1, y1, w, col, head = 2.6) {
+  ID();
+  const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy); if (L < 1) return;
+  const ux = dx / L, uy = dy / L, hl = Math.min(L * 0.6, w * head), hw = w * 1.45;
+  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = w; ctx.lineCap = "butt";
+  line(x0, y0, x1 - ux * hl * 0.9, y1 - uy * hl * 0.9);
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - ux * hl - uy * hw, y1 - uy * hl + ux * hw); ctx.lineTo(x1 - ux * hl + uy * hw, y1 - uy * hl - ux * hw); ctx.closePath(); ctx.fill();
+}
+const MEASURE = new Map();
+function mw(font, s) { const k = font + "|" + s; let v = MEASURE.get(k); if (v === undefined) { ctx.font = font; v = ctx.measureText(s).width; MEASURE.set(k, v); } return v; }
+function parse(str) { const out = []; let a = 0; for (const ch of str) { if (ch === "[") { a = 1; continue; } if (ch === "]") { a = 0; continue; } out.push({ ch, a }); } return out; }
+const plain = (str) => str.replace(/[\[\]]/g, "");
+function fitSize(str, size, maxW, face = DISPLAY, wt = "") { const f = `${wt} ${size}px ${face}`.trim(), w = mw(f, plain(str)); return w > maxW ? Math.floor(size * maxW / w) : size; }
+
+// Text band: style none | blur | grey | type | slam | wipe; left aligned at x.
+function lines(L, t, t0, t1, o = {}) {
+  if (t < t0 || t >= t1) return;
+  const x = o.x ?? 96, ys = o.ys ?? [330, 472], face = o.face ?? DISPLAY, wt = o.weight ?? "";
+  const col = o.col ?? C.ink, acc = o.acc ?? C.acc, style = o.style ?? "blur";
+  const stag = o.stag ?? 0.055, lineGap = o.lineGap ?? 0.16, exitDur = o.exit ?? 0.16, maxW = o.maxW ?? 870;
+  ID();
+  L.forEach((str, i) => {
+    const size = fitSize(str, Array.isArray(o.size) ? o.size[i] : (o.size ?? 112), maxW, face, wt);
+    const font = `${wt} ${size}px ${face}`.trim();
+    const chars = parse(str), ls = t0 + i * lineGap;
+    if (t < ls) return;
+    let pre = "";
+    ctx.save();
+    if (style === "slam") { const sc = slamScale(t - ls), cy = ys[i] - size * 0.35; ctx.translate(x, cy); ctx.scale(sc, sc); ctx.translate(-x, -cy); }
+    if (style === "wipe") { const wv = mw(font, plain(str)); ctx.beginPath(); ctx.rect(0, ys[i] - size * 1.2, x + wv * E.p3out(prog(t, ls, ls + 0.32)) + 4, size * 1.6); ctx.clip(); }
+    ctx.font = font; ctx.textBaseline = "alphabetic";
+    chars.forEach((c, j) => {
+      const cx = x + mw(font, pre); pre += c.ch;
+      const lt = t - (ls + j * stag);
+      let a = 1, blur = 0;
+      if (style === "blur") { const k = clamp(lt / 0.13); a = k; blur = 9 * (1 - k); }
+      else if (style === "grey") { a = lt < 0 ? 0.22 : 0.22 + 0.78 * clamp(lt / 0.1); }
+      else if (style === "type") { a = lt >= 0 ? 1 : 0; }
+      if (t > t1 - exitDur) { const e = clamp((t - (t1 - exitDur)) / exitDur); a *= 1 - e; blur = Math.max(blur, 10 * e); }
+      if (a <= 0.003) return;
+      ctx.globalAlpha = a; ctx.filter = blur > 0.3 ? `blur(${blur.toFixed(1)}px)` : "none";
+      ctx.fillStyle = c.a ? acc : col; ctx.fillText(c.ch, cx, ys[i]);
+    });
+    ctx.restore(); ctx.filter = "none"; ctx.globalAlpha = 1;
+  });
+}
+function label(str, x, y, size, col, t, t0, t1, o = {}) {
+  if (t < t0 || t >= t1) return;
+  ID(); const font = `${o.weight ?? 700} ${size}px ${o.face ?? UI}`; const wv = mw(font, str);
+  const k = E.p3out(prog(t, t0, t0 + 0.28)), e = prog(t, t1 - 0.15, t1);
+  ctx.save(); ctx.font = font; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  const left = o.align === "right" ? x - wv : o.align === "center" ? x - wv / 2 : x;
+  if (o.plate) { ctx.fillStyle = o.plate; ctx.globalAlpha = (1 - e) * k; rr(left - 16, y - size * 1.0, wv + 32, size * 1.34, 12); ctx.fill(); ctx.globalAlpha = 1; }
+  ctx.beginPath(); ctx.rect(left - 4, y - size * 1.2, (wv + 8) * k, size * 1.6); ctx.clip();
+  ctx.globalAlpha = 1 - e; if (e > 0) ctx.filter = `blur(${(8 * e).toFixed(1)}px)`;
+  ctx.fillStyle = col; ctx.fillText(str, left, y); ctx.restore(); ctx.filter = "none";
+}
+function underline(str, prefix, word, lineIdx, t, t0, t1, ys = [330, 472], size0 = 112) {
+  if (t < t0 || t >= t1) return;
+  const size = fitSize(str, size0, 870), f = `${size}px ${DISPLAY}`;
+  const x0 = 96 + mw(f, prefix), wv = mw(f, word), k = E.p3out(prog(t, t0, t0 + 0.3)), fo = 1 - prog(t, t1 - 0.16, t1);
+  ID(); ctx.globalAlpha = fo; ctx.fillStyle = C.acc; ctx.fillRect(x0 - 4, ys[lineIdx] + 20, (wv + 8) * k, 11); ctx.globalAlpha = 1;
+}
+function bubble(cx, top, str, t, t0, t1, fly) {    // a speech bubble: the part talks to the chip
+  if (t < t0 || t >= t1) return;                     // fly = [x, y]: on exit it shrinks back into the earbud, toward that point
+  const size = 80, font = `${size}px ${DISPLAY}`, wv = mw(font, str), w = wv + 64, h = size + 46;
+  let sc = spring(t - t0, 15, 0.55), e = prog(t, t1 - 0.2, t1), x = cx, y = top + h + 26;
+  if (fly) { const u = E.p3in(prog(t, t1 - 0.32, t1)); x = lerp(x, fly[0], u); y = lerp(y, fly[1], u); sc *= 1 - 0.88 * u; e = prog(t, t1 - 0.08, t1); }
+  const off = clamp(cx, 30 + w / 2, W - 30 - w / 2) - cx;          // keep the box on screen; the tail still points at the part
+  ID(); ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc); ctx.globalAlpha = 1 - e;
+  ctx.fillStyle = C.acc; rr(-w / 2 + off, -h - 26, w, h, 24); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-22, -27); ctx.lineTo(22, -27); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
+  ctx.font = font; ctx.fillStyle = C.ink; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.fillText(str, off, -26 - h / 2 + size * 0.36);
+  ctx.restore();
+}
+// a wave drawn along y = y0 between x0 and x1 (world mm), f(x) = vertical offset (mm)
+function wavePath(f, x0, x1, y0 = 0, n = 140) { ctx.beginPath(); for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * (i / n), y = y0 + f(x); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } }
+
+// ---------------------------------------------------------------- shapes
+function budPath() {                                  // body + nozzle + stem as one outline
+  const p = new Path2D();
+  p.ellipse(BUD.cx, BUD.cy, BUD.rx, BUD.ry, 0, 0, TAU);
+  p.roundRect(NOZ.x0, -NOZ.r, NOZ.x1 - NOZ.x0, 2 * NOZ.r, 0.8);
+  p.roundRect(STEM.x0, STEM.y0, STEM.x1 - STEM.x0, STEM.y1 - STEM.y0, 2.6);
+  return p;
+}
+const BUDP = budPath();
+function tipPath() { const p = new Path2D(); p.roundRect(TIP.x0, -TIP.r, TIP.x1 - TIP.x0, 2 * TIP.r, [0.6, 3.2, 3.2, 0.6]); return p; }
+const TIPP = tipPath();
+function canalPath() {
+  const p = new Path2D(); p.moveTo(-0.4, canalTop(0)); for (let x = 0; x <= DRUM; x += 1) p.lineTo(x, canalTop(x));
+  p.lineTo(DRUM, canalBot(DRUM)); for (let x = DRUM; x >= 0; x -= 1) p.lineTo(x, canalBot(x)); p.lineTo(-0.4, canalBot(0)); p.closePath(); return p;
+}
+const CANALP = canalPath();
+function headPath() {                                 // a head seen from the front (its left half), the neck behind it
+  const p = new Path2D();
+  p.moveTo(80, -133);
+  p.bezierCurveTo(42, -133, 9, -112, 4.5, -64);        // skull down to the temple
+  p.bezierCurveTo(3, -46, 3, -32, 3, -22);
+  p.lineTo(3, 26);
+  p.bezierCurveTo(4, 46, 15, 70, 34, 86);              // jaw
+  p.bezierCurveTo(48, 97, 63, 103, 80, 103);           // chin
+  p.lineTo(170, 103); p.lineTo(170, -133); p.closePath();
+  return p;
+}
+function hairPath() {
+  const p = new Path2D();
+  p.moveTo(3.6, -50); p.bezierCurveTo(3.5, -96, 34, -139, 80, -139); p.lineTo(170, -139); p.lineTo(170, -98);
+  p.bezierCurveTo(120, -100, 70, -104, 36, -88); p.bezierCurveTo(18, -80, 9, -68, 3.6, -50); p.closePath();
+  return p;
+}
+function pinnaPath() {                                // the ear seen from the front: a flap sticking out of the head
+  const p = new Path2D();
+  p.moveTo(3, -30);
+  p.bezierCurveTo(-5, -37, -15, -32, -16.5, -17);
+  p.bezierCurveTo(-18, -4, -16, 12, -11.5, 22);
+  p.bezierCurveTo(-8, 30, -1, 31, 3, 26);
+  p.closePath();
+  return p;
+}
+const CUT = { x0: -0.6, x1: 42, y0: -15, y1: 15 };              // the cut-away window into the side of the head
+const NECKP = (() => { const p = new Path2D(); p.moveTo(38, 84); p.lineTo(42, 170); p.lineTo(130, 170); p.lineTo(126, 84); p.closePath(); return p; })();
+const HEADP = headPath(), HAIRP = hairPath(), PINNAP = pinnaPath();
+
+
+// ---------------------------------------------------------------- the light world
+function drawTrain(t, ppm) {                          // the subway, front view, rumbling
+  const r = mulberry32(Math.floor(t * 30) + 1), jx = (r() - 0.5) * 0.9, jy = (r() - 0.5) * 0.9;
+  const lw = Math.max(0.14, 5 / ppm);
+  ctx.save(); ctx.translate(jx, jy); ctx.strokeStyle = C.ink; ctx.lineWidth = lw; ctx.lineJoin = "round";
+  ctx.fillStyle = "#CFCBC2"; rr(-42, -30, 15, 38, [5, 5, 1.5, 1.5]); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#3A3C40"; rr(-40.3, -25.5, 11.6, 11, 1.6); ctx.fill();
+  ctx.fillStyle = "#F1F0EC"; rr(-39, -28.6, 9, 2, 0.8); ctx.fill();
+  ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(-38.6, -6, 1.3, 0, TAU); ctx.arc(-30.4, -6, 1.3, 0, TAU); ctx.fill();
+  ctx.fillRect(-40, 8, 3, 2.6); ctx.fillRect(-32, 8, 3, 2.6);
+  ctx.restore();
+  ctx.strokeStyle = C.ink; ctx.lineWidth = lw; line(-48, 11.2, -21, 11.2);
+}
+// the rumble filling the air: one pressure front leaves the train on every beat and spreads out (behind the train and the
+// head). It keeps coming after the tap — outside stays loud; only the ear canal goes quiet. Faded out in the close-ups.
+const FRONT = { c: [-34.5, -11], sp: 14, n: 9, w: 2.4 };
+function drawFronts(t, K) {
+  const fk = clamp((3.0 - K.Z) / 0.8);
+  if (fk <= 0) return;
+  const R = FRONT.sp * FRONT.n;
+  ctx.save(); ctx.lineWidth = FRONT.w;
+  for (let i = 0; i < FRONT.n; i++) {
+    const r = (t * 2 * FRONT.sp + i * FRONT.sp) % R, u = r / R;
+    const a = fk * 0.12 * clamp(r / 8) * (1 - u) ** 0.6;
+    if (a <= 0.002) continue;
+    ctx.strokeStyle = `rgba(20,20,20,${a.toFixed(4)})`;
+    ctx.beginPath(); ctx.arc(FRONT.c[0], FRONT.c[1], Math.max(0.1, r), 0, TAU); ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawOutside(t, K, myth) {                    // the rumble outside, on its way to the ear
+  const ppm = K.Z * S0;
+  const xL = -26.6, xR = PORT[0] - 0.1, amp = 3.2 * clamp(1.4 / K.Z, 0.25, 1);
+  ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.strokeStyle = C.grey; ctx.lineWidth = Math.max(0.16, 6 / ppm);
+  wavePath((x) => amp * jag(x, t), xL, xR, WAVE_Y); ctx.stroke();
+  if (myth > 0) {                                     // the wrong picture: it all bounces back
+    ctx.globalAlpha = myth; ctx.strokeStyle = C.ink; ctx.setLineDash([1.2, 0.9]); ctx.lineWidth = Math.max(0.14, 4 / ppm);
+    wavePath((x) => 1.1 * jag(-x, t), xL + 2, xR - 0.5, WAVE_Y - 6); ctx.stroke(); ctx.setLineDash([]);
+    ctx.restore(); ctx.save();
+    const a = toS(K, [xR - 1, WAVE_Y - 10]), b = toS(K, [xL + 6, WAVE_Y - 10]); ctx.globalAlpha = myth; arrowS(a[0], a[1], b[0], b[1], 7, C.ink, 3); setT(K);
+  }
+  ctx.restore();
+}
+function drawHead(t, K, fade) {
+  const ppm = K.Z * S0, lw = Math.max(0.16, 6 / ppm);
+  ctx.save(); ctx.globalAlpha = 1 - fade; ctx.lineJoin = "round"; ctx.lineCap = "round";
+  ctx.strokeStyle = C.ink; ctx.lineWidth = lw;
+  ctx.fillStyle = C.skinDeep; ctx.fill(NECKP); ctx.stroke(NECKP);
+  ctx.fillStyle = C.skin; ctx.fill(HEADP); ctx.stroke(HEADP);
+  ctx.fillStyle = "#CFC6B6"; ctx.fill(HAIRP); ctx.stroke(HAIRP);
+  // one eye: squeezed shut by the rumble, relaxed once it is gone
+  const calm = cancelReal(t), [ex, ey] = EYE, uneasy = false;
+  ctx.lineWidth = Math.max(0.2, 7 / ppm);
+  if (uneasy) {                                         // a little uncomfortable: flat eye, brow pulled down
+    ctx.beginPath(); ctx.moveTo(ex - 7.5, ey + 0.5); ctx.lineTo(ex + 5.5, ey - 0.5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ex - 9, ey - 11); ctx.lineTo(ex + 6, ey - 7.5); ctx.stroke();
+  } else if (calm < 0.5) {
+    const k = 1 - calm * 2;
+    ctx.beginPath(); ctx.moveTo(ex - 7, ey - 3.2 * k); ctx.lineTo(ex + 1, ey); ctx.lineTo(ex - 7, ey + 3.2 * k); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ex - 9, ey - 10); ctx.lineTo(ex + 6, ey - 7 - 2.5 * k); ctx.stroke();
+  } else {
+    const k = (calm - 0.5) * 2;
+    ctx.beginPath(); ctx.moveTo(ex - 8, ey); ctx.quadraticCurveTo(ex - 1, ey + 5 * k, ex + 6, ey); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ex - 9, ey - 10); ctx.quadraticCurveTo(ex - 1, ey - 13, ex + 7, ey - 9.5); ctx.stroke();
+  }
+  ctx.lineWidth = lw;
+  ctx.fillStyle = C.skin; ctx.fill(PINNAP); ctx.stroke(PINNAP);
+  ctx.beginPath(); ctx.moveTo(-1.5, -27); ctx.bezierCurveTo(-9, -24, -12, -14, -11.5, -4); ctx.stroke();           // the rim inside the ear
+  // the side of the head cut open around the ear canal
+  ctx.fillStyle = C.skinDeep; rr(CUT.x0, CUT.y0, CUT.x1 - CUT.x0, CUT.y1 - CUT.y0, 3); ctx.fill();
+  ctx.setLineDash([Math.max(0.5, 14 / ppm), Math.max(0.35, 10 / ppm)]); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = "#CBC2B2"; rr(DRUM + 0.4, -6.2, 6.5, 12.4, 2.4); ctx.fill();
+  ctx.strokeStyle = "rgba(20,20,20,0.55)"; ctx.lineWidth = Math.max(0.1, 3 / ppm);
+  ctx.beginPath(); ctx.moveTo(DRUM + 0.8, -1); ctx.quadraticCurveTo(DRUM + 2.6, -3.4, DRUM + 3.6, -1.8); ctx.lineTo(DRUM + 5.2, -0.6); ctx.stroke();
+  ctx.beginPath(); ctx.arc(DRUM + 5.9, -0.2, 0.8, 0, TAU); ctx.stroke();
+  ctx.beginPath(); for (let i = 0; i <= 90; i++) { const a = i / 90 * 3.2 * TAU, r = 4.4 * Math.exp(-0.16 * a); const x = DRUM + 12 + r * Math.cos(a), y = 0.5 + r * Math.sin(a); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke();
+  ctx.restore();
+}
+function drumBulge(t, light) { return light ? 0.42 * canalLight(DRUM, t) : 0.5 * sumW(DRUM, t); }
+function canalLight(x, t) {                            // what is in the canal in the real world: music + the noise not cancelled
+  const c = cancelReal(t);
+  return 0.95 * music(x, t) + (1 - c) * 1.6 * jag(x * 1.3 + 3, t * 1.1);
+}
+function drawCanal(t, K, kind, fade) {
+  const ppm = K.Z * S0;
+  ctx.save(); ctx.globalAlpha = 1 - fade;
+  ctx.fillStyle = C.air; ctx.fill(CANALP);
+  ctx.save(); ctx.clip(CANALP);
+  if (kind === "toy") {                                // the wrong picture: the whole canal stuffed with a plug
+    ctx.fillStyle = "#E7DDCB"; ctx.fillRect(-1, -5, 23, 10);
+    ctx.strokeStyle = "rgba(20,20,20,0.5)"; ctx.lineWidth = Math.max(0.08, 2.4 / ppm);
+    for (let x = -6; x < 24; x += 1.1) line(x, 5, x + 5, -5);
+    ctx.fillStyle = "rgba(20,20,20,0.55)"; CORK.forEach(([x, y, r]) => { ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); });
+    ctx.strokeStyle = C.ink; ctx.lineWidth = Math.max(0.12, 4 / ppm); line(22, -5, 22, 5);
+  } else {
+    ctx.strokeStyle = C.ink; ctx.lineWidth = Math.max(0.14, 8 / ppm); ctx.lineCap = "round"; ctx.lineJoin = "round";
+    wavePath((x) => canalLight(x, t), TIP.x1 + 0.2, DRUM - 0.3); ctx.stroke();
+    // the closing: the reversed wave, in orange, while the earbud cancels
+    if (t >= T.tap2 && t < T.quiet + 0.4) {
+      const c = cancelReal(t), fo = 1 - prog(t, T.quiet, T.quiet + 0.4);
+      ctx.globalAlpha = (1 - fade) * fo * clamp(c * 3); ctx.strokeStyle = C.acc; ctx.lineWidth = Math.max(0.14, 7 / ppm);
+      wavePath((x) => -c * 1.6 * jag(x * 1.3 + 3, t * 1.1) * (1 - 0.3 * c), TIP.x1 + 0.2, DRUM - 0.3); ctx.stroke(); ctx.globalAlpha = 1 - fade;
+    }
+  }
+  ctx.restore();
+  // walls and the eardrum
+  ctx.strokeStyle = C.ink; ctx.lineWidth = Math.max(0.14, 5 / ppm); ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(0, canalTop(0)); for (let x = 1; x <= DRUM; x++) ctx.lineTo(x, canalTop(x)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, canalBot(0)); for (let x = 1; x <= DRUM; x++) ctx.lineTo(x, canalBot(x)); ctx.stroke();
+  const b = kind === "toy" ? 0 : drumBulge(t, true);
+  ctx.strokeStyle = C.acc; ctx.lineWidth = Math.max(0.16, 6 / ppm);
+  ctx.beginPath(); ctx.moveTo(DRUM, canalTop(DRUM)); ctx.quadraticCurveTo(DRUM + 1.2 + b, 0, DRUM, canalBot(DRUM)); ctx.stroke();
+  ctx.restore();
+}
+function drawBudSolid(t, K, fade) {
+  const ppm = K.Z * S0;
+  ctx.save(); ctx.globalAlpha = 1 - fade;
+  ctx.fillStyle = C.tip; ctx.fill(TIPP);
+  ctx.save(); ctx.shadowColor = `rgba(20,20,20,${0.22 * (1 - fade)})`; ctx.shadowBlur = 0.9 * ppm; ctx.shadowOffsetY = 0.5 * ppm;
+  ctx.fillStyle = C.body; ctx.fill(BUDP); ctx.restore();
+  ctx.strokeStyle = C.bodyEdge; ctx.lineWidth = Math.max(0.08, 2 / ppm); ctx.stroke(BUDP);
+  ctx.fillStyle = "#3A3D42"; rr(PORT[0] - 0.1, PORT[1] - 0.9, 0.7, 1.8, 0.3); ctx.fill();          // the hole in the shell
+  ctx.fillStyle = "#2A2C30"; rr(STEM.x0 + 1.2, 14, STEM.x1 - STEM.x0 - 2.4, 8, 1.2); ctx.fill();   // the touch area
+  ctx.restore();
+}
+function drawBudReal(t, K) {                          // x-ray: what is inside the earbud
+  const ppm = K.Z * S0, lw = Math.max(0.05, 1.8 / ppm);
+  ctx.save();
+  ctx.fillStyle = "#C9CBC6"; ctx.fill(TIPP); ctx.strokeStyle = C.ink; ctx.lineWidth = lw; ctx.stroke(TIPP);
+  ctx.fillStyle = "#E4E4DE"; ctx.fill(BUDP);
+  ctx.strokeStyle = C.body; ctx.lineWidth = 0.5; ctx.stroke(BUDP);                                     // the shell
+  ctx.fillStyle = C.air; rr(NOZ.x0 + 0.4, -NOZ.r + 0.5, NOZ.x1 - NOZ.x0, 2 * NOZ.r - 1, 0.4); ctx.fill();   // the sound tube
+  ctx.strokeStyle = C.ink; ctx.lineWidth = lw; ctx.setLineDash([0.25, 0.2]); line(NOZ.x1 - 0.1, -NOZ.r + 0.4, NOZ.x1 - 0.1, NOZ.r - 0.4); ctx.setLineDash([]);
+  // flex circuit: mic → chip → speaker
+  ctx.strokeStyle = "#B49A6A"; ctx.lineWidth = 0.4; ctx.lineJoin = "round"; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(OMIC[0], OMIC[1]); ctx.lineTo(-12, -3); ctx.lineTo(CHIP[0], CHIP[1]); ctx.lineTo(-6.4, -1.2); ctx.lineTo(SPK[0] - 1.2, SPK[1]); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(SPK[0] + 0.5, -4.2); ctx.lineTo(IMIC[0], -3.2); ctx.lineTo(IMIC[0], IMIC[1]); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(CHIP[0], CHIP[1]); ctx.lineTo(-12, 6); ctx.stroke();
+  // battery in the stem
+  ctx.fillStyle = "#C8CCC9"; rr(-13.7, 8.5, 3.4, 15, 1.2); ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = lw; ctx.stroke();
+  ctx.fillStyle = "#9EA3A1"; ctx.fillRect(-12.7, 7.9, 1.4, 0.7);
+  // outer microphone (behind the hole), chip, speaker, inner microphone
+  ctx.fillStyle = "#B9BDB8"; rr(OMIC[0] - 1.3, OMIC[1] - 1.75, 2.65, 3.5, 0.25); ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = lw; ctx.stroke();
+  ctx.fillStyle = "#8C9090"; ctx.fillRect(OMIC[0] - 1.3, OMIC[1] - 0.45, 0.5, 0.9);
+  ctx.fillStyle = C.ground; ctx.fillRect(PORT[0] - 0.45, PORT[1] - 0.45, 1.0, 0.9);                    // the hole through the shell
+  ctx.strokeStyle = C.ink; ctx.lineWidth = Math.max(0.03, 1.2 / ppm); for (let i = 0; i < 4; i++) line(PORT[0] - 0.35 + i * 0.22, PORT[1] - 0.45, PORT[0] - 0.35 + i * 0.22, PORT[1] + 0.45);
+  ctx.fillStyle = "#151516"; rr(CHIP[0] - 2, CHIP[1] - 2, 4, 4, 0.2); ctx.fill();
+  ctx.fillStyle = "#3A3A3D"; ctx.fillRect(CHIP[0] - 1.4, CHIP[1] - 0.8, 2.2, 0.3); ctx.fillRect(CHIP[0] - 1.4, CHIP[1] - 0.1, 1.6, 0.3);
+  ctx.fillStyle = "#2A2C2F"; rr(-4.7, -3.7, 1.4, 5.4, 0.3); ctx.fill();                                // magnet
+  ctx.strokeStyle = "#8D9195"; ctx.lineWidth = 0.3; rr(-5.1, -5.7, 3.6, 9.4, 0.6); ctx.stroke();        // frame
+  ctx.strokeStyle = C.ink; ctx.lineWidth = Math.max(0.12, 0.28);
+  const dk = (t >= T.pulseEnd - 0.05 && t < T.dive2 + 0.4) ? 0.35 * Math.sin(TAU * 4 * (t - T.pulseEnd)) : 0;
+  ctx.beginPath(); ctx.moveTo(-2.1, -5.3); ctx.quadraticCurveTo(-0.7 + dk, -1, -2.1, 3.3); ctx.stroke();  // diaphragm
+  ctx.fillStyle = "#B9BDB8"; rr(IMIC[0] - 0.9, IMIC[1] - 0.45, 1.8, 0.9, 0.15); ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = lw; ctx.stroke();
+  ctx.strokeStyle = C.ink; ctx.lineWidth = lw; ctx.stroke(BUDP);
+  ctx.restore();
+}
+// scan layers: solid | toy (the canal stuffed) | real (x-ray); bands in world y
+const Y0 = -12, Y1 = 29;
+function layers(t) {
+  const S = (a, b) => lerp(Y0, Y1, E.p2io(prog(t, a, b)));
+  if (t < T.scan1) return [[Y0, Y1, "solid"]];
+  if (t < T.scan1End) { const y = S(T.scan1, T.scan1End); return [[Y0, y, "toy"], [y, Y1, "solid"]]; }
+  if (t < T.scan2) return [[Y0, Y1, "toy"]];
+  if (t < T.scan2End) { const y = S(T.scan2, T.scan2End); return [[Y0, y, "real"], [y, Y1, "toy"]]; }
+  if (t < T.cover) return [[Y0, Y1, "real"]];
+  if (t < T.climbEnd) { const y = S(T.cover, T.climbEnd); return [[Y0, y, "solid"], [y, Y1, "real"]]; }
+  return [[Y0, Y1, "solid"]];
+}
+const sweeping = (t) => (t >= T.scan1 && t < T.scan1End) || (t >= T.scan2 && t < T.scan2End) || (t >= T.cover && t < T.climbEnd);
+function drawEarbudAndCanal(t, K, fade) {
+  const Ls = layers(t);
+  Ls.forEach(([lo, hi, kind]) => {
+    if (hi <= lo) return;
+    ctx.save(); setT(K); ctx.beginPath(); ctx.rect(-40, lo, 80, hi - lo); ctx.clip();
+    drawCanal(t, K, kind, fade);
+    if (kind === "real") drawBudReal(t, K); else drawBudSolid(t, K, fade);
+    ctx.restore();
+  });
+  if (sweeping(t) && Ls.length > 1) {
+    setT(K); const y = Ls[0][1];
+    ctx.fillStyle = "rgba(255,74,28,0.16)"; ctx.fillRect(-24, y - 1.2, 52, 2.4); ctx.fillStyle = C.acc; ctx.fillRect(-24, y - 0.12, 52, 0.24);
+  }
+}
+function drawFinger(t, K) {                            // a fingertip taps the stem
+  const one = (th, tt) => {
+    const app = E.p3out(prog(t, th, tt - 0.04)), back = E.p2io(prog(t, tt + 0.22, tt + 0.75)), press = t >= tt - 0.04 && t < tt + 0.18 ? 0.45 * Math.sin(Math.PI * prog(t, tt - 0.04, tt + 0.18)) : 0;
+    const k = app * (1 - back); if (k <= 0.001) return;
+    const dir = [0.93, -0.36], off = 28 * (1 - k) - press;
+    const tip = [TAP[0] - 0.2 - dir[0] * off, TAP[1] - dir[1] * off];
+    setT(K, tip); ctx.save(); ctx.rotate(Math.atan2(dir[1], dir[0]));
+    ctx.fillStyle = C.skin; ctx.strokeStyle = C.ink; ctx.lineWidth = Math.max(0.12, 5 / (K.Z * S0)); ctx.lineJoin = "round";
+    ctx.beginPath(); ctx.moveTo(0, -0.2); ctx.bezierCurveTo(0.2, -4.6, -4.5, -5.4, -8.5, -5.1); ctx.lineTo(-48, -5.6); ctx.lineTo(-48, 5.4); ctx.lineTo(-8.5, 5.0); ctx.bezierCurveTo(-4.5, 5.2, -0.2, 4.2, 0, -0.2); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#EDE7DC"; ctx.beginPath(); ctx.ellipse(-3.4, -2.2, 2.6, 1.7, 0.1, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.restore(); setT(K);
+  };
+  one(T.hand, T.tap1); one(T.hand2, T.tap2);
+}
+function tapRing(t, K, tt) {
+  if (t < tt || t > tt + 0.6) return;
+  const u = prog(t, tt, tt + 0.6), c = toS(K, [TAP[0] + 2.6, TAP[1]]), r = lerp(20, 120, E.p3out(u));
+  ID(); ctx.save(); ctx.globalAlpha = 1 - u; ctx.strokeStyle = C.acc; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(c[0], c[1], r, 0, TAU); ctx.stroke(); ctx.restore();
+}
+const orangeK = (t) => E.p2io(prog(t, T.myth, T.myth + 0.3)) * (1 - E.p2io(prog(t, T.unOrange, T.unOrange + 0.3)));
+function groundCol(t) { const o = orangeK(t); return o > 0 ? mixHex(C.ground, C.acc, o) : C.ground; }
+function flood(t) {
+  if (t < T.flood) return 0;
+  if (t < T.floodEnd) return E.p2io(prog(t, T.flood, T.floodEnd));
+  if (t < T.unflood) return 1;
+  return 1 - E.p2io(prog(t, T.unflood, T.unflood + 0.15));
+}
+
+function drawLight(t, K) {
+  const ppm = K.Z * S0;
+  const endFade = t >= T.end ? E.p2io(prog(t, T.end, T.endMorph)) : 0;
+  ID(); ctx.fillStyle = groundCol(t); ctx.fillRect(0, 0, W, H);
+  setT(K);
+  ctx.save(); ctx.globalAlpha = 1 - endFade;
+  drawFronts(t, K);
+  drawTrain(t, ppm);
+  const mythK = t >= T.scan1 && t < T.scan2End ? clamp(prog(t, T.scan1, T.scan1End) * 1.5) * (1 - prog(t, T.scan2, T.scan2End)) : 0;
+  drawOutside(t, K, mythK);
+  ctx.restore();
+  setT(K); drawHead(t, K, endFade);
+  setT(K); drawEarbudAndCanal(t, K, endFade);
+  if (endFade > 0) { setT(K); ctx.strokeStyle = C.ink; ctx.globalAlpha = endFade; ctx.lineWidth = 9 / ppm; ctx.stroke(BUDP); ctx.stroke(TIPP); ctx.globalAlpha = 1; }
+  // the guess is struck: an ink ✕ across the stuffed canal, gone when the real inside is scanned in
+  if (t >= T.strike && t < T.scan2End) {
+    const c = toS(K, [4, 0]), fo = 1 - prog(t, T.scan2, T.scan2End);
+    ID(); ctx.save(); ctx.globalAlpha = fo; ctx.strokeStyle = C.ink; ctx.lineCap = "round"; ctx.lineWidth = 28;
+    const k1 = E.p3out(prog(t, T.strike, T.strike + 0.1)), k2 = E.p3out(prog(t, T.strike + 0.125, T.strike + 0.225));
+    line(c[0] - 270, c[1] - 220, lerp(c[0] - 270, c[0] + 270, k1), lerp(c[1] - 220, c[1] + 220, k1));
+    if (k2 > 0) line(c[0] + 270, c[1] - 220, lerp(c[0] + 270, c[0] - 270, k2), lerp(c[1] - 220, c[1] + 220, k2));
+    ctx.restore();
+  }
+  // find the hole in the shell
+  if (t >= T.ring && t < T.seed + 0.25) {
+    const k = E.p3out(prog(t, T.ring, T.ring + 0.3)), fo = 1 - prog(t, T.seed - 0.1, T.seed + 0.2);
+    const c = toS(K, [PORT[0] + 0.6, PORT[1]]), r = Math.max(34, 2.2 * ppm) * (0.6 + 0.4 * k);
+    if (fo > 0) { ID(); ctx.globalAlpha = fo; ctx.strokeStyle = C.acc; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(c[0], c[1], r, -Math.PI / 2, -Math.PI / 2 + TAU * k); ctx.stroke(); ctx.globalAlpha = 1; }
+  }
+  // follow the signal: mic → chip → speaker
+  if (t >= T.pulse && t < T.dive2 + 0.5) {
+    const P = [OMIC, [-12, -3], CHIP, [-6.4, -1.2], [SPK[0] - 1.2, SPK[1]]];
+    const seg = P.slice(1).map((p, i) => Math.hypot(p[0] - P[i][0], p[1] - P[i][1])), L = seg.reduce((a, b) => a + b, 0);
+    const at = (s) => { let d = s * L; for (let i = 0; i < seg.length; i++) { if (d <= seg[i]) { const u = d / seg[i]; return [lerp(P[i][0], P[i + 1][0], u), lerp(P[i][1], P[i + 1][1], u)]; } d -= seg[i]; } return P[P.length - 1]; };
+    const u = E.smooth(prog(t, T.pulse, T.pulseEnd)), fo = 1 - prog(t, T.dive2, T.dive2 + 0.5);
+    setT(K); ctx.save(); ctx.globalAlpha = fo; ctx.strokeStyle = C.acc; ctx.lineWidth = 0.42; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.beginPath(); for (let i = 0; i <= 60; i++) { const p = at(u * i / 60); i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); } ctx.stroke();
+    const h = at(u); ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(h[0], h[1], 0.65, 0, TAU); ctx.fill();
+    if (t >= T.chipLbl) { ctx.strokeStyle = C.acc; ctx.lineWidth = 0.35; rr(CHIP[0] - 2.3, CHIP[1] - 2.3, 4.6, 4.6, 0.4); ctx.stroke(); }
+    if (u >= 0.999) { for (let i = 0; i < 3; i++) { const ph = ((t - T.pulseEnd) * 2.2 + i / 3) % 1; ctx.globalAlpha = fo * (1 - ph); ctx.beginPath(); ctx.arc(-1.3 + 7 * ph, -0.8, 1.6 + 0.4 * ph, -0.9, 0.9); ctx.stroke(); } }
+    ctx.restore();
+    // labels sit outside the earbud, on thin leader lines
+    const lead = (t0, a, b) => { if (t < t0) return; const k = E.p3out(prog(t, t0, t0 + 0.25)); const p = toS(K, a), q = toS(K, b); ID(); ctx.save(); ctx.globalAlpha = fo; ctx.strokeStyle = C.ink; ctx.lineWidth = 3; line(p[0], p[1], lerp(p[0], q[0], k), lerp(p[1], q[1], k)); ctx.restore(); };
+    lead(T.chipLbl, [CHIP[0] + 1.6, CHIP[1] + 1.6], [-4.6, 8.4]); lead(T.spkLbl, [SPK[0] - 0.4, -5.8], [SPK[0] - 0.4, -11.2]);
+    const pc = toS(K, [-4.6, 8.4]), pk = toS(K, [SPK[0] - 0.4, -11.2]);
+    label(COPY.chip, pc[0] - 8, pc[1] + 60, 56, C.ink, t, T.chipLbl + 0.15, T.dive2 + 0.35, { align: "left" });
+    label(COPY.spk, pk[0], pk[1] - 18, 56, C.ink, t, T.spkLbl + 0.15, T.dive2 + 0.35, { align: "center" });
+  }
+  // the closing: the microphone that speaks is ringed in orange (outer: at the hole in the shell; inner: at the ear tip)
+  const ringMic = (p, t0, t1, rx, ry) => {
+    if (t < t0 - 0.1 || t >= t1) return;
+    const c = toS(K, p), k = E.p3out(prog(t, t0 - 0.1, t0 + 0.15)) * (1 - prog(t, t1 - 0.15, t1));
+    ID(); ctx.save(); ctx.globalAlpha = k; ctx.strokeStyle = C.acc; ctx.lineWidth = 8; ctx.beginPath(); ctx.ellipse(c[0], c[1], Math.max(30, rx * ppm), Math.max(30, ry * ppm), 0, 0, TAU); ctx.stroke(); ctx.restore();
+  };
+  ringMic([PORT[0] + 0.4, PORT[1]], T.say2L, T.bubL, 2.0, 2.0); ringMic(IMIC, T.say2R, T.bubOut, 2.0, 1.6);
+  setT(K); drawFinger(t, K);
+  tapRing(t, K, T.tap1); tapRing(t, K, T.tap2);
+  ID();
+}
+
+// ---------------------------------------------------------------- the dark world: inside the ear canal (schematic)
+function drawDark(t, K, a, view) {
+  if (a <= 0.002) return;
+  const ppm = K.Z * S0, px = (n) => Math.max(0.03, n / ppm);
+  ID(); ctx.fillStyle = `rgba(23,25,28,${a})`; ctx.fillRect(0, 0, W, H);
+  setT(K); ctx.save(); ctx.globalAlpha = a;
+  ctx.fillStyle = C.canalDark; ctx.fill(CANALP);
+  ctx.strokeStyle = "rgba(241,240,236,0.85)"; ctx.lineWidth = px(5); ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(-0.4, canalTop(0)); for (let x = 0; x <= DRUM; x++) ctx.lineTo(x, canalTop(x)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-0.4, canalBot(0)); for (let x = 0; x <= DRUM; x++) ctx.lineTo(x, canalBot(x)); ctx.stroke();
+  // the earbud, as a line drawing (in the missing step's wide view the stem is cut off above the meter)
+  ctx.strokeStyle = C.line; ctx.lineWidth = px(4);
+  if (t >= T.q7 - 0.5) { ctx.save(); ctx.beginPath(); ctx.rect(-40, -30, 80, 35); ctx.clip(); ctx.stroke(BUDP); ctx.restore(); } else ctx.stroke(BUDP);
+  const lk = leakK(t), tr = TIP.r - 1.1 * lk;                   // a loose ear tip: a gap opens against the canal wall
+  rr(TIP.x0, -tr, TIP.x1 - TIP.x0, 2 * tr, [0.6, 3.2 - 0.6 * lk, 3.2 - 0.6 * lk, 0.6]); ctx.stroke();
+  if (lk > 0.05) {
+    ctx.save(); ctx.globalAlpha = a * lk * (1 - 0.6 * fixK(t)); ctx.strokeStyle = "rgba(241,240,236,0.75)"; ctx.lineWidth = px(5); ctx.setLineDash([px(12), px(9)]);
+    const gy = -3.5 + 0.38 * lk, sh = ((t * 2.2) % 1) * 1.6;             // the stream flows: dashes move along it
+    ctx.lineDashOffset = -sh; ctx.beginPath(); ctx.moveTo(-2.4, gy - 0.25); ctx.lineTo(7.4, gy); ctx.quadraticCurveTo(8.8, gy + 0.1, 9.8, -2.4); ctx.stroke(); ctx.setLineDash([]); ctx.lineDashOffset = 0; ctx.restore();
+    const e = toS(K, [9.8, -2.4]), b0 = toS(K, [9.45, -2.9]); ctx.save(); ctx.globalAlpha = a * lk * (1 - 0.6 * fixK(t)); arrowS(b0[0], b0[1], e[0], e[1], 6, "rgba(241,240,236,0.8)", 3); ctx.restore(); setT(K); ctx.globalAlpha = a;
+    ctx.strokeStyle = C.line; ctx.lineWidth = px(4);
+  }
+  ctx.fillStyle = "#2A2E33"; rr(OMIC[0] - 1.3, OMIC[1] - 1.75, 2.65, 3.5, 0.25); ctx.fill(); ctx.stroke();
+  rr(CHIP[0] - 2, CHIP[1] - 2, 4, 4, 0.2); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-2.1, -5.3); ctx.quadraticCurveTo(-0.7, -1, -2.1, 3.3); ctx.stroke();
+  rr(-4.7, -3.7, 1.4, 5.4, 0.3); ctx.fill(); ctx.stroke();                                   // the speaker's magnet
+  rr(IMIC[0] - 0.9, IMIC[1] - 0.45, 1.8, 0.9, 0.15); ctx.fill(); ctx.stroke();
+  if (t >= T.a7 - 0.25 && t < T.climb + 0.6) {                 // the second microphone, lit while it is introduced and listens
+    ctx.save(); ctx.globalAlpha = a * E.p3out(prog(t, T.a7 - 0.25, T.a7 + 0.1));
+    ctx.strokeStyle = C.acc; ctx.lineWidth = px(8); rr(IMIC[0] - 1.25, IMIC[1] - 0.8, 2.5, 1.6, 0.3); ctx.stroke();
+    // it listens: what is left in the canal runs into it as arcs (they die away once nothing is left)
+    const left = clamp(leftover(t) / 0.3), lk2 = E.p3out(prog(t, T.a7, T.a7 + 0.3)) * left;
+    if (lk2 > 0.01) {
+      ctx.strokeStyle = C.paper; ctx.lineWidth = px(6); ctx.lineCap = "round";
+      for (let i = 0; i < 3; i++) {
+        const ph = ((t - T.a7) * 1.6 + i / 3) % 1, r = lerp(4.6, 1.2, ph);
+        ctx.globalAlpha = a * lk2 * Math.sin(Math.PI * ph) * 0.9;
+        ctx.beginPath(); ctx.arc(IMIC[0] + 0.9, IMIC[1], r, -0.85, 0.85); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+  // its report reaches the chip: the chip lights, drives the speaker, the speaker pushes out more of the reversed wave
+  if (t >= T.bubR - 0.05 && t < T.climb + 0.6) {
+    const k = E.p3out(prog(t, T.bubR - 0.05, T.bubR + 0.15));
+    ctx.save(); ctx.globalAlpha = a * k; ctx.strokeStyle = C.acc; ctx.lineWidth = px(8); rr(CHIP[0] - 2.5, CHIP[1] - 2.5, 5, 5, 0.5); ctx.stroke();
+    const P = [CHIP, [-6.4, -1.2], [SPK[0] - 1.2, SPK[1]]];
+    const L0 = Math.hypot(P[1][0] - P[0][0], P[1][1] - P[0][1]), L1 = Math.hypot(P[2][0] - P[1][0], P[2][1] - P[1][1]);
+    const u = E.smooth(prog(t, T.sig, T.sigEnd)), d = u * (L0 + L1);
+    const h = d <= L0 ? [lerp(P[0][0], P[1][0], d / L0), lerp(P[0][1], P[1][1], d / L0)] : [lerp(P[1][0], P[2][0], (d - L0) / L1), lerp(P[1][1], P[2][1], (d - L0) / L1)];
+    ctx.lineWidth = px(10); ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.beginPath(); ctx.moveTo(P[0][0], P[0][1]); if (d > L0) { ctx.lineTo(P[1][0], P[1][1]); } ctx.lineTo(h[0], h[1]); ctx.stroke();
+    ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(h[0], h[1], px(16), 0, TAU); ctx.fill();
+    if (t >= T.sigEnd - 0.05) {                            // the speaker lights when the signal reaches it
+      ctx.globalAlpha = a * E.p3out(prog(t, T.sigEnd - 0.05, T.sigEnd + 0.15)); ctx.lineWidth = px(8);
+      ctx.beginPath(); ctx.moveTo(-5.2, -4.4); ctx.lineTo(-2.4, -5.6); ctx.quadraticCurveTo(-0.6, -1, -2.4, 3.6); ctx.lineTo(-5.2, 2.4); ctx.closePath(); ctx.stroke();
+    }
+    if (t >= T.sigEnd && t < T.fixEnd + 0.4) {             // the speaker: orange arcs into the canal while the fix grows
+      const fo = 1 - prog(t, T.fixEnd, T.fixEnd + 0.4);
+      for (let i = 0; i < 3; i++) { const ph = ((t - T.sigEnd) * 2.2 + i / 3) % 1; ctx.globalAlpha = a * fo * (1 - ph); ctx.lineWidth = px(7); ctx.beginPath(); ctx.arc(-1.3 + 6 * ph, -0.8, 1.6 + 0.4 * ph, -0.9, 0.9); ctx.stroke(); }
+    }
+    ctx.restore();
+  }
+  ctx.setLineDash([px(10), px(8)]); line(NOZ.x1 - 0.1, -NOZ.r + 0.4, NOZ.x1 - 0.1, NOZ.r - 0.4); ctx.setLineDash([]);
+  // the air inside the canal: dots that move with the actual pressure wave
+  const s = (x) => sumW(x, t);
+  ctx.save(); ctx.clip(CANALP);
+  ctx.fillStyle = "rgba(241,240,236,0.5)";
+  DOTS.forEach(([x, y, r]) => { const dx = 1.0 * s(x); ctx.beginPath(); ctx.arc(x + dx, y, 1.3 * r, 0, TAU); ctx.fill(); });
+  const x0 = TIP.x1 + 0.1, x1 = DRUM - 0.2, k = antiK(t), v = vibeK(t);
+  if (k > 0.01) {
+    ctx.globalAlpha = a * 0.85; ctx.strokeStyle = C.paper; ctx.lineWidth = px(8); ctx.setLineDash([px(18), px(13)]);
+    wavePath((x) => v * noiseAll(x, t), x0, x1); ctx.stroke(); ctx.setLineDash([]);
+    ctx.globalAlpha = a; ctx.strokeStyle = C.acc; ctx.lineWidth = px(14);
+    wavePath((x) => v * antiW(x, t), x0, x1); ctx.stroke();
+  }
+  ctx.globalAlpha = a; ctx.strokeStyle = C.paper; ctx.lineWidth = px(16); ctx.lineJoin = "round";
+  wavePath(s, x0, x1); ctx.stroke();
+  ctx.restore();
+  // the eardrum: it moves only if the air moves
+  const b = drumBulge(t, false);
+  ctx.strokeStyle = C.acc; ctx.lineWidth = px(12);
+  ctx.beginPath(); ctx.moveTo(DRUM, canalTop(DRUM)); ctx.quadraticCurveTo(DRUM + 1.2 + 1.4 * b, 0, DRUM, canalBot(DRUM)); ctx.stroke();
+  ctx.restore(); ID();
+}
+function darkOverlays(t, K) {                           // labels and the meter, in the canal
+  if (t < T.h3 || t >= T.climb + 0.2) return;
+  const fo = 1 - prog(t, T.climb, T.climb + 0.2);
+  const pd = toS(K, [DRUM, canalTop(DRUM) - 1.0]), pw = toS(K, [8.2, canalTop(8.2) - 1.0]);
+  label(COPY.lbDrum, pd[0], pd[1], 54, C.paper, t, T.h3 + 0.5, T.climb + 0.2, { align: "center" });
+  label(COPY.slow, pw[0], pw[1], 44, "rgba(241,240,236,0.6)", t, T.h3 + 0.8, T.climb + 0.2, { weight: 400 });
+  if (t >= T.bubR - 0.1 && t < T.climb + 0.2) { const pc = toS(K, [CHIP[0], CHIP[1] + 4.6]); label(COPY.chip, pc[0], pc[1], 52, C.paper, t, T.bubR - 0.1, T.climb + 0.2, { align: "center" }); }
+  // push and pull, at one point near the eardrum: the noise goes in, the reversed wave pushes out (and the other way round)
+  if (t >= T.push - 0.1 && t < T.a5 + 0.5) {
+    const ka = E.p3out(prog(t, T.push - 0.1, T.push + 0.3)) * (1 - prog(t, T.a5, T.a5 + 0.5)), xa = 15;
+    const n = noiseW(xa, t) / AMP, an = antiW(xa, t) / AMP, c = toS(K, [xa, canalTop(xa) - 1.5]), L0 = 230;
+    ctx.save(); ctx.globalAlpha = ka;
+    if (Math.abs(n) > 0.1) arrowS(c[0], c[1] - 62, c[0] + L0 * n, c[1] - 62, 18, "rgba(241,240,236,0.9)", 2.2);
+    if (Math.abs(an) > 0.1) arrowS(c[0], c[1], c[0] + L0 * an, c[1], 18, C.acc, 2.2);
+    ctx.restore();
+  }
+  // meter: how much of the noise reaches the ear
+  if (t >= T.h3 + 0.6) {
+    const k = E.p3out(prog(t, T.h3 + 0.6, T.h3 + 1.0)) * fo, r = residualAll(t) * vibeK(t), pct = Math.round(100 * r);
+    const x = 96, y = 1290, w = 888;
+    ID(); ctx.save(); ctx.globalAlpha = k;
+    ctx.font = `400 46px ${UI}`; ctx.fillStyle = "rgba(241,240,236,0.82)"; ctx.textAlign = "left"; ctx.fillText(COPY.meter, x, y);
+    ctx.font = `700 66px ${UI}`; ctx.fillStyle = pct > 1 ? C.acc : "rgba(241,240,236,0.7)"; ctx.textAlign = "right"; ctx.fillText(`${pct}%`, x + w, y + 4);
+    ctx.fillStyle = "rgba(241,240,236,0.18)"; rr(x, y + 26, w, 12, 6); ctx.fill();
+    ctx.fillStyle = C.acc; rr(x, y + 26, Math.max(0.1, w * clamp(r)), 12, 6); ctx.fill();
+    ctx.restore();
+  }
+}
+
+// the closing: the same meter as in the canal, now under the cut-away — the rumble is back (100 %), then the tap takes it to 0 %
+function lightMeter(t, K) {
+  if (t < T.climbEnd - 0.25 || t >= T.finOut) return;
+  const k = E.p3out(prog(t, T.climbEnd - 0.25, T.climbEnd + 0.15)) * (1 - prog(t, T.finOut - 0.3, T.finOut));
+  const r = 1 - cancelReal(t), pct = Math.round(100 * r);
+  const a = toS(K, [CUT.x0, CUT.y1]), x = a[0], w = W - 76 - x, y = a[1] + 110;     // from the cut-away to the frame edge
+  ID(); ctx.save(); ctx.globalAlpha = k;
+  ctx.font = `700 50px ${UI}`; ctx.fillStyle = "rgba(20,20,20,0.8)"; ctx.textAlign = "left"; ctx.fillText(COPY.meter, x, y);
+  ctx.font = `700 78px ${UI}`; ctx.fillStyle = pct > 1 ? C.acc : "rgba(20,20,20,0.55)"; ctx.textAlign = "right"; ctx.fillText(`${pct}%`, x + w, y + 6);
+  ctx.fillStyle = "rgba(20,20,20,0.12)"; rr(x, y + 30, w, 18, 9); ctx.fill();
+  ctx.fillStyle = C.acc; rr(x, y + 30, Math.max(0.1, w * clamp(r)), 18, 9); ctx.fill();
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- text
+function groundRGB(t) { const o = orangeK(t), c = (i) => Math.round(lerp(parseInt(C.ground.slice(1 + 2 * i, 3 + 2 * i), 16), parseInt(C.acc.slice(1 + 2 * i, 3 + 2 * i), 16), o)); return `${c(0)},${c(1)},${c(2)}`; }
+function scrim(t) {                                    // a soft wash of the ground colour behind the text band
+  let col = null, a = 0;
+  const K = cam(t);
+  if (t < T.dive1) { col = groundRGB(t); a = 0.86; }
+  else if (t >= T.climbEnd - 0.3 && t < T.end) { col = groundRGB(t); a = 0.86 * prog(t, T.climbEnd - 0.3, T.climbEnd) * (1 - prog(t, T.end, T.end + 0.3)); }
+  else if (t >= T.dive1 && t < T.flood + 0.2) { col = "236,235,230"; a = 0.86 * (1 - prog(t, T.flood - 0.1, T.flood + 0.2)); }
+  else if (t >= T.flood + 0.2 && t < T.climbEnd) { col = "23,25,28"; a = 0.82 * flood(t); }
+  if (a <= 0.01) return;
+  const hh = 700;
+  ID(); const g = ctx.createLinearGradient(0, 0, 0, hh);
+  g.addColorStop(0, `rgba(${col},${a})`); g.addColorStop(0.75, `rgba(${col},${a})`); g.addColorStop(1, `rgba(${col},0)`);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, hh);
+}
+function textBand(t) {
+  const L = C.ink, D = C.paper, TAG = "rgba(241,240,236,0.8)";
+  scrim(t);
+  // 1 the phenomenon — no noun
+  lines(COPY.h1, t, -1, T.h1Out + 0.16, { style: "none", col: L });
+  underline(COPY.h1[1], "噪音怎么就", "没了", 1, t, T.underline, T.h1Out + 0.16);
+  // 2 the wrong guess (on orange), struck
+  lines(COPY.q2, t, T.q2, T.a2, { style: "blur", col: L, acc: C.paper, exit: 0.001 });
+  lines(COPY.a2, t, T.a2, T.q3, { style: "slam", col: L, acc: C.paper, lineGap: 0.2 });
+  // 3 dig in
+  lines(COPY.q3, t, T.q3, T.a3, { style: "blur", col: L });
+  lines(COPY.a3, t, T.a3, T.q4, { style: "blur", col: L });
+  lines(COPY.q4, t, T.q4, T.flood, { style: "blur", col: L });
+  // 4 one mechanism, slowly
+  lines(COPY.h3, t, T.h3, T.q5, { style: "blur", col: D });
+  lines(COPY.q5, t, T.q5, T.push, { style: "blur", col: D });
+  lines(COPY.push, t, T.push, T.a5, { style: "blur", col: D, x: 72, maxW: 930, size: 96, lineGap: 0.5 });
+  lines(COPY.a5, t, T.a5, T.q6, { style: "slam", col: D });
+  lines(COPY.q6, t, T.q6, T.a6, { style: "blur", col: D });
+  lines(COPY.a6, t, T.a6, T.name, { style: "wipe", col: D });
+  // the noun arrives as part of the answer
+  lines(COPY.name, t, T.name, T.q7, { style: "slam", col: D, ys: [318, 492], size: [96, 140], lineGap: 0.25 });
+  // 5 the missing step: a loose ear tip, the second microphone
+  lines(COPY.q7, t, T.q7, T.a7, { style: "blur", col: D });
+  lines(COPY.a7, t, T.a7, T.a8, { style: "blur", col: D });
+  lines(COPY.a8, t, T.a8, T.climb + 0.3, { style: "blur", col: D });
+  if (t >= T.sayR && t < T.bubR) { const K = cam(t), m = toS(K, IMIC); bubble(m[0] + 40, m[1] - 300, COPY.sayR, t, T.sayR, T.bubR, toS(K, CHIP)); }
+  // 6 adaptive
+  // 7 back to the phenomenon: tap again, both microphones speak while it cancels
+  lines(COPY.q9, t, T.q9, T.fin, { style: "blur", col: L });
+  // each microphone speaks where it sits, then its report flies into the chip
+  if (t >= T.say2L && t < T.bubL) { const K = cam(t), m = toS(K, PORT); bubble(m[0], m[1] - 300, COPY.sayL, t, T.say2L, T.bubL, toS(K, CHIP)); }
+  if (t >= T.say2R && t < T.bubOut) { const K = cam(t), m = toS(K, IMIC); bubble(m[0], m[1] - 300, COPY.sayR, t, T.say2R, T.bubOut, toS(K, CHIP)); }
+  lines(COPY.fin, t, T.fin, T.finOut, { style: "blur", col: L, lineGap: 0.25 });
+  // a small tip in the same place, after the last line
+  label(COPY.tipTag, 98, 282, 44, C.acc, t, T.tip, T.tipOut, { weight: 700 });
+  lines(COPY.tip, t, T.tip + 0.15, T.tipOut, { style: "blur", col: "rgba(20,20,20,0.85)", face: UI, weight: 400, size: 54, x: 98, ys: [362, 434, 506], lineGap: 0.25, stag: 0.02, maxW: 900 });
+}
+function hookOverlays(t, K) {                          // the rumble, named, while it is loud
+  label(COPY.noise, toS(K, [-34.5, -35])[0], toS(K, [-34.5, -35])[1], 46, "rgba(20,20,20,0.6)", t, 0, T.tap1 + 0.4, { align: "center", weight: 700 });
+}
+function endCard(t) {
+  if (t < T.title1) return;
+  lines(COPY.end, t, T.title1, DUR + 1, { style: "type", col: C.ink, ys: [905, 1045, 1185], size: 124, stag: 0.045, lineGap: 0.3 });
+  lines([COPY.epNum], t, T.ep, DUR + 1, { style: "slam", col: C.ink, x: 400, ys: [520], size: 150 });
+  lines([COPY.epName], t, T.ep + 0.25, DUR + 1, { style: "blur", col: C.ink, x: 404, ys: [668], size: 112 });
+  if (t >= T.sting) {
+    const K = cam(t), c = toS(K, [BUD.cx, BUD.cy]), sc = spring(t - T.sting, 16, 0.5);
+    ID(); ctx.save(); ctx.translate(c[0], c[1]); ctx.scale(sc, sc); ctx.font = `112px ${DISPLAY}`; ctx.fillStyle = C.acc; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("?", 2, 6); ctx.restore();
+  }
+}
+
+function frame(t) {
+  ctx.reset();                                     // no canvas state survives from the previous frame
+  ID();
+  const K = cam(t), fl = flood(t);
+  drawLight(t, K);
+  drawDark(t, K, fl, "M");
+  darkOverlays(t, K);
+  lightMeter(t, K);
+  textBand(t);
+  endCard(t);
+}
+
+// ---------------------------------------------------------------- motion blur: temporal supersampling where things move fast
+const BLUR = [[1.25, 2.8], [5.0, 5.72], [12.0, 14.01], [16.75, 22.01], [22.01, 45.0], [45.0, 46.3], [46.5, 49.95], [56.5, 57.12], [58.0, 58.3]];
+const SUB = 6, SHUTTER = 0.5 / FPS;
+const CUTS = [];
+window.seek = function seek(t) {
+  t = clamp(t, 0, DUR - 1e-6);
+  const blur = BLUR.some(([a, b]) => t >= a && t < b);
+  if (!blur) { ctx = MAIN; frame(t); return; }
+  MAIN.reset();
+  for (let i = 0; i < SUB; i++) {
+    ctx = OFFX;
+    let ts = t + SHUTTER * (i / (SUB - 1) - 0.5);
+    for (const c of CUTS) { if (t >= c && ts < c) ts = c; if (t < c && ts >= c) ts = c - 1e-4; }
+    frame(ts);
+    MAIN.setTransform(1, 0, 0, 1, 0, 0); MAIN.globalAlpha = 1 / (i + 1); MAIN.drawImage(OFF, 0, 0);
+  }
+  MAIN.globalAlpha = 1; ctx = MAIN;
+};
+window.DUR = DUR; window.FPS = FPS;
+window.addEventListener("hf-seek", (e) => window.seek(e.detail.time));
+window.ready = false;
+window.whenReady = Promise.all([
+  document.fonts.load(`100px ${DISPLAY}`, "降噪耳机按一下"), document.fonts.load(`700 50px ${UI}`, "麦克风芯片"), document.fonts.load(`400 50px ${UI}`, "慢放演示"),
+]).then(() => document.fonts.ready).then(() => { MEASURE.clear(); window.seek(0); window.ready = true; });
+</script>
+</body>
+</html>

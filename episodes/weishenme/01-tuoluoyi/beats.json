@@ -1,0 +1,309 @@
+{
+ "source": "/home/user/ep01-gyroscope/out/ep01-gyroscope.mp4",
+ "measuredBy": "npx hyperframes beats",
+ "detectorBpm": 120.1,
+ "bpm": 119.995,
+ "period": 0.5000208758229314,
+ "inlierShare": 0.953,
+ "offsetSec": 0.0052,
+ "beats": [
+  0.515,
+  1.005,
+  1.505,
+  2.005,
+  2.505,
+  3.005,
+  3.505,
+  4.005,
+  4.395,
+  4.885,
+  5.385,
+  5.885,
+  6.505,
+  7.005,
+  7.515,
+  8.005,
+  8.505,
+  9.005,
+  9.505,
+  10.005,
+  10.505,
+  11.005,
+  11.505,
+  12.005,
+  12.505,
+  13.005,
+  13.505,
+  14.005,
+  14.505,
+  15.005,
+  15.505,
+  16.005,
+  16.505,
+  17.005,
+  17.505,
+  18.005,
+  18.505,
+  19.005,
+  19.505,
+  20.005,
+  20.505,
+  21.005,
+  21.505,
+  22.005,
+  22.505,
+  23.005,
+  23.505,
+  24.005,
+  24.505,
+  25.005,
+  25.505,
+  26.005,
+  26.505,
+  27.015,
+  27.505,
+  28.005,
+  28.515,
+  29.005,
+  29.505,
+  30.005,
+  30.515,
+  31.005,
+  31.515,
+  32.005,
+  32.505,
+  33.005,
+  33.505,
+  34.005,
+  34.505,
+  35.005,
+  35.505,
+  36.005,
+  36.505,
+  37.005,
+  37.505,
+  38.005,
+  38.505,
+  39.005,
+  39.505,
+  40.005,
+  40.505,
+  41.015,
+  41.525,
+  42.005,
+  42.505
+ ],
+ "hits": [
+  {
+   "name": "tick",
+   "t": 0.75,
+   "nearest16th": 0.755,
+   "errMs": -5.2,
+   "frames": -0.16
+  },
+  {
+   "name": "snap",
+   "t": 1,
+   "nearest16th": 1.005,
+   "errMs": -5.2,
+   "frames": -0.16
+  },
+  {
+   "name": "snap",
+   "t": 38,
+   "nearest16th": 38.007,
+   "errMs": -6.8,
+   "frames": -0.2
+  },
+  {
+   "name": "underline",
+   "t": 2,
+   "nearest16th": 2.005,
+   "errMs": -5.3,
+   "frames": -0.16
+  },
+  {
+   "name": "myth",
+   "t": 4,
+   "nearest16th": 4.005,
+   "errMs": -5.3,
+   "frames": -0.16
+  },
+  {
+   "name": "strike",
+   "t": 6.5,
+   "nearest16th": 6.505,
+   "errMs": -5.5,
+   "frames": -0.16
+  },
+  {
+   "name": "strike",
+   "t": 6.625,
+   "nearest16th": 6.63,
+   "errMs": -5.5,
+   "frames": -0.16
+  },
+  {
+   "name": "a2",
+   "t": 6.75,
+   "nearest16th": 6.755,
+   "errMs": -5.5,
+   "frames": -0.16
+  },
+  {
+   "name": "scan",
+   "t": 8.5,
+   "nearest16th": 8.506,
+   "errMs": -5.5,
+   "frames": -0.17
+  },
+  {
+   "name": "ring",
+   "t": 9,
+   "nearest16th": 9.006,
+   "errMs": -5.6,
+   "frames": -0.17
+  },
+  {
+   "name": "rice",
+   "t": 11,
+   "nearest16th": 11.006,
+   "errMs": -5.6,
+   "frames": -0.17
+  },
+  {
+   "name": "rice",
+   "t": 11.25,
+   "nearest16th": 11.256,
+   "errMs": -5.6,
+   "frames": -0.17
+  },
+  {
+   "name": "q4",
+   "t": 13,
+   "nearest16th": 13.006,
+   "errMs": -5.7,
+   "frames": -0.17
+  },
+  {
+   "name": "lid",
+   "t": 14.5,
+   "nearest16th": 14.506,
+   "errMs": -5.8,
+   "frames": -0.17
+  },
+  {
+   "name": "close",
+   "t": 19.25,
+   "nearest16th": 19.256,
+   "errMs": -6,
+   "frames": -0.18
+  },
+  {
+   "name": "turn",
+   "t": 20,
+   "nearest16th": 20.006,
+   "errMs": -6,
+   "frames": -0.18
+  },
+  {
+   "name": "turn",
+   "t": 24,
+   "nearest16th": 24.006,
+   "errMs": -6.2,
+   "frames": -0.19
+  },
+  {
+   "name": "name",
+   "t": 26.75,
+   "nearest16th": 26.756,
+   "errMs": -6.3,
+   "frames": -0.19
+  },
+  {
+   "name": "q7",
+   "t": 29,
+   "nearest16th": 29.006,
+   "errMs": -6.4,
+   "frames": -0.19
+  },
+  {
+   "name": "split",
+   "t": 30.5,
+   "nearest16th": 30.506,
+   "errMs": -6.5,
+   "frames": -0.19
+  },
+  {
+   "name": "say",
+   "t": 31,
+   "nearest16th": 31.006,
+   "errMs": -6.5,
+   "frames": -0.19
+  },
+  {
+   "name": "say",
+   "t": 31.75,
+   "nearest16th": 31.757,
+   "errMs": -6.5,
+   "frames": -0.2
+  },
+  {
+   "name": "q8",
+   "t": 34.5,
+   "nearest16th": 34.507,
+   "errMs": -6.6,
+   "frames": -0.2
+  },
+  {
+   "name": "turn2",
+   "t": 36.25,
+   "nearest16th": 36.257,
+   "errMs": -6.7,
+   "frames": -0.2
+  },
+  {
+   "name": "say2",
+   "t": 36.25,
+   "nearest16th": 36.257,
+   "errMs": -6.7,
+   "frames": -0.2
+  },
+  {
+   "name": "say2",
+   "t": 36.75,
+   "nearest16th": 36.757,
+   "errMs": -6.7,
+   "frames": -0.2
+  },
+  {
+   "name": "fin",
+   "t": 38.5,
+   "nearest16th": 38.507,
+   "errMs": -6.8,
+   "frames": -0.2
+  },
+  {
+   "name": "endType",
+   "t": 41.25,
+   "nearest16th": 41.257,
+   "errMs": -6.9,
+   "frames": -0.21
+  },
+  {
+   "name": "ep",
+   "t": 42,
+   "nearest16th": 42.007,
+   "errMs": -6.9,
+   "frames": -0.21
+  },
+  {
+   "name": "sting",
+   "t": 42.5,
+   "nearest16th": 42.507,
+   "errMs": -7,
+   "frames": -0.21
+  }
+ ],
+ "worstHitErrorFrames": 0.21
+}
