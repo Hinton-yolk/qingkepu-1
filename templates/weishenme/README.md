@@ -18,6 +18,6 @@
 
 ## 封面（`covers/`）
 - `shots.mjs` 从各集片子里截出干净画面放进 `covers/art/`，`make.mjs` 再排出抖音（1080×1920）和小红书（1080×1440）封面，`文案.md` 是三集的发布文案。
-- `shots.mjs` 里的路径还是原来机器上的 `../ep01-gyroscope` 这种写法，用之前要改成 `../../../episodes/weishenme/0N-短名`。`art/*.png` 是截出来的中间文件，没放进仓库，跑一次 `shots.mjs` 就会重新生成。
+- `shots.mjs` 要在 `covers/` 目录里运行，里面的路径已经指向 `../../../episodes/weishenme/0N-短名`。新增一集时照样加一行。`art/*.png` 是截出来的中间文件，没放进仓库，跑一次 `shots.mjs` 就会重新生成。
 
 成片、音频、帧和审片截图都不进仓库（见根目录 `.gitignore`）。

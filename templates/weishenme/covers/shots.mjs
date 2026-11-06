@@ -5,15 +5,15 @@ import fs from "node:fs";
 const { chromium } = createRequire(import.meta.url)("playwright");
 const JOBS = [
   // film, out name, t, camera (null = the film's own), anchor point in world coords for the leader line
-  ["../ep01-gyroscope", "ep01-hero-dy", 0.5, "key([0, 0], [470, 1150], 0.98, -36)", "CHIP"],
-  ["../ep01-gyroscope", "ep01-hero-xhs", 0.5, "key([0, 0], [470, 880], 0.84, -36)", "CHIP"],
-  ["../ep01-gyroscope", "ep01-inset", 24.6, null, null],
-  ["../ep02-microwave", "ep02-hero-dy", 1.4, "key([-5, 0], [540, 1170], 1.12)", "bowlW(bowlAt(1.4), [0, -25])"],
-  ["../ep02-microwave", "ep02-hero-xhs", 1.4, "key([-5, 0], [540, 930], 1.12)", "bowlW(bowlAt(1.4), [0, -25])"],
-  ["../ep02-microwave", "ep02-inset", 4.2, null, null],
-  ["../ep03-anc", "ep03-hero-dy", 3.6, "key([9, -10], [560, 1180], 0.92)", "[13, 0]"],
-  ["../ep03-anc", "ep03-hero-xhs", 3.6, "key([9, -10], [560, 900], 0.8)", "[13, 0]"],
-  ["../ep03-anc", "ep03-inset", 28.6, null, null],
+  ["../../../episodes/weishenme/01-tuoluoyi", "ep01-hero-dy", 0.5, "key([0, 0], [470, 1150], 0.98, -36)", "CHIP"],
+  ["../../../episodes/weishenme/01-tuoluoyi", "ep01-hero-xhs", 0.5, "key([0, 0], [470, 880], 0.84, -36)", "CHIP"],
+  ["../../../episodes/weishenme/01-tuoluoyi", "ep01-inset", 24.6, null, null],
+  ["../../../episodes/weishenme/02-weibolu", "ep02-hero-dy", 1.4, "key([-5, 0], [540, 1170], 1.12)", "bowlW(bowlAt(1.4), [0, -25])"],
+  ["../../../episodes/weishenme/02-weibolu", "ep02-hero-xhs", 1.4, "key([-5, 0], [540, 930], 1.12)", "bowlW(bowlAt(1.4), [0, -25])"],
+  ["../../../episodes/weishenme/02-weibolu", "ep02-inset", 4.2, null, null],
+  ["../../../episodes/weishenme/03-jiangzaoerji", "ep03-hero-dy", 3.6, "key([9, -10], [560, 1180], 0.92)", "[13, 0]"],
+  ["../../../episodes/weishenme/03-jiangzaoerji", "ep03-hero-xhs", 3.6, "key([9, -10], [560, 900], 0.8)", "[13, 0]"],
+  ["../../../episodes/weishenme/03-jiangzaoerji", "ep03-inset", 28.6, null, null],
 ];
 const browser = await chromium.launch();
 const anchors = {};
