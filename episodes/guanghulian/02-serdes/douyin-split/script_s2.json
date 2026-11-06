@@ -1,0 +1,170 @@
+[
+ {
+  "id": "b01",
+  "src": "新增",
+  "text": "五个 1 连在一起，",
+  "sub": null,
+  "big": "五个 1 连在一起，",
+  "seg": "open"
+ },
+ {
+  "id": "b02",
+  "src": "新增",
+  "text": "就是一条直线。",
+  "sub": null,
+  "big": "就是一条直线。",
+  "seg": "open"
+ },
+ {
+  "id": "b03",
+  "src": "新增",
+  "text": "芯片要自己听出节拍，才数得清。",
+  "sub": "自己听出节拍，才数得清",
+  "big": null,
+  "seg": "open"
+ },
+ {
+  "id": "b04",
+  "src": "新增",
+  "text": "芯片之间的高速数据，是排成一列、一个接一个送过去的。",
+  "sub": null,
+  "big": null,
+  "seg": "explain"
+ },
+ {
+  "id": "b05",
+  "src": "L21",
+  "text": "发货端把并排的数据排成一列，以极快的节奏送上路。",
+  "sub": null,
+  "big": null,
+  "seg": "explain"
+ },
+ {
+  "id": "b06",
+  "src": "L22",
+  "text": "今天一条通道，每秒要送出上千亿个比特。",
+  "sub": "一条通道，每秒上千亿个比特",
+  "big": null,
+  "seg": "explain"
+ },
+ {
+  "id": "b07",
+  "src": "L23",
+  "text": "把这一秒放大，再放大，再放大，",
+  "sub": null,
+  "big": null,
+  "seg": "explain"
+ },
+ {
+  "id": "b08",
+  "src": "L24",
+  "text": "才看得见一个个比特：这一秒里，有上千亿个这样的比特。",
+  "sub": null,
+  "big": null,
+  "seg": "explain"
+ },
+ {
+  "id": "b09",
+  "src": "L25",
+  "text": "到了收货端，再把这一列重新拆开，并排放回芯片里。",
+  "sub": null,
+  "big": null,
+  "seg": "explain"
+ },
+ {
+  "id": "b10",
+  "src": "L26",
+  "text": "这里有个容易被忽略的难处：信号里的 0 和 1，并不是一件件分开的包裹。",
+  "sub": "0 和 1 不是分开的包裹",
+  "big": null,
+  "seg": "explain"
+ },
+ {
+  "id": "b11",
+  "src": "L27",
+  "text": "比如连续五个 1，到了收货端，就是一段连在一起、没有缝隙的高电平。",
+  "sub": null,
+  "big": null,
+  "seg": "explain"
+ },
+ {
+  "id": "b12",
+  "src": "L28",
+  "text": "要数清这里有几个 1，就得知道每个比特占多长时间，这就是“节拍”。",
+  "sub": "每个比特占多长时间 = 节拍",
+  "big": null,
+  "seg": "explain"
+ },
+ {
+  "id": "b13",
+  "src": "L29",
+  "text": "只看高低，是数不清的。",
+  "sub": null,
+  "big": null,
+  "seg": "explain"
+ },
+ {
+  "id": "b14",
+  "src": "L30",
+  "text": "这类高速连接，通常不另外送一个节拍器过去，而是让收货端从信号高低变化的节奏里，自己推算出节拍，",
+  "sub": "不送节拍器，从跳变里推算节拍",
+  "big": null,
+  "seg": "reveal"
+ },
+ {
+  "id": "b15",
+  "src": "新增",
+  "text": "所以发出去之前，数据还会先被打乱一下，让高低变化够多，节拍才一直听得出来。",
+  "sub": "先打乱，让高低变化够多",
+  "big": null,
+  "seg": "reveal"
+ },
+ {
+  "id": "b16",
+  "src": "L31",
+  "text": "再按节拍，一个一个地清点。",
+  "sub": null,
+  "big": null,
+  "seg": "reveal"
+ },
+ {
+  "id": "b17",
+  "src": "新增",
+  "text": "业内把这一步叫时钟数据恢复，简称 CDR。",
+  "sub": "时钟数据恢复 CDR",
+  "big": null,
+  "seg": "reveal"
+ },
+ {
+  "id": "b18",
+  "src": "L32",
+  "text": "这就是理解 SerDes 的基本框架：发出去时排成一列，收进来时听准节拍、拆回一排。",
+  "sub": null,
+  "big": null,
+  "seg": "reveal"
+ },
+ {
+  "id": "b19",
+  "src": "L46",
+  "text": "一句话带走。",
+  "sub": null,
+  "big": null,
+  "seg": "end"
+ },
+ {
+  "id": "b20",
+  "src": "L48",
+  "text": "SerDes 发出时排队，收到时先听准节拍，再拆回一排。",
+  "sub": null,
+  "big": null,
+  "seg": "end"
+ },
+ {
+  "id": "b21",
+  "src": "新增",
+  "text": "下一条：一颗芯片号称跑得快，该问它哪三个问题？",
+  "sub": null,
+  "big": null,
+  "seg": "end"
+ }
+]

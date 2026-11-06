@@ -1,0 +1,170 @@
+[
+ {
+  "id": "c01",
+  "src": "新增",
+  "text": "“能跑 224G”，",
+  "sub": null,
+  "big": "“能跑 224G”，",
+  "seg": "open"
+ },
+ {
+  "id": "c02",
+  "src": "新增",
+  "text": "只说了一半。",
+  "sub": null,
+  "big": "只说了一半。",
+  "seg": "open"
+ },
+ {
+  "id": "c03",
+  "src": "新增",
+  "text": "还得问三个问题。",
+  "sub": null,
+  "big": null,
+  "seg": "open"
+ },
+ {
+  "id": "c04",
+  "src": "L33",
+  "text": "AI 让芯片之间要传的数据越来越多，可芯片的出口数量增长有限，提高“每条路跑多快”，就成了重要方向。",
+  "sub": "出口有限，只能让每条路跑更快",
+  "big": null,
+  "seg": "explain"
+ },
+ {
+  "id": "c05",
+  "src": "L34",
+  "text": "于是 SerDes 的速度，大约每过几年就要翻一倍。",
+  "sub": "每条通道的速度，几年翻一倍",
+  "big": null,
+  "seg": "explain"
+ },
+ {
+  "id": "c06",
+  "src": "L35",
+  "text": "速度一翻倍，信号在路上更容易变模糊，收货端更难听准节拍。",
+  "sub": null,
+  "big": null,
+  "seg": "explain"
+ },
+ {
+  "id": "c07",
+  "src": "L36",
+  "text": "所以今天的高速 SerDes，自己也带着不少“整理”能力，在发出和收进时就把信号修一修。",
+  "sub": "发出和收进时，把信号修一修",
+  "big": null,
+  "seg": "explain"
+ },
+ {
+  "id": "c08",
+  "src": "L37",
+  "text": "这些额外的工作，都要耗电、占芯片面积。",
+  "sub": null,
+  "big": null,
+  "seg": "explain"
+ },
+ {
+  "id": "c09",
+  "src": "L38",
+  "text": "跑得更快，同时让每送出一个比特少花一点电，是 SerDes 每一代都要面对的难题。",
+  "sub": "更快，同时每比特更省电",
+  "big": null,
+  "seg": "explain"
+ },
+ {
+  "id": "c10",
+  "src": "L39",
+  "text": "从投资角度，先记住一点：SerDes 很少作为一颗独立的芯片单独出售。",
+  "sub": "SerDes 很少单独卖",
+  "big": null,
+  "seg": "explain"
+ },
+ {
+  "id": "c11",
+  "src": "L40",
+  "text": "它更像一种“能力”，嵌在 GPU、交换芯片和光模块里的芯片之中；",
+  "sub": null,
+  "big": null,
+  "seg": "explain"
+ },
+ {
+  "id": "c12",
+  "src": "L41",
+  "text": "常以设计模块，也就是 IP 的形式，授权给芯片公司使用；大公司则多半自己研发。",
+  "sub": "IP 授权，或自己研发",
+  "big": null,
+  "seg": "explain"
+ },
+ {
+  "id": "c13",
+  "src": "L42",
+  "text": "所以看一家做高速互连芯片的公司，不能只看它宣称跑得多快。",
+  "sub": null,
+  "big": null,
+  "seg": "explain"
+ },
+ {
+  "id": "c14",
+  "src": "L43",
+  "text": "同样号称跑得快，要问清楚：第一，在什么路况下跑到这个速度？",
+  "sub": "① 什么路况下跑到的？",
+  "big": null,
+  "seg": "reveal"
+ },
+ {
+  "id": "c15",
+  "src": "L43",
+  "text": "第二，每个比特花多少电？",
+  "sub": "② 每个比特花多少电？",
+  "big": null,
+  "seg": "reveal"
+ },
+ {
+  "id": "c16",
+  "src": "L43",
+  "text": "第三，是否已经在真实芯片上跑通？",
+  "sub": "③ 真实芯片上跑通了吗？",
+  "big": null,
+  "seg": "reveal"
+ },
+ {
+  "id": "c17",
+  "src": "L44",
+  "text": "在这之后，再看它的 SerDes 是自研还是授权。",
+  "sub": "然后：自研，还是授权？",
+  "big": null,
+  "seg": "reveal"
+ },
+ {
+  "id": "c18",
+  "src": "L45",
+  "text": "以后看 DSP、光模块，还会反复用到这几个问题。",
+  "sub": null,
+  "big": null,
+  "seg": "reveal"
+ },
+ {
+  "id": "c19",
+  "src": "L46",
+  "text": "一句话带走。",
+  "sub": null,
+  "big": null,
+  "seg": "end"
+ },
+ {
+  "id": "c20",
+  "src": "L49",
+  "text": "SerDes 难在越跑越快，还要读得准、更省电；看一家公司，先问路况、每比特的电、真实芯片跑通没有。",
+  "sub": null,
+  "big": null,
+  "seg": "end"
+ },
+ {
+  "id": "c21",
+  "src": "新增",
+  "text": "下一条：信号上路以后，为什么会越跑越模糊？",
+  "sub": null,
+  "big": null,
+  "seg": "end"
+ }
+]
