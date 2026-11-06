@@ -179,7 +179,7 @@ SP.MECH.race = (c, t, sh) => {
 // ---------- 6. 只修几条路，排成一列跑到极快；镜头拉远看见电路板 ----------
 SP.MECH.serial = (c, t, sh) => {
   darkBg(c);
-  const tFew = kw('a17', '少数几条路'), tLine = kw('a17', '排成一列'), tFast = kw('a17', '极快'), tPcb = kw('a18', '电路板');
+  const tFew = kw('a17', '少数几条路'), tLine = kw('a17', '排成一列'), tFast = kw('a17', '极快'), tPcb = L.a17.t1 - 1.6;
   const zo = ease(t, tPcb - 0.2, tPcb + 1.0, 'c');
   c.save(); c.translate(W / 2, H / 2); c.scale(1 - 0.55 * zo, 1 - 0.55 * zo); c.translate(-W / 2, -H / 2);
   if (zo > 0) { c.save(); c.globalAlpha = zo; c.fillStyle = '#26301f'; c.beginPath(); c.roundRect(-700, -400, W + 1400, H + 800, 40); c.fill();
@@ -197,9 +197,68 @@ SP.MECH.serial = (c, t, sh) => {
     for (let n = 0; n < 40; n++) { const y = 470 + ((base + n * 60 + lane * 30) % 740); const sp = speed / 2600;
       c.save(); c.globalAlpha = lineQ; c.fillStyle = COL.goldHi; c.shadowColor = COL.gold; c.shadowBlur = 16; c.beginPath(); c.roundRect(x - 12, y - 12 - 30 * sp, 24, 24 + 30 * sp, 8); c.fill(); c.restore(); } }
   c.restore();
-  if (zo > 0.6) tag(c, '电路板上，芯片之间只有几条高速通道', W / 2, 1180, { size: 36, t, at: tPcb + 0.8 });
+  if (zo > 0.6) tag(c, '电路板上，芯片之间只有几条高速通道', W / 2, 1180, { size: 36, t, at: tPcb + 0.6 });
 };
 
 // ---------- 7. 一句话带走 + 下一条 ----------
 SP.MECH.take = (c, t, sh) => { deskShot(c, t, sh); endCard(c, t, L.a21); };
+
+// ---------- 新开头（大框架）：AI 越来越聪明 → 上万颗芯片一起练、每步都要交换数据 → 最快的连接只修几条路 → 打印机线 vs USB → 为什么？ ----------
+SP.MECH.bga = (c, t, sh) => {
+  darkBg(c); const { phone } = SP;
+  const t2 = L.a02.t0, t3 = L.a03.t0, tEx = kw('a03', '交换数据'), tFast = kw('a03', '传得多快'), t4 = L.a03b.t0, t5 = L.a03c.t0, tPr = kw('a03c', '打印机线'), tUsb = kw('a03c', 'USB'), t6 = L.a03d.t0;
+  const out = ease(t, t2 - 0.1, t2 + 1.3, 'c');                 // 从手机拉远到机房
+  // 机房：一大片芯片，每算一步互相交换数据
+  if (out > 0 && t < t4 + 0.6) { const cols = 9, rows = 13, P = 104, gx = i => W / 2 + (i - (cols - 1) / 2) * P, gy = j => 960 + (j - (rows - 1) / 2) * P;
+    const zz = lerp(2.6, 1, out) * (1 + 0.03 * Math.sin(t * 0.7)), fade = 1 - ease(t, t4, t4 + 0.6);
+    c.save(); c.globalAlpha = Math.min(1, out * 1.5) * fade; c.translate(W / 2, 960); c.scale(zz, zz); c.translate(-W / 2, -960);
+    const wave = t > tEx - 0.3 ? ((t - (tEx - 0.3)) % 1.1) / 1.1 : -1, glow = ease(t, tFast - 0.3, tFast + 0.4);
+    for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) { const x = gx(i), y = gy(j);
+      if (wave >= 0) { const m = MO.cubicInOut(Math.min(1, wave / 0.7)), a = Math.sin(Math.PI * Math.min(1, wave / 0.8));
+        c.save(); c.globalAlpha *= a; c.fillStyle = glow > 0.5 ? COL.goldHi : COL.cream;
+        if (i < cols - 1) { c.fillRect(lerp(x + 34, x + P - 34, m) - 6, y - 10, 12, 7); c.fillRect(lerp(x + P - 34, x + 34, m) - 6, y + 3, 12, 7); }
+        if (j < rows - 1) { c.fillRect(x - 10, lerp(y + 34, y + P - 34, m) - 6, 7, 12); c.fillRect(x + 3, lerp(y + P - 34, y + 34, m) - 6, 7, 12); } c.restore(); }
+      const busy = wave >= 0 && wave > 0.75 ? 1 : 0; c.fillStyle = busy ? '#4a463f' : '#34322e'; c.beginPath(); c.roundRect(x - 34, y - 34, 68, 68, 8); c.fill();
+      c.strokeStyle = glow > 0.5 ? COL.gold : 'rgba(236,230,218,.3)'; c.lineWidth = 2; c.stroke(); c.fillStyle = '#45423c'; c.fillRect(x - 18, y - 18, 36, 36); }
+    c.restore();
+    if (t > t2 + 0.3 && t < t4) tag(c, '上万颗芯片，一起训练一个模型', W / 2, 1300, { size: 40, t, at: t2 + 0.3 });
+    if (t > tEx - 0.3 && t < t4) tape(c, '每算一步，都要互相交换数据', W / 2, 520, { size: 50, t, at: tEx - 0.3 }); }
+  // 手机：和 AI 的对话（不出现品牌）
+  if (out < 1) { const s = lerp(1, 0.35, out); c.save(); c.globalAlpha = 1 - out; c.translate(W / 2, 880); c.scale(s, s); c.translate(-W / 2, -880);
+    phone(c, W / 2, 880, 560, 1000, (g, x, y, w, h) => { g.fillStyle = '#f1ece1'; g.fillRect(x, y, w, h);
+      const bub = (s_, bx, by, mine, at) => { if (t < at) return; g.font = '34px "PuHui-Medium"'; const tw = Math.min(380, g.measureText(s_).width); const q = Math.min(1, pop(t, at, 0.2));
+        g.save(); g.globalAlpha = q; g.fillStyle = mine ? COL.goldHi : '#ffffff'; g.beginPath(); g.roundRect(mine ? x + w - tw - 70 : x + 30, by, tw + 40, 70, 22); g.fill(); g.fillStyle = COL.ink; g.textBaseline = 'middle'; g.fillText(s_, mine ? x + w - tw - 50 : x + 50, by + 36); g.restore(); };
+      bub('帮我把这段话翻成英文', 0, y + 120, true, -1); bub('好的，翻译如下：', 0, y + 220, false, -1);
+      for (let k = 0; k < 5; k++) { const q = clamp((t * 2.2 - k * 0.35)); g.fillStyle = 'rgba(27,27,26,.18)'; g.beginPath(); g.roundRect(x + 30, y + 320 + k * 52, (w - 140) * (k === 4 ? 0.55 : 1) * q, 30, 10); g.fill(); }
+      txt(g, 'AI', x + w / 2, y + 60, { size: 36, fam: 'PuHui-Heavy', col: COL.ink, align: 'center' }); });
+    c.restore(); }
+  // 最快的连接，只修几条路：两颗芯片、两条亮线；后面一排虚线表示「本可以修几十条」
+  const q4 = ease(t, t4 - 0.2, t4 + 0.4) * (1 - ease(t, t5 - 0.2, t5 + 0.3));
+  if (q4 > 0) { c.save(); c.globalAlpha = q4; for (let i = 0; i < 16; i++) { const x = 200 + i * 45; c.strokeStyle = 'rgba(236,230,218,.14)'; c.lineWidth = 3; c.setLineDash([10, 12]); c.beginPath(); c.moveTo(x, 600); c.lineTo(x, 1220); c.stroke(); } c.setLineDash([]);
+    for (const x of [W / 2 - 60, W / 2 + 60]) { trace(c, [[x, 600], [x, 1220]], { lw: 10 }); for (let n = 0; n < 9; n++) { const y = 600 + ((t * 900 + n * 70 + (x > W / 2 ? 35 : 0)) % 620); pulse(c, x, y, 8); } }
+    chip(c, W / 2, 520, 820, 160, '芯片'); chip(c, W / 2, 1300, 820, 160, '芯片'); c.restore(); }
+  // 25 针打印机线 vs 4 根线的 USB
+  const q5 = ease(t, t5 - 0.2, t5 + 0.4);
+  if (q5 > 0) { c.save(); c.globalAlpha = q5; const shrink = ease(t, t6 - 0.1, t6 + 0.5, 'c'), yC = lerp(820, 760, shrink);
+    // DB-25：梯形外壳 + 13/12 两排针 + 粗电缆
+    const dx = 290; c.fillStyle = '#7b7870'; c.beginPath(); c.moveTo(dx - 200, yC - 70); c.lineTo(dx + 200, yC - 70); c.lineTo(dx + 175, yC + 70); c.lineTo(dx - 175, yC + 70); c.closePath(); c.fill();
+    c.fillStyle = '#2a2927'; c.beginPath(); c.moveTo(dx - 175, yC - 50); c.lineTo(dx + 175, yC - 50); c.lineTo(dx + 155, yC + 50); c.lineTo(dx - 155, yC + 50); c.closePath(); c.fill();
+    for (let k = 0; k < 13; k++) { c.fillStyle = COL.goldHi; c.beginPath(); c.arc(dx - 156 + k * 26, yC - 20, 7, 0, 7); c.fill(); } for (let k = 0; k < 12; k++) { c.beginPath(); c.arc(dx - 143 + k * 26, yC + 20, 7, 0, 7); c.fill(); }
+    c.fillStyle = '#4a4741'; c.fillRect(dx - 70, yC + 70, 140, 300); txt(c, '25 针', dx, yC - 120, { size: 48, fam: 'PuHui-Heavy', col: COL.cream, align: 'center' });
+    // USB-A：细线 + 4 个触点
+    const ux = 790; c.fillStyle = '#b9b6ae'; c.beginPath(); c.roundRect(ux - 70, yC - 50, 140, 110, 6); c.fill(); c.fillStyle = '#2a2927'; c.fillRect(ux - 56, yC - 36, 112, 40);
+    for (let k = 0; k < 4; k++) { c.fillStyle = COL.goldHi; c.fillRect(ux - 46 + k * 26, yC - 30, 16, 26); } c.fillStyle = '#3a3833'; c.fillRect(ux - 22, yC + 60, 44, 310);
+    txt(c, '4 根线', ux, yC - 120, { size: 48, fam: 'PuHui-Heavy', col: COL.cream, align: 'center' });
+    // 速度条：说到「跑不过」时 USB 那根冲上去
+    const qa = ease(t, tPr, tPr + 0.6, 'o'), qb = ease(t, tUsb - 0.2, tUsb + 0.8, 'o'), by = yC + 470;
+    c.fillStyle = COL.creamDim; c.fillRect(dx - 70, by - 18 * qa, 140, 18 * qa); c.fillStyle = COL.goldHi; c.fillRect(ux - 70, by - 330 * qb, 140, 330 * qb);
+    txt(c, '每秒约 2 兆字节', dx, by + 50, { size: 34, fam: 'PuHui-Heavy', col: COL.creamDim, align: 'center' }); if (qb > 0.2) txt(c, '每秒几十兆字节', ux, by + 50, { size: 34, fam: 'PuHui-Heavy', col: COL.goldHi, align: 'center' });
+    txt(c, '老打印机线（并口）', dx, by + 100, { size: 30, col: COL.creamDim, align: 'center' }); txt(c, 'USB 2.0', ux, by + 100, { size: 30, col: COL.creamDim, align: 'center' });
+    c.restore(); }
+  if (t > t6 - 0.15) tape(c, '为什么路少了，反而快？', W / 2, 400, { size: 64, t, at: t6 - 0.15, r: -0.02 });
+  // 第一帧就在的大字问题 + 开头两句的卡拉 OK 大字
+  const up = ease(t, t3 - 0.3, t3 + 0.3, 'c');
+  if (up < 1) { c.save(); c.globalAlpha = 1 - up; hookText(c, t, ['AI 越来越快，', '芯片之间的路却越修越少？'], { y: 230, size: 64 });
+    hookText(c, t, ['AI 越来越聪明，', '靠的是上万颗芯片一起练。'], { y: 1500, size: 58, ids: ['a01', 'a02'], bg: '#0f0f0e' }); c.restore(); }
+};
 })();

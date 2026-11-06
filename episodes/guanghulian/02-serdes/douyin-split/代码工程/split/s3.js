@@ -170,4 +170,49 @@ SP.MECH.three = (c, t, sh) => {
 };
 
 SP.MECH.take = (c, t, sh) => { deskShot(c, t, sh); endCard(c, t, L.c21); };
+
+// ---------- 新开头（大框架）：AI 芯片新闻天天说速度翻倍 → 汽车最高时速 300、没说什么路 → 同样 224G，一米还是几厘米 → 三个问题 ----------
+SP.MECH.spec = (c, t, sh) => {
+  darkBg(c);
+  const t3 = L.c03.t0, tRoad = kw('c03', '什么路上'), t4 = L.c03b.t0, tM = kw('c03b', '一米'), tCm = kw('c03b', '几厘米'), t5 = L.c03c.t0;
+  // 一叠新闻卡（虚构标题，不点名）
+  const nq = 1 - ease(t, t3 - 0.2, t3 + 0.4, 'c');
+  if (nq > 0) { c.save(); c.globalAlpha = nq; const H_ = ['新一代 AI 芯片：互连速度翻倍', '传输速度再翻一倍！', '每条通道冲上 200G'];
+    H_.forEach((s, i) => { const at = -1 + i * 0.6 * 0 + (i === 2 ? L.c02.t0 : i === 1 ? L.c01.t1 : -1); if (t < at) return; const q = Math.min(1, pop(t, at)), y = 640 + i * 230, r = (i - 1) * 0.04 + 0.01 * Math.sin(t * 1.3 + i);
+      c.save(); c.translate(W / 2, y); c.rotate(r); c.scale(q, q); c.shadowColor = 'rgba(0,0,0,.5)'; c.shadowBlur = 20; c.shadowOffsetY = 8; c.fillStyle = '#f6f2ea'; c.beginPath(); c.roundRect(-430, -95, 860, 190, 12); c.fill(); c.shadowColor = 'transparent';
+      c.fillStyle = COL.red; c.fillRect(-430, -95, 14, 190); txt(c, '科技快讯', -390, -48, { size: 28, fam: 'PuHui-Heavy', col: COL.red }); txt(c, s, -390, 18, { size: 48, fam: 'PuHui-Heavy', col: COL.ink });
+      c.fillStyle = 'rgba(27,27,26,.15)'; c.fillRect(-390, 60, 520, 12); c.restore(); });
+    if (t > L.c02.t0) { const q = pop(t, kw('c02', '翻倍')); c.save(); c.translate(860, 560); c.rotate(-0.15); c.scale(Math.min(1.1, q), Math.min(1.1, q)); txt(c, '×2', 0, 0, { size: 150, fam: 'PuHui-Heavy', col: COL.goldHi, align: 'center' }); c.restore(); }
+    c.restore(); }
+  // 最高时速 300：表盘指针拉满；下面两条路：平坦的高速 vs 坑洼的土路
+  const q3 = ease(t, t3 - 0.2, t3 + 0.3) * (1 - ease(t, t4 - 0.2, t4 + 0.3));
+  if (q3 > 0) { c.save(); c.globalAlpha = q3; c.translate(W / 2, 760); c.strokeStyle = COL.creamDim; c.lineWidth = 16; c.beginPath(); c.arc(0, 0, 260, Math.PI * 0.8, Math.PI * 2.2); c.stroke();
+    const v = ease(t, t3, t3 + 1.2, 'o'), ang = Math.PI * (0.8 + 1.4 * v); c.strokeStyle = COL.redHi; c.lineWidth = 10; c.lineCap = 'round'; c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(ang) * 230, Math.sin(ang) * 230); c.stroke();
+    txt(c, `${Math.round(300 * v)}`, 0, 120, { size: 96, fam: 'PuHui-Heavy', col: COL.cream, align: 'center' }); txt(c, '最高时速 km/h', 0, 200, { size: 34, col: COL.creamDim, align: 'center' }); c.restore();
+    if (t > tRoad - 0.3) { const q = ease(t, tRoad - 0.3, tRoad + 0.3); c.save(); c.globalAlpha = q3 * q;
+      c.fillStyle = '#3d3b37'; c.fillRect(80, 1130, 420, 120); c.fillStyle = COL.cream; for (let k = 0; k < 6; k++) c.fillRect(100 + k * 70 - ((t * 200) % 70), 1186, 40, 8); txt(c, '平坦的高速', 290, 1300, { size: 38, fam: 'PuHui-Heavy', col: COL.cream, align: 'center' });
+      c.fillStyle = '#5a4532'; c.beginPath(); c.moveTo(580, 1250); for (let k = 0; k <= 14; k++) c.lineTo(580 + k * 30, 1140 + 25 * Math.sin(k * 1.9 + t * 3)); c.lineTo(1000, 1250); c.closePath(); c.fill(); txt(c, '坑坑洼洼的土路', 790, 1300, { size: 38, fam: 'PuHui-Heavy', col: COL.coral, align: 'center' });
+      c.restore(); } }
+  // 同样写着 224G：一颗推过一米长的铜缆，一颗只跑几厘米
+  const q4 = ease(t, t4 - 0.2, t4 + 0.3);
+  if (q4 > 0) { c.save(); c.globalAlpha = q4; const lid = (x, y) => { c.save(); c.shadowColor = 'rgba(0,0,0,.5)'; c.shadowBlur = 24; c.fillStyle = '#2d3a2a'; c.beginPath(); c.roundRect(x - 170, y - 170, 340, 340, 14); c.fill(); c.restore();
+      const g = c.createLinearGradient(x - 130, y - 130, x + 130, y + 130); g.addColorStop(0, '#b9b6ae'); g.addColorStop(1, '#8d8a83'); c.fillStyle = g; c.beginPath(); c.roundRect(x - 130, y - 130, 260, 260, 10); c.fill();
+      txt(c, '224G', x, y + 4, { size: 78, fam: 'PuHui-Heavy', col: 'rgba(40,38,34,.8)', align: 'center' }); };
+    lid(280, 560); lid(800, 560);
+    // 左：一米长的铜缆（盘一圈），信号一路跑
+    const pm = ease(t, tM - 0.4, tM + 1.0, 'c'); c.save(); c.strokeStyle = '#c47a3c'; c.lineWidth = 22; c.lineCap = 'round'; c.beginPath(); const pts = []; for (let k = 0; k <= 60; k++) { const u = k / 60; pts.push([280 + 150 * Math.sin(u * Math.PI * 2.2), 760 + u * 560]); }
+    pts.slice(0, Math.max(2, Math.round(60 * pm) + 1)).forEach((p, i) => i ? c.lineTo(...p) : c.moveTo(...p)); c.stroke(); c.restore();
+    if (pm > 0.9) { txt(c, '约 1 米铜缆', 280, 1400, { size: 44, fam: 'PuHui-Heavy', col: COL.goldHi, align: 'center' }); }
+    // 右：几厘米的走线
+    const pc = ease(t, tCm - 0.3, tCm + 0.4, 'o'); c.save(); c.strokeStyle = COL.gold; c.lineWidth = 10; c.beginPath(); c.moveTo(800, 730); c.lineTo(800, 730 + 140 * pc); c.stroke(); c.restore();
+    if (pc > 0.5) { c.fillStyle = '#34322e'; c.beginPath(); c.roundRect(700, 870, 200, 90, 10); c.fill(); txt(c, '几厘米', 800, 1010, { size: 44, fam: 'PuHui-Heavy', col: COL.goldHi, align: 'center' }); }
+    c.restore(); }
+  // 要会问三个问题
+  if (t > t5 - 0.2) ['①', '②', '③'].forEach((s, i) => { const at = t5 - 0.2 + i * 0.18; if (t < at) return; const q = pop(t, at);
+    c.save(); c.translate(250 + i * 290, 1360); c.scale(Math.min(1, q), Math.min(1, q)); c.fillStyle = COL.cream; c.beginPath(); c.roundRect(-110, -60, 220, 120, 14); c.fill();
+    txt(c, `${s} ？`, 0, 4, { size: 56, fam: 'PuHui-Heavy', col: COL.red, align: 'center' }); c.restore(); });
+  const up = ease(t, t3 - 0.3, t3 + 0.3, 'c');
+  if (up < 1) { c.save(); c.globalAlpha = 1 - up; hookText(c, t, ['速度翻倍，', '该信几分？'], { y: 220, size: 88 });
+    hookText(c, t, ['AI 芯片的新闻，', '天天在说速度翻倍。'], { y: 1520, size: 62, ids: ['c01', 'c02'], bg: '#0f0f0e' }); c.restore(); }
+};
 })();

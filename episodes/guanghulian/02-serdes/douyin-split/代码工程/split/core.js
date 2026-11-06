@@ -106,7 +106,14 @@ const endCard = (c, t, l) => { if (t < l.t0 - 0.1) return; const q = pop(t, l.t0
   MD.label(c, s, 150, 1415, { size: 44, maxW: 860, bg: COL.cream, fg: COL.ink, t, at: l.t0, rate: 22 });
   txt(c, '一语道破 · 白话光互连', W / 2 - 30, 1540, { size: 30, fam: 'PuHui-Heavy', col: 'rgba(27,27,26,.55)', align: 'center' }); c.restore(); };
 
-window.SP = { D, L, W, H, COL, kw, txt, tape, tag, pop, ease, seg, darkBg, deskBg, deskShot, hookText, endCard, hlBand, MECH: {}, STN };
+// 手机：外壳 + 屏幕，screen(g, x, y, w, h) 在屏幕里画东西（已裁切）
+const phone = (c, x, y, w, h, screen, { alpha = 1 } = {}) => { c.save(); c.globalAlpha *= alpha; c.shadowColor = 'rgba(0,0,0,.6)'; c.shadowBlur = 40; c.shadowOffsetY = 16;
+  c.fillStyle = '#121211'; c.beginPath(); c.roundRect(x - w / 2, y - h / 2, w, h, w * 0.12); c.fill(); c.shadowColor = 'transparent';
+  c.strokeStyle = 'rgba(236,230,218,.25)'; c.lineWidth = 3; c.stroke();
+  const m = w * 0.05, sx = x - w / 2 + m, sy = y - h / 2 + m * 1.6, sw = w - 2 * m, sh = h - m * 3.2;
+  c.save(); c.beginPath(); c.roundRect(sx, sy, sw, sh, w * 0.07); c.clip(); screen(c, sx, sy, sw, sh); c.restore();
+  c.fillStyle = '#121211'; c.beginPath(); c.roundRect(x - w * 0.12, sy + 10, w * 0.24, 22, 11); c.fill(); c.restore(); };
+window.SP = { phone, D, L, W, H, COL, kw, txt, tape, tag, pop, ease, seg, darkBg, deskBg, deskShot, hookText, endCard, hlBand, MECH: {}, STN };
 
 SCENES.split = {
   init() { const all = [...D.lines.map(l => (l.sub || '') + l.text), ...STN, ...(window.SPLIT_GLYPHS || [])].join('').replace(/\s/g, ''); U.assertGlyphs('PuHui-Heavy', all, 'split'); },

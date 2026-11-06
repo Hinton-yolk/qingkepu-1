@@ -168,4 +168,46 @@ SP.MECH.cdr = (c, t, sh) => {
 };
 
 SP.MECH.take = (c, t, sh) => { deskShot(c, t, sh); endCard(c, t, L.b21); };
+
+// ---------- 新开头（大框架）：你刷的每条视频都是 0 和 1 → 线上没有一个个分开的 0 和 1 → 四个还是五个？→ 没人告诉它节拍 ----------
+SP.MECH.scope = (c, t, sh) => {
+  darkBg(c); const { phone } = SP;
+  const t2 = L.b02.t0, t3 = L.b03.t0, tLine = kw('b03', '一条直线'), t4 = L.b03b.t0, tErr = kw('b03b', '数错'), t5 = L.b03c.t0, tNo = kw('b03c', '没人告诉'), tQ = kw('b03c', '怎么数清');
+  // 手机里一段「视频」（自己画的风景），说到 0 和 1 时碎成数字流
+  const dig = ease(t, t2, t2 + 1.0), away = ease(t, t3 - 0.2, t3 + 0.6, 'c');
+  const glitch = t > tErr && t < tErr + 1.6;
+  const vid = (g, x, y, w, h, gl = false) => { const sky = g.createLinearGradient(0, y, 0, y + h); sky.addColorStop(0, '#f2c27a'); sky.addColorStop(0.55, '#e98a5c'); sky.addColorStop(1, '#5c3a52'); g.fillStyle = sky; g.fillRect(x, y, w, h);
+    g.fillStyle = '#fff2c9'; g.beginPath(); g.arc(x + w * 0.62, y + h * 0.42 + Math.sin(t * 0.8) * 6, w * 0.12, 0, 7); g.fill();
+    g.fillStyle = '#3b2a3c'; g.beginPath(); g.moveTo(x, y + h * 0.7); for (let k = 0; k <= 12; k++) g.lineTo(x + w * k / 12, y + h * (0.62 + 0.08 * Math.sin(k * 1.7 + 1))); g.lineTo(x + w, y + h); g.lineTo(x, y + h); g.fill();
+    g.fillStyle = '#241a27'; g.beginPath(); g.moveTo(x, y + h * 0.82); for (let k = 0; k <= 12; k++) g.lineTo(x + w * k / 12, y + h * (0.78 + 0.05 * Math.sin(k * 2.3))); g.lineTo(x + w, y + h); g.lineTo(x, y + h); g.fill();
+    if (gl) { const r = R(Math.floor(t * 12)); for (let k = 0; k < 9; k++) { g.fillStyle = ['#2bd0c0', '#e04f8a', '#7a7a7a', '#f2e14a'][k % 4]; g.fillRect(x + r() * w, y + r() * h, 30 + r() * w * 0.4, 10 + r() * 40); } }
+    g.fillStyle = 'rgba(255,255,255,.85)'; g.fillRect(x + 30, y + h - 40, (w - 60) * ((t * 0.05) % 1), 6); g.fillStyle = 'rgba(255,255,255,.3)'; g.fillRect(x + 30, y + h - 40, w - 60, 6); };
+  if (away < 1) { c.save(); c.globalAlpha = 1 - away; phone(c, W / 2, 900, 600, 1060, (g, x, y, w, h) => { vid(g, x, y, w, h);
+      if (dig > 0) { const r = R(3); g.save(); g.globalAlpha = dig; g.fillStyle = 'rgba(15,15,14,.82)'; g.fillRect(x, y, w, h);
+        g.font = '34px "PuHui-Heavy"'; g.textAlign = 'center'; for (let k = 0; k < 15; k++) for (let j = 0; j < 26; j++) { const b = r() < 0.5 ? '0' : '1'; g.fillStyle = (j + k + Math.floor(t * 8)) % 9 === 0 ? COL.goldHi : 'rgba(245,215,126,.55)'; g.fillText(b, x + 20 + k * 36, y + 40 + ((j * 38 + t * 220) % (h + 40))); } g.restore(); } }); c.restore(); }
+  // 线上：一条一直往左流的信号，那段连续五个 1 就是一条直线
+  if (away > 0) { c.save(); c.globalAlpha = away; const S = (() => { const FIVE = [0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0], x = 90, y = 560, w = 900, h = 520, bw = w / (FIVE.length - 0.4), x0 = x + 10 - ((t - t3) * 14) % 6;
+      c.fillStyle = '#10140f'; c.beginPath(); c.roundRect(x, y, w, h, 14); c.fill(); c.strokeStyle = 'rgba(127,214,180,.12)'; c.lineWidth = 2; for (let i = 1; i < 10; i++) { c.beginPath(); c.moveTo(x + w * i / 10, y); c.lineTo(x + w * i / 10, y + h); c.stroke(); }
+      c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip(); wave(c, FIVE, x0, bw, y + h * 0.3, y + h * 0.72, { col: COL.goldHi }); c.restore(); return { x0, bw, yHi: y + h * 0.3, yLo: y + h * 0.72 }; })();
+    const a = S.x0 + 3 * S.bw, b = S.x0 + 8 * S.bw;
+    if (t > tLine - 0.3) { const q = ease(t, tLine - 0.3, tLine + 0.2); c.save(); c.globalAlpha *= q; c.strokeStyle = COL.redHi; c.lineWidth = 5; c.setLineDash([12, 10]); c.lineDashOffset = -t * 30; c.beginPath(); c.roundRect(a, S.yHi - 40, b - a, 80, 14); c.stroke(); c.restore(); }
+    // 两把刻度尺：一把数出 4，一把数出 5
+    if (t > t4 - 0.2) { const rul = (y, n, col, at) => { if (t < at) return; const q = ease(t, at, at + 0.4), step = (b - a) / n; c.save(); c.globalAlpha *= q; c.strokeStyle = col; c.lineWidth = 5;
+        for (let k = 0; k <= n; k++) { c.beginPath(); c.moveTo(a + k * step, y); c.lineTo(a + k * step, y + 40); c.stroke(); if (k < n) txt(c, String(k + 1), a + (k + 0.5) * step, y + 80, { size: 48, fam: 'PuHui-Heavy', col, align: 'center' }); }
+        c.restore(); };
+      rul(1150, 4, COL.coral, t4 - 0.2); rul(1290, 5, COL.mint, kw('b03b', '五个') - 0.2);
+      txt(c, '4 个？', 150, 1230, { size: 46, fam: 'PuHui-Heavy', col: COL.coral, alpha: ease(t, t4, t4 + 0.3) }); txt(c, '5 个？', 150, 1370, { size: 46, fam: 'PuHui-Heavy', col: COL.mint, alpha: ease(t, kw('b03b', '五个'), kw('b03b', '五个') + 0.3) }); }
+    // 数错一个：右上角小窗里的画面花了
+    if (t > tErr - 0.1 && t < t5 + 0.3) { const q = Math.min(1, pop(t, tErr - 0.1)); c.save(); c.translate(820, 380); c.scale(q, q); c.fillStyle = '#121211'; c.beginPath(); c.roundRect(-150, -100, 300, 200, 18); c.fill();
+      c.beginPath(); c.roundRect(-138, -88, 276, 176, 12); c.clip(); vid(c, -138, -88, 276, 176, true); c.restore(); tag(c, '数错一个，数据就错了', 560, 1470, { size: 40, bg: COL.coral, fg: COL.ink, t, at: tErr }); }
+    c.restore(); }
+  // 每秒上千亿个，没人告诉它节拍
+  if (t > t5 - 0.2) { const q = ease(t, t5 - 0.2, t5 + 0.3); c.save(); c.globalAlpha = q; c.fillStyle = 'rgba(15,15,14,.92)'; c.beginPath(); c.roundRect(110, 230, 860, 230, 20); c.fill();
+    txt(c, `每秒 ${Math.round(lerp(0, 1000, ease(t, t5, t5 + 1.2, 'o')))} 亿+ 次`, W / 2, 320, { size: 76, fam: 'PuHui-Heavy', col: COL.goldHi, align: 'center' }); txt(c, 'AI 芯片之间，每条通道', W / 2, 410, { size: 38, fam: 'PuHui-Heavy', col: COL.cream, align: 'center' }); c.restore();
+    if (t > tNo - 0.2) { metronome(c, 900, 1230, 80, t); const q2 = ease(t, tNo, tNo + 0.3); c.save(); c.globalAlpha = q2; c.strokeStyle = COL.redHi; c.lineWidth = 10; c.lineCap = 'round'; c.beginPath(); c.moveTo(830, 1150); c.lineTo(970, 1310); c.moveTo(970, 1150); c.lineTo(830, 1310); c.stroke(); c.restore(); }
+    if (t > tQ - 0.2) tape(c, '它怎么数清？', W / 2, 1460 - 0, { size: 66, t, at: tQ - 0.2, r: -0.02 }); }
+  const up = ease(t, t3 - 0.3, t3 + 0.3, 'c');
+  if (up < 1) { c.save(); c.globalAlpha = 1 - up; hookText(c, t, ['数错一个 0 和 1，', '会怎样？'], { y: 200, size: 66 });
+    hookText(c, t, ['你刷的每条视频，', '都是一串 0 和 1。'], { y: 1520, size: 62, ids: ['b01', 'b02'], bg: '#0f0f0e' }); c.restore(); }
+};
 })();
