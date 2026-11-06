@@ -1,0 +1,9 @@
+CREDITS — 如果……会怎样 01 · 如果你的眼睛突然能看见 Wi-Fi
+
+Voice: Fish Audio text-to-speech, voice 「科普」 (id 83bc284d2a3848c8a37f6d9a9ab11cd8), model s2.1-pro, generated on the user's own Fish Audio account.
+Speech check: faster-whisper (MIT) with Whisper small/medium weights (MIT).
+Music and sound: synthesized in code (tools/sound.py); no samples, no third-party recordings.
+Picture: drawn in code (film/full.js, Canvas 2D). Style borrows lightly from the Lemo-Opuscar library's Isometric Infographic, Blueprint and Sci-fi Hologram HUD styles (github.com/lemomo-ai/lemo-opuscar), used under its licence; no assets copied.
+Fonts: Noto Sans CJK SC / Noto Sans Mono CJK SC (SIL OFL 1.1, system fonts); Inter Tight (SIL OFL 1.1, fonts/).
+Software: Playwright + Chromium (Apache 2.0 / BSD), FFmpeg (LGPL/GPL), numpy, scipy, soundfile, pyloudnorm, librosa.
+Real places and objects: 中国天眼 (FAST) appears as a schematic drawing from public facts; this film is not made or endorsed by NAOC or FAST.

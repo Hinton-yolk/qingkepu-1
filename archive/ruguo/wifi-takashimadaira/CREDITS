@@ -1,0 +1,24 @@
+CREDITS — 如果眼睛能看见 Wi-Fi（「如果……会怎样」01）· 高岛平团地
+
+Data
+- Building footprints, measured heights, storeys and usage: 国土交通省 PLATEAU 3D 都市模型（東京都23区, 2023年度, CityGML bldg, meshes 53395542 / 53395543）.
+  https://www.mlit.go.jp/plateau/ — terms compatible with CC BY 4.0. On screen: 「数据：国土交通省 PLATEAU（CC BY 4.0）」. 出典：国土交通省 PLATEAU.
+  Router / home counts on screen are estimates computed from this data (see FACTS.md); they are not PLATEAU data.
+
+Voice
+- Narration: Fish Audio text-to-speech, voice 「科普」 (id 83bc284d2a3848c8a37f6d9a9ab11cd8), model s2.1-pro, generated on the user's own Fish Audio account.
+- Speech check: faster-whisper (MIT) with OpenAI Whisper small/medium weights (MIT).
+
+Music and sound
+- Score, room tone, projector, relays, lamp and every effect: synthesized in code (tools/score.py). No samples.
+
+Fonts
+- Inter Tight (SIL Open Font License 1.1), self-hosted in fonts/.
+- Noto Sans Mono CJK SC (SIL Open Font License 1.1), system font.
+
+Software
+- three.js (MIT), Playwright + Chromium (Apache 2.0 / BSD), FFmpeg (LGPL/GPL), numpy, scipy, soundfile, pyloudnorm, librosa (BSD/ISC/MIT).
+- Render tools and the projection-on-white-model style: the Lemo-Opuscar library (github.com/lemomo-ai/lemo-opuscar), used under its licence.
+
+Places
+- 高島平団地 appears as public geometry data. This film is not made or endorsed by UR 都市機構, 板橋区, or 国土交通省.

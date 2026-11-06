@@ -1,0 +1,10 @@
+CREDITS — 如果……会怎样 02 · 如果地球突然停止自转
+
+Voice: Fish Audio text-to-speech, voice 「科普」 (id 83bc284d2a3848c8a37f6d9a9ab11cd8), model s2.1-pro, generated on the user's own Fish Audio account.
+Speech check: faster-whisper (MIT) with Whisper small/medium weights (MIT).
+Music and sound: synthesized in code (tools/sound.py); no samples, no third-party recordings.
+Picture: drawn in code (film/lib.js, film/full.js, Canvas 2D). Style borrows lightly from the Lemo-Opuscar library's Isometric Infographic, Blueprint and Sci-fi Hologram HUD styles (github.com/lemomo-ai/lemo-opuscar), used under its licence; no assets copied.
+Map data: NOAA ETOPO1 Global Relief Model (public domain, U.S. Government work), via the NOAA CoastWatch ERDDAP dataset etopo180, sampled at 0.5°. Coastlines: Natural Earth 1:110m land (public domain).
+Sea-level estimate: our own calculation (tools/nospin.py, tools/nospin2.py); assumptions in FACTS.md. The idea of the map follows Witold Fraczek's Esri ArcUser analysis; no Esri imagery or data used.
+Fonts: Noto Sans CJK SC / Noto Sans Mono CJK SC (SIL OFL 1.1, system fonts); Inter Tight (SIL OFL 1.1, fonts/).
+Software: Playwright + Chromium (Apache 2.0 / BSD), FFmpeg (LGPL/GPL), numpy, scipy, soundfile, pyloudnorm, librosa, Pillow.

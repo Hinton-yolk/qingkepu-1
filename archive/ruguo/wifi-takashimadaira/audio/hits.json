@@ -1,0 +1,19 @@
+{
+ "first": 0.0,
+ "cascade": 3.5,
+ "crane": 4.5,
+ "pin": 6.5,
+ "count1": 12.0,
+ "count2": 16.5,
+ "here": 17.5,
+ "boom": 18.5,
+ "spill": 20.5,
+ "n1": 25.0,
+ "n2": 26.0,
+ "spread": 28.0,
+ "all": 30.0,
+ "lightsup": 33.5,
+ "lamp": 36.0,
+ "glow": 38.5,
+ "card": 40.0
+}
