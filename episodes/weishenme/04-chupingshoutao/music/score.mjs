@@ -227,16 +227,20 @@ impact(T.name, 1.3); stab(T.name, [50, 57, 62, 66, 69], 0.6, 1, 1.2); bloom(T.na
 for (let i = 0; i < 4; i++) mallet(T.wrap + i * S16, [62, 59, 57, 54][i], 0.45, -0.2 + 0.12 * i);
 tap(T.fDownEnd, 0.6, 95);
 HITS.scan2.forEach((t, i) => tick(t, 0.5, -0.5 + 0.14 * i, 2000 + 160 * i));
-[T.miss, T.miss2].forEach((m) => { blip(m, 81, 0.6, 0.1); blip(m + 0.25, 78, 0.5, -0.1); thunk(m + 0.25, 0.25, 90); });
+[T.miss].forEach((m) => { blip(m, 81, 0.6, 0.1); blip(m + 0.25, 78, 0.5, -0.1); thunk(m + 0.25, 0.25, 90); });
+// the camera swings between the side cut and the view from above: soft tonal glides (no noise)
+HITS.swing.forEach((t, i) => glide(t, 0.5, i % 2 ? 79 : 74, i % 2 ? 74 : 79, 0.35, i % 2 ? -0.2 : 0.2));
 // back out: a sausage wakes the screen; the touch glove's yarn
 glide(T.climb, T.climbEnd - T.climb, 79, 67, 0.6, 0);
 tap(T.saus, 0.85, 85); thunk(T.saus, 0.25, 70);
+blip(T.inset, 84, 0.5, -0.3); blip(T.inset + 0.08, 88, 0.4, -0.3);
 blip(T.sLock, 86, 0.8); blip(T.sLock + 0.08, 93, 0.6);
 bloom(T.wake, [74, 78, 81, 86], 0.9); [[0, 86], [1, 90], [2, 93]].forEach(([i, m]) => blip(T.wake + i * S16, m, 0.55, -0.2 + 0.2 * i));
 tick(T.sLabel, 0.5, 0.2, 2600);
 tap(T.unlock, 0.55, 90); glide(T.unlock, T.unlockEnd - T.unlock, 74, 86, 0.6, -0.1); bloom(T.unlockEnd, [81, 86, 90], 0.4);
 tap(T.iconTap, 0.6, 95); blip(T.iconTap, 90, 0.6, 0.15);
 tap(T.tg, 0.6, 110); bloom(T.tg + 0.25, [81, 85, 88], 0.35);
+glide(T.dive2, T.top2 - T.dive2 + 0.2, 60, 79, 0.8, 0.1);
 for (let i = 0; i < 6; i++) blip(T.yarn + i * S16, [81, 85, 88, 93, 97, 100][i], 0.45 - 0.04 * i, -0.3 + 0.12 * i);   // glints climbing the yarn
 blip(T.lock2, 86, 0.85); blip(T.lock2 + 0.08, 93, 0.65); bloom(T.lock2 + 0.05, [86, 90, 93], 0.5);
 // 6 the same call: it rings; the touch glove swipes; half a beat of nothing; 咔
