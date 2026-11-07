@@ -5,7 +5,7 @@ import path from "node:path";
 const { chromium } = createRequire(import.meta.url)("playwright");
 const HERE = path.dirname(new URL(import.meta.url).pathname);
 const A = JSON.parse(fs.readFileSync(path.join(HERE, "art/anchors.json"), "utf8"));
-const SMILEY = "file:///home/user/ep01-gyroscope/assets/fonts/SmileySans-Oblique.ttf";
+const SMILEY = "file://" + path.join(HERE, "../assets/fonts/SmileySans-Oblique.ttf");
 const NOTO = "file:///usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc";
 const SERIES = "你每天都在用，但你不知道它怎么工作";
 
@@ -28,7 +28,14 @@ const COVERS = [
   { out: "ep03-xiaohongshu", W: 1080, H: 1440, ep: "EP.03", title: ["按一下，", "噪音怎么就<b>没了</b>？"],
     hero: "ep03-hero-xhs", heroDy: 0, anchor: A["ep03-hero-xhs"], inset: { img: "ep03-inset", cx: 560, cy: 1000, src: 430, x: 830, y: 1215, r: 175 },
     ser: 108, t1: 252, t2: 398, size: 128, wash: 540 },
+  { out: "ep04-douyin", W: 1080, H: 1920, ep: "EP.04", title: ["戴着手套，", "为什么点不动<b>屏幕</b>？"],
+    hero: "ep04-hero-dy", heroDy: 0, anchor: A["ep04-hero-dy"], inset: { img: "ep04-inset", cx: 420, cy: 1110, src: 330, x: 850, y: 1500, r: 195 },
+    ser: 300, t1: 452, t2: 602, size: 124, wash: 760 },
+  { out: "ep04-xiaohongshu", W: 1080, H: 1440, ep: "EP.04", title: ["戴着手套，", "为什么点不动<b>屏幕</b>？"],
+    hero: "ep04-hero-xhs", heroDy: 0, anchor: A["ep04-hero-xhs"], inset: { img: "ep04-inset", cx: 420, cy: 1110, src: 330, x: 850, y: 1215, r: 175 },
+    ser: 108, t1: 252, t2: 398, size: 120, wash: 480 },
 ];
+const ONLY = process.argv[2];                                   // node make.mjs ep04 → only those covers
 
 function html(c) {
   const i = c.inset, k = i.r / i.src;                                   // the inset shows a circle of radius src (px) from the inset frame
@@ -72,7 +79,7 @@ function html(c) {
 }
 
 const browser = await chromium.launch();
-for (const c of COVERS) {
+for (const c of COVERS.filter((c) => !ONLY || c.out.startsWith(ONLY))) {
   const f = path.join(HERE, `${c.out}.html`); fs.writeFileSync(f, html(c));
   const page = await browser.newPage({ viewport: { width: c.W, height: c.H } });
   await page.goto("file://" + f); await page.evaluate(() => document.fonts.ready); await page.waitForTimeout(300);
@@ -80,4 +87,4 @@ for (const c of COVERS) {
   await page.close();
 }
 await browser.close();
-console.log("covers ->", COVERS.map((c) => c.out).join(", "));
+console.log("covers ->", COVERS.filter((c) => !ONLY || c.out.startsWith(ONLY)).map((c) => c.out).join(", "));

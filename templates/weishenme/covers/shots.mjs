@@ -14,10 +14,14 @@ const JOBS = [
   ["../../../episodes/weishenme/03-jiangzaoerji", "ep03-hero-dy", 3.6, "key([9, -10], [560, 1180], 0.92)", "[13, 0]"],
   ["../../../episodes/weishenme/03-jiangzaoerji", "ep03-hero-xhs", 3.6, "key([9, -10], [560, 900], 0.8)", "[13, 0]"],
   ["../../../episodes/weishenme/03-jiangzaoerji", "ep03-inset", 28.6, null, null],
+  ["../../../episodes/weishenme/04-chupingshoutao", "ep04-hero-dy", 1.6, "key([0, 4], [540, 1150], 1.15)", "P"],
+  ["../../../episodes/weishenme/04-chupingshoutao", "ep04-hero-xhs", 1.6, "key([0, 4], [540, 900], 0.98)", "P"],
+  ["../../../episodes/weishenme/04-chupingshoutao", "ep04-inset", 17.6, null, null],
 ];
+const ONLY = process.argv[2];                                   // node shots.mjs ep04 → only the jobs whose name starts with ep04
 const browser = await chromium.launch();
-const anchors = {};
-for (const [dir, name, t, camExpr, anchor] of JOBS) {
+const anchors = fs.existsSync("art/anchors.json") ? JSON.parse(fs.readFileSync("art/anchors.json", "utf8")) : {};   // merge, keep the other episodes
+for (const [dir, name, t, camExpr, anchor] of JOBS.filter((j) => !ONLY || j[1].startsWith(ONLY))) {
   const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
   await page.goto("file://" + path.resolve(dir, "index.html"));
   await page.waitForFunction(() => window.ready === true);
@@ -33,6 +37,7 @@ for (const [dir, name, t, camExpr, anchor] of JOBS) {
     }
     if (typeof window.frame === "function") frame(t); else window.seek(t);   // one sharp frame, no motion blur
     if (!anchor) return null;
+    if (typeof window.toS !== "function") window.toS = (K, p) => proj(K, p[0], p[1], p[2] || 0);   // EP.04 on: the camera is proj()
     const p = toS(cam(t), eval(anchor)); return [Math.round(p[0]), Math.round(p[1])];
   }, { t, camExpr, anchor });
   await page.locator("#c").screenshot({ path: `art/${name}.png` });
