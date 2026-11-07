@@ -109,7 +109,7 @@ elif N_ == 's2':
     tMix = kw('q09', '打乱'); [click(tMix + i * 0.04, 0.04) for i in range(22)]; tBack = kw('q09', '还原'); [click(tBack + i * 0.04, 0.04) for i in range(12)]; ding(tBack + 0.45, 76, 0.09)
 elif N_ == 's3':
     boom(0.1, 0.2)                                                                                                            # 第一帧：大屏亮起
-    tAsk = kw('k03', '先问三句'); [thud(tAsk - 0.1 + i * 0.22, 0.3) for i in range(3)]
+    tAsk = kw('k03', '三句'); [thud(tAsk - 0.1 + i * 0.22, 0.3) for i in range(3)]
     t4 = kw('k04', '一半'); add(fx, gl(900, 300, 0.6) * np.linspace(1, 0, int(0.6 * SR)) * 0.5, t4 - 0.1, 0.05)               # 网速掉一半
     tScore = kw('k06', '跑分'); add(fx, gl(300, 1600, 1.4) * 0.4, tScore - 0.2, 0.04); boom(kw('k06', '几万颗芯片'), 0.25)
     glass(HIT - 0.25, 0.06); boom(HIT, 0.35); glass(HIT + 0.01, 0.16)                                                         # PPT 碎掉

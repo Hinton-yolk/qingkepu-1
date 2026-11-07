@@ -15,7 +15,7 @@ const GARB = '仐晚丂炏耂土斾见乛亍冂兦凵卄夨孒屮巛幵廾彐';
 SP.MECH.chat = (c, t, sh) => {
   const k = T.cam({ hy: 1500, camH: 300 }); T.bg(c, k, { grid: 0.5, scroll: t * 200 }); T.streams(c, t, { a: 0.14, seed: 4 });
   const tMess = kw('q02', '全乱了'), tBig = kw('q03', '上千亿'), tLine = kw('q03', '一条直线'), t4 = kw('q03', '四个'), t5 = kw('q03', '五个'), tNo = kw('q04', '打拍子'), tQ = kw('q04', '怎么数清');
-  const dis = ease(t, tBig - 0.4, tBig + 0.6, 'c');
+  const dis = sh.kind === 'chat2' ? ease(t, sh.t0, sh.t0 + 0.8, 'c') : 0;
   if (dis < 1) { c.save(); c.globalAlpha = 1 - dis; c.translate(W / 2, 840 + 10 * Math.sin(t * 2)); c.scale(1 - 0.2 * dis, 1 - 0.2 * dis); c.rotate(0.012 * Math.sin(t * 1.3));
     SP.phone(c, 0, 0, 640, 1060, (g, x, y, w, h) => { chatBg(g, x, y, w, h);
       g.font = '42px "PuHui-Medium"'; const s1 = '今晚七点，老地方见', tw = g.measureText(s1).width; g.fillStyle = '#95ec69'; g.beginPath(); g.roundRect(x + w - tw - 84, y + 200, tw + 46, 88, 16); g.fill(); txt(g, s1, x + w - tw - 61, y + 246, { size: 42, col: '#1b1b1a' });
@@ -43,6 +43,7 @@ SP.MECH.chat = (c, t, sh) => {
     c.restore(); }
 };
 
+SP.MECH.chat2 = (c, t, sh) => SP.MECH.chat(c, t, sh);
 // ---------- 2. 就像跟着一首歌拍手：一首歌的声波，鼓点处是亮的尖峰；一双手在每个鼓点上拍一下 ----------
 SP.MECH.clap = (c, t, sh) => {
   const k = T.cam({ hy: 1500, camH: 300 }); T.bg(c, k, { grid: 0.5, scroll: t * 200 });

@@ -67,7 +67,7 @@ const deskShot = (c, t, sh) => {
 };
 
 // ---------- 顶部五站导航（缩小版，避开抖音顶部标签栏） ----------
-const STN = ['出发', '电的路', '换乘', '光的路', '抵达'];
+const STN = ['打包出发', '路上', '中转', '干线', '签收'];   // 系列大框架：AI 芯片之间寄快递
 const drawHud = (c, t) => { if (t < D.hudIn) return;
   const w = 720, h = 60, x0 = (W - w) / 2, y0 = 196, cw = w / 5, q = pop(t, D.hudIn, 0.2);
   c.save(); c.globalAlpha = Math.min(1, q); c.translate(W / 2, y0 + h / 2); c.scale(0.9 + 0.1 * q, 0.9 + 0.1 * q); c.translate(-W / 2, -(y0 + h / 2));
@@ -114,8 +114,14 @@ const phone = (c, x, y, w, h, screen, { alpha = 1 } = {}) => { c.save(); c.globa
   c.save(); c.beginPath(); c.roundRect(sx, sy, sw, sh, w * 0.07); c.clip(); screen(c, sx, sy, sw, sh); c.restore();
   c.fillStyle = '#121211'; c.beginPath(); c.roundRect(x - w * 0.12, sy + 10, w * 0.24, 22, 11); c.fill(); c.restore(); };
 // 「一句话带走」：纸桌上几张打字的纸条（和口播一致），说到哪段荧光笔涂到哪段
+const miniRoute = (c, t, at, y = 1180) => { if (t < at) return; const q = clamp((MO.step(t, 12) - at) / 0.3), x0 = 130, x1 = 950;
+  c.save(); c.globalAlpha = q; c.strokeStyle = COL.ink; c.lineWidth = 5; c.setLineDash([16, 12]); c.beginPath(); c.moveTo(x0, y); c.lineTo(x1, y); c.stroke(); c.setLineDash([]);
+  STN.forEach((s_, i) => { const x = lerp(x0, x1, i / 4), on = i === 0; c.fillStyle = on ? COL.red : COL.paper; c.strokeStyle = COL.ink; c.lineWidth = 4; c.beginPath(); c.arc(x, y, on ? 22 : 16, 0, 7); c.fill(); c.stroke();
+    txt(c, s_, x, y + 56, { size: on ? 36 : 30, fam: 'PuHui-Heavy', col: on ? COL.red : 'rgba(27,27,26,.55)', align: 'center' }); });
+  c.strokeStyle = COL.red; c.lineWidth = 5; c.beginPath(); c.ellipse(x0, y + 20, 110, 80, -0.1, 0, Math.PI * 2 * clamp((MO.step(t, 12) - at - 0.2) / 0.4)); c.stroke();
+  txt(c, '你在这里', x0 + 10, y - 70, { size: 38, fam: 'PuHui-Heavy', col: COL.red, align: 'center' }); txt(c, 'AI 芯片之间寄快递', W - 120, y - 70, { size: 32, fam: 'PuHui-Heavy', col: 'rgba(27,27,26,.5)', align: 'right' }); c.restore(); };
 const deskType = (c, t, sh) => {
-  deskBg(c); const S = sh.type, tt = MO.step(t, 12); let y = 640;
+  deskBg(c); const S = sh.type, tt = MO.step(t, 12); let y = 560; miniRoute(c, t, sh.t0 + 0.5, 1150);
   S.forEach((s, i) => { const big = i === 0, size = big ? 76 : 64; c.save(); c.font = `${size}px "${big ? 'PuHui-Heavy' : 'PuHui-Medium'}"`; const tw = c.measureText(s.text).width, w = tw + size * 1.1, h = size * 1.75;
     const at = sh.t0 + 0.12 + i * 0.12, q = clamp((tt - at) / 0.17); if (q <= 0) { c.restore(); y += h + 30; return; }
     const r = U.rng(i * 31 + 7), rot = (r() - .5) * 0.03, x = W / 2 - 30 - w / 2 + (r() - .5) * 30, lift = 1 + 0.08 * (1 - q);
@@ -124,8 +130,28 @@ const deskType = (c, t, sh) => {
     if (s.line && !big) { const a = s.from ? kw(s.line, s.from) : L[s.line].t0, b = s.to ? kw(s.line, s.to, 0, true) : L[s.line].t1; hlBand(c, size * 0.4, h * 0.18, w - size * 0.4, h * 0.84, MO.step(seg(t, a, b), 24), i * 5 + 3); }
     c.fillStyle = big ? '#f3efe6' : COL.ink; c.textBaseline = 'middle'; c.fillText(s.text, size * 0.55, h / 2 + 2); c.restore(); y += h + 30; });
 };
+// 快递路线图：发件的 AI 芯片 → 五站 → 收件的 AI 芯片；包裹一直在路上跑；说到「这一条」时镜头推向第一站
+const SP_MECH_ROUTE = (c, t, sh) => {
+  const T = SP.T, k = T.cam({ hy: 1500, camH: 300 }); T.bg(c, k, { grid: 0.5, scroll: t * 200 }); T.streams(c, t, { a: 0.14, seed: 21 });
+  const l = L[sh.first], iThis = l.text.indexOf('这一条'), tThis = iThis >= 0 ? l.ch[iThis] : l.t0 + 1.5, zq = ease(t, tThis - 0.3, tThis + 0.6, 'c');
+  const P = u => { const a = [160, 1250], b = [300, 500], c2 = [800, 1200], d = [920, 420]; const m = 1 - u; return [m * m * m * a[0] + 3 * m * m * u * b[0] + 3 * m * u * u * c2[0] + u * u * u * d[0], m * m * m * a[1] + 3 * m * m * u * b[1] + 3 * m * u * u * c2[1] + u * u * u * d[1]]; };
+  const st = [0.08, 0.3, 0.52, 0.72, 0.92], s1 = P(st[0]);
+  c.save(); const z = lerp(1, 1.7, zq); c.translate(lerp(W / 2, W / 2 + 180, zq), lerp(900, 760, zq)); c.scale(z, z); c.translate(-lerp(W / 2, s1[0] + 120, zq), -lerp(900, s1[1] - 60, zq));
+  c.save(); c.strokeStyle = 'rgba(226,181,74,.35)'; c.lineWidth = 46; c.lineCap = 'round'; c.beginPath(); for (let i = 0; i <= 60; i++) { const p = P(i / 60); i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]); } c.stroke();
+  c.strokeStyle = 'rgba(245,215,126,.9)'; c.lineWidth = 4; c.setLineDash([18, 16]); c.lineDashOffset = -t * 60; c.stroke(); c.restore();
+  SP.T.chip(c, 160, 1360, 200, 140, { label: 'AI 芯片', t }); SP.T.chip(c, 930, 300, 200, 140, { label: 'AI 芯片', t: t + 0.5 });
+  // 一个个包裹沿路跑
+  for (let n = 0; n < 7; n++) { const u = ((t * 0.12 + n / 7) % 1), p = P(u); c.save(); c.translate(p[0], p[1]); c.rotate(0.2 * Math.sin(t * 3 + n)); c.fillStyle = '#c8935a'; c.fillRect(-22, -18, 44, 36); c.strokeStyle = '#7a5530'; c.lineWidth = 3; c.strokeRect(-22, -18, 44, 36); c.fillStyle = '#e9d3a8'; c.fillRect(-4, -18, 8, 36); c.restore(); }
+  STN.forEach((s_, i) => { const p = P(st[i]), on = i === 0; c.save(); if (on) { c.shadowColor = COL.gold; c.shadowBlur = 30 + 10 * Math.sin(t * 5); } c.fillStyle = on ? COL.goldHi : '#2c2b28'; c.strokeStyle = on ? COL.goldHi : COL.creamDim; c.lineWidth = 4; c.beginPath(); c.arc(p[0], p[1], on ? 30 : 22, 0, 7); c.fill(); c.stroke(); c.restore();
+    txt(c, s_, p[0] + (i % 2 ? -48 : 48), p[1] - 50, { size: on ? 50 : 42, fam: 'PuHui-Heavy', col: on ? COL.goldHi : COL.creamDim, align: i % 2 ? 'right' : 'left' }); });
+  c.restore();
+  tag(c, 'AI 芯片之间寄快递', W / 2, 330, { size: 46, bg: COL.cream, fg: COL.ink });
+  if (t > tThis - 0.2) tag(c, `这一条：${sh.topic}`, W / 2 + 60, 1400, { size: 50, bg: COL.goldHi, fg: COL.ink, t, at: tThis - 0.2, r: -0.02 });
+  if (SP.ROUTE_EXTRA) SP.ROUTE_EXTRA(c, t, sh);
+};
 window.SP = { deskType, phone, D, L, W, H, COL, kw, txt, tape, tag, pop, ease, seg, darkBg, deskBg, deskShot, hookText, endCard, hlBand, MECH: {}, STN };
 
+SP.MECH.route = (...a) => SP_MECH_ROUTE(...a);
 SCENES.split = {
   init() { const all = [...D.lines.map(l => (l.sub || '') + l.text), ...STN, ...(window.SPLIT_GLYPHS || [])].join('').replace(/\s/g, ''); U.assertGlyphs('PuHui-Heavy', all, 'split'); },
   draw(c, lt, t) {

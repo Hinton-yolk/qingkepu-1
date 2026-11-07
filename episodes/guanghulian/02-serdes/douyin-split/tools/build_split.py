@@ -6,11 +6,11 @@ N = sys.argv[1]; SRC = '/home/user/kepu-studio/episodes/guanghulian/02-serdes/do
 S = json.load(open(f'{SRC}/script_{N}.json')); A = json.load(open(f'{SRC}/align_{N}.json'))
 TK = lambda text, line, a=None, b=None: dict(text=text, line=line, **{'from': a}, to=b)
 SHOTS = {
- 's1': [('photo', 'p01'), ('strips', 'p03'), ('serial', 'p09'),
+ 's1': [('photo', 'p01'), ('route', 'p02b'), ('strips', 'p03'), ('serial', 'p09'),
         ('take', 'p10', [TK('一句话带走', 'p10'), TK('路少，', 'p11', '路少', '路少'), TK('反而不会乱。', 'p11', '反而', '不会乱')])],
- 's2': [('chat', 'q01'), ('clap', 'q05'), ('beat', 'q06'), ('scramble', 'q08'),
+ 's2': [('chat', 'q01'), ('route', 'q02b'), ('chat2', 'q03'), ('clap', 'q05'), ('beat', 'q06'), ('scramble', 'q08'),
         ('take', 'q10', [TK('一句话带走', 'q10'), TK('靠的不是眼睛，', 'q11', '靠的', '眼睛'), TK('是耳朵。', 'q11', '是耳朵', '耳朵')])],
- 's3': [('launch', 'k01'), ('wifi', 'k04'), ('cable', 'k05'), ('hot', 'k06'), ('ppt', 'k07'),
+ 's3': [('launch', 'k01'), ('route', 'k03'), ('wifi', 'k04'), ('cable', 'k05'), ('hot', 'k06'), ('ppt', 'k07'),
         ('take', 'k08', [TK('一句话带走', 'k08'), TK('什么路？费不费电？', 'k09', '什么路', '费不费电'), TK('实测了吗？', 'k09', '实测', '了吗')])],
 }[N]
 HOLD = {'p05': 0.9, 'q06': 0.8, 'k07': 0.6}
@@ -41,6 +41,7 @@ for k, (kind, first, *rest) in enumerate(SHOTS):
     sh = dict(kind=kind, t0=a, paper=kind in ('desk', 'take'), first=first)
     if rest: sh['type'] = rest[0]
     if kind == 'take': sh['cy'] = 700
+    if kind == 'route': sh['topic'] = {'s1': '为什么排成一队寄', 's2': '对面怎么清点签收', 's3': '提速一倍，先问三句'}[N]
     shots.append(sh)
 for k in range(len(shots)): shots[k]['t1'] = shots[k + 1]['t0'] if k + 1 < len(shots) else dur
 json.dump(dict(name=N, dur=dur, lines=lines, shots=shots, hudIn=round(next(l['t0'] for l in lines if l['seg'] != 'open') - 0.3, 3)), open(f'/home/user/vox-ep02s/代码工程/split/{N}.json', 'w'), ensure_ascii=False)

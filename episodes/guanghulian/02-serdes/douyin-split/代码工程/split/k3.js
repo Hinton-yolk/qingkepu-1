@@ -23,7 +23,7 @@ const qtag = (c, n, s, x, y, t, at) => { if (t < at) return; const q = Math.min(
 // ---------- 1. 第一帧：发布会大屏「速度 ×2」，台下手机实测只有一半 → 新闻也天天说翻倍 → 先问三句 ----------
 SP.MECH.launch = (c, t, sh) => {
   const k = T.cam({ hy: 1500, camH: 300 }); T.bg(c, k, { grid: 0.4, scroll: t * 150 }); T.streams(c, t, { a: 0.12, seed: 6 });
-  const tHalf = kw('k02', '打对折'), tNews = kw('k03', '新闻'), tDbl = kw('k03', '速度翻倍'), tAsk = kw('k03', '先问三句');
+  const tHalf = kw('k02', '打对折'), tNews = 1e9, tAsk = 1e9;
   // 大屏 + 扫来扫去的追光
   c.save(); c.fillStyle = '#0d0f12'; c.fillRect(90, 330, 900, 520); c.strokeStyle = 'rgba(155,232,219,.25)'; c.lineWidth = 3; c.strokeRect(90, 330, 900, 520);
   const g = c.createRadialGradient(540, 590, 50, 540, 590, 600); g.addColorStop(0, 'rgba(245,215,126,.35)'); g.addColorStop(1, 'rgba(245,215,126,0)'); c.fillStyle = g; c.fillRect(90, 330, 900, 520);
@@ -48,6 +48,11 @@ SP.MECH.launch = (c, t, sh) => {
   hookText(c, t, ['发布会上的速度翻倍，', '到手可能打对折。'], { y: 1430, size: 54, ids: ['k01', 'k02'], bg: '#0f0f0e' });
 };
 
+// 快递路线图镜头里：说到「先问哪三句」时，三张问题卡砸下来
+SP.ROUTE_EXTRA = (c, t, sh) => { const tAsk = kw('k03', '三句'); if (t < tAsk - 0.2) return; c.save(); c.fillStyle = `rgba(4,5,6,${0.6 * ease(t, tAsk - 0.2, tAsk + 0.1)})`; c.fillRect(0, 0, W, H); c.restore();
+  ['什么路？', '费不费电？', '实测了吗？'].forEach((s_, i) => { const at = tAsk - 0.1 + i * 0.22; if (t < at) return; const q = Math.min(1, pop(t, at, 0.18));
+    c.save(); c.translate(W / 2, 640 + i * 190 + (1 - q) * -200 + 8 * Math.sin(t * 3 + i)); c.shadowColor = COL.gold; c.shadowBlur = 24; c.fillStyle = COL.cream; c.beginPath(); c.roundRect(-330, -70, 660, 140, 16); c.fill(); c.shadowBlur = 0;
+    c.fillStyle = COL.red; c.beginPath(); c.arc(-250, 0, 40, 0, 7); c.fill(); txt(c, String(i + 1), -250, 2, { size: 48, fam: 'PuHui-Heavy', col: '#fff', align: 'center' }); txt(c, s_, -180, 2, { size: 60, fam: 'PuHui-Heavy', col: COL.ink }); c.restore(); }); };
 // ---------- 2. 第一句：什么路？——千兆宽带到卧室只剩一半（户型图：路由器一圈圈的信号，穿过两堵墙变弱） ----------
 SP.MECH.wifi = (c, t, sh) => {
   const k = T.cam({ hy: 1500, camH: 300 }); T.bg(c, k, { grid: 0.4, scroll: t * 150 });
@@ -103,10 +108,10 @@ SP.MECH.ppt = (c, t, sh) => {
   if (crack > 0 && fall <= 0) { c.save(); c.translate(sx, sy); c.rotate(-0.05); c.strokeStyle = '#040506'; c.lineWidth = 6; c.beginPath(); c.moveTo(-230, -40); c.lineTo(-230 + 170 * crack, -40 + 50 * crack); c.moveTo(20, -160); c.lineTo(20 - 80 * crack, -160 + 170 * crack); c.stroke(); c.restore(); }
   if (sq > 0.5 && fall < 0.5) tag(c, '发布会上', sx, 980, { size: 42 });
   const rq = ease(t, tHand - 0.3, tHand + 0.4);
-  if (rq > 0) { c.save(); c.globalAlpha = rq; SP.phone(c, 790, 780, 300, 520, (g, x, y, w, h) => { g.fillStyle = '#10141a'; g.fillRect(x, y, w, h); txt(g, '实际续航', x + w / 2, y + 90, { size: 32, fam: 'PuHui-Heavy', col: COL.cream, align: 'center' });
+  if (rq > 0) { c.save(); c.globalAlpha = rq; SP.phone(c, 790, 780 + 14 * Math.sin(t * 2.4), 300, 520, (g, x, y, w, h) => { g.fillStyle = '#10141a'; g.fillRect(x, y, w, h); txt(g, '实际续航', x + w / 2, y + 90, { size: 32, fam: 'PuHui-Heavy', col: COL.cream, align: 'center' });
       const bat = lerp(0.8, 0.15, ease(t, tHand, tTwo)); g.strokeStyle = COL.cream; g.lineWidth = 4; g.strokeRect(x + 50, y + 170, 200, 80); g.fillStyle = bat < 0.3 ? COL.coral : COL.goldHi; g.fillRect(x + 58, y + 178, 184 * bat, 64);
       txt(g, '1 天', x + w / 2, y + 360, { size: 90, fam: 'PuHui-Heavy', col: COL.coral, align: 'center' }); }); c.restore(); tag(c, '到手', 790, 1100, { size: 42, bg: COL.coral, fg: COL.ink }); }
-  if (t > tTwo - 0.3) { T.chip(c, W / 2, 1310, 220, 220, { label: '芯片', t: t * 1.5, glow: 1 }); for (let n = 0; n < 3; n++) { c.strokeStyle = '#9a978f'; c.lineWidth = 5; c.beginPath(); c.moveTo(470 + n * 70, 1130); c.lineTo(480 + n * 70, 1220); c.stroke(); glowDot(c, 480 + n * 70, 1222, 4, GOLD, 0.9); }
+  if (t > tTwo - 0.3) { for (let n = 0; n < 4; n++) { const r = ((t - tTwo) * 300 + n * 90) % 360; c.save(); c.globalCompositeOperation = 'lighter'; c.strokeStyle = `rgba(127,214,180,${0.5 * (1 - r / 360)})`; c.lineWidth = 5; c.beginPath(); c.arc(W / 2, 1310, 110 + r, 0, 7); c.stroke(); c.restore(); } T.chip(c, W / 2, 1310 + 8 * Math.sin(t * 3), 220, 220, { label: '芯片', t: t * 1.5, glow: 1 }); for (let n = 0; n < 3; n++) { c.strokeStyle = '#9a978f'; c.lineWidth = 5; c.beginPath(); c.moveTo(470 + n * 70, 1130); c.lineTo(480 + n * 70, 1220); c.stroke(); glowDot(c, 480 + n * 70, 1222, 4, GOLD, 0.9); }
     tag(c, '芯片也一样：测出来才算数', W / 2, 1480 - 40, { size: 42, bg: COL.mint, fg: COL.ink, t, at: tTwo - 0.3 }); }
 };
 
