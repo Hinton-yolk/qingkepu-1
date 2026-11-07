@@ -6,10 +6,11 @@
 #   桌面段：木质拨弦八分音符＋轻踩；卡片段（3b1b 机制）：玻璃琶音十六分音符；钻进光纤（Kurzgesagt）：上升音 → 低频一沉、只留空气感铺底。
 #   纸上的动作（荧光笔、红笔、红线、标签打字、贴纸）按画面 12fps 步进做颗粒；卡片里的动作各有一个小音色。
 # 产出 score_full.wav、beats_full.json
-import json, wave, numpy as np
+import sys, json, wave, numpy as np
 from scipy.signal import butter, lfilter
 
-D = json.load(open('../代码工程/ep3/desk_x.json', encoding='utf-8'))
+V = sys.argv[1] if len(sys.argv) > 1 else 'x'   # x = 4:20 合集，u = 上集，d = 下集
+D = json.load(open(f'../代码工程/ep3/desk_{V}.json', encoding='utf-8'))
 SR, BPM, DUR = 48000, D['bpm'], D['dur']
 BEAT = 60 / BPM; N = int(SR * DUR); NB = int(round(DUR / BEAT))
 rs = np.random.default_rng(11)
@@ -20,11 +21,11 @@ CARDS = lambda t: any(a <= t < b for a, b in CARDW)
 INSIDE = lambda t: LENS['zin'][0] <= t < LENS['out'][1]
 END0 = D['station'][-1][1]
 OPEN1 = CU['H0']['t0']                        # 开头段到第一个机制演示为止
-REV = CU['C1']['t0']                          # 揭晓：回到开头那根线
+REV = D.get('rev') or CU['C1']['t0']                          # 揭晓：回到开头那根线
 OPENING = lambda t: t < OPEN1
 REVEAL = lambda t: t >= REV
 json.dump({'bpm': BPM, 'seconds': DUR, 'beats': [round(i * BEAT, 3) for i in range(NB)], 'downbeats': [round(i * BEAT, 3) for i in range(0, NB, 4)], 'cards': CARDW},
-          open('beats_x.json', 'w'), indent=1)
+          open(f'beats_{V}.json', 'w'), indent=1)
 
 def add(buf, sig, t, g=1.0, pan=0.0):
     i0 = int(round(t * SR)); l, r = np.cos((pan + 1) * np.pi / 4) * 1.414, np.sin((pan + 1) * np.pi / 4) * 1.414
@@ -185,6 +186,6 @@ for e in D['sfx']:
 mix = mus * 0.75 + fx * 1.35
 mix[:, -int(0.8 * SR):] *= np.linspace(1, 0, int(0.8 * SR))
 mix /= np.max(np.abs(mix)) * 1.12
-with wave.open('score_x_bed.wav', 'wb') as w:
+with wave.open(f'score_{V}_bed.wav', 'wb') as w:
     w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR); w.writeframes((mix.T * 32767).astype('<i2').tobytes())
-print('score_x_bed.wav', DUR, 's; beats', NB, '; sfx', len(D['sfx']))
+print(f'score_{V}_bed.wav', DUR, 's; beats', NB, '; sfx', len(D['sfx']))

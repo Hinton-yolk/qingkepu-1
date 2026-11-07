@@ -44,6 +44,31 @@ FULL.CARD.cables = (c, t, id, cd, Q) => {
   if (Q.chipRing != null && t >= Q.chipRing) { const q = MO.smooth(seg(t, Q.chipRing, Q.chipRing + 0.4)), P = CP.long[CP.long.length - 1]; c.save(); c.strokeStyle = COL.red; c.lineWidth = 7; c.beginPath(); c.arc(P[0] - 10, P[1], 62, -1.6, -1.6 + Math.PI * 2 * q); c.stroke(); c.restore(); }
 };
 
+// ---------- AI 机柜背面：一层层的计算托盘，中间密密麻麻的铜缆把它们连在一起（下集第一帧；回扣时再出现一次） ----------
+const RK = (() => { const r = U.rng(77), cab = []; for (let i = 0; i < 46; i++) { const ty = -400 + Math.floor(r() * 9) * 100 + 40, sy = -420 + r() * 840, x0 = -250 + r() * 60, xs = 120 + r() * 120;
+  cab.push({ x0, y0: ty, x1: xs, y1: sy, bend: 60 + r() * 120, w: 7 + r() * 5, hi: r() > 0.55, ph: r() }); } return cab; })();
+const bez = (q, t) => { const u = 1 - t; return [u * u * u * q[0][0] + 3 * u * u * t * q[1][0] + 3 * u * t * t * q[2][0] + t * t * t * q[3][0], u * u * u * q[0][1] + 3 * u * u * t * q[1][1] + 3 * u * t * t * q[2][1] + t * t * t * q[3][1]]; };
+FULL.CARD.rack = (c, t, id, cd, Q) => {
+  const X0 = -330, X1 = 330, Y0 = -480, Y1 = 560;
+  c.save(); c.shadowColor = 'rgba(40,30,15,.45)'; c.shadowBlur = 30; c.shadowOffsetY = 14; c.fillStyle = '#1f1f1e'; c.beginPath(); c.roundRect(X0, Y0, X1 - X0, Y1 - Y0, 18); c.fill(); c.restore();
+  c.fillStyle = '#2b2b29'; c.fillRect(X0 + 14, Y0 + 14, 30, Y1 - Y0 - 28); c.fillRect(X1 - 44, Y0 + 14, 30, Y1 - Y0 - 28);       // 两侧立柱
+  for (let i = 0; i < 9; i++) { const y = -440 + i * 100; c.fillStyle = '#323230'; c.fillRect(X0 + 50, y, X1 - X0 - 100, 70);           // 计算托盘
+    for (let k = 0; k < 4; k++) { const on = 0.5 + 0.5 * Math.sin(t * 3 + i * 1.7 + k * 2.3); c.fillStyle = `rgba(127,214,180,${0.35 + 0.6 * on})`; c.beginPath(); c.arc(X0 + 70 + k * 16, y + 14, 4, 0, 7); c.fill(); }
+    c.fillStyle = '#4a4a46'; for (let k = 0; k < 6; k++) c.fillRect(X0 + 140 + k * 24, y + 46, 16, 14); }                              // 接口
+  // 铜缆：从托盘的接口出来，汇到右边的「背板」
+  c.save(); c.lineCap = 'round';
+  RK.forEach((k, n) => { const q = [[k.x0, k.y0 + 52], [k.x0 + k.bend, k.y0 + 52], [k.x1 - k.bend * 0.6, k.y1], [k.x1, k.y1]];
+    c.strokeStyle = '#141413'; c.lineWidth = k.w + 3; c.beginPath(); c.moveTo(...q[0]); c.bezierCurveTo(...q[1], ...q[2], ...q[3]); c.stroke();
+    c.strokeStyle = k.hi ? '#a8683a' : '#6e4a30'; c.lineWidth = k.w; c.beginPath(); c.moveTo(...q[0]); c.bezierCurveTo(...q[1], ...q[2], ...q[3]); c.stroke();
+    if (n % 3 === 0) { const u = (t * 0.6 + k.ph) % 1, [x, y] = bez(q, u); c.save(); c.globalCompositeOperation = 'lighter'; const g = c.createRadialGradient(x, y, 0, x, y, 16); g.addColorStop(0, 'rgba(255,250,235,.95)'); g.addColorStop(0.4, 'rgba(226,181,74,.8)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.beginPath(); c.arc(x, y, 16, 0, 7); c.fill(); c.restore(); } });
+  c.restore();
+  c.fillStyle = '#2b2b29'; c.fillRect(230, -440, 60, 880);                                                                               // 背板
+  // 「不是说要换成光吗」：一根光纤从机柜顶上亮一下，又暗下去
+  if (Q.fiber != null && t >= Q.fiber) { const q = MO.smooth(seg(t, Q.fiber, Q.fiber + 0.4)), fade = 1 - 0.75 * MO.smooth(seg(t, Q.fiber + 1.2, Q.fiber + 2.0));
+    c.save(); c.globalAlpha = q * fade; c.shadowColor = COL.teal; c.shadowBlur = 24; c.strokeStyle = COL.tealHi; c.lineWidth = 8; c.lineCap = 'round'; c.beginPath(); c.moveTo(260, -480); c.bezierCurveTo(260, -560, 380, -560, 470, -520); c.stroke(); c.restore(); }
+  if (Q.ring != null && t >= Q.ring) { const q = MO.smooth(seg(t, Q.ring, Q.ring + 0.5)); c.save(); c.strokeStyle = COL.red; c.lineWidth = 8; c.beginPath(); c.ellipse(20, 0, 300, 470, 0, -1.6, -1.6 + Math.PI * 2 * q); c.stroke(); c.restore(); }
+};
+
 // ---------- 快递路线图：发件的 AI 芯片 → 五站 → 收件的 AI 芯片；包裹一直在路上跑；亮第二站「路上」 ----------
 FULL.CARD.route = (c, t, id, cd, Q) => {
   const x0 = -330, x1 = 330, y = 10, chipBox = (x, s) => { FULL.H.rbox(c, x, y, 110, 110, { r: 12, line: GOLD, lw: 4 }); txt(c, s, x, y + 2, { size: 26, fam: 'PuHui-Heavy', col: COL.cream, align: 'center' }); };
