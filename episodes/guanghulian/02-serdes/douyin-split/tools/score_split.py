@@ -159,6 +159,9 @@ for i in range(0, N, 48):
     x = env[i:i + 48].max(); x_ = att * x_ + (1 - att) * x if x > x_ else rel * x_ + (1 - rel) * x; e[i:i + 48] = x_
 duck = 1 - 0.5 * np.clip(e / 0.12, 0, 1)
 act0 = e > 0.05; bed = mus * (np.sqrt(np.mean(voice[:, act0] ** 2)) * 10 ** (-13 / 20) / (np.sqrt(np.mean((mus * duck)[:, act0] ** 2)) + 1e-9)); fxs = fx / max(1e-9, np.max(np.abs(fx))) * 0.45
+def wr(path, x):
+    with wave.open(path, 'wb') as o: o.setnchannels(2); o.setsampwidth(2); o.setframerate(SR); o.writeframes((np.clip(x[:, :int(DUR * SR)], -1, 1).T * 32767).astype('<i2').tobytes())
+wr(f'audio/{N_}_stem_voice.wav', voice * 0.9); wr(f'audio/{N_}_stem_fx.wav', fxs * 0.9); json.dump({'hit': HIT, 'tZ': tZ}, open(f'audio/{N_}_cues.json', 'w'))
 mix = voice + bed * duck + fxs * (1 - 0.35 * np.clip(e / 0.12, 0, 1))
 act = e > 0.05; rms = lambda x: 20 * np.log10(np.sqrt(np.mean(x[:, act] ** 2)) + 1e-9)
 print('voice vs music under voice:', round(rms(voice) - rms(bed * duck), 1), 'dB; music level between lines:', round(rms(voice) - 20 * np.log10(np.sqrt(np.mean((bed * duck)[:, ~act] ** 2)) + 1e-9), 1), 'dB below voice')
