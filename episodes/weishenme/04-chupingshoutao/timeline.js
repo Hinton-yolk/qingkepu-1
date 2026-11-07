@@ -31,14 +31,14 @@
     a5: 19.25, scan1: 19.75, lock1: 20.5, stop1: 21.75, name: 22.0,
     // 24.25–29.25 · 5 the missing step: a glove on the same finger — the arcs stop at the fabric, the scan finds nothing
     q6: 24.25, fUp: 24.25, fUpEnd: 24.75, wrap: 24.75, wrapEnd: 25.5, fDown: 25.5, fDownEnd: 26.25, a6: 26.25,
-    scan2: 27.0, miss: 27.75,
+    scan2: 27.0, miss: 27.75, scan2b: 28.0, miss2: 28.75,
     // 29.25–38.75 · back out: a sausage wakes the screen; a touch glove: conductive yarn
     q7: 29.25, fOut: 29.0, climb: 29.25, climbEnd: 30.5, unflood: 29.6,
-    sausIn: 30.25, saus: 30.75, sLock: 31.25, wake: 31.5, a7: 31.5, sLabel: 32.0, sausOut: 34.5,
+    sausIn: 30.25, saus: 30.75, sLock: 31.25, wake: 31.5, a7: 31.5, sLabel: 32.0, unlock: 32.5, unlockEnd: 33.25, iconTap: 33.75, sausOut: 34.5,
     a8: 35.0, tgIn: 34.75, tg: 35.25, dive2: 35.5, dive2End: 36.25, yarn: 36.5, lock2: 37.0,
     // 38.75–48.75 · 6 back to the phenomenon: the same call; the touch glove swipes; 咔; a small tip
     q9: 38.75, climb2: 38.75, climb2End: 39.75, unflood2: 38.95, ring2: 39.0, hand2: 39.25, sw3: 40.0, stop2: 40.25, ka: 40.5,
-    fin: 41.25, finOut: 44.25, tip: 44.25, toggle: 45.25, tipOut: 48.6,
+    fin: 41.25, finOut: 44.25, tip: 44.25, tipHand: 44.5, toggle: 45.25, tipHandOut: 45.6, tipOut: 48.6,
     // 48.75–51.75 end card
     end: 48.75, endMorph: 49.35, title1: 49.0, ep: 49.5, sting: 50.0,
   };
@@ -90,7 +90,7 @@
   // the scan line: steps one row per 16th, back (row -6) to front (row +1); returns the row index (float) or null
   const ROWS = [-6, -5, -4, -3, -2, -1, 0, 1];
   function scanRow(t) {
-    for (const s0 of [T.scan1, T.scan2, T.lock2 - 0.75]) {
+    for (const s0 of [T.scan1, T.scan2, T.scan2b]) {
       const k = (t - s0) / S16;
       if (k >= 0 && k < ROWS.length) return { row: ROWS[Math.floor(k)], u: k - Math.floor(k), s0 };
     }
@@ -103,10 +103,10 @@
     myth: [T.myth], strike: [T.strike, T.strike + 0.125], graze: [T.graze], q3: [T.q3], lift: [T.lift], dive: [T.dive],
     arcs: [T.arcsOn], q4: [T.q4], steal: [T.steal], a4: [T.a4],
     scan: ROWS.map((_, i) => T.scan1 + i * S16), lock: [T.lock1], name: [T.name],
-    q6: [T.q6], wrap: [T.wrap], scan2: ROWS.map((_, i) => T.scan2 + i * S16), miss: [T.miss],
-    q7: [T.q7], saus: [T.saus], sLock: [T.sLock], wake: [T.wake],
+    q6: [T.q6], wrap: [T.wrap], scan2: [...ROWS.map((_, i) => T.scan2 + i * S16), ...ROWS.map((_, i) => T.scan2b + i * S16)], miss: [T.miss, T.miss2],
+    q7: [T.q7], saus: [T.saus], sLock: [T.sLock], wake: [T.wake], unlock: [T.unlock], iconTap: [T.iconTap],
     tg: [T.tg], dive2: [T.dive2], yarn: [T.yarn], lock2: [T.lock2],
-    q9: [T.q9], ring2: [T.ring2], sw3: [T.sw3], ka: [T.ka], fin: [T.fin], tip: [T.tip], toggle: [T.toggle],
+    q9: [T.q9], ring2: [T.ring2], sw3: [T.sw3], ka: [T.ka], fin: [T.fin], tip: [T.tip], toggle: [T.toggle], tipHand: [T.tipHand],
     endType: [T.title1], ep: [T.ep], sting: [T.sting],
   };
 
