@@ -21,4 +21,6 @@ def subs(s):
         else: out.append((p, core))
     return [c for _, c in out]
 S = [dict(id=f'u{i + 1}', text=t, sub=subs(t)) for i, t in enumerate(U)] + [dict(id=f'd{i + 1}', text=t, sub=subs(t)) for i, t in enumerate(Dn)]
+U8B = '没有它，AI 芯片之间要么只能说得更慢，要么只能把路修得更短。'   # 用户 2026-11-07：上集补一句「跟我有什么关系」
+S.insert([x['id'] for x in S].index('u8') + 1, dict(id='u8b', text=U8B, sub=subs(U8B)))
 json.dump(S, open('script_x.json', 'w', encoding='utf-8'), ensure_ascii=False, indent=1); print(len(S), 'lines')

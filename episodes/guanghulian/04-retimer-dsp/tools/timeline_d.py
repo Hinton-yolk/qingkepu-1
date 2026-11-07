@@ -3,11 +3,14 @@ def cardview(cid, z=1.12):
     h = CARDS[cid]['h']; z = min(z, 1205 / h); dy = max(0, h / 2 - 470 / z)
     if 960 - (h / 2 + dy) * z < 215: dy = (960 - 215) / z - h / 2
     return PC(cid, 0, round(dy)), round(z, 3)
-# --- 第一帧：光模块透视，DSP 发烫，耗电条约一半；糊的进、清楚的出 ---
-cam(0, PC('M0', 30, 0), 1.0, 'lin')
-clabel('M0', '光模块一半的电，花在哪？', 0, -440, 0, size=56, bg='red', r=-0.012, rate=400)
+# --- 第一帧：机房里的交换机，插满光模块、光纤里光在跑；圈出一个 → 推进光模块透视 ---
+cam(0, PC('RM', 30, 10), 1.08, 'lin')
+clabel('RM', '光模块一半的电，花在哪？', 0, -590, 0, size=56, bg='red', r=-0.012, rate=400)
 adv(0.125); speak('d1'); after('d1', 0.25)
-speak('d2'); clabel('M0', '大多数光纤两头，都插着一个', 0, 420, g8(span('d2', '大多数')[0]), size=40); after('d2', 0.125)
+speak('d2'); fb = g8(span('d2', '大多数')[0]); pk = g8(max(fb + 1.0, span('d2', '都插着')[0]))
+clabel('RM', '一个光模块', 130, -118, pk + 0.25, size=40, bg='red'); sfx(fb, 'laser'); sfx(pk, 'thock'); CUE['RM'] = dict(t0=0, fib=fb, pick=pk, end=pk + 2)
+T[0] = pk + 0.5; hold(0, 0.04); string('RM-M0', PC('RM', 130, 40), ctop('M0', 0)); go(PC('M0', 30, 0), 1.0, 0.75)
+adv(max(0, g8(lend('d2') + 0.125 - now())))
 speak('d3'); la = g8(span('d3', '激光器')[0]); ds = g8(max(la + 0.5, span('d3', 'DSP')[0] - 0.25))
 clabel('M0', '激光器：小小一个', -285, -330, la, size=36); clabel('M0', 'DSP：最费电', 80, 50, ds, size=40, bg='red'); sfx(ds, 'thock')
 after('d3', 0.125); CUE['M0'] = dict(t0=0, end=now()); hold(0, 0.03)

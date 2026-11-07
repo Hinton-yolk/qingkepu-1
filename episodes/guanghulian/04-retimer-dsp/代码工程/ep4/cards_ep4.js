@@ -54,13 +54,14 @@ const EQ = (() => { const B = [0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1], bw = 70, n =
 FULL.CARD.eq = (c, t, id, cd, Q) => {
   const X0 = -420, H = 150, sc = 840 / EQ.n, rows = [{ y: -350, arr: EQ.y0 }, { y: 50, arr: EQ.xpe }, { y: 450, arr: EQ.z }];
   rows.forEach((R, i) => { const at = Q.rows[i]; if (t < at) return; const q = MO.smooth(seg(t, at, at + 1.2)), xe = Math.floor(EQ.n * q);
+    const nx = Q.rows[i + 1]; c.save(); if (nx != null) c.globalAlpha *= 1 - 0.62 * MO.smooth(seg(t, nx, nx + 0.4));
     // 理想的方正台阶（虚线，对照）
     c.save(); c.strokeStyle = 'rgba(236,230,218,.3)'; c.lineWidth = 3; c.setLineDash([10, 10]); c.beginPath(); for (let k = 0; k < EQ.n; k += 2) { const yy = R.y - H * EQ.x[k]; k ? c.lineTo(X0 + k * sc, yy) : c.moveTo(X0, yy); } c.stroke(); c.restore();
     c.save(); c.strokeStyle = i === 1 ? COL.cream : COL.cream; c.lineWidth = 6; c.lineJoin = 'round'; c.beginPath();
     for (let k = 0; k < xe; k += 2) { const yy = R.y - H * R.arr[k]; k ? c.lineTo(X0 + k * sc, yy) : c.moveTo(X0, yy); } c.stroke(); c.restore();
     if (i === 1 && q > 0.3) { for (let k = 1; k < EQ.B.length; k++) { if (EQ.B[k] === EQ.B[k - 1] || k * EQ.bw > xe) continue; const xx = X0 + (k * EQ.bw + 6) * sc, yy = R.y - H * EQ.xpe[k * EQ.bw + 2];
       c.save(); c.fillStyle = COL.redHi; c.beginPath(); c.arc(xx, yy, 9, 0, 7); c.fill(); c.restore(); } }
-    if (q >= 1) { if (i === 0) cross(c, 395, R.y - H - 30, 18); if (i === 2) tick(c, 395, R.y - H - 30, 22); } });
+    if (q >= 1) { if (i === 0) cross(c, 395, R.y - H - 30, 18); if (i === 2) tick(c, 395, R.y - H - 30, 22); } c.restore(); });
 };
 
 // ---------- Retimer：路中间重新出发；原话听错时，清楚地发出错的 ----------

@@ -101,7 +101,7 @@ LAST[0] = 0
 place_card('RT', 'route', R, 900, 700, 0.008)
 place_stack('eq', ['A0', 'A1', 'A2'], R); place_card('K2', 'eq', R, 900, 1200, -0.008)
 place_card('WH', 'whole', L, 900, 1000, 0.008)
-place_stack('nm', ['B5', 'B6'], L)
+place_stack('nm', ['B5', 'B6'], L); place_card('K1', 'reach', R, 900, 600, -0.01)
 place_stack('ret', ['C0', 'C1', 'C2'], R); place_card('K3', 'retimer', R, 900, 1100, 0.008)
 place_card('HB', 'hub', L, 900, 760, -0.01)
 place_stack('rname', ['R1', 'R2', 'R3'], L); place_card('K4', 'redriver', R, 900, 1000, -0.008)
@@ -122,8 +122,8 @@ def hold(d, dz=0.02): last = CAM[-1]; adv(d); cam(now(), [last['x'], last['y']],
 def go(xy, z, d=1.0, e='sine', g=0.08): SFX.append(dict(t=now(), kind='whoosh', dur=d, g=g)); adv(d); cam(now(), xy, z, e)
 def label(text, xy, at, size=30, align='center', r=0.0, bg=None, rate=24):
     LABELS.append(dict(text=text, x=xy[0], y=xy[1], at=round(at, 4), size=size, align=align, r=r, bg=bg, fg=None, rate=rate)); SFX.append(dict(t=round(at, 4), kind='label', text=text, rate=rate))
-def clabel(cid, text, cx, cy, at, size=40, align='center', bg='cream', r=0.0, rate=24):
-    CARD_LABELS[cid].append(dict(text=text, x=cx, y=cy, at=round(at, 4), size=size, align=align, bg=bg, r=r, rate=rate)); SFX.append(dict(t=round(at, 4), kind='label', text=text, rate=rate))
+def clabel(cid, text, cx, cy, at, size=40, align='center', bg='cream', r=0.0, rate=24, dim=None):
+    CARD_LABELS[cid].append(dict(text=text, x=cx, y=cy, at=round(at, 4), size=size, align=align, bg=bg, r=r, rate=rate, **({} if dim is None else dict(dim=round(dim, 4))))); SFX.append(dict(t=round(at, 4), kind='label', text=text, rate=rate))
 def string(key, a, b, d=0.5, sag=0.06):
     STRINGS.append(dict(key=key, a=a, b=b, t=[now(), round(now() + d, 4)], sag=sag, route=False)); SFX.append(dict(t=now(), kind='string', dur=d))
 def sfx(t, kind, **kw): SFX.append(dict(t=round(t, 4), kind=kind, **kw))
@@ -218,11 +218,11 @@ speak('u5'); fwin('eq', ['A1', 'A2'], 'u5'); vmark('A1', 'hl', '快速跳变削�
 after('u5', 0.125); hold(0, 0)
 # --- 演示：均衡（不补 / 发送端加强 / 接收端补回） ---
 string('eq-K2', edge('A2'), ctop('K2', 250)); gocard('K2')
-t0 = g8(now()); r0 = t0 + 0.25; speak('u6'); r1 = g8(max(r0 + 1.0, span('u6', '加强一点')[0] - 0.5)); r2 = g8(max(r1 + 1.0, span('u6', '补回来')[0] - 0.5))
-clabel('K2', '不补：棱角被削掉，拖出尾巴', -390, -520, r0 + 0.5, align='left', bg='red', size=36); clabel('K2', '发送端：先把跳变加强一点', -390, -130, r1 + 0.75, align='left', size=36)
+t0 = g8(now()); r0 = t0 + 0.25; speak('u6'); r1 = g8(max(r0 + 1.75, span('u6', '加强一点')[0] - 0.5)); r2 = g8(max(r1 + 1.75, span('u6', '补回来')[0] - 0.5))   # 用户 2026-11-07：放慢，前面的行变暗
+clabel('K2', '不补：棱角被削掉，拖出尾巴', -390, -520, r0 + 0.5, align='left', bg='red', size=36, dim=r1); clabel('K2', '发送端：先把跳变加强一点', -390, -130, r1 + 0.75, align='left', size=36, dim=r2)
 clabel('K2', '接收端：再补回来，接近方正', -390, 270, r2 + 0.75, align='left', size=36)
 for tt in (r0, r1, r2): sfx(tt, 'thock')
-after('u6', 0.25); adv(max(0, g8(r2 + 1.5 - now()))); CUE['K2'] = dict(t0=t0, rows=[r0, r1, r2], end=now()); hold(0, 0)
+after('u6', 0.25); adv(max(0, g8(r2 + 2.0 - now()))); CUE['K2'] = dict(t0=t0, rows=[r0, r1, r2], end=now()); hold(0, 0)
 # --- 演示：整体放大 ✗ vs 只补被吞的 ✓ ---
 string('K2-WH', cbot('K2', -250), ctop('WH', 250)); gocard('WH')
 t0 = g8(now()); wa = t0 + 0.25; speak('u7'); wb = g8(max(wa + 1.0, span('u7', '而是')[0])); sfx(wa + 0.8, 'wrong'); sfx(wb + 0.8, 'dsp')
@@ -231,8 +231,14 @@ after('u7', 0.25); adv(max(0, g8(wb + 1.0 - now()))); CUE['WH'] = dict(t0=t0, a=
 string('WH-nm', cbot('WH', 250), edge('B5', 'l')); gost('nm', 1.0, 'sine', 0.12)
 speak('u8'); fwin('nm', ['B5'], 'u8'); vmark('B5', 'hl', '均衡', 'u8', '均衡', 0.5)
 after('u8', 0.125); hold(0, 0)
+# --- 演示：没有均衡，要么说慢一点，要么路修短（用户 2026-11-07：补一句跟观众有什么关系）---
+string('nm-K1', edge('B5'), ctop('K1', -250)); gocard('K1', 1.15)
+t0 = g8(now()); speak('u8b'); slow = g8(max(t0 + 0.25, span('u8b', '说得更慢')[0] - 0.5)); fast = g8(max(slow + 1.25, span('u8b', '把路修得更短')[0] - 0.5))
+clabel('K1', '没有均衡：只能说慢一点', -400, -235, slow, align='left', size=38); clabel('K1', '想说快：路就得修短', -400, 5, fast, align='left', bg='red', size=38)
+sfx(slow, 'reach'); sfx(fast, 'reach2')
+after('u8b', 0.25); adv(max(0, g8(fast + 1.5 - now()))); CUE['K1'] = dict(t0=t0, slow=slow, fast=fast, end=now()); hold(0, 0)
 # --- 纸条一拍：路太长，就在中间设检修站 ---
-string('nm-ret', edge('B5'), edge('C1', 'l')); gost('ret', 1.0, 'sine', 0.12)
+string('K1-ret', cbot('K1', -250), edge('C1', 'l')); gost('ret', 1.0, 'sine', 0.12)
 speak('u9'); fwin('ret', ['C1', 'C2'], 'u9'); vmark('C1', 'hl', '两头均衡不够用', 'u9', '两头补不过来'); vmark('C2', 'hl', '路中间设一个检修站', 'u9', '路中间设一个检修站')
 after('u9', 0.125); hold(0, 0)
 # --- 演示：检修站（认清、打节拍、重发） → 转运中心 → 回到检修站：后半程重新出发；认错的救不回来 ---

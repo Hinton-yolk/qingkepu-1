@@ -96,8 +96,8 @@ def SC(name, dy=0): b = STACKS[name]['bb']; return [round((b[0] + b[2]) / 2, 1),
 def SZ(name): return STACKS[name]['z']
 # ---------- 04 下集的摆放 ----------
 def bare(cid): CARDS[cid]['bare'] = True
+place_card('RM', 'room', L, 1000, 1000, 0.0); bare('RM'); COLY[L] += 150      # 用户 2026-11-07：先给观众认识的机房，再推进光模块
 place_card('M0', 'module', L, 1200, 1100, 0.0); bare('M0'); COLY[L] += 350
-LAST[0] = 0
 place_card('RT', 'route', R, 900, 700, 0.008)
 place_stack('samp', ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'], L); place_card('K5', 'dspcalc', R, 900, 1050, 0.008)
 place_card('NT', 'note', L, 900, 700, -0.01)
@@ -121,8 +121,8 @@ def hold(d, dz=0.02): last = CAM[-1]; adv(d); cam(now(), [last['x'], last['y']],
 def go(xy, z, d=1.0, e='sine', g=0.08): SFX.append(dict(t=now(), kind='whoosh', dur=d, g=g)); adv(d); cam(now(), xy, z, e)
 def label(text, xy, at, size=30, align='center', r=0.0, bg=None, rate=24):
     LABELS.append(dict(text=text, x=xy[0], y=xy[1], at=round(at, 4), size=size, align=align, r=r, bg=bg, fg=None, rate=rate)); SFX.append(dict(t=round(at, 4), kind='label', text=text, rate=rate))
-def clabel(cid, text, cx, cy, at, size=40, align='center', bg='cream', r=0.0, rate=24):
-    CARD_LABELS[cid].append(dict(text=text, x=cx, y=cy, at=round(at, 4), size=size, align=align, bg=bg, r=r, rate=rate)); SFX.append(dict(t=round(at, 4), kind='label', text=text, rate=rate))
+def clabel(cid, text, cx, cy, at, size=40, align='center', bg='cream', r=0.0, rate=24, dim=None):
+    CARD_LABELS[cid].append(dict(text=text, x=cx, y=cy, at=round(at, 4), size=size, align=align, bg=bg, r=r, rate=rate, **({} if dim is None else dict(dim=round(dim, 4))))); SFX.append(dict(t=round(at, 4), kind='label', text=text, rate=rate))
 def string(key, a, b, d=0.5, sag=0.06):
     STRINGS.append(dict(key=key, a=a, b=b, t=[now(), round(now() + d, 4)], sag=sag, route=False)); SFX.append(dict(t=now(), kind='string', dur=d))
 def sfx(t, kind, **kw): SFX.append(dict(t=round(t, 4), kind=kind, **kw))
@@ -194,11 +194,14 @@ def cardview(cid, z=1.12):
     h = CARDS[cid]['h']; z = min(z, 1205 / h); dy = max(0, h / 2 - 470 / z)
     if 960 - (h / 2 + dy) * z < 215: dy = (960 - 215) / z - h / 2
     return PC(cid, 0, round(dy)), round(z, 3)
-# --- 第一帧：光模块透视，DSP 发烫，耗电条约一半；糊的进、清楚的出 ---
-cam(0, PC('M0', 30, 0), 1.0, 'lin')
-clabel('M0', '光模块一半的电，花在哪？', 0, -440, 0, size=56, bg='red', r=-0.012, rate=400)
+# --- 第一帧：机房里的交换机，插满光模块、光纤里光在跑；圈出一个 → 推进光模块透视 ---
+cam(0, PC('RM', 30, 10), 1.08, 'lin')
+clabel('RM', '光模块一半的电，花在哪？', 0, -590, 0, size=56, bg='red', r=-0.012, rate=400)
 adv(0.125); speak('d1'); after('d1', 0.25)
-speak('d2'); clabel('M0', '大多数光纤两头，都插着一个', 0, 420, g8(span('d2', '大多数')[0]), size=40); after('d2', 0.125)
+speak('d2'); fb = g8(span('d2', '大多数')[0]); pk = g8(max(fb + 1.0, span('d2', '都插着')[0]))
+clabel('RM', '一个光模块', 130, -118, pk + 0.25, size=40, bg='red'); sfx(fb, 'laser'); sfx(pk, 'thock'); CUE['RM'] = dict(t0=0, fib=fb, pick=pk, end=pk + 2)
+T[0] = pk + 0.5; hold(0, 0.04); string('RM-M0', PC('RM', 130, 40), ctop('M0', 0)); go(PC('M0', 30, 0), 1.0, 0.75)
+adv(max(0, g8(lend('d2') + 0.125 - now())))
 speak('d3'); la = g8(span('d3', '激光器')[0]); ds = g8(max(la + 0.5, span('d3', 'DSP')[0] - 0.25))
 clabel('M0', '激光器：小小一个', -285, -330, la, size=36); clabel('M0', 'DSP：最费电', 80, 50, ds, size=40, bg='red'); sfx(ds, 'thock')
 after('d3', 0.125); CUE['M0'] = dict(t0=0, end=now()); hold(0, 0.03)

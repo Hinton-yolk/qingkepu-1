@@ -1,7 +1,7 @@
 # ---------- 04 下集的摆放 ----------
 def bare(cid): CARDS[cid]['bare'] = True
+place_card('RM', 'room', L, 1000, 1000, 0.0); bare('RM'); COLY[L] += 150      # 用户 2026-11-07：先给观众认识的机房，再推进光模块
 place_card('M0', 'module', L, 1200, 1100, 0.0); bare('M0'); COLY[L] += 350
-LAST[0] = 0
 place_card('RT', 'route', R, 900, 700, 0.008)
 place_stack('samp', ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'], L); place_card('K5', 'dspcalc', R, 900, 1050, 0.008)
 place_card('NT', 'note', L, 900, 700, -0.01)

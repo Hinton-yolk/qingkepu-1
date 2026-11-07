@@ -5,7 +5,7 @@ LAST[0] = 0
 place_card('RT', 'route', R, 900, 700, 0.008)
 place_stack('eq', ['A0', 'A1', 'A2'], R); place_card('K2', 'eq', R, 900, 1200, -0.008)
 place_card('WH', 'whole', L, 900, 1000, 0.008)
-place_stack('nm', ['B5', 'B6'], L)
+place_stack('nm', ['B5', 'B6'], L); place_card('K1', 'reach', R, 900, 600, -0.01)
 place_stack('ret', ['C0', 'C1', 'C2'], R); place_card('K3', 'retimer', R, 900, 1100, 0.008)
 place_card('HB', 'hub', L, 900, 760, -0.01)
 place_stack('rname', ['R1', 'R2', 'R3'], L); place_card('K4', 'redriver', R, 900, 1000, -0.008)

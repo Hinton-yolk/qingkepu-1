@@ -122,4 +122,39 @@ FULL.CARD.many = (c, t, id, cd, Q) => {
   const lv = q; c.save(); c.fillStyle = 'rgba(236,230,218,.15)'; c.beginPath(); c.roundRect(-400, 230, 800, 50, 12); c.fill(); c.fillStyle = '#e0654f'; c.beginPath(); c.roundRect(-400, 230, 800 * Math.max(0.03, lv), 50, 12); c.fill(); c.restore();
   txt(c, '耗电', -400, 200, { size: 30, fam: 'PuHui-Heavy', col: 'rgba(236,230,218,.7)' });
 };
+
+// ---------- 机房里的一台交换机：一排排光模块插在口上，光纤垂下来；圈出其中一个，拔出来一点（下集第一帧，用户 2026-11-07） ----------
+const RMU = [-400, -210, -20, 170, 360], RMX = k => -300 + k * 86, RM_PICK = [2, 5];
+const bz = (q, u) => { const v = 1 - u; return [v * v * v * q[0][0] + 3 * v * v * u * q[1][0] + 3 * v * u * u * q[2][0] + u * u * u * q[3][0], v * v * v * q[0][1] + 3 * v * v * u * q[1][1] + 3 * v * u * u * q[2][1] + u * u * u * q[3][1]]; };
+const fib = (i, k) => { const x = RMX(k), y = RMU[i]; return [[x, y + 26], [x, y + 92], [x + 70, y + 98 + k * 1.6], [470, y + 98 + k * 1.6]]; };
+const modFace = (c, x, y, s, hot) => { c.save(); c.translate(x, y); c.scale(s, s);
+  const g = c.createLinearGradient(0, -30, 0, 30); g.addColorStop(0, '#dedbd3'); g.addColorStop(0.5, '#a9a69e'); g.addColorStop(1, '#c9c6bf'); c.fillStyle = g; c.beginPath(); c.roundRect(-35, -30, 70, 60, 6); c.fill();
+  if (hot) { c.strokeStyle = COL.red; c.lineWidth = 4; c.stroke(); }
+  c.fillStyle = '#2b3a46'; c.beginPath(); c.roundRect(-30, -44, 60, 16, 5); c.fill();                       // 拉环
+  c.fillStyle = '#26292c'; c.fillRect(-20, -14, 16, 26); c.fillRect(4, -14, 16, 26);                           // 两个光口
+  c.fillStyle = '#3fb5a5'; c.fillRect(-18, 0, 12, 24); c.fillRect(6, 0, 12, 24); c.restore(); };              // 插着的光纤头
+FULL.CARD.room = (c, t, id, cd, Q) => {
+  const X0 = -440, X1 = 500, Y0 = -500, Y1 = 500, fon = Q.fib != null ? MO.smooth(seg(t, Q.fib, Q.fib + 0.5)) : 0;
+  const pk = Q.pick != null ? MO.backOut(clamp((S12(t) - Q.pick) / 0.4), 1.4) : 0;
+  c.save(); c.shadowColor = 'rgba(40,30,15,.45)'; c.shadowBlur = 30; c.shadowOffsetY = 14; c.fillStyle = '#1f1f1e'; c.beginPath(); c.roundRect(X0, Y0, X1 - X0, Y1 - Y0, 18); c.fill(); c.restore();
+  c.fillStyle = '#2b2b29'; c.fillRect(X0 + 12, Y0 + 14, 26, Y1 - Y0 - 28); c.fillRect(X1 - 38, Y0 + 14, 26, Y1 - Y0 - 28);   // 立柱
+  RMU.forEach((y, i) => { c.fillStyle = '#323230'; c.fillRect(X0 + 44, y - 60, X1 - X0 - 88, 120);                         // 交换机
+    txt(c, '交换机', 358, y - 40, { size: 24, fam: 'PuHui-Heavy', col: 'rgba(236,230,218,.5)' });
+    for (let k = 0; k < 8; k++) { const ph = U.rng(i * 17 + k * 5 + 3)(), on = ((t * (1.3 + ph * 1.9) + ph) % 1) < 0.62;
+      c.fillStyle = on ? '#7fd6b4' : 'rgba(127,214,180,.18)'; c.beginPath(); c.arc(RMX(k) - 30, y - 50, 4.5, 0, 7); c.fill();
+      c.fillStyle = '#141413'; c.fillRect(RMX(k) - 39, y - 34, 78, 68);                                                       // 端口笼子
+      if (!(i === RM_PICK[0] && k === RM_PICK[1])) modFace(c, RMX(k), y, 1, false); } });
+  // 光纤：从每个模块垂下来，沿着缝走到右边的走线槽
+  c.save(); c.lineCap = 'round';
+  RMU.forEach((y, i) => { for (let k = 0; k < 8; k++) { const q = fib(i, k); c.strokeStyle = `rgba(63,181,165,${0.55 + 0.35 * fon})`; c.lineWidth = 4; c.beginPath(); c.moveTo(...q[0]); c.bezierCurveTo(...q[1], ...q[2], ...q[3]); c.stroke(); } });
+  c.fillStyle = '#2b2b29'; c.fillRect(X1 - 44, Y0 + 40, 40, Y1 - Y0 - 80); c.restore();                                        // 走线槽
+  c.save(); c.globalCompositeOperation = 'lighter';
+  RMU.forEach((y, i) => { for (let k = 0; k < 8; k++) { const ph = U.rng(i * 31 + k * 7 + 11)(), u = (t * 0.7 + ph) % 1, [x, yy] = bz(fib(i, k), u), r = 9 + 5 * fon;
+    const g = c.createRadialGradient(x, yy, 0, x, yy, r); g.addColorStop(0, `rgba(230,255,250,${0.55 + 0.4 * fon})`); g.addColorStop(0.45, 'rgba(155,232,219,.6)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.beginPath(); c.arc(x, yy, r, 0, 7); c.fill(); } });
+  c.restore();
+  // 被圈出的那一个：往外拔出来一点、放大
+  const [pi, pkk] = RM_PICK, px = RMX(pkk), py = RMU[pi];
+  c.save(); if (pk > 0) { c.shadowColor = 'rgba(0,0,0,.6)'; c.shadowBlur = 24 * pk; c.shadowOffsetY = 10 * pk; } modFace(c, px, py + 6 * pk, 1 + 0.35 * pk, pk > 0); c.restore();
+  if (pk > 0) { const q = MO.smooth(seg(t, Q.pick, Q.pick + 0.5)); c.save(); c.strokeStyle = COL.red; c.lineWidth = 7; c.beginPath(); c.ellipse(px, py + 4, 78, 70, 0, -1.6, -1.6 + Math.PI * 2 * q); c.stroke(); c.restore(); }
+};
 })();

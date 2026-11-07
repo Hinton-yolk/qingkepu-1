@@ -88,7 +88,7 @@ const drawCard = (c, id, t, view) => {
     CL.tornRect(c, cd.w, cd.h, 70 + id.length * 7 + id.charCodeAt(id.length - 1), 4); c.fill(); c.restore();
     CL.tape(c, -cd.w / 2 + 60, -cd.h / 2 + 8, -0.62, 150); CL.tape(c, cd.w / 2 - 60, -cd.h / 2 + 8, 0.6, 150); }
   const fn = FULL.CARD[cd.kind]; if (fn) { c.save(); fn(c, t, id, cd, D.cue[id] || {}); c.restore(); }
-  D.cardLabels[id].forEach(L => lab(c, L, t));
+  D.cardLabels[id].forEach(L => { c.save(); if (L.dim != null) c.globalAlpha *= 1 - 0.62 * MO.smooth(seg(t, L.dim, L.dim + 0.4)); lab(c, L, t); c.restore(); });
   c.restore();
 };
 
