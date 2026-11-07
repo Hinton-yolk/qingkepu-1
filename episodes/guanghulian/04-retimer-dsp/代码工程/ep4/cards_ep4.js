@@ -124,7 +124,7 @@ FULL.CARD.where = (c, t, id, cd, Q) => {
     const on = MO.smooth(seg(t, Q.blocks[i], Q.blocks[i] + 0.2));
     c.save(); c.fillStyle = on > 0 ? `rgba(236,230,218,${0.15 + 0.85 * on})` : 'rgba(236,230,218,.12)'; if (on > 0) { c.shadowColor = COL.cream; c.shadowBlur = 18 * on; }
     c.beginPath(); c.roundRect(180, y - 40, 120, 80, 10); c.fill(); c.restore();
-    txt(c, 'DSP', 240, y, { size: 30, fam: 'PuHui-Heavy', col: on > 0.5 ? COL.ink : 'rgba(236,230,218,.5)', align: 'center' }); });
+    txt(c, i === 2 ? 'oDSP' : 'DSP', 240, y, { size: 30, fam: 'PuHui-Heavy', col: on > 0.5 ? COL.ink : 'rgba(236,230,218,.5)', align: 'center' }); });   // 光模块里的那颗写 oDSP（用户 2026-11-07：以作区分）
 };
 
 // ---------- 代价：路况越差，处理越重，越耗电、延迟越多 ----------

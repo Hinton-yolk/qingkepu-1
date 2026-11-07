@@ -3,7 +3,6 @@ def bare(cid): CARDS[cid]['bare'] = True
 place_card('P0', 'eqapp', L, 1000, 1000, 0.0); bare('P0'); COLY[L] += 350
 LAST[0] = 0
 place_card('RT', 'route', R, 900, 700, 0.008)
-place_card('H0', 'hook4', L, 900, 760, -0.008)
 place_stack('eq', ['A0', 'A1', 'A2'], R); place_card('K2', 'eq', R, 900, 1200, -0.008)
 place_card('WH', 'whole', L, 900, 1000, 0.008)
 place_stack('nm', ['B5', 'B6'], L)

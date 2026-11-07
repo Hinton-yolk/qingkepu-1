@@ -13,26 +13,32 @@ const tag = (c, s, x, y, { size = 38, bg = COL.cream, fg = COL.ink, r = 0 } = {}
 
 // ---------- 上集第一帧：手机上的音乐均衡器；推子一推，旁边铜线出口的信号就变清楚 ----------
 FULL.CARD.eqapp = (c, t, id, cd, Q) => {
-  const push = Q.push != null ? MO.cubicInOut(seg(t, Q.push, Q.push + 0.9)) : 0, again = Q.again != null ? MO.cubicInOut(seg(t, Q.again, Q.again + 0.9)) : 1;
-  const k = Q.again != null ? (t < Q.again ? 1 - MO.cubicInOut(seg(t, Q.again - 0.6, Q.again)) : again) : push;
-  // 手机
-  const PX = -250, PY = 0, PW = 440, PH = 860;
+  // 分两步演示（用户 2026-11-07：均衡器和波形分开演示，别 0.5 秒就变好）：先只有手机均衡器，推子各自上下动；
+  // Q.show 时手机往左让、右边出现铜线出口的信号（糊的）；Q.push 时推子把高音推上去，信号变清楚。回扣（Q.again）：信号一直在，推子先回平再推一次。
+  const show = Q.show != null ? MO.cubicInOut(seg(t, Q.show, Q.show + 0.7)) : 1;
+  const k = Q.again != null ? (t < Q.again ? 1 - MO.cubicInOut(seg(t, Q.again - 0.6, Q.again)) : MO.cubicInOut(seg(t, Q.again, Q.again + 0.9))) : (Q.push != null ? MO.cubicInOut(seg(t, Q.push, Q.push + 0.9)) : 0);
+  const mv = Q.eqmove != null ? MO.cubicInOut(seg(t, Q.eqmove, Q.eqmove + 1.2)) : 0;
+  const PX = lerp(0, -270, show), PY = 0, PW = 440, PH = 860;
   c.save(); c.shadowColor = 'rgba(40,30,15,.4)'; c.shadowBlur = 30; c.shadowOffsetY = 14; c.fillStyle = '#151514'; c.beginPath(); c.roundRect(PX - PW / 2, PY - PH / 2, PW, PH, 56); c.fill(); c.restore();
   c.fillStyle = '#1d2226'; c.beginPath(); c.roundRect(PX - PW / 2 + 18, PY - PH / 2 + 26, PW - 36, PH - 52, 40); c.fill();
   c.fillStyle = '#151514'; c.beginPath(); c.roundRect(PX - 50, PY - PH / 2 + 34, 100, 22, 11); c.fill();
-  txt(c, '均衡器', PX, PY - 300, { size: 40, fam: 'PuHui-Heavy', col: '#eef2f2', align: 'center' });
-  const N = 5, top = PY - 220, bot = PY + 220, base = [0.5, 0.5, 0.5, 0.5, 0.5], goal = [0.42, 0.45, 0.55, 0.78, 0.9];
-  for (let i = 0; i < N; i++) { const x = PX - 160 + i * 80, v = lerp(base[i], goal[i], k) + 0.015 * Math.sin(t * 2.3 + i * 1.7), y = lerp(bot, top, v);
+  txt(c, '均衡器', PX, PY - 320, { size: 40, fam: 'PuHui-Heavy', col: '#eef2f2', align: 'center' });
+  // 正在播放的音乐：一排跳动的频谱条（高音那几根随推子变高）
+  const N = 5, top = PY - 200, bot = PY + 240, flat = [0.5, 0.5, 0.5, 0.5, 0.5], g1 = [0.32, 0.4, 0.5, 0.66, 0.74], g2 = [0.34, 0.42, 0.55, 0.8, 0.9];
+  const pos = flat.map((v, i) => lerp(lerp(v, g1[i], clamp(mv * 1.6 - i * 0.15)), g2[i], k));
+  for (let b = 0; b < 12; b++) { const x = PX - 170 + b * 31, hgt = 18 + 34 * Math.abs(Math.sin(t * (3 + b * 0.37) + b)) * (0.6 + 0.6 * pos[Math.min(4, Math.floor(b / 2.4))]);
+    c.fillStyle = 'rgba(127,214,180,.55)'; c.fillRect(x - 9, PY - 245 - hgt, 18, hgt); }
+  for (let i = 0; i < N; i++) { const x = PX - 160 + i * 80, v = pos[i] + 0.012 * Math.sin(t * 2.3 + i * 1.7), y = lerp(bot, top, v);
     c.strokeStyle = 'rgba(238,242,242,.25)'; c.lineWidth = 8; c.lineCap = 'round'; c.beginPath(); c.moveTo(x, top); c.lineTo(x, bot); c.stroke();
     c.strokeStyle = i >= 3 ? '#7fd6b4' : 'rgba(127,214,180,.6)'; c.beginPath(); c.moveTo(x, bot); c.lineTo(x, y); c.stroke();
     c.fillStyle = '#eef2f2'; c.beginPath(); c.arc(x, y, 20, 0, 7); c.fill(); }
-  txt(c, '低', PX - 160, bot + 60, { size: 30, fam: 'PuHui-Heavy', col: 'rgba(238,242,242,.6)', align: 'center' }); txt(c, '高', PX + 160, bot + 60, { size: 30, fam: 'PuHui-Heavy', col: 'rgba(238,242,242,.6)', align: 'center' });
-  // 铜线出口的信号（右边）：推子一推，从糊变清楚
-  const SX0 = 60, SX1 = 480, SY = 40, F = SX0 + 4000 + t * 240, sg = lerp(24, 2.5, k);
-  c.save(); c.fillStyle = 'rgba(29,29,28,.92)'; c.beginPath(); c.roundRect(SX0 - 30, SY - 190, SX1 - SX0 + 60, 300, 24); c.fill(); c.restore();
-  c.save(); c.strokeStyle = 'rgba(236,230,218,.2)'; c.lineWidth = 2; c.setLineDash([6, 8]); c.beginPath(); c.moveTo(SX0, SY + 40); c.lineTo(SX1, SY + 40); c.stroke(); c.restore();
-  H.stroke(c, SX0, SX1, x => SY + 40 - 140 * lerp(0.85, 1, k) * level(x, F, 46, sg), { col: k > 0.5 ? GOLD : '#e0654f', lw: 7, step: 2 });
-  txt(c, '铜线出口的信号', (SX0 + SX1) / 2, SY - 150, { size: 32, fam: 'PuHui-Heavy', col: 'rgba(236,230,218,.7)', align: 'center' });
+  txt(c, '低音', PX - 160, bot + 60, { size: 30, fam: 'PuHui-Heavy', col: 'rgba(238,242,242,.6)', align: 'center' }); txt(c, '高音', PX + 160, bot + 60, { size: 30, fam: 'PuHui-Heavy', col: 'rgba(238,242,242,.6)', align: 'center' });
+  // 铜线出口的信号（右边）：show 时出现（糊的），推子推上去以后变清楚
+  if (show > 0) { c.save(); c.globalAlpha = show; const SX0 = 40, SX1 = 420, SY = 40, F = SX0 + 4000 + t * 240, sg = lerp(24, 2.5, k);
+    c.fillStyle = 'rgba(29,29,28,.92)'; c.beginPath(); c.roundRect(SX0 - 30, SY - 190, SX1 - SX0 + 60, 300, 24); c.fill();
+    c.strokeStyle = 'rgba(236,230,218,.2)'; c.lineWidth = 2; c.setLineDash([6, 8]); c.beginPath(); c.moveTo(SX0, SY + 40); c.lineTo(SX1, SY + 40); c.stroke(); c.setLineDash([]);
+    H.stroke(c, SX0, SX1, x => SY + 40 - 140 * lerp(0.85, 1, k) * level(x, F, 46, sg), { col: k > 0.5 ? GOLD : '#e0654f', lw: 7, step: 2 });
+    txt(c, '铜线出口的信号', (SX0 + SX1) / 2, SY - 150, { size: 32, fam: 'PuHui-Heavy', col: 'rgba(236,230,218,.7)', align: 'center' }); c.restore(); }
 };
 
 // ---------- 整体放大（尾巴也一起变大）✗ vs 只补被吞的部分 ✓ ----------

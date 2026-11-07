@@ -4,25 +4,24 @@ def cardview(cid, z=1.12):
     if 960 - (h / 2 + dy) * z < 215: dy = (960 - 215) / z - h / 2
     return PC(cid, 0, round(dy)), round(z, 3)
 LENS = dict(at=[0, 0], zin=[1e6, 1e6 + 1], open=[1e6, 1e6 + 1], core=1e6, samp=[1e6, 1e6 + 1], lbl=1e6, out=[1e6, 1e6 + 1], zmax=40)   # 上集没有放大镜头
-# --- 第一帧：手机均衡器；0.5 秒推子一推，旁边的信号从糊变清楚 ---
+# --- 第一帧：只有手机均衡器（用户 2026-11-07：均衡器和波形分开演示，别一上来就变好）---
 cam(0, PC('P0', 0, 20), 1.0, 'lin')
 clabel('P0', '芯片里，也装着均衡器？', 0, -560, 0, size=56, bg='red', r=-0.012, rate=400)
-push = 0.5; sfx(push, 'shave', dur=0.75)
 adv(0.125); speak('u1'); after('u1', 0.25)
-speak('u2'); hi_ = g8(span('u2', '高音')[0]); clabel('P0', '高音推上去', 270, -230, hi_, size=40); clabel('P0', '信号变清楚了', 270, 270, hi_ + 0.5, size=40, bg='#7fd6b4')
-after('u2', 0.125); CUE['P0'] = dict(t0=0, push=push, end=now()); hold(0, 0.03)
-# --- 快递路线图：亮「路上」 ---
+speak('u2'); mv = g8(max(LINE['u2'] + 0.5, span('u2', '高音')[0] - 0.25)); sfx(mv, 'shave', dur=0.75)          # 推子各自上下：高音推上去、低音拉下来
+after('u2', 0.125)
+# 第二步：右边出现铜线出口的信号（糊的）→ 推子把高音再推上去，信号变清楚
+speak('u3'); sh_ = g8(span('u3', '铜线')[0] - 0.25); pu = g8(max(sh_ + 1.5, span('u3', '同一件事')[0] - 0.25))
+clabel('P0', '铜线出口：糊了', 230, 230, sh_ + 0.75, size=40, bg='red'); clabel('P0', '推子一推：变清楚', 230, 330, pu + 0.75, size=40, bg='#7fd6b4')
+sfx(sh_ + 0.5, 'blur'); sfx(pu, 'shave', dur=0.75); sfx(pu + 0.9, 'dsp')
+after('u3', 0.25); adv(max(0, g8(pu + 1.25 - now()))); CUE['P0'] = dict(t0=0, eqmove=mv, show=sh_, push=pu, end=now()); hold(0, 0.03)
+# --- 快递路线图：亮「路上」；糊掉的信号到底怎么修？ ---
 string('P0-RT', cbot('P0', 300), ctop('RT', -250)); gocard('RT', 1.15, 0.75)
-t0 = g8(now()); speak('u3'); lit = g8(max(t0 + 0.5, span('u3', '路上')[0]))
+t0 = g8(now()); speak('u4'); lit = g8(t0 + 0.25)
 clabel('RT', '第二站：路上', 0, 250, lit, size=44, bg='red'); sfx(lit, 'thock'); HUD_IN = lit
-after('u3', 0.125); CUE['RT'] = dict(t0=t0, lit=lit, end=now()); hold(0, 0)
-# --- 糊掉的信号怎么修？（糊的进、清楚的出） ---
-string('RT-H0', cbot('RT', 250), ctop('H0', 250)); gocard('H0', 1.12, 0.5)
-t0 = g8(now()); speak('u4'); clabel('H0', '进站：糊的', -390, 210, t0 + 0.5, align='left', bg='red'); clabel('H0', '出站：又清楚了', 390, 210, t0 + 1.5, align='right')
-sfx(t0 + 0.5, 'blur'); sfx(t0 + 1.5, 'dsp')
-after('u4', 0.25); adv(max(0, g8(t0 + 2.5 - now()))); CUE['H0'] = dict(t0=t0, e0=t0, end=now()); hold(0, 0)
+after('u4', 0.25); CUE['RT'] = dict(t0=t0, lit=lit, end=now()); hold(0, 0)
 # --- 纸条一拍：铜线削弱快速跳变最厉害 ---
-string('H0-eq', cbot('H0', 250), edge('A1', 'l')); gost('eq', 1.0, 'sine', 0.12)
+string('RT-eq', cbot('RT', 250), edge('A1', 'l')); gost('eq', 1.0, 'sine', 0.12)
 speak('u5'); fwin('eq', ['A1', 'A2'], 'u5'); vmark('A1', 'hl', '快速跳变削弱得更厉害', 'u5', '削弱快速跳变最厉害'); vmark('A2', 'hl', '棱角被削掉', 'u5', '棱角被削掉'); vmark('A2', 'hl', '拖出了尾巴', 'u5', '拖出了尾巴')
 after('u5', 0.125); hold(0, 0)
 # --- 演示：均衡（不补 / 发送端加强 / 接收端补回） ---
