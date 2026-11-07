@@ -1,6 +1,6 @@
 #!/bin/bash
 # 上下集终版：bash render_final.sh u|d → output/光互连03_小红书_{上,下}集.mp4（60 fps，1080×1920，CRF 16，-14 LUFS）
-set -e; cd "$(dirname "$0")"; V=$1; FPS=60; CH=10; NAME=$([ "$V" = u ] && echo 上 || echo 下); OUT=output/光互连03_小红书_${NAME}集.mp4
+set -e; cd "$(dirname "$0")"; V=$1; FPS=60; CH=4; NAME=$([ "$V" = u ] && echo 上 || echo 下); OUT=output/光互连03_小红书_${NAME}集.mp4
 DUR=$(python3 -c "import json;print(json.load(open('代码工程/ep3/desk_$V.json'))['dur'])"); mkdir -p segs_f$V output
 for A in $(python3 -c "import math;print(' '.join(str(i*$CH) for i in range(math.ceil($DUR/$CH))))"); do
   B=$(python3 -c "print(min($A+$CH,$DUR))"); SEG=segs_f$V/seg_$(printf %03d $A).ts; [ -f $SEG ] && continue
