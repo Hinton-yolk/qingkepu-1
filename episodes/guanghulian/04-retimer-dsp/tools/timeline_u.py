@@ -65,7 +65,7 @@ sfx(rd, 'thock'); sfx(rt, 'thock'); sfx(me, 'reach')
 after('u15', 0.25); adv(max(0, g8(me + 1.25 - now()))); CUE['K4'] = dict(t0=t0, rd=rd, rt=rt, meters=me, end=now()); hold(0, 0)
 # --- 回到开头那个均衡器（揭晓：配乐停半拍、换织体） ---
 string('K4-P1', cbot('K4', -250), ctop('P1', 300)); go(PC('P1', 0, 20), 1.0, 1.0)
-t0 = g8(now()); REV = t0; speak('u16'); ag = g8(t0 + 0.5); clabel('P1', '每秒上千亿个比特，也这样被调、被修', 0, 520, g8(span('u16', '每秒')[0]), size=38, bg='#7fd6b4'); sfx(ag, 'shave', dur=0.75)
+t0 = g8(now()); REV = t0; speak('u16'); ag = g8(t0 + 0.5); clabel('P1', '每秒上千亿个比特，也这样被调、被修', 0, -540, g8(span('u16', '每秒')[0]), size=38, bg='#7fd6b4'); sfx(ag, 'shave', dur=0.75)
 after('u16', 0.25); CUE['P1'] = dict(t0=t0, again=ag, end=now()); hold(0, 0)
 # --- 一句话 + 你在这里 → 下一篇 ---
 ally = [c['at'][1] for c in CLIPS.values()] + [c['at'][1] for c in CARDS.values()]
