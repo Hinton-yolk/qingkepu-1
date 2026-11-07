@@ -38,9 +38,19 @@ const cable = (c, k, t, { gap, speed = 520, fiber = 0, chip = 0, dim = 0 }) => {
 FULL.CARD.cables = (c, t, id, cd, Q) => {
   const chip = Q.chip != null ? MO.smooth(seg(t, Q.chip, Q.chip + 0.4)) : 0, fiber = Q.fiber != null ? MO.smooth(seg(t, Q.fiber, Q.fiber + 0.5)) : 0;
   const lg = lerp(64, 32, Math.max(chip, fiber));                 // 带芯片 / 光纤线：长线也能跑满速
-  cable(c, 'short', t, { gap: 32 });
+  if (!Q.noshort) cable(c, 'short', t, { gap: 32 });
   cable(c, 'long', t, { gap: lg, fiber, chip: chip * (1 - fiber) });
   if (Q.ring != null && t >= Q.ring) { const q = MO.smooth(seg(t, Q.ring, Q.ring + 0.5)); c.save(); c.strokeStyle = COL.red; c.lineWidth = 7; c.beginPath(); c.ellipse(0, 175, 470, 200, -0.03, -1.6, -1.6 + Math.PI * 2 * q); c.stroke(); c.restore(); }
+  if (Q.inset != null && t >= Q.inset) {           // 放大插头里面：糊的信号进芯片（检修站），清楚的出来
+    const q = MO.backOut(clamp((S12(t) - Q.inset) / 0.3), 1.6), P = CP.long[CP.long.length - 1], PX = 0, PY = -300, PW = 820, PH = 300;
+    c.save(); c.strokeStyle = 'rgba(236,230,218,.75)'; c.lineWidth = 4; c.setLineDash([12, 10]); c.globalAlpha = Math.min(1, q); c.beginPath(); c.moveTo(PX + PW / 2 - 60, PY + PH / 2); c.lineTo(P[0] - 10, P[1] - 40); c.stroke(); c.restore();
+    c.save(); c.translate(PX, PY); c.scale(Math.min(1, q), Math.min(1, q)); c.shadowColor = 'rgba(40,30,15,.4)'; c.shadowBlur = 18; c.shadowOffsetY = 8; c.fillStyle = COL.card; c.beginPath(); c.roundRect(-PW / 2, -PH / 2, PW, PH, 22); c.fill(); c.shadowColor = 'transparent';
+    const H = FULL.H, F = -PW / 2 + 40 + ((t - Q.inset) * 260) % 64 + 64 * 6, bw = 64;
+    H.stroke(c, -PW / 2 + 40, -90, x => 20 - 60 * H.level(x, F + 64 * 20, bw, 26), { lw: 5, step: 2 });                // 进来：糊的
+    H.rbox(c, 0, 0, 130, 130, { r: 14, line: GOLD, lw: 5 }); txt(c, '检修', 0, 2, { size: 38, fam: 'PuHui-Heavy', col: GOLD, align: 'center' });
+    H.stroke(c, 90, PW / 2 - 40, x => 20 - 60 * H.level(x, F + 64 * 20, bw, 2), { lw: 5, step: 2 });                    // 出去：清楚的
+    txt(c, '进来：糊的', -PW / 2 + 40, -112, { size: 30, fam: 'PuHui-Heavy', col: COL.creamDim }); txt(c, '出去：清楚的', PW / 2 - 40, -112, { size: 30, fam: 'PuHui-Heavy', col: COL.cream, align: 'right' });
+    c.restore(); }
   if (Q.chipRing != null && t >= Q.chipRing) { const q = MO.smooth(seg(t, Q.chipRing, Q.chipRing + 0.4)), P = CP.long[CP.long.length - 1]; c.save(); c.strokeStyle = COL.red; c.lineWidth = 7; c.beginPath(); c.arc(P[0] - 10, P[1], 62, -1.6, -1.6 + Math.PI * 2 * q); c.stroke(); c.restore(); }
 };
 
@@ -127,5 +137,5 @@ FULL.CARD.here = (c, t, id, cd, Q) => { if (t < Q.t0) return; const q = clamp((S
   STN5.forEach((s, i) => { const x = lerp(x0, x1, i / 4), on = i === 1; c.fillStyle = on ? COL.red : COL.paper; c.strokeStyle = COL.ink; c.lineWidth = 4; c.beginPath(); c.arc(x, y, on ? 22 : 16, 0, 7); c.fill(); c.stroke();
     txt(c, s, x, y + 56, { size: on ? 36 : 30, fam: 'PuHui-Heavy', col: on ? COL.red : 'rgba(27,27,26,.55)', align: 'center' }); });
   const xh = lerp(x0, x1, 0.25); c.strokeStyle = COL.red; c.lineWidth = 5; c.beginPath(); c.ellipse(xh, y + 20, 100, 80, -0.1, 0, Math.PI * 2 * clamp((S12(t) - Q.t0 - 0.2) / 0.4)); c.stroke();
-  txt(c, '你在这里', xh, y - 70, { size: 38, fam: 'PuHui-Heavy', col: COL.red, align: 'center' }); txt(c, 'AI 芯片之间寄快递', x1, y - 70, { size: 30, fam: 'PuHui-Heavy', col: 'rgba(27,27,26,.5)', align: 'right' }); c.restore(); };
+  txt(c, '你在这里', xh, y - 128, { size: 38, fam: 'PuHui-Heavy', col: COL.red, align: 'center' }); txt(c, 'AI 芯片之间寄快递', x1, y - 128, { size: 30, fam: 'PuHui-Heavy', col: 'rgba(27,27,26,.5)', align: 'right' }); c.restore(); };
 })();

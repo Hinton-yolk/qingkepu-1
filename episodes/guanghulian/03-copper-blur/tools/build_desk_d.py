@@ -119,7 +119,19 @@ place_card('RT', 'route', R, 900, 700, 0.008)
 place_card('H0', 'blur', L, 900, 760, -0.008)
 place_stack('fix', ['X0', 'X1', 'X2', 'X3', 'X4', 'X4b'], R); place_card('K8', 'fixes', L, 900, 1000, 0.008)
 place_stack('fix3', ['X5', 'X6', 'X7', 'X8', 'X9', 'X10'], R); place_card('C2', 'cables', L, 1000, 1180, 0.0); bare('C2'); place_card('K9', 'repair', R, 900, 900, -0.008)
-place_stack('copper', ['Y1', 'Y2', 'Y3', 'Y4', 'Y5'], L); place_card('RK2', 'rack', R, 1000, 1300, 0.0); bare('RK2'); place_card('K10', 'split', L, 900, 760, 0.01)
+# 「短距离」在原文 PDF 里跨了行（「……这样的短 / 距离里……」）：Y3 剪到「的」为止，把「短」字从原文剪下来接到 Y4 前面，读起来不断开
+strip('Y3s', 2, '在机柜内这样的'); strip('Y4s', 2, '距离里依然大量使用。')     # 新的 id：上集也会剪 Y3/Y4，同名会互相覆盖图片
+def prepend_char(cid, page, src_phrase, ch):
+    g = [x for x in runs(page, src_phrase)[0] if x[0] == ch][0]; c = CLIPS[cid]; path = os.path.join(ROOT, '代码工程', c['src']); im = Image.open(path).convert('RGB')
+    r0 = runs(c['page'], c['text'])[0][0]; base = r0[3]; x0, y0, x1, y1 = c['crop']; m = r0[1] - x0 - 0.6
+    gx0, gx1 = g[1] - 0.6, g[2] + 0.6; wg = gx1 - gx0
+    gim = page_img(page).crop((round(gx0 * DPI), round((g[3] - (base - y0)) * DPI), round(gx1 * DPI), round((g[3] - (base - y0)) * DPI) + im.height))
+    out = Image.new('RGB', (im.width + gim.width, im.height), 'white'); k = round(m * DPI)
+    out.paste(im.crop((0, 0, k, im.height)), (0, 0)); out.paste(gim, (k, 0)); out.paste(im.crop((k, 0, im.width, im.height)), (k + gim.width, 0)); out.save(path, optimize=True)
+    c['crop'][0] = round(x0 - gim.width / DPI, 2); c['text'] = ch + c['text']
+prepend_char('Y4s', 2, '在机柜内这样的短', '短')
+place_stack('copper', ['Y1', 'Y2', 'Y3s', 'Y4s', 'Y5'], L)
+for _c in ('Y3', 'Y4'): CLIPS.pop(_c, None); place_card('RK2', 'rack', R, 1000, 1300, 0.0); bare('RK2'); place_card('K10', 'split', L, 900, 760, 0.01)
 END_TOP = max(COLY.values()) + 100; COLY[850] = END_TOP; LAST[0] = END_TOP
 place_stack('end', ['E0', 'E1', 'E2', 'E3', 'E4', 'E9'], 850)
 place_card('HE', 'here', 850, 1000, 260, 0.0); bare('HE')
@@ -245,9 +257,9 @@ speak('D9'); fwin('fix3', ['X5', 'X6', 'X7'], 'D9'); vmark('X5', 'hl', '在路�
 after('D9', 0.25); hold(0, 0)
 string('fix3-C2', edge('X7', 'l'), ctop('C2', 300)); gocab('C2')
 t0 = g8(now()); speak('D10'); cr = g8(max(t0 + 0.5, span('D10', '检修站')[0])); full = g8(max(cr + 0.75, span('D10', '2 米')[0]))
-clabel('C2', '线里的芯片：一个小检修站', 60, 470, cr + 0.25, size=44, bg='red'); clabel('C2', '2 米也能跑满 40G', 0, -350, full, size=46)
+clabel('C2', '线里的芯片：一个小检修站', 0, -510, cr + 0.25, size=44, bg='red'); clabel('C2', '2 米的线，也能跑满 40G', 0, 430, full, size=46)
 sfx(t0 + 0.25, 'dsp'); sfx(full, 'thock')
-after('D10', 0.25); CUE['C2'] = dict(t0=t0, chip=t0 + 0.25, chipRing=cr, end=now()); hold(0, 0)
+after('D10', 0.25); CUE['C2'] = dict(t0=t0, chip=t0 + 0.25, chipRing=cr, inset=cr, noshort=1, end=now()); hold(0, 0)
 string('C2-K9', cbot('C2', -300), ctop('K9', 250)); gocard('K9')
 t0 = g8(now()); ok = t0 + 0.25; speak('X36'); bad = g8(max(ok + 2.0, span('X36', '信号糊到一定程度')[0]))
 clabel('K9', '中途设检修站：认出来、整理干净', -390, -420, ok + 1.0, align='left', size=38); clabel('K9', '糊到一定程度：修不回来', -390, 400, bad + 1.25, align='left', bg='red', size=38)
@@ -255,10 +267,10 @@ sfx(ok + 1.0, 'dsp'); sfx(bad + 1.25, 'wrong')
 after('X36', 0.375); adv(max(0, g8(bad + 2.5 - now()))); CUE['K9'] = dict(t0=t0, ok=ok, bad=bad, end=now()); hold(0, 0)
 # --- 所以铜线没被淘汰（纸条一句）→ 回到开头的机柜 → 光接手的那一段 ---
 string('K9-copper', cbot('K9', -250), edge('Y1', 'r')); gost('copper', 1.0, 'sine', 0.12)
-speak('D12'); fwin('copper', ['Y1', 'Y2', 'Y3', 'Y4'], 'D12')
-vmark('Y1', 'hl', '并没有被淘汰', 'D12', '没被淘汰'); vmark('Y2', 'hl', '便宜、可靠', 'D12', '便宜、可靠'); vmark('Y2', 'hl', '不需要电光转换', 'D12', '不用电光转换'); vmark('Y3', 'hl', '机柜内', 'D12', '机柜里'); vmark('Y4', 'hl', '依然大量使用', 'D12', '依然大量使用')
+speak('D12'); fwin('copper', ['Y1', 'Y2', 'Y3s', 'Y4s'], 'D12')
+vmark('Y1', 'hl', '并没有被淘汰', 'D12', '没被淘汰'); vmark('Y2', 'hl', '便宜、可靠', 'D12', '便宜、可靠'); vmark('Y2', 'hl', '不需要电光转换', 'D12', '不用电光转换'); vmark('Y3s', 'hl', '机柜内', 'D12', '机柜里'); vmark('Y4s', 'hl', '依然大量使用', 'D12', '依然大量使用')
 after('D12', 0.25); hold(0, 0)
-string('copper-RK2', edge('Y4'), ctop('RK2', -300)); go(PC('RK2', 0, -20), 1.08, 1.0)
+string('copper-RK2', edge('Y4s'), ctop('RK2', -300)); go(PC('RK2', 0, -20), 1.08, 1.0)
 t0 = g8(now()); speak('D13'); rg = g8(max(t0 + 0.25, span('D13', '几千根铜缆')[0]))
 clabel('RK2', '柜内：几千根铜缆', 260, 380, rg + 0.25, size=50, bg='red', r=-0.02); sfx(rg, 'thock')
 after('D13', 0.25); CUE['RK2'] = dict(t0=t0, ring=rg, end=now()); hold(0, 0)

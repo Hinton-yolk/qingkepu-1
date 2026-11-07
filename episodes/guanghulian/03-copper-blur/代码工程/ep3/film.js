@@ -69,8 +69,10 @@ const drawClip = (c, id, t, view) => {
   const cl = D.clips[id], k = cl.k || K, [x0, y0, x1, y1] = cl.crop, sw = (x1 - x0) * k, sh = (y1 - y0) * k;
   if (cl.at[0] + sw / 2 + 60 < view[0] || cl.at[0] - sw / 2 - 60 > view[2] || cl.at[1] + sh / 2 + 60 < view[1] || cl.at[1] - sh / 2 - 60 > view[3]) return;
   const { cv, pad } = clipCanvas(id), s = k / PX;
-  c.save(); c.translate(cl.at[0], cl.at[1]); c.rotate(cl.r); c.globalAlpha *= 1 - 0.68 * dimOf(id, t);
-  c.save(); c.shadowColor = 'rgba(50,40,25,.28)'; c.shadowBlur = 10; c.shadowOffsetX = 3; c.shadowOffsetY = 6; c.drawImage(cv, -sw / 2 - pad * s, -sh / 2 - pad * s, cv.width * s, cv.height * s); c.restore();
+  // 环境动态：纸条被台灯下的风轻轻吹动——每条各自很轻地晃（±0.25°、±2 px），影子跟着变，字一直看得清。纯时间函数（种子 = 纸条的 seed）
+  const sd = cl.seed || 7, A_ = window.NO_AMBIENT ? 0 : 1, sway = A_ * (Math.sin(t * 2 * Math.PI / (2.6 + (sd % 5) * 0.37) + sd) + 0.6 * Math.sin(t * 2 * Math.PI / (1.7 + (sd % 4) * 0.23) + sd * 2.3)), lift = A_ * (Math.sin(t * 2 * Math.PI / (3.1 + (sd % 3) * 0.5) + sd * 1.7) + 0.5 * Math.sin(t * 2 * Math.PI / 1.9 + sd));
+  c.save(); c.translate(cl.at[0] + 1.5 * sway, cl.at[1] + 2 * lift); c.rotate(cl.r + 0.0040 * sway); c.globalAlpha *= 1 - 0.68 * dimOf(id, t);
+  c.save(); c.shadowColor = 'rgba(50,40,25,.28)'; c.shadowBlur = 10 + 4 * lift; c.shadowOffsetX = 3; c.shadowOffsetY = 6 + 3 * lift; c.drawImage(cv, -sw / 2 - pad * s, -sh / 2 - pad * s, cv.width * s, cv.height * s); c.restore();
   c.translate(-sw / 2, -sh / 2); c.scale(k, k); c.translate(-x0, -y0); (MARKS_BY[id] || []).forEach(m => drawMark(c, m, t));
   c.restore();
 };
@@ -212,6 +214,10 @@ SCENES.ep3 = {
     drawToken(c, t, k.z);
     c.restore();
     drawLens(c, t, k);
+    // 环境动态（用户 2026-11-07：纸条那一拍可以加环境动态）：台灯的一圈暖光在桌上慢慢移动，镜头不动、字不动。纯时间函数。
+    if (!window.NO_AMBIENT) { const lx = W / 2 + 300 * Math.sin(t * 2 * Math.PI / 9), ly = H * 0.46 + 340 * Math.sin(t * 2 * Math.PI / 13 + 1), lr = 1050;
+      c.save(); c.globalCompositeOperation = 'soft-light'; const lg = c.createRadialGradient(lx, ly, 0, lx, ly, lr); lg.addColorStop(0, 'rgba(255,236,190,.55)'); lg.addColorStop(0.55, 'rgba(255,236,190,.12)'); lg.addColorStop(1, 'rgba(60,40,20,.25)');
+      c.fillStyle = lg; c.fillRect(0, 0, W, H); c.restore(); }
     const vg = c.createRadialGradient(W / 2, H * 0.45, H * 0.35, W / 2, H / 2, H * 0.78); vg.addColorStop(0, 'rgba(40,30,15,0)'); vg.addColorStop(1, 'rgba(40,30,15,.22)'); c.fillStyle = vg; c.fillRect(0, 0, W, H);
     if (!window.NO_HUD) drawHud(c, t);
     if (window.SHOW_SUBS && D.subs) drawSubs(c, t);
