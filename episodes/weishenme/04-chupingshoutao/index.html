@@ -1,0 +1,1056 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1080">
+<title>EP.04 触摸屏</title>
+<style>
+  @font-face { font-family: "Smiley"; src: url("assets/fonts/smiley.woff2") format("woff2"); }
+  @font-face { font-family: "NotoSC"; font-weight: 700; src: url("assets/fonts/noto-sc-bold.woff2") format("woff2"); }
+  @font-face { font-family: "NotoSC"; font-weight: 400; src: url("assets/fonts/noto-sc-regular.woff2") format("woff2"); }
+  html, body { margin: 0; background: #ECEBE6; }
+  #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="51.75" data-width="1080" data-height="1920">
+  <canvas id="c" width="1080" height="1920"></canvas>
+</div>
+<script src="timeline.js"></script>
+<script>
+"use strict";
+// ============================================================================================
+// EP.04 触摸屏 — a pure function of time. window.seek(t) paints frame t.
+// One continuous space: a phone (world units: millimetres, y down the screen, z up out of the glass). One orthographic
+// camera with a pitch: flat-on (θ = 0) for the call, tilted for the inside of the screen and for the sausage / touch glove.
+// The phone → the touch point → one take through the cover glass (dark: the electrode grid, field arcs, a finger in
+// section, a glove) → back out to the tilted phone (a sausage, a touch glove) → flat again for the same call → end badge.
+// No timers, no rAF, no CSS transitions, no state between frames (the context is reset every frame); seeded noise only.
+// ============================================================================================
+const { T, COPY, W, H, DUR, FPS, S16, ROWS, ringing, buzzK, stealK, scanRow } = TL;
+const cv = document.getElementById("c");
+const MAIN = cv.getContext("2d");
+const OFF = document.createElement("canvas"); OFF.width = W; OFF.height = H;
+const OFFX = OFF.getContext("2d");
+let ctx = MAIN;
+
+const C = {
+  ground: "#ECEBE6", ink: "#141414", acc: "#FF4A1C", paper: "#F1F0EC", dark: "#17191C",
+  body: "#1C1D20", bodyEdge: "#4A4D52", side: "#111214", glass: "#0E0F11",
+  knit: "#CFC5B4", knitD: "#A09380", knitL: "#ECE6DA", silver: "#AEB5BC", silverL: "#EEF1F4", silverD: "#6D747B",
+  skin: "#E5DACD", skinD: "#CDBFAF", nail: "#F3EEE6", sleeve: "#43464C", sleeveD: "#2F3237",
+  flesh: "#C2A394", skinS: "#E3D2C5", bone: "#EFEAE1",
+  saus: "#C88F7C", sausD: "#9C6656", sausL: "#E6BBAA",
+};
+const DISPLAY = "Smiley", UI = "NotoSC";
+
+// ---------------------------------------------------------------- math
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const TAU = Math.PI * 2, RAD = Math.PI / 180;
+const E = {
+  sine: (x) => 0.5 - 0.5 * Math.cos(Math.PI * x),
+  p2io: (x) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2),
+  p3io: (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2),
+  p2in: (x) => x * x, p3in: (x) => x * x * x,
+  p2out: (x) => 1 - (1 - x) * (1 - x), p3out: (x) => 1 - Math.pow(1 - x, 3), p4out: (x) => 1 - Math.pow(1 - x, 4),
+  smooth: (x) => x * x * (3 - 2 * x),
+};
+function spring(x, w = 15, z = 0.72) {
+  if (x <= 0) return 0;
+  if (z >= 1) return 1 - Math.exp(-w * x) * (1 + w * x);
+  const wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * x) * (Math.cos(wd * x) + ((z * w) / wd) * Math.sin(wd * x));
+}
+function slamScale(u) {                              // 0.17 s: 1.55 -> 0.94 -> 1.0
+  if (u <= 0) return 1.55;
+  if (u < 0.09) return lerp(1.55, 0.94, E.p2in(u / 0.09));
+  if (u < 0.17) return lerp(0.94, 1.0, E.p3out((u - 0.09) / 0.08));
+  return 1;
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const hexRGB = (h) => [0, 1, 2].map((i) => parseInt(h.slice(1 + 2 * i, 3 + 2 * i), 16));
+const mixHex = (a, b, k) => { const p = hexRGB(a), q = hexRGB(b); return `rgb(${[0, 1, 2].map((i) => Math.round(lerp(p[i], q[i], k))).join(",")})`; };
+const ACC = hexRGB("#FF4A1C").join(","), PAP = "241,240,236";
+// piecewise keyframes: [[t, v], ...] with an easing per segment (default p2io)
+function kf(t, K, ease = E.p2io) {
+  if (t <= K[0][0]) return K[0][1];
+  for (let i = 1; i < K.length; i++) if (t < K[i][0]) { const [t0, v0] = K[i - 1], [t1, v1, e] = K[i]; return lerp(v0, v1, (e || ease)(prog(t, t0, t1))); }
+  return K[K.length - 1][1];
+}
+
+// ---------------------------------------------------------------- camera: orthographic, pitch θ about the line y = piv
+// screen = A·(x, piv + (y − piv)·cosθ − z·sinθ) + B. θ = 0 is the flat similarity camera of the earlier episodes.
+const S0 = 5;                                          // px per mm at Z = 1
+const P = [-21.5, 58];                                 // the 接听 knob = the touch point; the sensor lattice is P + 5k
+const PITCH = 5, G = 1.2;                              // electrode pitch, cover glass thickness (mm, drawn)
+function key(F, anchor, Z, thDeg = 0, piv = P[1]) {
+  const A = Z * S0, th = thDeg * RAD, c = Math.cos(th), s = Math.sin(th), fz = F[2] || 0;
+  const py = piv + (F[1] - piv) * c - fz * s;
+  return { A, B: [anchor[0] - A * F[0], anchor[1] - A * py], Z, th, piv };
+}
+function interp(k0, k1, u, uth = u) {
+  const lr = Math.log(k1.A / k0.A), kk = Math.exp(lr), ku = Math.exp(lr * u);
+  let B;
+  if (Math.abs(1 - kk) < 1e-9) B = [lerp(k0.B[0], k1.B[0], u), lerp(k0.B[1], k1.B[1], u)];
+  else { const c0 = k1.B[0] - kk * k0.B[0], c1 = k1.B[1] - kk * k0.B[1], w0 = c0 / (1 - kk), w1 = c1 / (1 - kk); B = [ku * (k0.B[0] - w0) + w0, ku * (k0.B[1] - w1) + w1]; }
+  return { A: k0.A * ku, B, Z: k0.Z * ku, th: lerp(k0.th, k1.th, uth), piv: lerp(k0.piv, k1.piv, u) };
+}
+function proj(K, x, y, z = 0) { const c = Math.cos(K.th), s = Math.sin(K.th); return [K.A * x + K.B[0], K.A * (K.piv + (y - K.piv) * c - z * s) + K.B[1]]; }
+function planeT(K, z0 = 0, o = [0, 0], sc = 1) {            // the plane z = z0 (optionally translated to o, scaled)
+  const c = Math.cos(K.th), s = Math.sin(K.th), q = proj(K, o[0], o[1], z0);
+  ctx.setTransform(K.A * sc, 0, 0, K.A * c * sc, q[0], q[1]);
+}
+function vplaneT(K, y0) { const c = Math.cos(K.th), s = Math.sin(K.th); ctx.setTransform(K.A, 0, 0, -K.A * s, K.B[0], K.B[1] + K.A * (K.piv + (y0 - K.piv) * c)); }
+const ID = () => ctx.setTransform(1, 0, 0, 1, 0, 0);
+function strokePx(w, col) { ID(); ctx.lineWidth = w; if (col) ctx.strokeStyle = col; ctx.stroke(); }   // uniform screen-px strokes
+
+// keys (phone centre = origin)
+const KO0 = key([0, 2], [540, 1010], 1.02);                    // the call: whole phone, slow push from frame 0
+const KO1 = key([0, 4], [540, 1012], 1.1);
+const KM = key([-8, 30], [540, 1075], 1.62);                   // the guess: the knob and the glove
+const KMz = key([-9, 32], [540, 1080], 1.72);
+const KQ = key(P, [540, 1150], 3.6);                           // push in on the touch point
+const KD = key(P, [540, 1150], 6.0);                           // through the glass (flat)
+const KT = key(P, [540, 1170], 6.2, 58);                       // tilted: the grid, the arcs
+const KT2 = key(P, [520, 1185], 6.45, 58);
+const KF = key([P[0] + 3, P[1]], [560, 1200], 6.2, 58);         // the finger
+const KF2 = key([P[0] + 2, P[1]], [550, 1205], 6.5, 58);
+const KG = key([P[0] + 3, P[1]], [560, 1200], 6.3, 58);         // the glove
+const KG2 = key([P[0] + 2, P[1]], [550, 1205], 6.6, 58);
+const S = [P[0] + 25, P[1] - 45];                               // the sausage's touch point (a crossing)
+const KS = key([0, 0], [540, 1060], 1.5, 52);                   // back out: the tilted phone, screen off
+const KSz = key([S[0], S[1]], [560, 1110], 2.5, 52);            // closer on the sausage's tip
+const KS2 = key([0, -2], [540, 1070], 1.58, 52);                // the screen lit, the label
+const KTG = key(P, [430, 1210], 3.5, 52);                       // the touch glove, close
+const KTG2 = key(P, [440, 1205], 3.75, 52);
+const KC = key([0, 2], [540, 1010], 1.05);                      // the same call again
+const KC2 = key([0, 3], [540, 1012], 1.13);
+const KTip = key([0, 8], [540, 1040], 1.55);                    // the tip: the settings page
+const KTip2 = key([0, 9], [540, 1045], 1.66);
+const K7 = key([0, 0], [232, 545], 0.47);                       // the end badge
+function cam(t) {
+  if (t < T.myth) return interp(KO0, KO1, E.sine(prog(t, 0, T.myth)));
+  if (t < T.push1End) return interp(KO1, KM, E.p3io(prog(t, T.push1, T.push1End)));
+  if (t < T.q3) return interp(KM, KMz, E.sine(prog(t, T.push1End, T.q3)));
+  if (t < T.dive) return interp(KMz, KQ, E.sine(prog(t, T.q3, T.dive)));
+  if (t < T.tilt) return interp(KQ, KD, prog(t, T.dive, T.tilt));                       // a constant push through the glass
+  if (t < T.tiltEnd) return interp(KD, KT, E.p2out(prog(t, T.tilt, T.tiltEnd)), E.p2io(prog(t, T.tilt, T.tiltEnd)));
+  if (t < T.q4) return interp(KT, KT2, E.sine(prog(t, T.tiltEnd, T.q4)));
+  if (t < T.q4 + 0.75) return interp(KT2, KF, E.p2io(prog(t, T.q4, T.q4 + 0.75)));
+  if (t < T.name) return interp(KF, KF2, E.sine(prog(t, T.q4 + 0.75, T.name)));
+  if (t < T.q6) { const pk = 1 + 0.06 * Math.sin(Math.PI * clamp((t - T.name) / 0.45)); return key([P[0] + 2, P[1]], [550, 1205], 6.5 * pk, 58); }   // a punch on the name
+  if (t < T.q6 + 0.75) return interp(KF2, KG, E.p2io(prog(t, T.q6, T.q6 + 0.75)));
+  if (t < T.climb) return interp(KG, KG2, E.sine(prog(t, T.q6 + 0.75, T.climb)));
+  if (t < T.climbEnd) return interp(KG2, KS, E.p3out(prog(t, T.climb, T.climbEnd)), E.p2io(prog(t, T.climb, T.climbEnd)));
+  if (t < T.saus) return KS;
+  if (t < T.wake) return interp(KS, KSz, E.p3io(prog(t, T.saus - 0.25, T.wake)));
+  if (t < T.wake + 1.0) return interp(KSz, KS2, E.p3io(prog(t, T.wake, T.wake + 1.0)));
+  if (t < T.tgIn) return KS2;
+  if (t < T.tg + 0.75) return interp(KS2, KTG, E.p3io(prog(t, T.tgIn, T.tg + 0.75)));
+  if (t < T.climb2) return interp(KTG, KTG2, E.sine(prog(t, T.tg + 0.75, T.climb2)));
+  if (t < T.climb2End) return interp(KTG2, KC, E.p3io(prog(t, T.climb2, T.climb2End)));
+  if (t < T.tip) return interp(KC, KC2, E.sine(prog(t, T.climb2End, T.tip)));
+  if (t < T.tip + 0.75) return interp(KC2, KTip, E.p3io(prog(t, T.tip, T.tip + 0.75)));
+  if (t < T.end) return interp(KTip, KTip2, E.sine(prog(t, T.tip + 0.75, T.end)));
+  return interp(KTip2, K7, E.p3io(prog(t, T.end, T.endMorph)));
+}
+
+// ---------------------------------------------------------------- drawing helpers
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function line(x0, y0, x1, y1) { ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
+const MEASURE = new Map();
+function mw(font, s) { const k = font + "|" + s; let v = MEASURE.get(k); if (v === undefined) { ctx.font = font; v = ctx.measureText(s).width; MEASURE.set(k, v); } return v; }
+function parse(str) { const out = []; let a = 0; for (const ch of str) { if (ch === "[") { a = 1; continue; } if (ch === "]") { a = 0; continue; } out.push({ ch, a }); } return out; }
+const plain = (str) => str.replace(/[\[\]]/g, "");
+function fitSize(str, size, maxW, face = DISPLAY, wt = "") { const f = `${wt} ${size}px ${face}`.trim(), w = mw(f, plain(str)); return w > maxW ? Math.floor(size * maxW / w) : size; }
+// text in world units (mm) on the current transform: drawn at 10× size and scaled down (crisp at any zoom)
+function uiText(str, x, y, sizeMM, col, o = {}) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(0.1, 0.1);
+  ctx.font = `${o.weight ?? 700} ${sizeMM * 10}px ${o.face ?? UI}`; ctx.fillStyle = col; ctx.textAlign = o.align ?? "center"; ctx.textBaseline = o.base ?? "alphabetic";
+  ctx.fillText(str, 0, 0); ctx.restore();
+}
+
+// Text band: style none | blur | type | slam | wipe; left aligned at x.
+function lines(L, t, t0, t1, o = {}) {
+  if (t < t0 || t >= t1) return;
+  const x = o.x ?? 96, ys = o.ys ?? [330, 472], face = o.face ?? DISPLAY, wt = o.weight ?? "";
+  const col = o.col ?? C.ink, acc = o.acc ?? C.acc, style = o.style ?? "blur";
+  const stag = o.stag ?? 0.055, lineGap = o.lineGap ?? 0.16, exitDur = o.exit ?? 0.16, maxW = o.maxW ?? 900;
+  ID();
+  L.forEach((str, i) => {
+    const size = fitSize(str, Array.isArray(o.size) ? o.size[i] : (o.size ?? 112), maxW, face, wt);
+    const font = `${wt} ${size}px ${face}`.trim();
+    const chars = parse(str), ls = t0 + i * lineGap;
+    if (t < ls) return;
+    let pre = "";
+    ctx.save();
+    if (style === "slam") { const sc = slamScale(t - ls), cy = ys[i] - size * 0.35; ctx.translate(x, cy); ctx.scale(sc, sc); ctx.translate(-x, -cy); }
+    if (style === "wipe") { const wv = mw(font, plain(str)); ctx.beginPath(); ctx.rect(0, ys[i] - size * 1.2, x + wv * E.p3out(prog(t, ls, ls + 0.32)) + 4, size * 1.6); ctx.clip(); }
+    ctx.font = font; ctx.textBaseline = "alphabetic";
+    chars.forEach((c, j) => {
+      const cx = x + mw(font, pre); pre += c.ch;
+      const lt = t - (ls + j * stag);
+      let a = 1, blur = 0;
+      if (style === "blur") { const k = clamp(lt / 0.13); a = k; blur = 9 * (1 - k); }
+      else if (style === "type") { a = lt >= 0 ? 1 : 0; }
+      if (t > t1 - exitDur) { const e = clamp((t - (t1 - exitDur)) / exitDur); a *= 1 - e; blur = Math.max(blur, 10 * e); }
+      if (a <= 0.003) return;
+      ctx.globalAlpha = a; ctx.filter = blur > 0.3 ? `blur(${blur.toFixed(1)}px)` : "none";
+      ctx.fillStyle = c.a ? acc : col; ctx.fillText(c.ch, cx, ys[i]);
+    });
+    ctx.restore(); ctx.filter = "none"; ctx.globalAlpha = 1;
+  });
+}
+function label(str, x, y, size, col, t, t0, t1, o = {}) {
+  if (t < t0 || t >= t1) return;
+  ID(); const font = `${o.weight ?? 700} ${size}px ${o.face ?? UI}`; const wv = mw(font, str);
+  const k = E.p3out(prog(t, t0, t0 + 0.28)), e = prog(t, t1 - 0.15, t1);
+  ctx.save(); ctx.font = font; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  const left = o.align === "right" ? x - wv : o.align === "center" ? x - wv / 2 : x;
+  ctx.beginPath(); ctx.rect(left - 4, y - size * 1.2, (wv + 8) * k, size * 1.6); ctx.clip();
+  ctx.globalAlpha = (o.alpha ?? 1) * (1 - e); if (e > 0) ctx.filter = `blur(${(8 * e).toFixed(1)}px)`;
+  ctx.fillStyle = col; ctx.fillText(str, left, y); ctx.restore(); ctx.filter = "none";
+}
+function underline(str, prefix, word, lineIdx, t, t0, t1, ys = [330, 472], size0 = 112) {
+  if (t < t0 || t >= t1) return;
+  const size = fitSize(str, size0, 900), f = `${size}px ${DISPLAY}`;
+  const x0 = 96 + mw(f, prefix), wv = mw(f, word), k = E.p3out(prog(t, t0, t0 + 0.3)), fo = 1 - prog(t, t1 - 0.16, t1);
+  ID(); ctx.globalAlpha = fo; ctx.fillStyle = C.acc; ctx.fillRect(x0 - 4, ys[lineIdx] + 20, (wv + 8) * k, 11); ctx.globalAlpha = 1;
+}
+
+// ---------------------------------------------------------------- icons (unit size, drawn on the current transform)
+function handsetPath(x, y, r, rot) {                    // a phone receiver, as a filled shape
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(r, r);
+  ctx.beginPath();
+  ctx.moveTo(-0.95, -0.28); ctx.bezierCurveTo(-0.95, -0.62, -0.5, -0.66, 0, -0.66); ctx.bezierCurveTo(0.5, -0.66, 0.95, -0.62, 0.95, -0.28);
+  ctx.lineTo(0.95, -0.08); ctx.quadraticCurveTo(0.95, 0.04, 0.82, 0.04); ctx.lineTo(0.5, 0.04); ctx.quadraticCurveTo(0.38, 0.04, 0.38, -0.08);
+  ctx.lineTo(0.38, -0.2); ctx.quadraticCurveTo(0, -0.3, -0.38, -0.2); ctx.lineTo(-0.38, -0.08); ctx.quadraticCurveTo(-0.38, 0.04, -0.5, 0.04);
+  ctx.lineTo(-0.82, 0.04); ctx.quadraticCurveTo(-0.95, 0.04, -0.95, -0.08); ctx.closePath();
+  ctx.restore();
+}
+function personIcon(x, y, r, bg, fg) {
+  ctx.save(); ctx.translate(x, y);
+  ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+  ctx.clip();
+  ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(0, -0.2 * r, 0.33 * r, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, 0.72 * r, 0.62 * r, 0.46 * r, 0, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- the phone's screens (phone coordinates, mm)
+const SCR = { x0: -33.5, y0: -75.5, w: 67, h: 151, r: 8 };
+const TRACK = { x0: -27, x1: 27, y: P[1], r: 6 };
+const KNOB0 = P[0], KNOB1 = -P[0];
+function knobX(t) {
+  if (t < T.graze) return KNOB0;
+  if (t < T.grazeEnd) return clamp(handTip(t, "bare")[0], KNOB0, KNOB1);
+  if (t < T.ring2) { const x1 = clamp(handTip(T.grazeEnd - 1e-4, "bare")[0], KNOB0, KNOB1); return lerp(x1, KNOB0, spring(t - T.grazeEnd, 16, 0.75)); }
+  if (t < T.sw3) return KNOB0;
+  return clamp(handTip(Math.min(t, T.ka), "touch")[0], KNOB0, KNOB1);
+}
+function wallpaper(t) {                                   // the lock screen: a calm landscape (the series' own)
+  const g = ctx.createLinearGradient(0, SCR.y0, 0, SCR.y0 + SCR.h);
+  g.addColorStop(0, "#D9DDE0"); g.addColorStop(0.55, "#EFE6D8"); g.addColorStop(1, "#E9DCC9");
+  ctx.fillStyle = g; ctx.fillRect(SCR.x0, SCR.y0, SCR.w, SCR.h);
+  ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(14 + 1.5 * Math.sin(t * 0.3), -8, 9, 0, TAU); ctx.fill();
+  const cols = ["#B8B1A7", "#8C867E", "#5D5955"], base = [8, 26, 46];
+  for (let k = 0; k < 3; k++) {
+    ctx.fillStyle = cols[k]; ctx.beginPath(); ctx.moveTo(SCR.x0, SCR.y0 + SCR.h);
+    for (let x = SCR.x0; x <= SCR.x0 + SCR.w + 0.5; x += 2) { const s = x * 0.05 + k * 2.1 + 0.03 * t * (k + 1); ctx.lineTo(x, base[k] - 7 * (0.6 * Math.abs(Math.sin(s * 1.4)) + 0.25 * Math.sin(s * 3.1 + k))); }
+    ctx.lineTo(SCR.x0 + SCR.w, SCR.y0 + SCR.h); ctx.closePath(); ctx.fill();
+  }
+  ctx.fillStyle = "rgba(241,240,236,0.9)"; rr(-3.2, -66, 6.4, 5, 1); ctx.fill();          // a small padlock
+  ctx.strokeStyle = "rgba(241,240,236,0.9)"; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.arc(0, -66, 2.2, Math.PI, 0); ctx.stroke();
+  ctx.fillStyle = "rgba(241,240,236,0.85)"; rr(-12, 70.5, 24, 1.3, 0.65); ctx.fill();
+}
+function uiCall(t, connected) {
+  const g = ctx.createLinearGradient(0, SCR.y0, 0, SCR.y0 + SCR.h); g.addColorStop(0, "#26292E"); g.addColorStop(1, "#141518");
+  ctx.fillStyle = g; ctx.fillRect(SCR.x0, SCR.y0, SCR.w, SCR.h);
+  const ck = connected ? E.p3out(prog(t, T.ka, T.ka + 0.35)) : 0;
+  // the caller
+  if (!connected) for (let i = 0; i < 3; i++) {                         // ringing: ripples off the avatar
+    const u = ((t * 0.9 + i / 3) % 1); ctx.strokeStyle = `rgba(${PAP},${0.32 * (1 - u)})`; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.arc(0, -36, 13 + 13 * u, 0, TAU); ctx.stroke();
+  }
+  personIcon(0, -36, 13, "#3A3D42", "#8D9197");
+  uiText(COPY.caller, 0, -12.5, 7.5, "#F1F0EC");
+  uiText(connected ? COPY.inCall : COPY.incoming, 0, -4.5, 3.4, "rgba(241,240,236,0.6)", { weight: 400 });
+  if (connected) {                                                       // a live call: a small level meter
+    for (let i = 0; i < 9; i++) { const h = 1 + 3.2 * Math.abs(Math.sin(t * 7 + i * 1.7) * Math.sin(t * 2.3 + i)); ctx.fillStyle = `rgba(${PAP},${0.5 * ck})`; rr(-8.8 + i * 2.1, 4 - h / 2, 1.1, h, 0.55); ctx.fill(); }
+    [-18, 0, 18].forEach((x, i) => { ctx.fillStyle = `rgba(58,61,66,${ck})`; ctx.beginPath(); ctx.arc(x, 30, 5.5, 0, TAU); ctx.fill(); ctx.fillStyle = `rgba(${PAP},${0.7 * ck})`; if (i === 0) { rr(x - 1.2, 27, 2.4, 4.2, 1.2); ctx.fill(); } else if (i === 1) { for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) { ctx.beginPath(); ctx.arc(x - 2 + c * 2, 28 + r * 2, 0.5, 0, TAU); ctx.fill(); } } else { ctx.beginPath(); ctx.moveTo(x - 2, 28.8); ctx.lineTo(x - 0.6, 28.8); ctx.lineTo(x + 1.6, 27); ctx.lineTo(x + 1.6, 33); ctx.lineTo(x - 0.6, 31.2); ctx.lineTo(x - 2, 31.2); ctx.closePath(); ctx.fill(); } });
+  }
+  // the slider: track, hint, knob
+  const tk = 1 - ck;
+  if (tk > 0.01) {
+    ctx.globalAlpha = tk;
+    ctx.fillStyle = "rgba(241,240,236,0.13)"; rr(TRACK.x0, TRACK.y - TRACK.r, TRACK.x1 - TRACK.x0, 2 * TRACK.r, TRACK.r); ctx.fill();
+    const kx = knobX(t), sh = (t * 0.8) % 1;
+    ctx.save(); rr(TRACK.x0, TRACK.y - TRACK.r, TRACK.x1 - TRACK.x0, 2 * TRACK.r, TRACK.r); ctx.clip();
+    if (kx > KNOB0 + 0.3) { ctx.fillStyle = `rgba(${PAP},0.16)`; rr(TRACK.x0, TRACK.y - TRACK.r, kx - TRACK.x0 + 5, 2 * TRACK.r, TRACK.r); ctx.fill(); }
+    ctx.restore();
+    const ta = 0.55 * (1 - clamp((kx - KNOB0) / 12));
+    if (ta > 0.01) { uiText(COPY.slide, 4.5, TRACK.y + 1.25, 3.3, `rgba(241,240,236,${ta})`, { weight: 400 }); ctx.fillStyle = `rgba(241,240,236,${ta * (0.4 + 0.6 * Math.max(0, Math.sin(TAU * (sh))))})`; }
+    ctx.fillStyle = C.paper; ctx.beginPath(); ctx.arc(kx, TRACK.y, 5.0, 0, TAU); ctx.fill();
+    ctx.fillStyle = C.ink; handsetPath(kx, TRACK.y + 0.7, 2.6, 0); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  if (connected) {                                                       // hang up: the one coloured button
+    const s = ck; ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(0, TRACK.y, 6.2 * s, 0, TAU); ctx.fill();
+    if (s > 0.3) { ctx.fillStyle = C.paper; handsetPath(0, TRACK.y + 0.6, 3.1 * s, Math.PI); ctx.fill(); }
+  }
+}
+function uiSettings(t) {
+  ctx.fillStyle = "#1B1D21"; ctx.fillRect(SCR.x0, SCR.y0, SCR.w, SCR.h);
+  uiText(COPY.settings, SCR.x0 + 5, -52, 6.2, "#F1F0EC", { align: "left" });
+  const rows = [[COPY.rowA, -36], [COPY.rowB, -24], [COPY.rowC, -12]];
+  rows.forEach(([s, y]) => { ctx.fillStyle = "#26292E"; rr(SCR.x0 + 3, y - 5, SCR.w - 6, 10, 2.5); ctx.fill(); uiText(s, SCR.x0 + 8, y + 1.3, 3.6, "rgba(241,240,236,0.75)", { align: "left", weight: 400 }); ctx.fillStyle = "rgba(241,240,236,0.35)"; ctx.beginPath(); ctx.moveTo(26, y - 1.6); ctx.lineTo(28, y); ctx.lineTo(26, y + 1.6); ctx.lineWidth = 0.5; ctx.strokeStyle = "rgba(241,240,236,0.35)"; ctx.stroke(); });
+  // the row that matters
+  const y = 6, on = E.p3out(prog(t, T.toggle, T.toggle + 0.22)), hi = 0.5 + 0.5 * Math.sin(Math.PI * clamp((t - T.tip - 0.6) / 1.0));
+  ctx.fillStyle = "#2B2E33"; rr(SCR.x0 + 3, y - 7, SCR.w - 6, 14, 2.5); ctx.fill();
+  ctx.strokeStyle = `rgba(241,240,236,${0.18 + 0.2 * hi * (1 - on)})`; ctx.lineWidth = 0.35; ctx.stroke();
+  uiText(COPY.gloveMode, SCR.x0 + 8, y - 0.2, 4.4, "#F1F0EC", { align: "left" });
+  uiText(COPY.gloveSub, SCR.x0 + 8, y + 4.4, 2.3, "rgba(241,240,236,0.55)", { align: "left", weight: 400 });
+  ctx.fillStyle = mixHex("#4A4D52", C.acc, on); rr(16, y - 3.2, 11, 6.4, 3.2); ctx.fill();
+  ctx.fillStyle = C.paper; ctx.beginPath(); ctx.arc(lerp(19.2, 23.8, on), y, 2.5, 0, TAU); ctx.fill();
+  [[COPY.rowD, 24]].forEach(([s, yy]) => { ctx.fillStyle = "#26292E"; rr(SCR.x0 + 3, yy - 5, SCR.w - 6, 10, 2.5); ctx.fill(); uiText(s, SCR.x0 + 8, yy + 1.3, 3.6, "rgba(241,240,236,0.75)", { align: "left", weight: 400 }); });
+  ctx.fillStyle = "rgba(241,240,236,0.85)"; rr(-12, 70.5, 24, 1.3, 0.65); ctx.fill();
+}
+function uiOff(t) {
+  ctx.fillStyle = C.glass; ctx.fillRect(SCR.x0, SCR.y0, SCR.w, SCR.h);
+  const g = ctx.createLinearGradient(SCR.x0, SCR.y0, SCR.x0 + SCR.w, SCR.y0 + SCR.h * 0.6);
+  g.addColorStop(0.25, "rgba(255,255,255,0)"); g.addColorStop(0.42, "rgba(255,255,255,0.05)"); g.addColorStop(0.5, "rgba(255,255,255,0)");
+  ctx.fillStyle = g; ctx.fillRect(SCR.x0, SCR.y0, SCR.w, SCR.h);
+}
+function drawScreen(t) {
+  if (t < T.climb) { uiCall(t, false); return; }
+  if (t < T.ring2) {
+    const wk = E.p2out(prog(t, T.wake, T.wake + 0.3));
+    if (wk < 1) uiOff(t);
+    if (wk > 0) { ctx.globalAlpha = wk; wallpaper(t); ctx.globalAlpha = 1; }
+    return;
+  }
+  if (t < T.ka) {                                            // the call comes in over the lock screen
+    const k = E.p3out(prog(t, T.ring2, T.ring2 + 0.3));
+    if (k < 1) wallpaper(t);
+    ctx.globalAlpha = k; uiCall(t, false); ctx.globalAlpha = 1; return;
+  }
+  uiCall(t, true);
+  if (t >= T.tip) {                                          // the settings sheet slides up
+    const u = E.p3out(prog(t, T.tip, T.tip + 0.5)); ctx.save(); ctx.translate(0, (1 - u) * SCR.h); uiSettings(t); ctx.restore();
+  }
+}
+// touch ripples on the glass (phone coords)
+function ripple(t, t0, x, y, col, rmax = 16, dur = 0.6) {
+  const u = prog(t, t0, t0 + dur); if (t < t0 || u >= 1) return;
+  ctx.strokeStyle = col.replace("A", (0.8 * (1 - u)).toFixed(3)); ctx.lineWidth = 0.7 + 0.6 * (1 - u);
+  ctx.beginPath(); ctx.arc(x, y, 3 + rmax * E.p3out(u), 0, TAU); ctx.stroke();
+}
+
+// ---------------------------------------------------------------- the phone (body, glass, screen)
+function shakeOff(t) {                                         // the vibration motor (mm)
+  const b = buzzK(t); if (b <= 0) return [0, 0];
+  return [0.35 * b * Math.sin(TAU * 31 * t), 0.2 * b * Math.sin(TAU * 23 * t + 1)];
+}
+function drawPhone(t, K, fade = 0) {
+  const sh = shakeOff(t), o = [sh[0] + pressShift(t)[0], sh[1] + pressShift(t)[1]];
+  const s = Math.sin(K.th), A = K.A;
+  ctx.save(); ctx.globalAlpha = 1 - fade;
+  // shadow on the ground
+  planeT(K, G - 8, o); ctx.fillStyle = "rgba(20,20,20,0.16)";
+  ctx.shadowColor = "rgba(20,20,20,0.35)"; ctx.shadowBlur = Math.min(80, 6 * A); ctx.shadowOffsetY = (s > 0.1 ? 3.5 : 2.2) * A; ctx.shadowOffsetX = 0.8 * A;
+  rr(-36, -78, 72, 156, 10); ctx.fill(); ctx.shadowColor = "transparent";
+  // the side (only seen when tilted): the body from z = G − 8 up to G
+  if (s > 0.02) {
+    for (const z of [G - 8, G - 5.5, G - 3]) { planeT(K, z, o); ctx.fillStyle = C.side; rr(-36, -78, 72, 156, 10); ctx.fill(); }
+    planeT(K, G - 8, o); rr(-36, -78, 72, 156, 10); strokePx(2, "rgba(20,20,20,0.9)");
+  }
+  planeT(K, G, o);
+  ctx.fillStyle = C.body; rr(-36, -78, 72, 156, 10); ctx.fill();
+  rr(-35.6, -77.6, 71.2, 155.2, 9.7); strokePx(Math.max(1.2, 0.18 * A), C.bodyEdge);
+  planeT(K, G, o); ctx.fillStyle = C.body; rr(35.4, -46, 1.2, 12, 0.5); ctx.fill(); rr(35.4, -28, 1.2, 18, 0.5); ctx.fill();
+  ctx.save(); planeT(K, G, o); rr(SCR.x0, SCR.y0, SCR.w, SCR.h, SCR.r); ctx.clip();
+  drawScreen(t);
+  screenFx(t, K);
+  ctx.restore();
+  planeT(K, G, o); ctx.fillStyle = "#050506"; ctx.beginPath(); ctx.arc(0, -71, 1.6, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+function pressShift(t) {                                       // the phone gives a little under a hard press
+  const p = pressK(t); return [-0.5 * p, -0.35 * p];
+}
+// dents and touches on the glass (drawn inside the screen clip, phone coordinates)
+function screenFx(t, K) {
+  // the guess: pressed hard, the glass dents (contour rings around the fingertip)
+  const dk = dentK(t);
+  if (dk > 0.01) {
+    const c = [P[0] + 1.5, P[1] - 1.5], pul = pulseK(t);
+    const g = ctx.createRadialGradient(c[0], c[1], 0, c[0], c[1], 26);
+    g.addColorStop(0, `rgba(0,0,0,${0.55 * dk})`); g.addColorStop(0.5, `rgba(0,0,0,${0.22 * dk})`); g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g; ctx.fillRect(c[0] - 30, c[1] - 30, 60, 60);
+    [8, 12.5, 17.5, 23].forEach((r, i) => { ctx.strokeStyle = `rgba(${PAP},${(0.62 - 0.12 * i) * dk})`; ctx.lineWidth = 0.42; ctx.beginPath(); ctx.ellipse(c[0], c[1], r * (1 - 0.07 * pul) * (0.92 + 0.08 * dk), r * 0.93 * (1 - 0.07 * pul), -0.5, 0, TAU); ctx.stroke(); });
+  }
+  // a light touch: ripples where a bare finger / the touch glove lands
+  ripple(t, T.graze, P[0], P[1], `rgba(${PAP},A)`, 14);
+  ripple(t, T.rest, P[0], P[1], `rgba(${PAP},A)`, 10);
+  ripple(t, T.lift, P[0], P[1], `rgba(${PAP},A)`, 22, 0.9);
+  ripple(t, T.wake, S[0], S[1], `rgba(${PAP},A)`, 30, 0.8);
+  ripple(t, T.sw3, P[0], P[1], `rgba(${PAP},A)`, 12);
+  if (t >= T.ka && t < T.ka + 0.5) { const u = prog(t, T.ka, T.ka + 0.5); ctx.fillStyle = `rgba(${PAP},${0.35 * (1 - u)})`; ctx.fillRect(SCR.x0, SCR.y0, SCR.w, SCR.h); }
+}
+function dentK(t) {
+  if (t < T.press2 - 0.05 || t >= T.a2 + 0.45) return 0;
+  return E.p3out(prog(t, T.press2 - 0.05, T.press2 + 0.2)) * (1 - prog(t, T.strike + 0.15, T.a2 + 0.45));
+}
+function pulseK(t) { let v = 0; [T.press2, T.press2 + 0.5, T.press2 + 1.0].forEach((p) => { const u = t - p; if (u >= 0 && u < 0.4) v = Math.max(v, Math.sin(Math.PI * u / 0.4)); }); return v; }
+
+// ---------------------------------------------------------------- the hand (flat view): a right hand, palm down, index finger out
+// Local frame: the fingertip at (0, 0), +x back along the finger towards the wrist, +y the thumb side. Millimetres.
+function fingerHW(x) {                                        // half-width of the index finger (bare)
+  const K = [[0, 0.5], [2, 5.0], [7, 6.8], [20, 7.6], [42, 8.6], [82, 9.8]];
+  for (let i = 1; i < K.length; i++) if (x <= K[i][0]) return lerp(K[i - 1][1], K[i][1], (x - K[i - 1][0]) / (K[i][0] - K[i - 1][0]));
+  return 9.8;
+}
+// adult proportions: index finger 80 mm tip to knuckle, hand 84 mm across the knuckles, about 90 mm knuckles to wrist
+const HAND = (() => {
+  const P2 = (f) => { const p = new Path2D(); f(p); return p; };
+  const index = P2((p) => {
+    p.moveTo(-0.3, 0.2); p.bezierCurveTo(-0.5, -4.2, 2.8, -6.8, 7, -6.9);
+    p.bezierCurveTo(12, -7.0, 16, -7.6, 20, -7.65); p.bezierCurveTo(27, -7.7, 36, -8.3, 42, -8.65);
+    p.bezierCurveTo(55, -9.1, 68, -9.6, 84, -10.0); p.lineTo(84, 9.4);
+    p.bezierCurveTo(68, 9.3, 55, 9.0, 42, 8.6); p.bezierCurveTo(36, 8.4, 27, 7.8, 20, 7.55);
+    p.bezierCurveTo(16, 7.4, 12, 6.8, 7, 6.7); p.bezierCurveTo(2.8, 6.6, -0.2, 4.6, -0.3, 0.2); p.closePath();
+  });
+  const dorsum = P2((p) => {
+    p.moveTo(76, 9); p.bezierCurveTo(95, 12, 120, 16, 140, 15.5); p.bezierCurveTo(150, 15, 160, 13.5, 168, 12);
+    p.lineTo(172, -47); p.bezierCurveTo(152, -52, 122, -62, 102, -62.5); p.bezierCurveTo(92, -62.5, 85, -58, 83, -50);
+    p.bezierCurveTo(80, -30, 78, -10, 76, 9); p.closePath();
+  });
+  // the curled fingers, seen from above: the backs of their first bones, foreshortened, side by side (a fist)
+  const lobe = (y, w, x0) => P2((p) => { p.roundRect(x0, y - w / 2, 97 - x0, w, w * 0.5); });
+  const bumps = [lobe(-53, 15.5, 73), lobe(-37.6, 17, 68.5), lobe(-20.6, 18, 65.5)];
+  const thumb = P2((p) => {
+    p.moveTo(60, 13.5); p.bezierCurveTo(60, 7.5, 65, 5.5, 72, 5.5); p.lineTo(118, 8);
+    p.bezierCurveTo(135, 9, 150, 12, 162, 16); p.lineTo(162, 30); p.bezierCurveTo(145, 30, 125, 28.5, 105, 27);
+    p.bezierCurveTo(88, 26, 72, 23.5, 65.5, 21); p.bezierCurveTo(61.5, 19, 60, 16.5, 60, 13.5); p.closePath();
+  });
+  const sleeve = P2((p) => { p.moveTo(184, 24); p.bezierCurveTo(178, 0, 179, -34, 186, -58); p.lineTo(380, -84); p.lineTo(380, 48); p.closePath(); });
+  const cuff = P2((p) => { p.moveTo(160, 19); p.bezierCurveTo(157, 0, 158, -30, 164, -50); p.lineTo(190, -55); p.bezierCurveTo(183, -32, 182, 0, 188, 23); p.closePath(); });
+  // knit stitches, precomputed per part in local coordinates: [x, y, scaleAcross, jitter]
+  const R = mulberry32(404), J = () => (R() - 0.5) * 0.3;
+  const st = { index: [], dorsum: [], bumps: [], thumb: [] };
+  const ROW = 3.9, COL = 3.5;
+  for (let x = 1.8; x < 86; x += ROW) { const hw = fingerHW(x) + 1.0, n = Math.max(2, Math.round(Math.PI * hw / COL)); for (let i = 0; i < n; i++) { const ph = -Math.PI / 2 + Math.PI * (i + 0.5) / n; st.index.push([x + J(), hw * Math.sin(ph), Math.cos(ph), J()]); } }
+  for (let x = 78; x < 172; x += ROW) for (let y = -66; y < 20; y += COL) st.dorsum.push([x + J(), y + J(), 1, J()]);
+  for (let x = 64; x < 100; x += ROW) for (let y = -62; y < -10; y += COL) st.bumps.push([x + J(), y + J(), 0.8, J()]);
+  for (let x = 60; x < 165; x += ROW) for (let y = 4; y < 32; y += COL) st.thumb.push([x + J(), y + J(), 0.85, J()]);
+  return { index, dorsum, bumps, thumb, sleeve, cuff, st };
+})();
+function knitStroke(list, xmax, dark, light, xmin = -1e9) {        // V stitches (two leaning loops), batched in two strokes
+  const pth = new Path2D(), pl = new Path2D();
+  for (const [x, y, s, j] of list) { if (x > xmax || x < xmin) continue; const w = 1.45 * s, yy = y + j;
+    pth.moveTo(x - 1.6, yy - w); pth.lineTo(x + 1.35, yy - 0.18 * s); pth.moveTo(x - 1.6, yy + w); pth.lineTo(x + 1.35, yy + 0.18 * s);
+    pl.moveTo(x - 1.45, yy - w * 1.02 + 0.25 * s); pl.lineTo(x + 0.6, yy - 0.42 * s); pl.moveTo(x - 1.45, yy + w * 0.72); pl.lineTo(x + 0.6, yy + 0.12 * s); }
+  ctx.lineCap = "round"; ctx.strokeStyle = dark; ctx.lineWidth = 1.55; ctx.stroke(pth);
+  ctx.strokeStyle = light; ctx.lineWidth = 0.62; ctx.stroke(pl);
+}
+// a filled part with an ink outline (and a puff for the glove: a fill-coloured stroke widens the shape)
+function part(p, fill, ppx, puff) {
+  ctx.lineJoin = "round";
+  if (puff > 0) { ctx.strokeStyle = C.ink; ctx.lineWidth = 2 * puff + 2.6 / ppx; ctx.stroke(p); ctx.strokeStyle = fill; ctx.lineWidth = 2 * puff; ctx.stroke(p); ctx.fillStyle = fill; ctx.fill(p); }
+  else { ctx.fillStyle = fill; ctx.fill(p); ctx.strokeStyle = C.ink; ctx.lineWidth = 2.6 / ppx; ctx.stroke(p); }
+}
+// kind: "glove" | "bare" | "touch"; tip: world xy; ang: rad (direction of local +x); h: hover (mm); prs: press (0..1)
+function drawHand(t, K, kind, tip, ang, h = 0, prs = 0) {
+  const sc = (1 + 0.011 * h) * (1 - 0.025 * prs), ppx = K.A * sc;
+  const glove = kind !== "bare", puff = glove ? 1.7 : 0;
+  // shadow on the glass/ground (offset grows with height)
+  planeT(K, G, [tip[0] + 1.6 + 0.55 * h, tip[1] + 2.4 + 0.85 * h], sc); ctx.rotate(ang);
+  ctx.save(); ctx.filter = `blur(${Math.min(40, (0.9 + 0.25 * h) * K.A).toFixed(1)}px)`; ctx.fillStyle = `rgba(10,10,12,${0.3 - 0.008 * Math.min(h, 20)})`;
+  [HAND.dorsum, HAND.thumb, HAND.index, ...HAND.bumps].forEach((p) => ctx.fill(p)); ctx.restore(); ctx.filter = "none";
+  planeT(K, G + h, tip, sc); ctx.rotate(ang);
+  // sleeve, cuff / wrist
+  part(HAND.sleeve, C.sleeve, ppx, 0);
+  ctx.save(); ctx.clip(HAND.sleeve); ctx.strokeStyle = C.sleeveD; ctx.lineWidth = 1.6; [[232, 10], [260, -50], [300, 20]].forEach(([x, y]) => { ctx.beginPath(); ctx.moveTo(x, y); ctx.bezierCurveTo(x + 12, y - 12, x + 26, y - 4, x + 40, y - 18); ctx.stroke(); }); ctx.restore();
+  if (glove) { part(HAND.cuff, C.knit, ppx, puff); ctx.save(); ctx.clip(HAND.cuff); ctx.strokeStyle = C.knitD; ctx.lineWidth = 1.1; for (let y = -70; y < 30; y += 3.2) line(155, y, 192, y + 1.5); ctx.restore(); }
+  const fill = glove ? C.knit : C.skin;
+  part(HAND.dorsum, fill, ppx, puff);
+  HAND.bumps.forEach((b) => part(b, fill, ppx, puff));
+  if (glove) { ctx.save(); ctx.clip(HAND.dorsum); knitStroke(HAND.st.dorsum, 1e9, C.knitD, C.knitL); ctx.restore();
+    ctx.save(); const bp = new Path2D(); HAND.bumps.forEach((b) => bp.addPath(b)); ctx.clip(bp); knitStroke(HAND.st.bumps, 1e9, C.knitD, C.knitL); ctx.restore(); }
+  else {                                                           // knuckles and tendons, lightly
+    ctx.strokeStyle = "rgba(20,20,20,0.22)"; ctx.lineWidth = 2 / ppx * 1.2; ctx.lineCap = "round";
+    [[-20.6, 94], [-37.6, 95], [-53, 96]].forEach(([y, x]) => { ctx.beginPath(); ctx.arc(x, y, 4.5, Math.PI * 0.6, Math.PI * 1.4); ctx.stroke(); });
+    ctx.strokeStyle = "rgba(20,20,20,0.10)"; [[-20.6], [-37.6], [-4]].forEach(([y]) => { ctx.beginPath(); ctx.moveTo(100, y); ctx.lineTo(165, y * 0.8 - 6); ctx.stroke(); });
+  }
+  part(HAND.thumb, fill, ppx, puff);
+  if (glove) { ctx.save(); ctx.clip(HAND.thumb); knitStroke(HAND.st.thumb, 1e9, C.knitD, C.knitL); ctx.restore(); }
+  else { ctx.fillStyle = C.nail; ctx.beginPath(); ctx.ellipse(66.5, 15.5, 4.8, 4.0, 0.05, 0, TAU); ctx.fill(); ctx.strokeStyle = "rgba(20,20,20,0.55)"; ctx.lineWidth = 1.6 / ppx; ctx.stroke(); }
+  // the index finger, with a soft cylindrical shading
+  part(HAND.index, fill, ppx, puff);
+  ctx.save(); ctx.clip(HAND.index);
+  const gsh = ctx.createLinearGradient(0, -10, 0, 10); gsh.addColorStop(0, "rgba(20,20,20,0.10)"); gsh.addColorStop(0.42, "rgba(255,255,255,0.10)"); gsh.addColorStop(1, "rgba(20,20,20,0.14)");
+  ctx.fillStyle = gsh; ctx.fillRect(-2, -12, 100, 24);
+  if (glove) {
+    if (kind === "touch") {                                         // the touch glove: silver yarn knitted into the tip
+      ctx.fillStyle = C.silver; ctx.beginPath(); ctx.moveTo(-2, -12); ctx.lineTo(15.5, -12); ctx.bezierCurveTo(14, -4, 14, 4, 15.5, 12); ctx.lineTo(-2, 12); ctx.closePath(); ctx.fill();
+      knitStroke(HAND.st.index, 1e9, C.knitD, C.knitL, 15);
+      knitStroke(HAND.st.index, 15, C.silverD, C.silverL);
+      const gl = (t * 0.7) % 1; ctx.fillStyle = `rgba(255,255,255,${0.45 * Math.sin(Math.PI * gl)})`; ctx.beginPath(); ctx.ellipse(2 + 11 * gl, -3 + 4 * gl, 1.6, 4.2, 0.3, 0, TAU); ctx.fill();
+    } else knitStroke(HAND.st.index, 1e9, C.knitD, C.knitL);
+  } else {
+    ctx.fillStyle = C.nail; ctx.beginPath(); ctx.roundRect(1.4, -5.1, 11.6, 10.2, [4.6, 2.5, 2.5, 4.6]); ctx.fill();
+    ctx.strokeStyle = "rgba(20,20,20,0.5)"; ctx.lineWidth = 1.6 / ppx; ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,0.55)"; ctx.beginPath(); ctx.ellipse(11.4, 0, 1.6, 3.2, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = "rgba(20,20,20,0.3)"; ctx.lineWidth = 1.8 / ppx; ctx.lineCap = "round";
+    [[20, 3], [42, 4]].forEach(([x, n]) => { for (let i = 0; i < n; i++) { const y = -3.2 + 6.4 * i / (n - 1); ctx.beginPath(); ctx.moveTo(x - 1.4, y); ctx.quadraticCurveTo(x, y + 0.9, x + 1.4, y + 0.1); ctx.stroke(); } });
+  }
+  ctx.restore();
+  if (!glove) part(HAND.index, "rgba(0,0,0,0)", ppx, 0);           // re-ink the finger's outline over the shading
+}
+// ---- where the hands are (world xy of the fingertip, angle, hover, press)
+const ANG0 = 30 * RAD;
+function pressK(t) {
+  if (t >= T.press1 && t < T.press1End + 0.25) return E.p3out(prog(t, T.press1, T.press1 + 0.15)) * (1 - E.p2io(prog(t, T.press1End, T.press1End + 0.25))) * (1 + 0.05 * Math.sin(TAU * 9 * t));
+  if (t >= T.press2 - 0.05 && t < T.strike + 0.3) return E.p3out(prog(t, T.press2 - 0.05, T.press2 + 0.15)) * (1 + 0.25 * pulseK(t)) * (1 - E.p2io(prog(t, T.strike + 0.05, T.strike + 0.3)));
+  return 0;
+}
+function handTip(t, kind) {
+  if (kind === "glove") {
+    const x = kf(t, [[0, P[0]], [T.sw1End, 17.5], [T.ret1End, P[0]], [T.sw2End, 19.5, E.p2out], [T.ret2End, P[0]], [T.myth, P[0]]]);
+    const y = P[1] - 1.2 * Math.sin(Math.PI * prog(t, T.sw1, T.sw1End)) - 1.5 * Math.sin(Math.PI * prog(t, T.sw2, T.sw2End));
+    if (t > T.strike + 0.05) { const u = E.p2in(prog(t, T.strike + 0.05, T.a2 + 0.3)); return [x + 70 * u, y + 55 * u]; }
+    return [x, y];
+  }
+  if (kind === "bare") {
+    if (t < T.graze) { const u = E.p3out(prog(t, T.bareIn, T.graze)); return [lerp(P[0] + 60, P[0], u), lerp(P[1] + 55, P[1], u)]; }
+    if (t < T.grazeEnd) return [lerp(P[0], 4, E.p2io(prog(t, T.graze, T.grazeEnd))), P[1] - 0.8 * Math.sin(Math.PI * prog(t, T.graze, T.grazeEnd))];
+    if (t < T.rest) return [lerp(4, P[0], E.p2io(prog(t, T.grazeEnd, T.rest))), P[1]];
+    if (t < T.lift) return [P[0], P[1]];
+    const u = E.p2in(prog(t, T.lift, T.liftEnd)); return [P[0] + 60 * u, P[1] + 50 * u];
+  }
+  // the touch glove, closing
+  if (t < T.sw3) { const u = E.p3out(prog(t, T.hand2, T.sw3)); return [lerp(P[0] + 60, P[0], u), lerp(P[1] + 55, P[1], u)]; }
+  if (t < T.ka + 0.25) return [lerp(P[0], 21.5, E.p2io(prog(t, T.sw3, T.ka - 0.08))), P[1] - 0.6 * Math.sin(Math.PI * prog(t, T.sw3, T.ka))];
+  const u = E.p2in(prog(t, T.ka + 0.25, T.fin + 0.2)); return [21.5 + 55 * u, P[1] + 50 * u];
+}
+function handHover(t, kind) {
+  if (kind === "glove") {
+    if (t > T.strike + 0.05) return 30 * E.p2in(prog(t, T.strike + 0.05, T.a2 + 0.3));
+    return 6 * Math.sin(Math.PI * prog(t, T.sw1End, T.ret1End)) + 6 * Math.sin(Math.PI * prog(t, T.sw2End, T.ret2End)) + (t < 0.2 ? 4 * (1 - E.p3out(t / 0.2)) : 0);
+  }
+  if (kind === "bare") {
+    if (t < T.graze) return 14 * (1 - E.p3out(prog(t, T.bareIn, T.graze)));
+    if (t < T.grazeEnd) return 0;
+    if (t < T.rest) return 5 * Math.sin(Math.PI * prog(t, T.grazeEnd, T.rest));
+    if (t < T.lift) return 0;
+    return 26 * E.p2in(prog(t, T.lift, T.liftEnd));
+  }
+  if (t < T.sw3) return 14 * (1 - E.p3out(prog(t, T.hand2, T.sw3)));
+  if (t < T.ka + 0.25) return 0;
+  return 24 * E.p2in(prog(t, T.ka + 0.25, T.fin + 0.2));
+}
+function drawHands(t, K) {
+  if (t < T.a2 + 0.3) {
+    const tip = handTip(t, "glove"), w = 3 * RAD * Math.sin(Math.PI * prog(t, T.sw1, T.sw1End)) + 2.5 * RAD * Math.sin(Math.PI * prog(t, T.sw2, T.sw2End));
+    drawHand(t, K, "glove", tip, ANG0 - w, handHover(t, "glove"), pressK(t));
+  }
+  if (t >= T.bareIn && t < T.liftEnd) drawHand(t, K, "bare", handTip(t, "bare"), ANG0 - 3 * RAD * Math.sin(Math.PI * prog(t, T.graze, T.grazeEnd)), handHover(t, "bare"), 0);
+  if (t >= T.hand2 && t < T.fin + 0.2) drawHand(t, K, "touch", handTip(t, "touch"), ANG0 - 3 * RAD * Math.sin(Math.PI * prog(t, T.sw3, T.ka)), handHover(t, "touch"), 0);
+}
+
+// ---------------------------------------------------------------- the tilted light world: a sausage, a touch-glove fingertip
+const DIR3 = (() => { const v = [0.62, 0.30, 0.72], n = Math.hypot(...v); return v.map((x) => x / n); })();
+function capsule(K, a, b, r) {                                 // screen-space capsule between two 3D points (orthographic)
+  const p = proj(K, ...a), q = proj(K, ...b), dx = q[0] - p[0], dy = q[1] - p[1], L = Math.hypot(dx, dy) || 1, R = r * K.A;
+  return { p, q, ux: dx / L, uy: dy / L, nx: -dy / L, ny: dx / L, L, R };
+}
+function capsulePath(c) {
+  ID(); const a0 = Math.atan2(c.ny, c.nx);
+  ctx.beginPath(); ctx.arc(c.p[0], c.p[1], c.R, a0, a0 + Math.PI); ctx.arc(c.q[0], c.q[1], c.R, a0 + Math.PI, a0 + TAU); ctx.closePath();
+}
+function sausagePos(t) {                                      // the tip's lowest point (on the glass when touching)
+  const lift = t < T.saus ? 70 * (1 - E.p3out(prog(t, T.sausIn, T.saus))) : t < T.sausOut ? 3.5 * Math.max(0, Math.sin(Math.PI * prog(t, T.sLabel + 0.75, T.sLabel + 1.25))) : 80 * E.p2in(prog(t, T.sausOut, T.sausOut + 0.5));
+  return [S[0] + DIR3[0] * lift, S[1] + DIR3[1] * lift, G + DIR3[2] * lift];
+}
+function drawSausage(t, K) {
+  if (t < T.sausIn || t >= T.sausOut + 0.5) return;
+  const r = 8, Lz = 125, low = sausagePos(t), c0 = [low[0], low[1], low[2] + r], c1 = [c0[0] + DIR3[0] * Lz, c0[1] + DIR3[1] * Lz, c0[2] + DIR3[2] * Lz];
+  const c = capsule(K, c0, c1, r);
+  // shadow on the glass
+  const sp = proj(K, low[0] + 2, low[1] + 3, G), sq = proj(K, low[0] + 2 + DIR3[0] * Lz, low[1] + 3 + DIR3[1] * Lz, G);
+  ID(); ctx.save(); ctx.filter = `blur(${(1.5 * K.A).toFixed(1)}px)`; ctx.strokeStyle = `rgba(10,10,12,${0.3 / (1 + 0.04 * (low[2] - G))})`; ctx.lineCap = "round"; ctx.lineWidth = 1.6 * r * K.A; line(sp[0], sp[1], lerp(sp[0], sq[0], 0.5), lerp(sp[1], sq[1], 0.5)); ctx.restore(); ctx.filter = "none";
+  capsulePath(c);
+  const g = ctx.createLinearGradient(c.p[0] - c.nx * c.R, c.p[1] - c.ny * c.R, c.p[0] + c.nx * c.R, c.p[1] + c.ny * c.R);
+  g.addColorStop(0, C.sausD); g.addColorStop(0.22, C.saus); g.addColorStop(0.36, C.sausL); g.addColorStop(0.55, C.saus); g.addColorStop(1, C.sausD);
+  ctx.fillStyle = g; ctx.fill();
+  ctx.save(); ctx.clip();                                         // the casing: faint wrinkles and a few specks
+  ctx.strokeStyle = "rgba(120,70,55,0.35)"; ctx.lineWidth = Math.max(1, 0.25 * K.A);
+  [-0.55, -0.15, 0.4].forEach((o, i) => { ctx.beginPath(); for (let k = 0; k <= 30; k++) { const s = k / 30, w = o + 0.06 * Math.sin(s * 14 + i); const x = lerp(c.p[0], c.q[0], 0.08 + 0.9 * s) + c.nx * c.R * w, y = lerp(c.p[1], c.q[1], 0.08 + 0.9 * s) + c.ny * c.R * w; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); });
+  const rr2 = mulberry32(7); ctx.fillStyle = "rgba(150,90,70,0.45)";
+  for (let i = 0; i < 40; i++) { const s = rr2(), w = rr2() * 1.6 - 0.8; ctx.beginPath(); ctx.arc(lerp(c.p[0], c.q[0], s) + c.nx * c.R * w, lerp(c.p[1], c.q[1], s) + c.ny * c.R * w, Math.max(0.8, 0.12 * K.A), 0, TAU); ctx.fill(); }
+  ctx.restore();
+  capsulePath(c); strokePx(Math.max(2, 0.32 * K.A), C.ink);
+  // the crimped end (a small twist of casing at the tip)
+  const tp = [c.p[0] - c.ux * c.R * 0.98, c.p[1] - c.uy * c.R * 0.98];
+  ctx.fillStyle = C.sausD; ctx.beginPath(); ctx.ellipse(tp[0], tp[1], 0.22 * c.R, 0.12 * c.R, Math.atan2(c.uy, c.ux), 0, TAU); ctx.fill();
+}
+function tgPos(t) {                                           // the touch glove's fingertip (lowest point)
+  const lift = t < T.tg ? 80 * (1 - E.p3out(prog(t, T.tgIn, T.tg))) : 90 * E.p2in(prog(t, T.climb2, T.climb2 + 0.5));
+  return [P[0] + DIR3[0] * lift, P[1] + DIR3[1] * lift, G + DIR3[2] * lift];
+}
+function drawTouchTube(t, K) {                                // a knitted fingertip in the tilted view, silver yarn at the tip
+  if (t < T.tgIn || t >= T.climb2 + 0.5) return;
+  const r = 10, Lz = 170, low = tgPos(t), c0 = [low[0], low[1], low[2] + r], c1 = [c0[0] + DIR3[0] * Lz, c0[1] + DIR3[1] * Lz, c0[2] + DIR3[2] * Lz];
+  const c = capsule(K, c0, c1, r), f = c.L / (Lz * K.A);      // foreshortening along the axis
+  const sp = proj(K, low[0] + 2, low[1] + 3, G), sq = proj(K, low[0] + 2 + DIR3[0] * 60, low[1] + 3 + DIR3[1] * 60, G);
+  ID(); ctx.save(); ctx.filter = `blur(${(2 * K.A).toFixed(1)}px)`; ctx.strokeStyle = `rgba(10,10,12,${0.28 / (1 + 0.04 * (low[2] - G))})`; ctx.lineCap = "round"; ctx.lineWidth = 1.7 * r * K.A; line(sp[0], sp[1], sq[0], sq[1]); ctx.restore(); ctx.filter = "none";
+  capsulePath(c); ctx.fillStyle = C.knit; ctx.fill();
+  ctx.save(); ctx.clip();
+  // silver tip region (first 16 mm from the end)
+  const ts = 16 * K.A * f + c.R, tip0 = [c.p[0] - c.ux * c.R, c.p[1] - c.uy * c.R];
+  ctx.fillStyle = C.silver; ctx.beginPath();
+  ctx.moveTo(tip0[0] + c.nx * c.R * 1.2, tip0[1] + c.ny * c.R * 1.2); ctx.lineTo(tip0[0] + c.ux * ts + c.nx * c.R * 1.2, tip0[1] + c.uy * ts + c.ny * c.R * 1.2);
+  ctx.quadraticCurveTo(tip0[0] + c.ux * (ts - 0.25 * c.R), tip0[1] + c.uy * (ts - 0.25 * c.R), tip0[0] + c.ux * ts - c.nx * c.R * 1.2, tip0[1] + c.uy * ts - c.ny * c.R * 1.2);
+  ctx.lineTo(tip0[0] - c.nx * c.R * 1.2, tip0[1] - c.ny * c.R * 1.2); ctx.closePath(); ctx.fill();
+  // knit rows across the tube (V stitches, foreshortened toward the edges)
+  const rowGap = 3.1 * K.A * f, n = Math.ceil((c.L + 2 * c.R) / rowGap);
+  const dk = new Path2D(), lt = new Path2D(), sdk = new Path2D(), slt = new Path2D();
+  for (let i = 0; i < n; i++) {
+    const d = i * rowGap + 0.5 * rowGap, cx = tip0[0] + c.ux * d, cy = tip0[1] + c.uy * d;
+    const capR = d < c.R ? Math.sqrt(Math.max(0, c.R * c.R - (c.R - d) * (c.R - d))) : c.R;
+    const m = Math.max(2, Math.round(Math.PI * capR / (2.7 * K.A)));
+    const silv = d < ts;
+    for (let j = 0; j < m; j++) {
+      const ph = -Math.PI / 2 + Math.PI * (j + 0.5) / m, o = capR * Math.sin(ph), w = 1.05 * K.A * Math.cos(ph), hl = 1.2 * K.A * f;
+      const x = cx + c.nx * o, y = cy + c.ny * o, A1 = silv ? sdk : dk, A2 = silv ? slt : lt;
+      A1.moveTo(x - c.ux * hl - c.nx * w, y - c.uy * hl - c.ny * w); A1.lineTo(x + c.ux * hl * 0.85, y + c.uy * hl * 0.85);
+      A1.moveTo(x - c.ux * hl + c.nx * w, y - c.uy * hl + c.ny * w); A1.lineTo(x + c.ux * hl * 0.85, y + c.uy * hl * 0.85);
+      A2.moveTo(x - c.ux * hl * 0.8 - c.nx * w * 0.6, y - c.uy * hl * 0.8 - c.ny * w * 0.6); A2.lineTo(x + c.ux * hl * 0.4, y + c.uy * hl * 0.4);
+      A2.moveTo(x - c.ux * hl * 0.8 + c.nx * w * 0.6, y - c.uy * hl * 0.8 + c.ny * w * 0.6); A2.lineTo(x + c.ux * hl * 0.4, y + c.uy * hl * 0.4);
+    }
+  }
+  ctx.lineCap = "round";
+  ctx.strokeStyle = C.knitD; ctx.lineWidth = 0.95 * K.A; ctx.stroke(dk); ctx.strokeStyle = C.knitL; ctx.lineWidth = 0.45 * K.A; ctx.stroke(lt);
+  ctx.strokeStyle = C.silverD; ctx.lineWidth = 0.95 * K.A; ctx.stroke(sdk); ctx.strokeStyle = C.silverL; ctx.lineWidth = 0.5 * K.A; ctx.stroke(slt);
+  // the conductive yarn: three bright strands, and the field travelling up them into the finger
+  const yk = yarnK(t);
+  [-0.55, 0.05, 0.6].forEach((o, i) => {
+    ctx.beginPath();
+    for (let k = 0; k <= 24; k++) { const d = c.R * 0.15 + (ts - c.R * 0.15) * k / 24, cr = d < c.R ? Math.sqrt(Math.max(0, c.R * c.R - (c.R - d) * (c.R - d))) : c.R; const oo = cr * (o + 0.12 * Math.sin(k * 1.9 + i)); const x = tip0[0] + c.ux * d + c.nx * oo, y = tip0[1] + c.uy * d + c.ny * oo; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.strokeStyle = `rgba(255,255,255,${0.55 + 0.35 * yk})`; ctx.lineWidth = Math.max(2, 0.55 * K.A); ctx.stroke();
+    if (yk > 0.01) for (let q = 0; q < 2; q++) {                    // pulses climbing the strand
+      const u = ((t - T.yarn) * 1.2 + q * 0.5 + i * 0.17) % 1; if (u < 0) continue;
+      const d = c.R * 0.15 + (ts - c.R * 0.15) * u, cr = d < c.R ? Math.sqrt(Math.max(0, c.R * c.R - (c.R - d) * (c.R - d))) : c.R, kk = Math.floor(u * 24), oo = cr * (o + 0.12 * Math.sin(kk * 1.9 + i));
+      const x = tip0[0] + c.ux * d + c.nx * oo, y = tip0[1] + c.uy * d + c.ny * oo;
+      ctx.fillStyle = `rgba(${ACC},${yk * Math.sin(Math.PI * u)})`; ctx.beginPath(); ctx.arc(x, y, Math.max(3, 0.9 * K.A), 0, TAU); ctx.fill();
+    }
+  });
+  // a soft cylindrical shade
+  const g = ctx.createLinearGradient(c.p[0] - c.nx * c.R, c.p[1] - c.ny * c.R, c.p[0] + c.nx * c.R, c.p[1] + c.ny * c.R);
+  g.addColorStop(0, "rgba(20,20,20,0.16)"); g.addColorStop(0.35, "rgba(255,255,255,0.08)"); g.addColorStop(1, "rgba(20,20,20,0.2)");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+  capsulePath(c); strokePx(Math.max(2, 0.3 * K.A), C.ink);
+}
+function yarnK(t) { return t >= T.yarn - 0.2 && t < T.climb2 + 0.4 ? E.p2io(prog(t, T.yarn - 0.2, T.yarn + 0.3)) * (1 - prog(t, T.climb2, T.climb2 + 0.4)) : 0; }
+
+// ---------------------------------------------------------------- the inside: electrodes, field arcs, a finger in section
+const ARC = [[0.85, 1.0], [1.4, 1.75], [1.95, 2.55]];          // half-width, height of the three nested arcs (mm)
+const SIG = 3.6;
+const wAt = (dx, dy) => Math.exp(-(dx * dx + dy * dy) / (2 * SIG * SIG));
+const HASH = (i, j, k) => { const r = mulberry32(1000 + i * 97 + j * 131 + k * 17); return r(); };
+const COLS = [-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6], RWS = [-9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1];
+const YFRONT = P[1] + 7.5;
+// the finger, as a section in the plane y = P.y: an outline polyline in local (u along the finger, v towards the nail)
+const FING = (() => {
+  const pts = [], add = (p) => pts.push(p);
+  const bez = (a, b, c, d, n = 14) => { for (let i = 1; i <= n; i++) { const s = i / n, m = 1 - s; add([m * m * m * a[0] + 3 * m * m * s * b[0] + 3 * m * s * s * c[0] + s * s * s * d[0], m * m * m * a[1] + 3 * m * m * s * b[1] + 3 * m * s * s * c[1] + s * s * s * d[1]]); } };
+  add([0, 0]);
+  bez([0, 0], [6, 0], [14, 0.6], [20, 1.6]);                     // the pad, to the crease
+  bez([20, 1.6], [23, 1.0], [28, 0.9], [34, 1.2]);
+  bez([34, 1.2], [44, 1.5], [56, 2.0], [66, 2.4]);
+  const cutA = pts.length - 1;
+  add([66, 9]); add([66, 15.4]);
+  const cutB = pts.length - 1;
+  bez([66, 15.4], [52, 15.1], [36, 14.6], [25, 14.2]);            // the back of the finger, the knuckle
+  bez([25, 14.2], [20, 14.0], [16, 13.2], [13.5, 12.6]);          // the cuticle
+  bez([13.5, 12.6], [8, 11.6], [1.5, 10.6], [-2.6, 8.8]);          // over the nail
+  bez([-2.6, 8.8], [-5.2, 7.5], [-5.6, 3.6], [-3.6, 1.4]);         // round the tip
+  bez([-3.6, 1.4], [-2.6, 0.4], [-1.2, 0.0], [0, 0]);
+  return { pts, cutA, cutB };
+})();
+const FANG = 22 * RAD;
+function fingerPose(t) {                                      // offset of the pad's contact point from (P.x, glass top)
+  let dx = 0, dz = 0;
+  if (t < T.fIn) { dx = 40; dz = 55; }
+  else if (t < T.fUp) { const e = E.p3out(prog(t, T.fIn, T.fNear)); dx = 26 * (1 - e); dz = 36 * (1 - e); }
+  else if (t < T.fDown) { const e = E.p2io(prog(t, T.fUp, T.fUpEnd)); dx = 3 * e; dz = 9 * e; }
+  else if (t < T.fOut) { const e = E.p3out(prog(t, T.fDown, T.fDownEnd)); dx = 3 * (1 - e); dz = 9 * (1 - e); }
+  else { const e = E.p2in(prog(t, T.fOut, T.fOut + 0.5)); dx = 30 * e; dz = 45 * e; }
+  const gl = t >= T.wrap ? GLOVE * E.p2io(prog(t, T.wrap, T.wrapEnd)) : 0;    // a glove lifts the finger by its thickness
+  return { x: P[0] + 0.6 + dx, z: G + gl + dz };
+}
+const GLOVE = 2.3;
+function fingerWorld(t) {                                     // the outline in world (x, z)
+  const p = fingerPose(t), c = Math.cos(FANG), s = Math.sin(FANG);
+  return FING.pts.map(([u, v]) => [p.x + u * c - v * s, p.z + u * s + v * c]);
+}
+function bottomZ(pts, x) {                                    // lowest point of the outline above x (or Infinity)
+  let z = Infinity;
+  for (let i = 1; i < pts.length; i++) { const a = pts[i - 1], b = pts[i]; if ((a[0] - x) * (b[0] - x) <= 0 && a[0] !== b[0]) { const u = (x - a[0]) / (b[0] - a[0]); z = Math.min(z, a[1] + (b[1] - a[1]) * u); } }
+  return z;
+}
+function interiorK(t) { return t >= T.flood && t < T.climbEnd ? 1 : 0; }
+function drawInterior(t, K, a) {
+  if (a <= 0.002) return;
+  ID(); ctx.fillStyle = `rgba(23,25,28,${a})`; ctx.fillRect(0, 0, W, H);
+  ctx.save(); ctx.globalAlpha = a;
+  const s = Math.sin(K.th), tk = clamp(s / Math.sin(58 * RAD));
+  const reveal = E.p2io(prog(t, T.dive + 0.2, T.floodEnd));      // the grid appears as we pass the glass
+  const fpts = (t >= T.fIn && t < T.fOut + 0.5) ? fingerWorld(t) : null;
+  const gloveOn = t >= T.wrap && t < T.fOut + 0.5 ? E.p2io(prog(t, T.wrap, T.wrapEnd)) : 0;
+  const st = stealK(t) * (t < T.fOut ? 1 : 1 - prog(t, T.fOut, T.fOut + 0.3));
+  const scan = scanRow(t);
+  // 1 the electrodes: rows (lower layer) and columns (upper layer), thin and see-through
+  const x0 = P[0] + COLS[0] * PITCH - 4, x1 = P[0] + COLS[COLS.length - 1] * PITCH + 4, y0 = P[1] + RWS[0] * PITCH - 4;
+  const wE = 0.7;
+  RWS.forEach((j) => {
+    const y = P[1] + j * PITCH, depthA = clamp(1 - (-j - 6) / 3.5) * reveal;
+    if (depthA <= 0.01) return;
+    const hot = scan && scan.row === j ? 1 - 0.6 * scan.u : 0;
+    planeT(K, -0.3); ctx.fillStyle = `rgba(${PAP},${(0.07 + 0.25 * hot) * depthA})`; ctx.fillRect(x0, y - wE / 2, x1 - x0, wE);
+    ctx.beginPath(); ctx.moveTo(x0, y - wE / 2); ctx.lineTo(x1, y - wE / 2); ctx.moveTo(x0, y + wE / 2); ctx.lineTo(x1, y + wE / 2); strokePx(1.4, `rgba(${PAP},${(0.24 + 0.5 * hot) * depthA})`);
+    if (hot > 0) { planeT(K, -0.3); const g = ctx.createLinearGradient(0, y - 2.2, 0, y + 2.2); g.addColorStop(0, `rgba(${PAP},0)`); g.addColorStop(0.5, `rgba(${PAP},${0.22 * hot * depthA})`); g.addColorStop(1, `rgba(${PAP},0)`); ctx.fillStyle = g; ctx.fillRect(x0, y - 2.2, x1 - x0, 4.4); }
+  });
+  COLS.forEach((i) => {
+    const x = P[0] + i * PITCH;
+    planeT(K, 0); const g = ctx.createLinearGradient(0, y0, 0, YFRONT); g.addColorStop(0, `rgba(${PAP},0)`); g.addColorStop(0.3, `rgba(${PAP},${0.1 * reveal})`); g.addColorStop(1, `rgba(${PAP},${0.1 * reveal})`);
+    ctx.fillStyle = g; ctx.fillRect(x - wE / 2, y0, wE, YFRONT - y0);
+    ctx.beginPath(); ctx.moveTo(x - wE / 2, y0 + 12); ctx.lineTo(x - wE / 2, YFRONT); ctx.moveTo(x + wE / 2, y0 + 12); ctx.lineTo(x + wE / 2, YFRONT); strokePx(1.4, `rgba(${PAP},${0.3 * reveal})`);
+  });
+  // 2 the cells: a soft glow at every crossing (how much field gets across); a finger steals from the nearest ones
+  const bright = (i, j) => 1 - 0.82 * wAt(i * PITCH, j * PITCH) * st;
+  RWS.forEach((j) => COLS.forEach((i) => {
+    const depthA = clamp(1 - (-j - 6) / 3.5) * reveal; if (depthA <= 0.01) return;
+    let b = bright(i, j); const fl = scan && scan.row === j ? (1 - scan.u) : 0;
+    const x = P[0] + i * PITCH, y = P[1] + j * PITCH;
+    planeT(K, 0, [x, y]);
+    const R = 1.7 + 0.6 * fl * b;
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, R); g.addColorStop(0, `rgba(${PAP},${(0.55 + 0.45 * fl) * b * depthA})`); g.addColorStop(0.35, `rgba(${PAP},${0.22 * b * depthA})`); g.addColorStop(1, `rgba(${PAP},0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.fill();
+    ctx.fillStyle = `rgba(${PAP},${(0.5 + 0.5 * b) * depthA})`; ctx.beginPath(); ctx.moveTo(0, -0.55); ctx.lineTo(0.55, 0); ctx.lineTo(0, 0.55); ctx.lineTo(-0.55, 0); ctx.closePath(); ctx.fill();
+  }));
+  // 3 the cover glass: its top surface (faint) and its cut front edge
+  if (tk > 0.01) {
+    planeT(K, G); ctx.fillStyle = `rgba(${PAP},${0.035 * tk * reveal})`; ctx.fillRect(x0, y0 + 10, x1 - x0, YFRONT - y0 - 10);
+  }
+  // 4 the field arcs (only once the camera tilts: they stand up out of the plane); rows behind the finger first
+  const arcsA = (j) => tk * E.p2io(prog(t, T.arcsOn + (j + 9) * 0.05, T.arcsOn + (j + 9) * 0.05 + 0.45));
+  const drawRowArcs = (j) => {
+    const aj = arcsA(j) * clamp(1 - (-j - 6) / 3.5); if (aj <= 0.01) return;
+    const y = P[1] + j * PITCH;
+    COLS.forEach((i) => {
+      const xc = P[0] + i * PITCH, w = wAt(i * PITCH, j * PITCH);
+      ARC.forEach(([hw, hh], k) => {
+        const bk = fpts && gloveOn < 0.5 ? clamp(w * st * [0.25, 0.75, 1][k] * 1.25) : 0;
+        // the glove: arcs flatten against the fabric (they cannot reach the finger)
+        let cap = Infinity;
+        if (fpts && gloveOn > 0.5 && Math.abs(j) <= 1) { const zb = bottomZ(fpts, xc) - GLOVE * gloveOn; if (zb < G + 3) cap = Math.max(G + 0.05, zb - 0.05); }
+        const L = [xc - hw, y, 0], R = [xc + hw, y, 0];
+        let Q = null;
+        if (bk > 0.01) { const xq = xc + (P[0] + 0.6 - xc) * 0.35; const zq = bottomZ(fpts, xq); if (isFinite(zq)) Q = [xq, P[1], zq + 0.4]; }
+        const ptAt = (u) => {
+          const ph = Math.PI * u; let p = [xc - hw * Math.cos(ph), y, Math.min(hh * Math.sin(ph), cap)];
+          if (Q) { const m = 1 - u; const b0 = L, b1 = [L[0], L[1], hh * 1.4], b2 = [Q[0], Q[1], Q[2] - 1.6], b3 = Q;
+            const bz = [0, 1, 2].map((d) => m * m * m * b0[d] + 3 * m * m * u * b1[d] + 3 * m * u * u * b2[d] + u * u * u * b3[d]);
+            p = p.map((v, d) => lerp(v, bz[d], bk)); }
+          return p;
+        };
+        ctx.beginPath();
+        for (let n = 0; n <= 16; n++) { const q = proj(K, ...ptAt(n / 16)); n ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }
+        const capped = isFinite(cap) && cap < hh;
+        ID(); ctx.lineWidth = bk > 0.3 ? 2.4 : 1.6; ctx.strokeStyle = `rgba(${PAP},${(0.2 + 0.25 * k / 2 + 0.35 * bk) * aj})`; ctx.stroke();
+        if (capped && aj > 0.05) {                                // pressed flat under the fabric: a flicker where they stop
+          const q0 = proj(K, xc - hw * 0.6, y, cap), q1 = proj(K, xc + hw * 0.6, y, cap);
+          ctx.strokeStyle = `rgba(${PAP},${(0.35 + 0.3 * Math.sin(t * 23 + i + k)) * aj * gloveOn})`; ctx.lineWidth = 2.2; line(q0[0], q0[1], q1[0], q1[1]);
+        }
+        // a charge running along the arc (L → R, or up into the finger)
+        const u = (t * 0.75 + HASH(i, j, k)) % 1, q = proj(K, ...ptAt(u)), fade = Q ? 1 - lerp(0, Math.max(0, (u - 0.75) / 0.25), bk) : 1;
+        ctx.fillStyle = Q && bk > 0.3 ? `rgba(${ACC},${0.95 * aj * fade})` : `rgba(${PAP},${0.75 * aj * fade})`;
+        ctx.beginPath(); ctx.arc(q[0], q[1], 3.2, 0, TAU); ctx.fill();
+      });
+    });
+  };
+  RWS.filter((j) => j <= 0).forEach(drawRowArcs);
+  // 5 the finger (section), with a glove when there is one
+  if (fpts) drawFingerSection(t, K, fpts, gloveOn);
+  RWS.filter((j) => j > 0).forEach(drawRowArcs);
+  // 6 the cut front edge of the glass, with the column electrodes cut through
+  if (tk > 0.01) {
+    vplaneT(K, YFRONT); ctx.fillStyle = `rgba(${PAP},${0.06 * tk * reveal})`; ctx.fillRect(x0, -0.8, x1 - x0, G + 0.8);
+    ctx.beginPath(); ctx.moveTo(x0, G); ctx.lineTo(x1, G); strokePx(2, `rgba(${PAP},${0.42 * tk * reveal})`);
+    vplaneT(K, YFRONT); ctx.beginPath(); ctx.moveTo(x0, -0.8); ctx.lineTo(x1, -0.8); strokePx(1.2, `rgba(${PAP},${0.18 * tk * reveal})`);
+    vplaneT(K, YFRONT); ctx.fillStyle = `rgba(${PAP},${0.6 * tk * reveal})`; COLS.forEach((i) => ctx.fillRect(P[0] + i * PITCH - wE / 2, -0.12, wE, 0.24));
+  }
+  // 7 the scan's verdict: an orange ring locks on the dim cell — or nothing is found
+  lockRing(t, K, T.lock1, T.q6);
+  if (t >= T.miss && t < T.miss + 0.8) {
+    const u = prog(t, T.miss, T.miss + 0.8); planeT(K, 0, P); ctx.setLineDash([0.9, 0.7]); ctx.beginPath(); ctx.arc(0, 0, 3.2 + 0.6 * Math.sin(u * 9), 0, TAU); ctx.setLineDash([]);
+    ctx.save(); ID(); ctx.setLineDash([10, 8]); ctx.lineWidth = 4; ctx.strokeStyle = `rgba(${PAP},${0.6 * Math.sin(Math.PI * u)})`; ctx.stroke(); ctx.restore();
+  }
+  ctx.restore();
+}
+function lockRing(t, K, t0, t1, at = P) {
+  if (t < t0 || t >= t1) return;
+  const k = E.p3out(prog(t, t0, t0 + 0.3)), fo = 1 - prog(t, t1 - 0.25, t1), pul = t >= T.name && t < T.name + 0.5 && t0 === T.lock1 ? 0.25 * Math.sin(Math.PI * prog(t, T.name, T.name + 0.5)) : 0;
+  planeT(K, 0, at); ctx.beginPath(); ctx.arc(0, 0, 3.4 * (1 + pul) + 1.5 * (1 - k), -Math.PI / 2, -Math.PI / 2 + TAU * k);
+  ctx.save(); ID(); ctx.globalAlpha *= fo; ctx.lineWidth = 7; ctx.strokeStyle = C.acc; ctx.lineCap = "round"; ctx.stroke(); ctx.restore();
+}
+function drawFingerSection(t, K, pts, gloveOn) {
+  const c = Math.cos(FANG), s = Math.sin(FANG), pose = fingerPose(t);
+  const W2 = (u, v) => [pose.x + u * c - v * s, pose.z + u * s + v * c];
+  vplaneT(K, P[1]);
+  const outline = new Path2D(); pts.forEach((p, i) => (i ? outline.lineTo(p[0], p[1]) : outline.moveTo(p[0], p[1]))); outline.closePath();
+  // the glove: a knitted layer round the finger (grows on from the tip), drawn as yarn in section
+  if (gloveOn > 0.001) {
+    const open = new Path2D(); let L = 0; const tipI = pts.reduce((b, p, i) => (p[0] < pts[b][0] ? i : b), 0);
+    const N = pts.length, idx = []; for (let i = 0; i < N; i++) if (i <= FING.cutA || i >= FING.cutB) idx.push(i);
+    // distance from the tip along the outline, both ways
+    const dist = new Array(N).fill(0);
+    for (let k = 1; k < N; k++) { const i = (tipI + k) % N, h = (tipI + k - 1) % N; dist[i] = dist[h] + Math.hypot(pts[i][0] - pts[h][0], pts[i][1] - pts[h][1]); }
+    const back = new Array(N).fill(0); for (let k = 1; k < N; k++) { const i = (tipI - k + N) % N, h = (tipI - k + 1 + N) % N; back[i] = back[h] + Math.hypot(pts[i][0] - pts[h][0], pts[i][1] - pts[h][1]); }
+    const reach = gloveOn * 80;
+    const on = (i) => (i <= FING.cutA || i >= FING.cutB) && Math.min(dist[i], back[i]) <= reach;
+    vplaneT(K, P[1]);
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+    const band = new Path2D(); let pen = false;
+    for (let k = 0; k <= N; k++) { const i = (FING.cutB + k) % N; if (on(i)) { pen ? band.lineTo(pts[i][0], pts[i][1]) : band.moveTo(pts[i][0], pts[i][1]); pen = true; } else pen = false; }
+    ctx.strokeStyle = C.ink; ctx.lineWidth = 2 * GLOVE + 0.25; ctx.stroke(band);
+    ctx.strokeStyle = C.knit; ctx.lineWidth = 2 * GLOVE; ctx.stroke(band);
+    // yarn: two rows of little loops in section along the outside of the outline
+    const yarn = []; for (let i = 0; i < N; i++) { if (!on(i)) continue; const a = pts[(i - 1 + N) % N], b = pts[(i + 1) % N]; let nx = -(b[1] - a[1]), nz = b[0] - a[0]; const nl = Math.hypot(nx, nz) || 1; nx /= nl; nz /= nl;
+      // outward normal: the outline runs counter-clockwise in (x, z)? test against the centroid
+      yarn.push([pts[i][0], pts[i][1], nx, nz]); }
+    const cx = pts.reduce((a, p) => a + p[0], 0) / N, cz = pts.reduce((a, p) => a + p[1], 0) / N;
+    let acc = 0; ctx.lineWidth = 0.09;
+    for (let k = 0; k < yarn.length; k++) {
+      const [x, z, nx0, nz0] = yarn[k]; const sgn = ((x - cx) * nx0 + (z - cz) * nz0) > 0 ? 1 : -1, nx = nx0 * sgn, nz = nz0 * sgn;
+      if (k > 0) acc += Math.hypot(x - yarn[k - 1][0], z - yarn[k - 1][1]);
+      if (k > 0 && acc < 1.05) continue; acc = 0;
+      [0.6, 1.7].forEach((o, r) => { ctx.fillStyle = r ? C.knitL : "#C3B8A7"; ctx.beginPath(); ctx.ellipse(x + nx * o, z + nz * o, 0.55, 0.42, Math.atan2(nz, nx), 0, TAU); ctx.fill(); ctx.strokeStyle = "rgba(20,20,20,0.45)"; ctx.stroke(); });
+    }
+  }
+  vplaneT(K, P[1]);
+  // skin, flesh, bone, nail
+  ctx.fillStyle = C.skinS; ctx.fill(outline);
+  ctx.save(); ctx.clip(outline);
+  ctx.strokeStyle = C.flesh; ctx.lineWidth = 0.1; ctx.fillStyle = C.flesh;
+  const inner = new Path2D(); pts.forEach((p, i) => { const q = [lerp(p[0], pose.x + 30 * c - 7.5 * s, 0.07), lerp(p[1], pose.z + 30 * s + 7.5 * c, 0.07)]; i ? inner.lineTo(q[0], q[1]) : inner.moveTo(q[0], q[1]); }); inner.closePath();
+  ctx.fill(inner);
+  const bonePath = (pp) => { const b = new Path2D(); pp.forEach(([u, v], i) => { const q = W2(u, v); i ? b.lineTo(q[0], q[1]) : b.moveTo(q[0], q[1]); }); b.closePath(); return b; };
+  const distal = bonePath([[1.2, 6.0], [1.8, 4.8], [5, 4.6], [12, 5.0], [18.5, 4.7], [19.6, 6.5], [19.6, 9.6], [17.5, 10.4], [11, 9.8], [5, 9.0], [2.0, 8.2], [0.8, 7.1]]);
+  const middle = bonePath([[21.3, 5.2], [26, 5.6], [40, 5.9], [52, 5.5], [64, 5.3], [70, 5.3], [70, 11.4], [60, 11.6], [48, 11.4], [34, 11.4], [26, 11.2], [21.3, 10.4], [20.9, 7.6]]);
+  [distal, middle].forEach((b) => { ctx.fillStyle = C.bone; ctx.fill(b); ctx.strokeStyle = "rgba(20,20,20,0.55)"; ctx.lineWidth = 0.14; ctx.stroke(b); });
+  ctx.restore();
+  // the nail: a thin plate on the back of the tip
+  const nail = new Path2D(); const np = []; for (let u = -1.6; u <= 13.4; u += 0.75) { const vv = lerp(10.0, 12.5, clamp((u + 1.6) / 15)) + (u < 2 ? -0.35 * (2 - u) * 0.4 : 0); np.push([u, vv]); }
+  np.forEach(([u, v], i) => { const q = W2(u, v + 0.05); i ? nail.lineTo(q[0], q[1]) : nail.moveTo(q[0], q[1]); }); for (let i = np.length - 1; i >= 0; i--) { const q = W2(np[i][0] - 0.1, np[i][1] + 0.85); nail.lineTo(q[0], q[1]); } nail.closePath();
+  ctx.fillStyle = C.nail; ctx.fill(nail); ctx.strokeStyle = "rgba(20,20,20,0.6)"; ctx.lineWidth = 0.12; ctx.stroke(nail);
+  vplaneT(K, P[1]); ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath(); strokePx(3, "rgba(241,240,236,0.9)");
+  // the cut face at the back: hatched, so it reads as a section
+  vplaneT(K, P[1]); const a = pts[FING.cutA], b = pts[FING.cutB];
+  ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); strokePx(3, "rgba(241,240,236,0.9)");
+}
+
+// ---------------------------------------------------------------- the light-world x-ray: under a touch, the grid and the arcs
+function xray(t, K, at, R, open, bend, obj, t0lock, t1lock) {
+  if (open <= 0.005) return;
+  const Rr = R * E.p3out(open);
+  ctx.save(); planeT(K, G); ctx.beginPath(); ctx.arc(at[0], at[1], Rr, 0, TAU); ctx.clip();
+  ctx.fillStyle = "rgba(23,25,28,0.95)"; ctx.fillRect(at[0] - R, at[1] - R, 2 * R, 2 * R);
+  for (let k = -4; k <= 4; k++) {
+    planeT(K, G); ctx.beginPath(); ctx.moveTo(at[0] - R, at[1] + k * PITCH); ctx.lineTo(at[0] + R, at[1] + k * PITCH); strokePx(1.6, `rgba(${PAP},0.32)`);
+    planeT(K, G); ctx.beginPath(); ctx.moveTo(at[0] + k * PITCH, at[1] - R); ctx.lineTo(at[0] + k * PITCH, at[1] + R); strokePx(1.6, `rgba(${PAP},0.4)`);
+  }
+  for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) {
+    const b = 1 - 0.85 * wAt(i * PITCH, j * PITCH) * bend; planeT(K, G, [at[0] + i * PITCH, at[1] + j * PITCH]);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1.8); g.addColorStop(0, `rgba(${PAP},${0.8 * b})`); g.addColorStop(1, `rgba(${PAP},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 1.8, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+  planeT(K, G); ctx.beginPath(); ctx.arc(at[0], at[1], Rr, 0, TAU); strokePx(2.5, `rgba(23,25,28,0.9)`);
+  // arcs, scaled up so they can be seen at this distance, bending into the object above
+  const HS = 1.7;
+  for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+    const xc = at[0] + i * PITCH, y = at[1] + j * PITCH, w = wAt(i * PITCH, j * PITCH);
+    if (Math.hypot(i * PITCH, j * PITCH) > Rr - 1) continue;
+    ARC.forEach(([hw, hh], k) => {
+      const bk = clamp(w * bend * [0.3, 0.8, 1][k] * 1.3), Q = [at[0] + i * 1.2, at[1] + j * 1.2, G + obj];
+      const ptAt = (u) => { const ph = Math.PI * u; let p = [xc - hw * Math.cos(ph), y, G + HS * hh * Math.sin(ph)];
+        if (bk > 0) { const m = 1 - u, b0 = [xc - hw, y, G], b1 = [xc - hw, y, G + HS * hh * 1.3], b2 = [Q[0], Q[1], Q[2] - 1.5], b3 = Q; const bz = [0, 1, 2].map((d) => m * m * m * b0[d] + 3 * m * m * u * b1[d] + 3 * m * u * u * b2[d] + u * u * u * b3[d]); p = p.map((v, d) => lerp(v, bz[d], bk)); }
+        return p; };
+      ctx.beginPath(); for (let n = 0; n <= 14; n++) { const q = proj(K, ...ptAt(n / 14)); n ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }
+      ID(); ctx.lineWidth = 2.2; ctx.strokeStyle = `rgba(${PAP},${(0.45 + 0.4 * bk) * E.p3out(open)})`; ctx.stroke();
+      const u = (t * 0.9 + HASH(i, j, k)) % 1, q = proj(K, ...ptAt(u));
+      ctx.fillStyle = bk > 0.3 ? `rgba(${ACC},${E.p3out(open)})` : `rgba(${PAP},${0.8 * E.p3out(open)})`; ctx.beginPath(); ctx.arc(q[0], q[1], 3.6, 0, TAU); ctx.fill();
+    });
+  }
+  // the lock
+  if (t >= t0lock && t < t1lock) { const k = E.p3out(prog(t, t0lock, t0lock + 0.3)), fo = 1 - prog(t, t1lock - 0.25, t1lock);
+    planeT(K, G, at); ctx.beginPath(); ctx.arc(0, 0, 3.4 + 1.5 * (1 - k), -Math.PI / 2, -Math.PI / 2 + TAU * k); ctx.save(); ID(); ctx.globalAlpha *= fo; ctx.lineWidth = 7; ctx.strokeStyle = C.acc; ctx.lineCap = "round"; ctx.stroke(); ctx.restore(); }
+}
+
+// ---------------------------------------------------------------- states
+const orangeK = (t) => E.p2io(prog(t, T.myth, T.myth + 0.3)) * (1 - E.p2io(prog(t, T.unOrange, T.unOrange + 0.3)));
+function groundCol(t) { const o = orangeK(t); return o > 0 ? mixHex(C.ground, C.acc, o) : C.ground; }
+function flood(t) {
+  if (t < T.flood) return 0;
+  if (t < T.floodEnd) return E.p2io(prog(t, T.flood, T.floodEnd));
+  if (t < T.unflood) return 1;
+  return 1 - E.p2io(prog(t, T.unflood, T.unflood + 0.25));
+}
+function drawLight(t, K) {
+  const endFade = t >= T.end ? E.p2io(prog(t, T.end, T.endMorph)) : 0;
+  ID(); ctx.fillStyle = groundCol(t); ctx.fillRect(0, 0, W, H);
+  drawPhone(t, K, endFade);
+  if (endFade > 0) {                                                 // the badge: the phone as an outline
+    ctx.save(); ctx.globalAlpha = endFade; planeT(K, G); rr(-36, -78, 72, 156, 10); strokePx(9, C.ink);
+    planeT(K, G); ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(0, -68, 2.6, 0, TAU); ctx.fill(); ctx.restore();
+  }
+  if (Math.sin(K.th) < 0.5) drawHands(t, K);
+  // the tilted scenes: x-ray under the sausage / the touch glove, then the object itself
+  if (t >= T.climb && t < T.climb2 + 0.6) {
+    const so = t >= T.saus ? E.p3out(prog(t, T.saus, T.saus + 0.25)) * (1 - prog(t, T.wake, T.wake + 0.35)) : 0;
+    const sb = E.p2io(prog(t, T.saus + 0.1, T.sLock));
+    xray(t, K, S, 11.5, so, sb, 0.6, T.sLock, T.wake + 0.35);
+    drawSausage(t, K);
+    const to = t >= T.tg ? E.p3out(prog(t, T.tg + 0.1, T.tg + 0.45)) * (1 - prog(t, T.climb2, T.climb2 + 0.3)) : 0;
+    xray(t, K, P, 10.5, to, yarnK(t), 0.4, T.lock2, T.climb2 + 0.3);
+    drawTouchTube(t, K);
+  }
+  // the guess is struck: a big ✕ across the press (ink, with a paper edge so it reads on the dark glass and the orange)
+  if (t >= T.strike && t < T.unOrange + 0.3) {
+    const c = proj(K, P[0] + 6, P[1] - 4, G), fo = 1 - prog(t, T.a2 + 0.25, T.a2 + 0.55);
+    const k1 = E.p3out(prog(t, T.strike, T.strike + 0.1)), k2 = E.p3out(prog(t, T.strike + 0.125, T.strike + 0.225)), R = 230;
+    ID(); ctx.save(); ctx.globalAlpha = fo; ctx.lineCap = "round";
+    [[C.paper, 40], [C.ink, 26]].forEach(([col, w]) => { ctx.strokeStyle = col; ctx.lineWidth = w;
+      line(c[0] - R, c[1] - R, lerp(c[0] - R, c[0] + R, k1), lerp(c[1] - R, c[1] + R, k1));
+      if (k2 > 0) line(c[0] + R, c[1] - R, lerp(c[0] + R, c[0] - R, k2), lerp(c[1] - R, c[1] + R, k2)); });
+    ctx.restore();
+  }
+  ID();
+}
+
+// ---------------------------------------------------------------- text
+function groundRGB(t) { const o = orangeK(t), g = hexRGB(C.ground), q = hexRGB(C.acc); return [0, 1, 2].map((i) => Math.round(lerp(g[i], q[i], o))).join(","); }
+function scrim(t) {                                    // a soft wash of the ground colour behind the text band
+  const fl = flood(t);
+  if (fl > 0.02) { ID(); const g = ctx.createLinearGradient(0, 0, 0, 700); g.addColorStop(0, `rgba(23,25,28,${0.86 * fl})`); g.addColorStop(0.72, `rgba(23,25,28,${0.86 * fl})`); g.addColorStop(1, "rgba(23,25,28,0)"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, 700); }
+  const a = 0.88 * (1 - fl) * (t >= T.end ? 1 - prog(t, T.end, T.end + 0.3) : 1);
+  if (a <= 0.01) return;
+  const col = groundRGB(t);
+  ID(); const g = ctx.createLinearGradient(0, 0, 0, 700);
+  g.addColorStop(0, `rgba(${col},${a})`); g.addColorStop(0.72, `rgba(${col},${a})`); g.addColorStop(1, `rgba(${col},0)`);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, 700);
+}
+function textBand(t) {
+  const L = C.ink, D = C.paper;
+  scrim(t);
+  // 1 the phenomenon — no noun
+  lines(COPY.h1, t, -1, T.h1Out + 0.16, { style: "none", col: L });
+  underline(COPY.h1[1], "为什么点不动", "屏幕", 1, t, T.underline, T.h1Out + 0.16);
+  // 2 the wrong guess (on orange), struck
+  lines(COPY.q2, t, T.q2, T.a2, { style: "blur", col: L, acc: C.paper, exit: 0.001 });
+  lines(COPY.a2, t, T.a2, T.q3, { style: "slam", col: L, acc: C.paper, lineGap: 0.2 });
+  // 3 dig in
+  lines(COPY.q3, t, T.q3, T.flood + 0.1, { style: "blur", col: L });
+  lines(COPY.a3, t, T.a3, T.q4, { style: "blur", col: D });
+  // 4 one mechanism (dark)
+  lines(COPY.q4, t, T.q4, T.a4, { style: "blur", col: D });
+  lines(COPY.a4, t, T.a4, T.a5, { style: "blur", col: D });
+  lines(COPY.a5, t, T.a5, T.stop1 + 0.12, { style: "blur", col: D });
+  lines(COPY.name, t, T.name, T.q6, { style: "slam", col: D, ys: [318, 492], size: [96, 140], lineGap: 0.25 });
+  // 5 the missing step: a glove
+  lines(COPY.q6, t, T.q6, T.a6, { style: "blur", col: D });
+  lines(COPY.a6, t, T.a6, T.q7, { style: "blur", col: D });
+  lines(COPY.q7, t, T.q7, T.a7, { style: "blur", col: mixHex(L, D, flood(t)) });
+  lines(COPY.a7, t, T.a7, T.a8, { style: "slam", col: L, lineGap: 0.2 });
+  lines(COPY.a8, t, T.a8, T.q9, { style: "blur", col: L });
+  // 6 back to the phenomenon
+  lines(COPY.q9, t, T.q9, T.fin, { style: "blur", col: L });
+  lines(COPY.fin, t, T.fin, T.finOut, { style: "blur", col: L, lineGap: 0.25 });
+  // a small tip in the same place, after the last line
+  label(COPY.tipTag, 98, 206, 46, C.acc, t, T.tip, T.tipOut, { weight: 700 });
+  lines(COPY.tip, t, T.tip + 0.15, T.tipOut, { style: "blur", col: L, lineGap: 0.3 });
+}
+function overlays(t, K) {                               // labels in the picture: few and short
+  // the sausage: a thin leader from the label to the sausage
+  if (t >= T.sLabel && t < T.a8) {
+    const k = E.p3out(prog(t, T.sLabel, T.sLabel + 0.35)), fo = 1 - prog(t, T.a8 - 0.2, T.a8);
+    const sp = sausagePos(t), q = proj(K, sp[0] + DIR3[0] * 55, sp[1] + DIR3[1] * 55, sp[2] + DIR3[2] * 55 + 8);
+    const lx = 96, ly = 612, ex = lx + 700;
+    ID(); ctx.save(); ctx.globalAlpha = fo; ctx.strokeStyle = "rgba(20,20,20,0.7)"; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(ex - 10, ly + 14); ctx.lineTo(lerp(ex - 10, q[0], k), lerp(ly + 14, q[1], k)); ctx.stroke();
+    if (k > 0.98) { ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(q[0], q[1], 6, 0, TAU); ctx.fill(); }
+    ctx.restore();
+    label(COPY.sLabel, lx, ly, 46, C.ink, t, T.sLabel, T.a8, { weight: 700 });
+  }
+}
+function endCard(t) {
+  if (t < T.title1) return;
+  lines(COPY.end, t, T.title1, DUR + 1, { style: "type", col: C.ink, ys: [905, 1045, 1185], size: 124, stag: 0.045, lineGap: 0.3 });
+  lines([COPY.epNum], t, T.ep, DUR + 1, { style: "slam", col: C.ink, x: 400, ys: [520], size: 150 });
+  lines([COPY.epName], t, T.ep + 0.25, DUR + 1, { style: "blur", col: C.ink, x: 404, ys: [668], size: 112 });
+  if (t >= T.sting) {
+    const K = cam(t), c = proj(K, 0, 4, G), sc = spring(t - T.sting, 16, 0.5);
+    ID(); ctx.save(); ctx.translate(c[0], c[1]); ctx.scale(sc, sc); ctx.font = `210px ${DISPLAY}`; ctx.fillStyle = C.acc; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("?", 6, 0); ctx.restore();
+  }
+}
+
+function frame(t) {
+  ctx.reset();                                     // no canvas state survives from the previous frame
+  ID();
+  const K = cam(t), fl = flood(t);
+  if (fl < 0.999) drawLight(t, K);
+  drawInterior(t, K, fl);
+  overlays(t, K);
+  textBand(t);
+  endCard(t);
+}
+
+// ---------------------------------------------------------------- motion blur: temporal supersampling where things move fast
+const BLUR = [[0, 2.8], [4.25, 4.9], [6.45, 8.3], [10.0, 12.8], [14.75, 16.7], [22.0, 22.4], [24.25, 26.4], [29.0, 30.6], [30.25, 32.6], [34.5, 36.3], [38.75, 41.5], [44.25, 45.0], [48.75, 49.4], [50.0, 50.3]];
+const SUB = 6, SHUTTER = 0.5 / FPS;
+const CUTS = [];
+window.seek = function seek(t) {
+  t = clamp(t, 0, DUR - 1e-6);
+  const blur = BLUR.some(([a, b]) => t >= a && t < b);
+  if (!blur) { ctx = MAIN; frame(t); return; }
+  MAIN.reset();
+  for (let i = 0; i < SUB; i++) {
+    ctx = OFFX;
+    let ts = t + SHUTTER * (i / (SUB - 1) - 0.5);
+    for (const c of CUTS) { if (t >= c && ts < c) ts = c; if (t < c && ts >= c) ts = c - 1e-4; }
+    frame(clamp(ts, 0, DUR - 1e-6));
+    MAIN.setTransform(1, 0, 0, 1, 0, 0); MAIN.globalAlpha = 1 / (i + 1); MAIN.drawImage(OFF, 0, 0);
+  }
+  MAIN.globalAlpha = 1; ctx = MAIN;
+};
+window.DUR = DUR; window.FPS = FPS;
+window.addEventListener("hf-seek", (e) => window.seek(e.detail.time));
+window.ready = false;
+window.whenReady = Promise.all([
+  document.fonts.load(`100px ${DISPLAY}`, "戴着手套为什么点不动屏幕"), document.fonts.load(`700 50px ${UI}`, "妈妈来电手套模式"), document.fonts.load(`400 50px ${UI}`, "滑动接听设置"),
+]).then(() => document.fonts.ready).then(() => { MEASURE.clear(); window.seek(0); window.ready = true; });
+</script>
+</body>
+</html>
