@@ -71,7 +71,7 @@ const drawClip = (c, id, t, view) => {
   const { cv, pad } = clipCanvas(id), s = k / PX;
   // 环境动态：纸条被台灯下的风轻轻吹动——每条各自很轻地晃（±0.25°、±2 px），影子跟着变，字一直看得清。纯时间函数（种子 = 纸条的 seed）
   const sd = cl.seed || 7, A_ = window.NO_AMBIENT ? 0 : 1, sway = A_ * (Math.sin(t * 2 * Math.PI / (2.6 + (sd % 5) * 0.37) + sd) + 0.6 * Math.sin(t * 2 * Math.PI / (1.7 + (sd % 4) * 0.23) + sd * 2.3)), lift = A_ * (Math.sin(t * 2 * Math.PI / (3.1 + (sd % 3) * 0.5) + sd * 1.7) + 0.5 * Math.sin(t * 2 * Math.PI / 1.9 + sd));
-  c.save(); c.translate(cl.at[0] + 1.5 * sway, cl.at[1] + 2 * lift); c.rotate(cl.r + 0.0040 * sway); c.globalAlpha *= 1 - 0.68 * dimOf(id, t);
+  c.save(); c.translate(cl.at[0] + 2.5 * sway, cl.at[1] + 3 * lift); c.rotate(cl.r + 0.0050 * sway); c.globalAlpha *= 1 - 0.68 * dimOf(id, t);
   c.save(); c.shadowColor = 'rgba(50,40,25,.28)'; c.shadowBlur = 10 + 4 * lift; c.shadowOffsetX = 3; c.shadowOffsetY = 6 + 3 * lift; c.drawImage(cv, -sw / 2 - pad * s, -sh / 2 - pad * s, cv.width * s, cv.height * s); c.restore();
   c.translate(-sw / 2, -sh / 2); c.scale(k, k); c.translate(-x0, -y0); (MARKS_BY[id] || []).forEach(m => drawMark(c, m, t));
   c.restore();
@@ -137,7 +137,7 @@ const STN = D.stn || ['出发', '电的路', '换乘', '光的路', '抵达'];  
 const drawHud = (c, t) => { if (S12(t) < D.hudIn) return;
   let cur = 0; D.station.forEach(([n, at]) => { if (t >= at - 1.5) cur = n; });         // 出发前 1.5 s（路程中）就切到下一站
   const lit = n => cur >= n || D.pops.some((p, i) => i + 1 === n && S12(t) >= p);
-  const x0 = 40, y0 = 70, w = 1000, h = 92, pop = S12(t) - D.hudIn < 1 / 12 ? 1.06 : 1;
+  const x0 = 40, y0 = D.hudY || 70,          /* 抖音版往下挪到 200，避开「推荐 / 关注」 */ w = 1000, h = 92, pop = S12(t) - D.hudIn < 1 / 12 ? 1.06 : 1;
   c.save(); c.translate(W / 2, y0 + h / 2); c.scale(pop, pop); c.translate(-W / 2, -(y0 + h / 2));
   c.save(); c.translate(x0, y0); c.shadowColor = 'rgba(40,30,15,.3)'; c.shadowBlur = 8; c.shadowOffsetY = 4; c.fillStyle = '#f1ece1'; CL.tornRect(c, w, h, 91, 4); c.fill(); c.restore();
   const cw = w / 5;
@@ -180,7 +180,7 @@ const drawLens = (c, t, k) => {
 
 let deskPat = null;
 // 旁白字幕（只在旁白版、且 SHOW_SUBS 时画）：深色撕边条＋米白字（原文纸条是米白纸＋黑字，反过来一眼分得开），下面铺一条桌面纸色的淡带把经过的纸条压下去
-const SUB_Y = 1565; let SUB_BAND = null;
+const SUB_Y = D.subY || 1565; let SUB_BAND = null;          // 抖音版字幕提到 1400，避开底部文案区
 const subBand = () => SUB_BAND || (SUB_BAND = (() => { const cv = document.createElement('canvas'); cv.width = W; cv.height = 230; const g = cv.getContext('2d');
   g.fillStyle = g.createPattern(CL.paperTile('desk', COL.desk, { amt: 12, grain: 10, fibers: 320, seed: 5 }), 'repeat'); g.fillRect(0, 0, W, 230);
   const gr = g.createLinearGradient(0, 0, 0, 230); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(0.28, 'rgba(0,0,0,.93)'); gr.addColorStop(0.72, 'rgba(0,0,0,.93)'); gr.addColorStop(1, 'rgba(0,0,0,0)');

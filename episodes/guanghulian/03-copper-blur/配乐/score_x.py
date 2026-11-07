@@ -20,7 +20,7 @@ CARDW = [(v['t0'], v['end']) for k, v in CU.items()]
 CARDS = lambda t: any(a <= t < b for a, b in CARDW)
 INSIDE = lambda t: LENS['zin'][0] <= t < LENS['out'][1]
 END0 = D['station'][-1][1]
-OPEN1 = CU['H0']['t0']                        # 开头段到第一个机制演示为止
+OPEN1 = CU['H0']['t0'] if 'H0' in CU else CU['RT']['t0']                        # 开头段到第一个机制演示为止
 REV = D.get('rev') or CU['C1']['t0']                          # 揭晓：回到开头那根线
 OPENING = lambda t: t < OPEN1
 REVEAL = lambda t: t >= REV

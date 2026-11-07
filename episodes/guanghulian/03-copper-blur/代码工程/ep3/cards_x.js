@@ -38,6 +38,16 @@ const cable = (c, k, t, { gap, speed = 520, fiber = 0, chip = 0, dim = 0 }) => {
 FULL.CARD.cables = (c, t, id, cd, Q) => {
   const chip = Q.chip != null ? MO.smooth(seg(t, Q.chip, Q.chip + 0.4)) : 0, fiber = Q.fiber != null ? MO.smooth(seg(t, Q.fiber, Q.fiber + 0.5)) : 0;
   const lg = lerp(64, 32, Math.max(chip, fiber));                 // 带芯片 / 光纤线：长线也能跑满速
+  if (Q.out) {     // 抖音版第一帧：线缩到左边，两根线的出口直接冒出信号——短线出来方方正正，长线出来已经糊了（机制演示从第 0 秒就在动）
+    c.save(); c.translate(-150, 0); c.scale(0.7, 0.7); cable(c, 'short', t, { gap: 32 }); cable(c, 'long', t, { gap: lg }); c.restore();
+    const H = FULL.H, bw = 40, X1 = 470;
+    [[115, -175, 2, 1], [220, 119, 13, 0.9]].forEach(([x0, y, sg, am], j) => { const F = x0 + 4000 + t * 240;
+      c.save(); c.strokeStyle = 'rgba(27,27,26,.25)'; c.lineWidth = 3; c.setLineDash([6, 8]); c.beginPath(); c.moveTo(x0, y); c.lineTo(X1, y); c.stroke(); c.restore();
+      H.stroke(c, x0, X1, x => y - 70 * am * H.level(x, F, bw, sg), { col: j ? '#b8433f' : '#1b1b1a', lw: 7, step: 2 }); });
+    if (Q.ring2 != null && t >= Q.ring2) { const q = MO.smooth(seg(t, Q.ring2, Q.ring2 + 0.5)); c.save(); c.strokeStyle = COL.red; c.lineWidth = 7; c.beginPath(); c.ellipse(345, 90, 175, 95, -0.03, -1.6, -1.6 + Math.PI * 2 * q); c.stroke(); c.restore();
+      if (q >= 1) for (let k = 0; k < 3; k++) { c.save(); c.translate(270 + k * 70, 0); c.rotate(Math.sin(t * 9 + k * 2) * 0.15); txt(c, '?', 0, 0, { size: 46, fam: 'PuHui-Heavy', col: COL.red, align: 'center' }); c.restore(); } }
+    if (Q.ring != null && t >= Q.ring) { const q = MO.smooth(seg(t, Q.ring, Q.ring + 0.5)); c.save(); c.strokeStyle = COL.red; c.lineWidth = 7; c.beginPath(); c.ellipse(-150, 122, 330, 150, -0.03, -1.6, -1.6 + Math.PI * 2 * q); c.stroke(); c.restore(); }
+    return; }
   if (!Q.noshort) cable(c, 'short', t, { gap: 32 });
   cable(c, 'long', t, { gap: lg, fiber, chip: chip * (1 - fiber) });
   if (Q.ring != null && t >= Q.ring) { const q = MO.smooth(seg(t, Q.ring, Q.ring + 0.5)); c.save(); c.strokeStyle = COL.red; c.lineWidth = 7; c.beginPath(); c.ellipse(0, 175, 470, 200, -0.03, -1.6, -1.6 + Math.PI * 2 * q); c.stroke(); c.restore(); }
@@ -76,6 +86,14 @@ FULL.CARD.rack = (c, t, id, cd, Q) => {
   // 「不是说要换成光吗」：一根光纤从机柜顶上亮一下，又暗下去
   if (Q.fiber != null && t >= Q.fiber) { const q = MO.smooth(seg(t, Q.fiber, Q.fiber + 0.4)), fade = 1 - 0.75 * MO.smooth(seg(t, Q.fiber + 1.2, Q.fiber + 2.0));
     c.save(); c.globalAlpha = q * fade; c.shadowColor = COL.teal; c.shadowBlur = 24; c.strokeStyle = COL.tealHi; c.lineWidth = 8; c.lineCap = 'round'; c.beginPath(); c.moveTo(260, -480); c.bezierCurveTo(260, -560, 380, -560, 470, -520); c.stroke(); c.restore(); }
+  if (Q.mag != null && t >= Q.mag) {            // 放大镜钻进一根铜缆：柜里距离短，台阶跑到头还方方正正
+    const q = MO.backOut(clamp((S12(t) - Q.mag) / 0.3), 1.6), MX = 120, MY = -150, R = 200;
+    c.save(); c.translate(MX, MY); c.scale(Math.min(1.05, q), Math.min(1.05, q));
+    c.save(); c.rotate(0.75); c.fillStyle = '#2b2a27'; c.fillRect(R - 10, -16, 150, 32); c.strokeStyle = COL.cream; c.lineWidth = 4; c.strokeRect(R - 10, -16, 150, 32); c.restore();
+    c.save(); c.beginPath(); c.arc(0, 0, R, 0, 7); c.clip(); c.fillStyle = '#141413'; c.fillRect(-R, -R, 2 * R, 2 * R);
+    const g = c.createLinearGradient(0, 30, 0, 110); g.addColorStop(0, '#b87a48'); g.addColorStop(0.5, '#8a5634'); g.addColorStop(1, '#5e3a24'); c.fillStyle = g; c.fillRect(-R, 40, 2 * R, 64);
+    const H = FULL.H, F = -R + 4000 + (t - Q.mag) * 260; H.stroke(c, -R, R, x => 10 - 80 * H.level(x, F, 46, 2.5), { lw: 6, step: 2 });
+    c.restore(); c.strokeStyle = COL.cream; c.lineWidth = 9; c.beginPath(); c.arc(0, 0, R, 0, 7); c.stroke(); c.restore(); }
   if (Q.ring != null && t >= Q.ring) { const q = MO.smooth(seg(t, Q.ring, Q.ring + 0.5)); c.save(); c.strokeStyle = COL.red; c.lineWidth = 8; c.beginPath(); c.ellipse(20, 0, 300, 470, 0, -1.6, -1.6 + Math.PI * 2 * q); c.stroke(); c.restore(); }
 };
 
