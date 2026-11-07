@@ -22,8 +22,13 @@ SP.MECH.x2 = (c, t, sh) => {
   const k = T.cam({ hy: 760, camH: 650, f: lerp(880, 1000, ease(t, 0, 9, 's')), cx: 80 * Math.sin(t * 0.35) }); T.bg(c, k, { grid: 0.8, scroll: t * 300 }); const S = 200;
   for (let j = 28; j >= 0; j--) for (let i = -10; i <= 10; i++) { const x = i * S, z = 600 + j * S - ((t * 300) % S); if (z < 420) continue; const pp = [[-60, -60], [60, -60], [60, 60], [-60, 60]].map(([dx, dz]) => T.P(k, x + dx, 0, z + dz)), fade = clamp(1 - z / 6000), on = (R(i * 31 + j)() + t * 0.6 + j * 0.05) % 1 < 0.55;
     c.fillStyle = on ? `rgba(245,215,126,${0.5 * fade})` : `rgba(60,58,52,${fade})`; c.beginPath(); pp.forEach((p, n) => n ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])); c.closePath(); c.fill(); }
-  const xq = 1 - ease(t, t3 - 0.3, t3 + 0.3, 'c');
-  if (xq > 0) { const pulse = 1 + 0.04 * Math.sin(t * 3) + 0.12 * Math.max(0, 1 - Math.abs(t - kw('u02', '翻倍')) * 3); c.save(); c.globalAlpha = xq; c.translate(W / 2, 900); c.scale(pulse, pulse); c.rotate(0.03 * Math.sin(t * 0.9));
+  const tSlam = kw('u02', '翻倍'), away = t > 0.9 && t < tSlam - 0.05 ? ease(t, 0.9, 1.2) : 0, slam = t >= tSlam - 0.05 ? 1 + 0.6 * (1 - ease(t, tSlam - 0.05, tSlam + 0.25, 'o')) : 1;
+  // 新闻卡：1 秒以后一张接一张快速划过
+  if (t > 0.9 && t < tSlam + 0.3) ['新一代 AI 芯片：互连速度翻倍', '传输速度再翻一倍！', '每条通道冲上 200G'].forEach((h_, i) => { const at = 0.95 + i * 0.42, q = ease(t, at, at + 0.22, 'o'), out = ease(t, tSlam - 0.15, tSlam + 0.15); if (t < at) return;
+    c.save(); c.globalAlpha = 1 - out; c.translate(lerp(W + 500, W / 2 + (i - 1) * 30, q), 720 + i * 210); c.rotate((i - 1) * 0.05); c.shadowColor = 'rgba(0,0,0,.6)'; c.shadowBlur = 24; c.fillStyle = '#f6f2ea'; c.beginPath(); c.roundRect(-430, -90, 860, 180, 12); c.fill(); c.shadowColor = 'transparent';
+    c.fillStyle = COL.red; c.fillRect(-430, -90, 14, 180); txt(c, '科技快讯', -390, -44, { size: 28, fam: 'PuHui-Heavy', col: COL.red }); txt(c, h_, -390, 20, { size: 46, fam: 'PuHui-Heavy', col: COL.ink }); c.restore(); });
+  const xq = (1 - ease(t, t3 - 0.3, t3 + 0.3, 'c')) * (1 - away);
+  if (xq > 0) { const pulse = slam * (1 + 0.04 * Math.sin(t * 3)); c.save(); c.globalAlpha = xq; c.translate(W / 2, 900); c.scale(pulse, pulse); c.rotate(0.03 * Math.sin(t * 0.9));
     for (let d = 14; d > 0; d--) txt(c, '×2', d * 1.2, d * 1.5, { size: 420, fam: 'PuHui-Heavy', col: 'rgba(120,90,30,.9)', align: 'center' }); c.shadowColor = COL.gold; c.shadowBlur = 60; txt(c, '×2', 0, 0, { size: 420, fam: 'PuHui-Heavy', col: '#fff2c4', align: 'center' }); c.restore(); }
   // 最高时速 300：表盘在芯片地面上方亮起来；下面两条路
   const q3 = ease(t, t3 - 0.2, t3 + 0.3) * (1 - ease(t, t4 - 0.2, t4 + 0.3));
@@ -41,8 +46,8 @@ SP.MECH.x2 = (c, t, sh) => {
       c.save(); c.translate(250 + i * 290, 900 + drop + 12 * Math.sin(t * 3 + i * 1.5)); c.shadowColor = COL.gold; c.shadowBlur = 30; c.fillStyle = COL.cream; c.beginPath(); c.roundRect(-110, -80, 220, 160, 16); c.fill(); c.shadowBlur = 0;
       txt(c, `${s_}？`, 0, 4, { size: 72, fam: 'PuHui-Heavy', col: COL.red, align: 'center' }); c.restore(); }); }
   const up = ease(t, t3 - 0.3, t3 + 0.3, 'c');
-  if (up < 1) { c.save(); c.globalAlpha = 1 - up; hookText(c, t, ['速度翻倍，', '该信几分？'], { y: 270, size: 96 });
-    hookText(c, t, ['AI 芯片的新闻，', '天天在说速度翻倍。'], { y: 1520, size: 62, ids: ['u01', 'u02'], bg: '#0f0f0e' }); c.restore(); }
+  if (up < 1) { c.save(); c.globalAlpha = 1 - up; hookText(c, t, ['AI 芯片速度翻倍，', '该信几分？'], { y: 260, size: 88 });
+    hookText(c, t, ['AI 芯片的新闻，', '天天在说速度翻倍。'], { y: 1290, size: 56, ids: ['u01', 'u02'], bg: '#0f0f0e' }); c.restore(); }
 };
 
 // ---------- 2. 第一问：什么路上跑出来的？同样 224G，一米铜缆 vs 几厘米 ----------

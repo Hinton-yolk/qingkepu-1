@@ -11,6 +11,25 @@ const metronome = (c, x, y, s, t) => { c.save(); c.translate(x, y); c.fillStyle 
 
 // ---------- 1. 第一帧：一条巨大的发光信号从深处斜着冲到眼前 → 都是 0 和 1 → 连续五个 1 是一条直线：4 还是 5？→ 没人打拍子 ----------
 SP.MECH.ribbon = (c, t, sh) => {
+  const tBreak = L.v02.t0, toWave = ease(t, L.v02.t1 - 0.2, L.v02.t1 + 0.5, 'c');
+  if (toWave < 1) { // 手机里一段视频：一开头就花一下屏；说到「0 和 1」时碎成数字流
+    const kk = T.cam({ hy: 1500, camH: 300 }); T.bg(c, kk, { grid: 0.4, scroll: t * 200 }); T.streams(c, t, { a: 0.18, seed: 5 });
+    const gl1 = (t > 0.55 && t < 1.05) || (t > 1.35 && t < 1.55), dig = ease(t, tBreak, tBreak + 0.8);
+    c.save(); c.globalAlpha = 1 - toWave; c.translate(W / 2, 900); c.scale(1 + 0.06 * toWave, 1 + 0.06 * toWave); c.rotate(0.012 * Math.sin(t * 1.4)); c.translate(-W / 2, -900);
+    SP.phone(c, W / 2, 900, 600, 1040, (g, x, y, w, h) => { const sky = g.createLinearGradient(0, y, 0, y + h); sky.addColorStop(0, '#f2c27a'); sky.addColorStop(0.55, '#e98a5c'); sky.addColorStop(1, '#5c3a52'); g.fillStyle = sky; g.fillRect(x, y, w, h);
+      g.fillStyle = '#fff2c9'; g.beginPath(); g.arc(x + w * 0.62 + Math.sin(t * 1.1) * 20, y + h * 0.42, w * 0.12, 0, 7); g.fill();
+      g.fillStyle = '#3b2a3c'; g.beginPath(); g.moveTo(x, y + h * 0.7); for (let n = 0; n <= 12; n++) g.lineTo(x + w * n / 12, y + h * (0.62 + 0.08 * Math.sin(n * 1.7 + 1))); g.lineTo(x + w, y + h); g.lineTo(x, y + h); g.fill();
+      if (gl1) { const r = R(Math.floor(t * 14)); for (let n = 0; n < 14; n++) { g.fillStyle = ['#2bd0c0', '#e04f8a', '#7a7a7a', '#f2e14a', '#1b1a18'][n % 5]; g.fillRect(x + r() * w * 0.9, y + r() * h, 40 + r() * w * 0.5, 12 + r() * 50); } }
+      if (dig > 0) { const r = R(3); g.save(); g.globalAlpha = dig; g.fillStyle = 'rgba(8,10,11,.86)'; g.fillRect(x, y, w, h); g.font = '34px "PuHui-Heavy"'; g.textAlign = 'center';
+        for (let n = 0; n < 15; n++) for (let j = 0; j < 26; j++) { const b = r() < 0.5 ? '0' : '1'; g.fillStyle = (j + n + Math.floor(t * 8)) % 9 === 0 ? '#fff6d6' : 'rgba(245,215,126,.6)'; g.fillText(b, x + 20 + n * 36, y + 40 + ((j * 38 + t * 300) % (h + 40))); } g.restore(); } });
+    c.restore();
+    if (gl1) tag(c, '数错一个 1', W / 2, 560, { size: 50, bg: COL.coral, fg: COL.ink });
+    hookText(c, t, ['数错一个 1，', '会怎样？'], { y: 260, size: 96 });
+    hookText(c, t, ['你刷的每条视频，', '都是一串 0 和 1。'], { y: 1180, size: 56, ids: ['v01', 'v02'], bg: '#0f0f0e' });
+    if (toWave <= 0) return; }
+  c.save(); c.globalAlpha = Math.max(0.001, toWave); SP.MECH._ribbon(c, t, sh); c.restore();
+};
+SP.MECH._ribbon = (c, t, sh) => {
   const t2 = L.v02.t0, t3 = L.v03.t0, tLine = kw('v03', '一条直线'), t4n = kw('v03', '四个'), t5n = kw('v03', '五个'), tErr = kw('v04', '数错'), tBig = kw('v04', '上千亿'), tNo = kw('v04', '没人');
   const k = T.cam({ hy: 760, camH: 250, f: lerp(900, 1080, ease(t, 0, sh.t1, 's')), cx: 60 * Math.sin(t * 0.4) }); T.bg(c, k, { scroll: t * 300, grid: 0.7 }); T.streams(c, t, { a: 0.14, seed: 7 });
   const B = [0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1], n = B.length, at = u => [lerp(-560, 900, u), lerp(330, 2600, u)];
@@ -20,7 +39,7 @@ SP.MECH.ribbon = (c, t, sh) => {
   // 信号上流动的光点
   for (let m = 0; m < 6; m++) { const u = ((t * 0.12 + m / 6) % 1), i = Math.floor(u * n), [x, z] = at(u), p = T.P(k, x, B[i] ? 520 : 120, z); glowDot(c, p[0], p[1], 10 * p[2], GOLD, 0.9); }
   // 每一位上方浮着 0 / 1
-  if (t > t2 - 0.2) B.forEach((b, i) => { const [x, z] = at((i + 0.5) / n), p = T.P(k, x, 700, z), q = ease(t, t2 - 0.2 + i * 0.04, t2 + 0.2 + i * 0.04); if (q <= 0) return; txt(c, String(b), p[0], p[1] - 10 * Math.sin(t * 3 + i), { size: Math.max(22, 110 * p[2]), fam: 'PuHui-Heavy', col: 'rgba(245,215,126,.9)', align: 'center', alpha: q * (1 - ease(t, tLine - 0.2, tLine + 0.4)) }); });
+  if (false) B.forEach((b, i) => { const [x, z] = at((i + 0.5) / n), p = T.P(k, x, 700, z), q = ease(t, t2 - 0.2 + i * 0.04, t2 + 0.2 + i * 0.04); if (q <= 0) return; txt(c, String(b), p[0], p[1] - 10 * Math.sin(t * 3 + i), { size: Math.max(22, 110 * p[2]), fam: 'PuHui-Heavy', col: 'rgba(245,215,126,.9)', align: 'center', alpha: q * (1 - ease(t, tLine - 0.2, tLine + 0.4)) }); });
   // 那一段平平的高电平：红色虚线框住；4？5？轮流亮
   if (t > tLine - 0.3) { const [xa, za] = at(3 / n), [xb, zb] = at(8 / n), A = T.P(k, xa, 600, za), Bp = T.P(k, xb, 600, zb), q = ease(t, tLine - 0.3, tLine + 0.2);
     c.save(); c.globalAlpha = q; c.strokeStyle = COL.redHi; c.lineWidth = 6; c.setLineDash([14, 10]); c.lineDashOffset = -t * 40; c.beginPath(); c.moveTo(A[0], A[1]); c.lineTo(Bp[0], Bp[1]); c.stroke(); c.restore(); }
@@ -32,8 +51,7 @@ SP.MECH.ribbon = (c, t, sh) => {
     txt(c, `每秒 ${Math.round(lerp(0, 1000, ease(t, tBig - 0.2, tBig + 1.0, 'o')))} 亿+ 个`, W / 2, 1260, { size: 76, fam: 'PuHui-Heavy', col: COL.goldHi, align: 'center' }); txt(c, 'AI 芯片之间，每条通道', W / 2, 1345, { size: 36, fam: 'PuHui-Heavy', col: COL.cream, align: 'center' }); c.restore(); }
   if (t > tNo - 0.2) tape(c, '没人给它打拍子', W / 2, 470, { size: 70, t, at: tNo - 0.2, r: -0.02 });
   const up = ease(t, t3 - 0.3, t3 + 0.3, 'c');
-  if (up < 1) { c.save(); c.globalAlpha = 1 - up; hookText(c, t, ['这一段，', '是几个 1？'], { y: 260, size: 96 });
-    hookText(c, t, ['你刷的每条视频，', '都是一串 0 和 1。'], { y: 1520, size: 62, ids: ['v01', 'v02'], bg: '#0f0f0e' }); c.restore(); }
+  if (t > L.v03.t0 - 0.3 && t < kw('v04', '数错') - 0.2) hookText(c, t, ['这一段，', '是几个 1？'], { y: 260, size: 88 });
 };
 
 // ---------- 2. 节拍：跳变处对表、早了往后拨晚了往前拨、锁住；在正中间清点五个 ----------

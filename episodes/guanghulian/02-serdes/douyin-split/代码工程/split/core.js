@@ -78,7 +78,7 @@ const drawHud = (c, t) => { if (t < D.hudIn) return;
   c.restore(); };
 
 // ---------- 关键点字幕：深色撕边条 + 奶油字，左边一小截红胶带（和黑底机制画面区分开） ----------
-const SUB_Y = 1500;
+const SUB_Y = 1410;
 const drawSubs = (c, t, sh) => { if (sh.kind === 'desk' || sh.kind === 'take' || window.NO_SUBS) return;
   const l = D.lines.find(x => x.sub && t >= x.t0 - 0.05 && t < x.t1 + 0.35); if (!l) return;
   const k = Math.min(seg(t, l.t0 - 0.05, l.t0 + 0.1), 1 - seg(t, l.t1 + 0.2, l.t1 + 0.35)); if (k <= 0) return;

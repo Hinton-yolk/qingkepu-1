@@ -19,7 +19,24 @@ const tunnel = (c, t, { cx = W / 2, cy = 860, speed = 1, keep = () => 1, dim = 1
   c.restore(); };
 
 // ---------- 1. 隧道开场 → 只剩几条路亮着 → 打印机线 vs USB → 路少了凭什么更快？ ----------
+const bgaUnder = (c, t, zoomQ) => {                                  // 芯片翻过来：基板 + 一片锡球；一对高速通道的锡球发光
+  const P = 34, cols = 25, rows = 35, cx = W / 2, cy = 1000, fx = cx + 1.5 * P, fy = cy + 9 * P, z = 1 + 0.04 * t + Math.pow(zoomQ, 2.2) * 30;
+  c.fillStyle = '#05070a'; c.fillRect(0, 0, W, H);
+  c.save(); c.translate(fx, fy); c.scale(z, z); c.translate(-fx, -fy);
+  const pw = cols * P + 50, ph = rows * P + 50; c.save(); c.shadowColor = 'rgba(0,0,0,.6)'; c.shadowBlur = 40; c.fillStyle = '#2d3a2a'; c.beginPath(); c.roundRect(cx - pw / 2, cy - ph / 2, pw, ph, 18); c.fill(); c.restore();
+  c.fillStyle = COL.gold; c.beginPath(); c.moveTo(cx - pw / 2 + 14, cy - ph / 2 + 14); c.lineTo(cx - pw / 2 + 64, cy - ph / 2 + 14); c.lineTo(cx - pw / 2 + 14, cy - ph / 2 + 64); c.closePath(); c.fill();
+  for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) { const x = cx + (i - cols / 2 + 0.5) * P, y = cy + (j - rows / 2 + 0.5) * P, hot = j === 26 && (i === 13 || i === 14);
+    const g = c.createRadialGradient(x - 4, y - 5, 1, x, y, 12); g.addColorStop(0, '#fafaf0'); g.addColorStop(0.45, hot ? '#f5d77e' : '#a9a7a0'); g.addColorStop(1, '#4e4c48'); c.fillStyle = g; c.beginPath(); c.arc(x, y, 12, 0, 7); c.fill();
+    if (hot) { glowDot(c, x, y, 20 + 5 * Math.sin(t * 6), GOLD, 1); c.save(); c.strokeStyle = 'rgba(245,215,126,.8)'; c.lineWidth = 3; c.beginPath(); c.arc(x, y, 26 + 6 * Math.sin(t * 6), 0, 7); c.stroke(); c.restore(); } else { c.fillStyle = `rgba(255,255,255,${0.1 + 0.08 * Math.sin(t * 2.2 + i * 0.7 + j * 0.45)})`; c.beginPath(); c.arc(x - 4, y - 4, 3, 0, 7); c.fill(); } }
+  c.restore(); };
 SP.MECH.tunnel = (c, t, sh) => {
+  const tDive = L.w01.t1 + 0.05, dive = ease(t, tDive - 0.2, tDive + 0.5, 'c');
+  if (dive < 1) { bgaUnder(c, t, dive); if (dive < 0.3) { tag(c, '一颗 AI 芯片的底面：几千个针脚', W / 2, 560, { size: 42 }); tag(c, '最快的路，只走这一对', W / 2 + 60, 1200 - 12 * Math.sin(t * 3), { size: 44, bg: COL.goldHi, fg: COL.ink, t, at: 0.4 }); } }
+  if (dive > 0.6) { c.save(); c.globalAlpha = seg(dive, 0.6, 1); SP.MECH._tunnel(c, t, sh); c.restore(); }
+  const up0 = ease(t, L.w03.t0 - 0.3, L.w03.t0 + 0.2, 'c');
+  if (dive < 1 && up0 < 1) hookText(c, t, ['AI 芯片之间，', '最快的路只有几条？'], { y: 300, size: 84, ids: ['w01', 'w02'] });
+};
+SP.MECH._tunnel = (c, t, sh) => {
   const tFew = kw('w02', '只修几条'), t3 = L.w03.t0, tPr = kw('w03', '打印机线'), tUsb = kw('w03', 'USB'), t4 = L.w04.t0;
   const few = ease(t, tFew - 0.3, tFew + 0.6, 'c'), cmp = ease(t, t3 - 0.2, t3 + 0.3) * (1 - ease(t, t4 + 0.6, t4 + 1.2));
   // 只剩地面中间两条通道亮着，而且越跑越快
