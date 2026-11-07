@@ -6,14 +6,14 @@ N = sys.argv[1]; SRC = '/home/user/kepu-studio/episodes/guanghulian/02-serdes/do
 S = json.load(open(f'{SRC}/script_{N}.json')); A = json.load(open(f'{SRC}/align_{N}.json'))
 TK = lambda text, line, a=None, b=None: dict(text=text, line=line, **{'from': a}, to=b)
 SHOTS = {
- 's1': [('tunnel', 'w01'), ('race', 'w05'), ('serial', 'w09'),
-        ('take', 'w10', [TK('一句话带走', 'w10'), TK('速度一高，「一起到」', 'w11', '速度', '一起到'), TK('比「路多」更难。', 'w11', '比', '更难')])],
- 's2': [('ribbon', 'v01'), ('beat', 'v05'), ('scramble', 'v09'),
-        ('take', 'v11', [TK('一句话带走', 'v11'), TK('芯片不是在看 0 和 1，', 'v12', '芯片', '0 和 1'), TK('是在听节拍。', 'v12', '是在', '节拍')])],
- 's3': [('x2', 'u01'), ('road', 'u05'), ('power', 'u07'), ('ppt', 'u09'),
-        ('take', 'u11', [TK('一句话带走', 'u11'), TK('什么路？多少电？', 'u12', '什么路', '多少电'), TK('测过没有？', 'u12', '测过', '没有')])],
+ 's1': [('photo', 'p01'), ('strips', 'p03'), ('serial', 'p09'),
+        ('take', 'p10', [TK('一句话带走', 'p10'), TK('路少，', 'p11', '路少', '路少'), TK('反而不会乱。', 'p11', '反而', '不会乱')])],
+ 's2': [('chat', 'q01'), ('clap', 'q05'), ('beat', 'q06'), ('scramble', 'q08'),
+        ('take', 'q10', [TK('一句话带走', 'q10'), TK('靠的不是眼睛，', 'q11', '靠的', '眼睛'), TK('是耳朵。', 'q11', '是耳朵', '耳朵')])],
+ 's3': [('launch', 'k01'), ('wifi', 'k04'), ('cable', 'k05'), ('hot', 'k06'), ('ppt', 'k07'),
+        ('take', 'k08', [TK('一句话带走', 'k08'), TK('什么路？费不费电？', 'k09', '什么路', '费不费电'), TK('实测了吗？', 'k09', '实测', '了吗')])],
 }[N]
-HOLD = {'w07': 1.1, 'v07': 0.9, 'u09': 0.8}   # 高潮后的停顿（慢动作 / 咔一下 / 碎掉），秒
+HOLD = {'p05': 0.9, 'q06': 0.8, 'k07': 0.6}
 LEAD, TAIL = 0.35, 1.6
 t = LEAD; lines = []; prev = None
 for i, s in enumerate(S):

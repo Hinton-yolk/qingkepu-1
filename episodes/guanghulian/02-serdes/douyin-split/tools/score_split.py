@@ -14,9 +14,9 @@ def kw(i, w, k=0):
 first = lambda seg: next(l['t0'] for l in D['lines'] if l['seg'] == seg)
 tE, tR, tZ = first('explain') - 0.3, first('reveal') - 0.3, [s for s in D['shots'] if s['kind'] == 'take'][0]['t0']
 CFG = {
- 's1': lambda: dict(key='Dm', prog=[('Dm', [50, 53, 57, 62]), ('Bb', [46, 50, 53, 58]), ('F', [45, 48, 53, 57]), ('C', [43, 48, 52, 55])], root=[38, 34, 41, 36], hit=kw('w07', '整批全错'), pre=kw('w07', '晚到一步') - 0.15),
- 's2': lambda: dict(key='Em', prog=[('Em', [52, 55, 59, 64]), ('C', [48, 52, 55, 60]), ('G', [47, 50, 55, 59]), ('D', [50, 54, 57, 62])], root=[40, 36, 43, 38], hit=kw('v07', '锁住'), pre=None),
- 's3': lambda: dict(key='F', prog=[('F', [53, 57, 60, 65]), ('C', [52, 55, 60, 64]), ('Dm', [50, 53, 57, 62]), ('Bb', [50, 53, 58, 62])], root=[41, 36, 38, 34], hit=kw('u09', '真芯片'), pre=None),
+ 's1': lambda: dict(key='Dm', prog=[('Dm', [50, 53, 57, 62]), ('Bb', [46, 50, 53, 58]), ('F', [45, 48, 53, 57]), ('C', [43, 48, 52, 55])], root=[38, 34, 41, 36], hit=kw('p05', '拼进'), pre=kw('p05', '晚到半步') - 0.1),
+ 's2': lambda: dict(key='Em', prog=[('Em', [52, 55, 59, 64]), ('C', [48, 52, 55, 60]), ('G', [47, 50, 55, 59]), ('D', [50, 54, 57, 62])], root=[40, 36, 43, 38], hit=kw('q06', '踩准'), pre=None),
+ 's3': lambda: dict(key='F', prog=[('F', [53, 57, 60, 65]), ('C', [52, 55, 60, 64]), ('Dm', [50, 53, 57, 62]), ('Bb', [50, 53, 58, 62])], root=[41, 36, 38, 34], hit=kw('k07', '到手'), pre=None),
 }[N_]()
 HIT = CFG['hit']
 BPM = min(np.arange(96, 112.01, 0.5), key=lambda b: abs((HIT / (60 / b)) - round(HIT / (60 / b))))
@@ -85,25 +85,35 @@ def ding(t0, m, g=0.08): t = T(1.2); add(fx, sum(np.sin(2 * np.pi * midi(m) * r 
 def thud(t0, g=0.25): t = T(0.3); add(fx, lp(rs.standard_normal(len(t)), 300) * np.exp(-t / 0.05) + np.sin(2 * np.pi * 70 * t) * np.exp(-t / 0.08), t0, g)
 for s in D['shots'][1:]: whoosh(s['t0'] + 0.05)
 whoosh(0.05, 0.8, 0.08)                                              # 第一帧：冲进画面
+def clapfx(t0, g=0.14): t = T(0.12); add(fx, bp(rs.standard_normal(len(t)), 800, 4000) * np.exp(-t / 0.025), t0, g)
 if N_ == 's1':
-    tFew = kw('w02', '只修几条'); add(fx, gl(900, 120, 0.7) * np.linspace(1, 0, int(0.7 * SR)), tFew - 0.1, 0.05)     # 隧道暗下去
-    pre = CFG['pre']; t = T(HIT - pre + 1.2); drone = lp(saw(midi(26), t) + saw(midi(26) * 1.01, t), 200) * np.minimum(1, t / 0.3); add(fx, fade(drone, 0.2, 0.4), pre, 0.12)   # 子弹时间低频嗡声
-    for k in range(3): thud(pre + 0.25 + k * 0.6, 0.18)                                                                     # 慢动作里的心跳
-    boom(HIT, 0.5); glass(HIT + 0.02, 0.14)                                                                                   # 整批全错：碎开
-    tUp = kw('w09', '一路提速'); t = T(1.2); add(fx, hp(rs.standard_normal(len(t)), 2000) * (t / 1.2) ** 2, tUp - 1.0, 0.07); boom(tUp + 0.2, 0.25)
+    tFast = kw('p05', '一快'); add(fx, gl(300, 1400, 0.5) * np.linspace(1, 0.2, int(0.5 * SR)) * 0.6, tFast - 0.05, 0.06)        # 一快：加速的上扬声
+    pre = CFG['pre']; t = T(HIT - pre + 1.2); drone = lp(saw(midi(26), t) + saw(midi(26) * 1.01, t), 200) * np.minimum(1, t / 0.3); add(fx, fade(drone, 0.2, 0.4), pre, 0.12)
+    for k in range(3): thud(pre + 0.25 + k * 0.5, 0.18)
+    boom(HIT, 0.5); glass(HIT + 0.02, 0.12)                                                                                   # 拼进下一张
+    ding(kw('p07', '错一位'), 70, 0.08)
+    tUp = kw('p09', '越跑越快'); t = T(1.2); add(fx, hp(rs.standard_normal(len(t)), 2000) * (t / 1.2) ** 2, tUp - 1.0, 0.07); boom(tUp + 0.2, 0.25)
 elif N_ == 's2':
-    tEdge, tLock = kw('v06', '跳变'), HIT
+    for k in range(3): click(kw('q02', '全乱了') + k * 0.07, 0.08)                                                              # 乱码：咔咔几声
+    sc = [s for s in D['shots'] if s['kind'] == 'clap'][0]; n = 0
+    while True:                                                                                                                # 拍手：每个鼓点经过中线时拍一下
+        tc = sc['t0'] + (n * 220 - 540) / 220; n += 1
+        if tc < sc['t0']: continue
+        if tc > sc['t1']: break
+        clapfx(tc); kick(tc, 0.3)
+    tEdge, tLock = kw('q06', '跳一下'), HIT
     tt = tEdge; k = 0
-    while tt < tLock - 0.1: click(tt, 0.05 + 0.02 * (k % 2)); tt += 0.5 + 0.12 * np.sin(k * 1.7) * max(0, 1 - (tt - tEdge) / (tLock - tEdge)); k += 1   # 对表的滴答，越来越准
-    click(tLock, 0.25); boom(tLock, 0.3); ding(tLock + 0.02, 76, 0.1); ding(tLock + 0.02, 83, 0.06)                              # 咔——锁住
-    tC = kw('v08', '正中间'); [ding(tC - 0.4 + i * 0.5, [64, 66, 67, 69, 71][i], 0.07) for i in range(5)]                     # 1-2-3-4-5
-    tMix = kw('v10', '打乱'); [click(tMix + i * 0.04, 0.04) for i in range(22)]; tBack = kw('v10', '还原'); [click(tBack + i * 0.04, 0.04) for i in range(22)]; ding(tBack + 1.0, 76, 0.08)
+    while tt < tLock - 0.1: click(tt, 0.05 + 0.02 * (k % 2)); tt += 0.5 + 0.12 * np.sin(k * 1.7) * max(0, 1 - (tt - tEdge) / (tLock - tEdge)); k += 1
+    click(tLock, 0.25); boom(tLock, 0.3); ding(tLock + 0.02, 76, 0.1); ding(tLock + 0.02, 83, 0.06)
+    tC = kw('q07', '每一拍'); [ding(tC - 0.4 + i * 0.5, [64, 66, 67, 69, 71][i], 0.07) for i in range(5)]
+    tMix = kw('q09', '打乱'); [click(tMix + i * 0.04, 0.04) for i in range(22)]; tBack = kw('q09', '还原'); [click(tBack + i * 0.04, 0.04) for i in range(12)]; ding(tBack + 0.45, 76, 0.09)
 elif N_ == 's3':
-    boom(kw('u02', '翻倍'), 0.25)                                                                                             # ×2 弹一下
-    t3 = L['u03']['t0']; add(fx, gl(200, 1200, 1.2) * np.linspace(0.2, 1, int(1.2 * SR)) * 0.5, t3, 0.04)                   # 时速表拉满
-    t4 = L['u04']['t0']; [thud(t4 + 0.2 + i * 0.22, 0.3) for i in range(3)]                                                   # 三张卡砸下来
-    glass(HIT - 0.25, 0.06); boom(HIT, 0.35); glass(HIT + 0.01, 0.16)                                                         # PPT 裂开、碎掉
-    ding(HIT + 0.5, 77, 0.06)                                                                                                 # 探针接上
+    boom(0.1, 0.2)                                                                                                            # 第一帧：大屏亮起
+    tAsk = kw('k03', '先问三句'); [thud(tAsk - 0.1 + i * 0.22, 0.3) for i in range(3)]
+    t4 = kw('k04', '一半'); add(fx, gl(900, 300, 0.6) * np.linspace(1, 0, int(0.6 * SR)) * 0.5, t4 - 0.1, 0.05)               # 网速掉一半
+    tScore = kw('k06', '跑分'); add(fx, gl(300, 1600, 1.4) * 0.4, tScore - 0.2, 0.04); boom(kw('k06', '几万颗芯片'), 0.25)
+    glass(HIT - 0.25, 0.06); boom(HIT, 0.35); glass(HIT + 0.01, 0.16)                                                         # PPT 碎掉
+    ding(kw('k07', '两回事'), 77, 0.06)
 mus[:, :] = np.where(np.isfinite(mus), mus, 0)
 # ---------- 混音：人声 + （配乐 + 音效）；人声一出来，配乐自动压低（侧链）----------
 w = wave.open(f'audio/{N_}_voice.wav'); v = np.frombuffer(w.readframes(w.getnframes()), '<i2').astype(np.float64) / 32768
