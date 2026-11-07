@@ -79,9 +79,10 @@ const drawClip = (c, id, t, view) => {
 const drawCard = (c, id, t, view) => {
   const cd = D.cards[id]; if (cd.at[0] + cd.w / 2 + 80 < view[0] || cd.at[0] - cd.w / 2 - 80 > view[2] || cd.at[1] + cd.h / 2 + 80 < view[1] || cd.at[1] - cd.h / 2 - 80 > view[3]) return;
   c.save(); c.translate(cd.at[0], cd.at[1]); c.rotate(cd.r);
+  if (!cd.bare) {                                   // bare：直接摆在桌上的实物（雷电线、小路线图），不垫黑卡片
   c.save(); c.translate(-cd.w / 2, -cd.h / 2); c.shadowColor = 'rgba(40,30,15,.35)'; c.shadowBlur = 12; c.shadowOffsetX = 3; c.shadowOffsetY = 7; c.fillStyle = COL.card;
-  CL.tornRect(c, cd.w, cd.h, 70 + id.length * 7 + id.charCodeAt(id.length - 1), 4); c.fill(); c.restore();
-  CL.tape(c, -cd.w / 2 + 60, -cd.h / 2 + 8, -0.62, 150); CL.tape(c, cd.w / 2 - 60, -cd.h / 2 + 8, 0.6, 150);
+    CL.tornRect(c, cd.w, cd.h, 70 + id.length * 7 + id.charCodeAt(id.length - 1), 4); c.fill(); c.restore();
+    CL.tape(c, -cd.w / 2 + 60, -cd.h / 2 + 8, -0.62, 150); CL.tape(c, cd.w / 2 - 60, -cd.h / 2 + 8, 0.6, 150); }
   const fn = FULL.CARD[cd.kind]; if (fn) { c.save(); fn(c, t, id, cd, D.cue[id] || {}); c.restore(); }
   D.cardLabels[id].forEach(L => lab(c, L, t));
   c.restore();
@@ -126,7 +127,7 @@ const drawToken = (c, t, z) => { const tk = tokenAt(t); if (!tk) return; const s
   c.save(); c.translate(tk.p[0], tk.p[1]); c.scale(s, s); c.rotate(-0.06); c.fillStyle = 'rgba(40,30,15,.3)'; c.fillRect(-38, -32, 82, 82);
   c.fillStyle = '#f6efe4'; c.fillRect(-42, -42, 84, 84); c.strokeStyle = COL.red; c.lineWidth = 7; c.strokeRect(-42, -42, 84, 84);
   txt(c, '1', 0, 4, { size: 66, fam: 'PuHui-Black', col: COL.ink, align: 'center' }); c.restore(); };
-const STN = ['出发', '电的路', '换乘', '光的路', '抵达'];
+const STN = D.stn || ['出发', '电的路', '换乘', '光的路', '抵达'];          // 小红书改版：快递叫法（D.stn）
 const drawHud = (c, t) => { if (S12(t) < D.hudIn) return;
   let cur = 0; D.station.forEach(([n, at]) => { if (t >= at - 1.5) cur = n; });         // 出发前 1.5 s（路程中）就切到下一站
   const lit = n => cur >= n || D.pops.some((p, i) => i + 1 === n && S12(t) >= p);
