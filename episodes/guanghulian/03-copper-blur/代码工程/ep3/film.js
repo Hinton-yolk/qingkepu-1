@@ -108,8 +108,10 @@ const circleRaw = (c, x0, y0, x1, y1, q, seed) => { const cx = (x0 + x1) / 2, cy
 // ---------- 红线、贴纸、小比特、进度条 ----------
 const STR = {};
 const strPts = s => STR[s.key] || (STR[s.key] = (() => { const pts = CL.stringPts(s.a, s.b, s.sag, 60); return { pts, cum: DG.cum(pts) }; })());
+// 红线压在纸条和卡片下面（用户 2026-11-07：红线盖到字上不利于阅读），只有两头的图钉在最上面
 const drawString = (c, s, t, z) => { const q = MO.longTail(q12(t, s.t)); if (q <= 0) return; const { pts, cum } = strPts(s), L = cum[cum.length - 1];
-  CL.string(c, pts, cum, L * q, { col: COL.red, lw: s.route ? Math.max(6, 2.4 / z) : 5 }); CL.pin(c, s.a[0], s.a[1]); if (q >= 1) CL.pin(c, s.b[0], s.b[1]); };
+  CL.string(c, pts, cum, L * q, { col: COL.red, lw: s.route ? Math.max(6, 2.4 / z) : 5 }); };
+const drawPins = (c, s, t) => { const q = MO.longTail(q12(t, s.t)); if (q <= 0) return; CL.pin(c, s.a[0], s.a[1]); if (q >= 1) CL.pin(c, s.b[0], s.b[1]); };
 const along = (s, q) => { const { pts, cum } = strPts(s), d = cum[cum.length - 1] * q;
   for (let i = 1; i < pts.length; i++) if (cum[i] >= d) { const f = (d - cum[i - 1]) / (cum[i] - cum[i - 1] || 1); return [lerp(pts[i - 1][0], pts[i][0], f), lerp(pts[i - 1][1], pts[i][1], f)]; }
   return pts[pts.length - 1]; };
@@ -200,10 +202,11 @@ SCENES.ep3 = {
     c.save(); c.translate(W / 2, H / 2); c.scale(k.z, k.z); c.translate(-k.x, -k.y);
     deskPat = deskPat || c.createPattern(CL.paperTile('desk', COL.desk, { amt: 12, grain: 10, fibers: 320, seed: 5 }), 'repeat');
     c.fillStyle = deskPat; c.fillRect(view[0] - 4, view[1] - 4, view[2] - view[0] + 8, view[3] - view[1] + 8);
+    for (const s of D.strings) drawString(c, s, t, k.z);
     for (const id in D.clips) drawClip(c, id, t, view);
     for (const id in D.prints) drawPrint(c, id, t, view);
     for (const id in D.cards) drawCard(c, id, t, view);
-    for (const s of D.strings) drawString(c, s, t, k.z);
+    for (const s of D.strings) drawPins(c, s, t);
     for (let n = 1; n <= 5; n++) drawSticker(c, n, t);
     for (const L of D.labels) lab(c, L, t);
     drawToken(c, t, k.z);
