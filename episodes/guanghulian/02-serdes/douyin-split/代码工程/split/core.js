@@ -133,7 +133,7 @@ const deskType = (c, t, sh) => {
 // 快递路线图：发件的 AI 芯片 → 五站 → 收件的 AI 芯片；包裹一直在路上跑；说到「这一条」时镜头推向第一站
 const SP_MECH_ROUTE = (c, t, sh) => {
   const T = SP.T, k = T.cam({ hy: 1500, camH: 300 }); T.bg(c, k, { grid: 0.5, scroll: t * 200 }); T.streams(c, t, { a: 0.14, seed: 21 });
-  const l = L[sh.first], iThis = l.text.indexOf('这一条'), tThis = iThis >= 0 ? l.ch[iThis] : l.t0 + 1.5, zq = ease(t, tThis - 0.3, tThis + 0.6, 'c');
+  const l = L[sh.first], iThis = l.text.indexOf('快递'), tThis = iThis >= 0 ? l.ch[iThis] + 0.4 : l.t0 + 1.5, zq = ease(t, tThis - 0.3, tThis + 0.6, 'c');
   const P = u => { const a = [160, 1250], b = [300, 500], c2 = [800, 1200], d = [920, 420]; const m = 1 - u; return [m * m * m * a[0] + 3 * m * m * u * b[0] + 3 * m * u * u * c2[0] + u * u * u * d[0], m * m * m * a[1] + 3 * m * m * u * b[1] + 3 * m * u * u * c2[1] + u * u * u * d[1]]; };
   const st = [0.08, 0.3, 0.52, 0.72, 0.92], s1 = P(st[0]);
   c.save(); const z = lerp(1, 1.7, zq); c.translate(lerp(W / 2, W / 2 + 180, zq), lerp(900, 760, zq)); c.scale(z, z); c.translate(-lerp(W / 2, s1[0] + 120, zq), -lerp(900, s1[1] - 60, zq));
@@ -143,10 +143,9 @@ const SP_MECH_ROUTE = (c, t, sh) => {
   // 一个个包裹沿路跑
   for (let n = 0; n < 7; n++) { const u = ((t * 0.12 + n / 7) % 1), p = P(u); c.save(); c.translate(p[0], p[1]); c.rotate(0.2 * Math.sin(t * 3 + n)); c.fillStyle = '#c8935a'; c.fillRect(-22, -18, 44, 36); c.strokeStyle = '#7a5530'; c.lineWidth = 3; c.strokeRect(-22, -18, 44, 36); c.fillStyle = '#e9d3a8'; c.fillRect(-4, -18, 8, 36); c.restore(); }
   STN.forEach((s_, i) => { const p = P(st[i]), on = i === 0; c.save(); if (on) { c.shadowColor = COL.gold; c.shadowBlur = 30 + 10 * Math.sin(t * 5); } c.fillStyle = on ? COL.goldHi : '#2c2b28'; c.strokeStyle = on ? COL.goldHi : COL.creamDim; c.lineWidth = 4; c.beginPath(); c.arc(p[0], p[1], on ? 30 : 22, 0, 7); c.fill(); c.stroke(); c.restore();
-    txt(c, s_, p[0] + (i % 2 ? -48 : 48), p[1] - 50, { size: on ? 50 : 42, fam: 'PuHui-Heavy', col: on ? COL.goldHi : COL.creamDim, align: i % 2 ? 'right' : 'left' }); });
+    txt(c, s_, p[0] + (i === 2 ? 0 : i % 2 ? -48 : 48), p[1] + (i === 2 ? 70 : -50), { size: on ? 50 : 42, fam: 'PuHui-Heavy', col: on ? COL.goldHi : COL.creamDim, align: i === 2 ? 'center' : i % 2 ? 'right' : 'left' }); });
   c.restore();
-  tag(c, 'AI 芯片之间寄快递', W / 2, 330, { size: 46, bg: COL.cream, fg: COL.ink });
-  if (t > tThis - 0.2) tag(c, `这一条：${sh.topic}`, W / 2 + 60, 1400, { size: 50, bg: COL.goldHi, fg: COL.ink, t, at: tThis - 0.2, r: -0.02 });
+  txt(c, '发件', 160, 1460, { size: 34, fam: 'PuHui-Heavy', col: COL.creamDim, align: 'center' }); txt(c, '收件', 930, 200, { size: 34, fam: 'PuHui-Heavy', col: COL.creamDim, align: 'center' });
   if (SP.ROUTE_EXTRA) SP.ROUTE_EXTRA(c, t, sh);
 };
 window.SP = { deskType, phone, D, L, W, H, COL, kw, txt, tape, tag, pop, ease, seg, darkBg, deskBg, deskShot, hookText, endCard, hlBand, MECH: {}, STN };
