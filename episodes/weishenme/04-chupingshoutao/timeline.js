@@ -81,6 +81,12 @@
     const t0 = t < T.ring2 ? 0 : T.ring2, u = (t - t0) % 1;
     return u < 0.75 ? Math.min(1, u / 0.03) * Math.min(1, (0.75 - u) / 0.04) : 0;
   }
+  // the motor as seen and heard: short bursts like a real phone — 0.4 s on, 0.6 s still, at the start of every ring cycle
+  function buzzVis(t) {
+    if (!ringing(t)) return 0;
+    const t0 = t < T.ring2 ? 0 : T.ring2, u = (t - t0) % 1;
+    return u < 0.4 ? Math.min(1, u / 0.03) * Math.min(1, (0.4 - u) / 0.04) : 0;
+  }
   // ---- how much a finger near the glass steals from the cells (0..1) in the dark interior
   function stealK(t) {
     if (t < T.fUp) return ramp(t, T.steal, T.stealEnd);
@@ -111,7 +117,7 @@
     endType: [T.title1], ep: [T.ep], sting: [T.sting],
   };
 
-  const TL = { BPM, BEAT, BAR, FPS, DUR, W, H, T, COPY, HITS, S16, ROWS, ringing, buzzK, stealK, scanRow, ramp };
+  const TL = { BPM, BEAT, BAR, FPS, DUR, W, H, T, COPY, HITS, S16, ROWS, ringing, buzzK, buzzVis, stealK, scanRow, ramp };
   if (typeof module !== "undefined" && module.exports) module.exports = TL;
   else root.TL = TL;
 })(typeof window !== "undefined" ? window : globalThis);

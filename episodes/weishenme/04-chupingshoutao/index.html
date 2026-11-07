@@ -28,7 +28,7 @@
 // section, a glove) → back out to the tilted phone (a sausage, a touch glove) → flat again for the same call → end badge.
 // No timers, no rAF, no CSS transitions, no state between frames (the context is reset every frame); seeded noise only.
 // ============================================================================================
-const { T, COPY, W, H, DUR, FPS, S16, ROWS, ringing, buzzK, stealK, scanRow } = TL;
+const { T, COPY, W, H, DUR, FPS, S16, ROWS, ringing, buzzK, buzzVis, stealK, scanRow } = TL;
 const cv = document.getElementById("c");
 const MAIN = cv.getContext("2d");
 const OFF = document.createElement("canvas"); OFF.width = W; OFF.height = H;
@@ -390,8 +390,8 @@ function ripple(t, t0, x, y, col, rmax = 16, dur = 0.6) {
 
 // ---------------------------------------------------------------- the phone (body, glass, screen)
 function shakeOff(t) {                                         // the vibration motor (mm)
-  const b = buzzK(t); if (b <= 0) return [0, 0];
-  return [1.0 * b * Math.sin(TAU * 13.3 * t), 0.6 * b * Math.sin(TAU * 11.7 * t + 1)];   // below 15 Hz, so it reads as a buzz at 30 fps
+  const b = buzzVis(t); if (b <= 0) return [0, 0];
+  return [0.45 * b * Math.sin(TAU * 13.3 * t), 0.25 * b * Math.sin(TAU * 11.7 * t + 1)];   // a few px, below 15 Hz so it reads as a buzz
 }
 function drawPhone(t, K, fade = 0) {
   const sh = shakeOff(t), o = [sh[0] + pressShift(t)[0], sh[1] + pressShift(t)[1]];

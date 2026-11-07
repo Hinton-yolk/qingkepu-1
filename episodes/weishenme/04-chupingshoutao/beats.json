@@ -2,10 +2,10 @@
  "source": "/home/user/kepu-studio/episodes/weishenme/04-chupingshoutao/audio/mix.wav",
  "measuredBy": "npx hyperframes beats",
  "detectorBpm": 120,
- "bpm": 119.998,
- "period": 0.5000074211502755,
+ "bpm": 119.996,
+ "period": 0.5000150896722299,
  "inlierShare": 1,
- "offsetSec": 0.0069,
+ "offsetSec": 0.0066,
  "beats": [
   1.015,
   1.505,
@@ -22,7 +22,7 @@
   7.005,
   7.515,
   8.005,
-  8.515,
+  8.505,
   9.015,
   9.515,
   10.005,
@@ -84,7 +84,7 @@
   38.005,
   38.505,
   39.005,
-  39.505,
+  39.515,
   40.005,
   40.505,
   41.015,
@@ -112,162 +112,162 @@
    "name": "swipe",
    "t": 0,
    "nearest16th": 0.007,
-   "errMs": -6.9,
-   "frames": -0.21
+   "errMs": -6.6,
+   "frames": -0.2
   },
   {
    "name": "swipe",
    "t": 1.5,
    "nearest16th": 1.507,
-   "errMs": -7,
-   "frames": -0.21
+   "errMs": -6.6,
+   "frames": -0.2
   },
   {
    "name": "underline",
    "t": 2,
    "nearest16th": 2.007,
-   "errMs": -7,
-   "frames": -0.21
+   "errMs": -6.6,
+   "frames": -0.2
   },
   {
    "name": "press",
    "t": 3,
    "nearest16th": 3.007,
-   "errMs": -7,
-   "frames": -0.21
+   "errMs": -6.6,
+   "frames": -0.2
   },
   {
    "name": "press",
    "t": 4.75,
    "nearest16th": 4.757,
-   "errMs": -7,
-   "frames": -0.21
+   "errMs": -6.7,
+   "frames": -0.2
   },
   {
    "name": "press",
    "t": 5.25,
    "nearest16th": 5.257,
-   "errMs": -7,
-   "frames": -0.21
+   "errMs": -6.7,
+   "frames": -0.2
   },
   {
    "name": "press",
    "t": 5.75,
    "nearest16th": 5.757,
-   "errMs": -7,
-   "frames": -0.21
+   "errMs": -6.7,
+   "frames": -0.2
   },
   {
    "name": "myth",
    "t": 4.25,
    "nearest16th": 4.257,
-   "errMs": -7,
-   "frames": -0.21
+   "errMs": -6.7,
+   "frames": -0.2
   },
   {
    "name": "strike",
    "t": 6.5,
    "nearest16th": 6.507,
-   "errMs": -7,
-   "frames": -0.21
+   "errMs": -6.7,
+   "frames": -0.2
   },
   {
    "name": "strike",
    "t": 6.625,
    "nearest16th": 6.632,
-   "errMs": -7,
-   "frames": -0.21
+   "errMs": -6.8,
+   "frames": -0.2
   },
   {
    "name": "graze",
    "t": 7.25,
    "nearest16th": 7.257,
-   "errMs": -7.1,
-   "frames": -0.21
+   "errMs": -6.8,
+   "frames": -0.2
   },
   {
    "name": "q3",
    "t": 8.75,
    "nearest16th": 8.757,
-   "errMs": -7.1,
-   "frames": -0.21
+   "errMs": -6.8,
+   "frames": -0.2
   },
   {
    "name": "lift",
    "t": 10,
    "nearest16th": 10.007,
-   "errMs": -7.1,
+   "errMs": -6.9,
    "frames": -0.21
   },
   {
    "name": "dive",
    "t": 10.75,
    "nearest16th": 10.757,
-   "errMs": -7.1,
+   "errMs": -6.9,
    "frames": -0.21
   },
   {
    "name": "arcs",
    "t": 11.75,
    "nearest16th": 11.757,
-   "errMs": -7.1,
+   "errMs": -6.9,
    "frames": -0.21
   },
   {
    "name": "q4",
    "t": 14.75,
    "nearest16th": 14.757,
-   "errMs": -7.2,
+   "errMs": -7,
    "frames": -0.21
   },
   {
    "name": "steal",
    "t": 15.75,
    "nearest16th": 15.757,
-   "errMs": -7.2,
-   "frames": -0.22
+   "errMs": -7,
+   "frames": -0.21
   },
   {
    "name": "a4",
    "t": 16.75,
    "nearest16th": 16.757,
-   "errMs": -7.2,
-   "frames": -0.22
+   "errMs": -7.1,
+   "frames": -0.21
   },
   {
    "name": "scan",
    "t": 19.75,
    "nearest16th": 19.757,
-   "errMs": -7.2,
-   "frames": -0.22
+   "errMs": -7.1,
+   "frames": -0.21
   },
   {
    "name": "scan",
    "t": 19.875,
    "nearest16th": 19.882,
    "errMs": -7.2,
-   "frames": -0.22
+   "frames": -0.21
   },
   {
    "name": "scan",
    "t": 20,
    "nearest16th": 20.007,
    "errMs": -7.2,
-   "frames": -0.22
+   "frames": -0.21
   },
   {
    "name": "scan",
    "t": 20.125,
    "nearest16th": 20.132,
    "errMs": -7.2,
-   "frames": -0.22
+   "frames": -0.21
   },
   {
    "name": "scan",
    "t": 20.25,
    "nearest16th": 20.257,
    "errMs": -7.2,
-   "frames": -0.22
+   "frames": -0.21
   },
   {
    "name": "scan",
@@ -287,7 +287,7 @@
    "name": "scan",
    "t": 20.625,
    "nearest16th": 20.632,
-   "errMs": -7.3,
+   "errMs": -7.2,
    "frames": -0.22
   },
   {
@@ -301,7 +301,7 @@
    "name": "name",
    "t": 22,
    "nearest16th": 22.007,
-   "errMs": -7.3,
+   "errMs": -7.2,
    "frames": -0.22
   },
   {
@@ -385,15 +385,15 @@
    "name": "swing",
    "t": 14.75,
    "nearest16th": 14.757,
-   "errMs": -7.2,
+   "errMs": -7,
    "frames": -0.21
   },
   {
    "name": "swing",
    "t": 19.25,
    "nearest16th": 19.257,
-   "errMs": -7.2,
-   "frames": -0.22
+   "errMs": -7.1,
+   "frames": -0.21
   },
   {
    "name": "swing",
@@ -413,149 +413,149 @@
    "name": "saus",
    "t": 30.75,
    "nearest16th": 30.757,
-   "errMs": -7.4,
+   "errMs": -7.5,
    "frames": -0.22
   },
   {
    "name": "sLock",
    "t": 31.25,
    "nearest16th": 31.257,
-   "errMs": -7.4,
+   "errMs": -7.5,
    "frames": -0.22
   },
   {
    "name": "wake",
    "t": 31.5,
-   "nearest16th": 31.507,
-   "errMs": -7.4,
-   "frames": -0.22
+   "nearest16th": 31.508,
+   "errMs": -7.5,
+   "frames": -0.23
   },
   {
    "name": "unlock",
    "t": 33.25,
-   "nearest16th": 33.257,
-   "errMs": -7.4,
-   "frames": -0.22
+   "nearest16th": 33.258,
+   "errMs": -7.6,
+   "frames": -0.23
   },
   {
    "name": "iconTap",
    "t": 34.25,
-   "nearest16th": 34.257,
-   "errMs": -7.5,
-   "frames": -0.22
+   "nearest16th": 34.258,
+   "errMs": -7.6,
+   "frames": -0.23
   },
   {
    "name": "inset",
    "t": 30.875,
    "nearest16th": 30.882,
-   "errMs": -7.4,
+   "errMs": -7.5,
    "frames": -0.22
   },
   {
    "name": "tg",
    "t": 35.25,
-   "nearest16th": 35.257,
-   "errMs": -7.5,
-   "frames": -0.22
+   "nearest16th": 35.258,
+   "errMs": -7.6,
+   "frames": -0.23
   },
   {
    "name": "dive2",
    "t": 35.5,
-   "nearest16th": 35.507,
-   "errMs": -7.5,
-   "frames": -0.22
+   "nearest16th": 35.508,
+   "errMs": -7.6,
+   "frames": -0.23
   },
   {
    "name": "yarn",
    "t": 36.75,
-   "nearest16th": 36.757,
-   "errMs": -7.5,
-   "frames": -0.22
+   "nearest16th": 36.758,
+   "errMs": -7.7,
+   "frames": -0.23
   },
   {
    "name": "lock2",
    "t": 37.25,
-   "nearest16th": 37.257,
-   "errMs": -7.5,
-   "frames": -0.22
+   "nearest16th": 37.258,
+   "errMs": -7.7,
+   "frames": -0.23
   },
   {
    "name": "q9",
    "t": 38.75,
    "nearest16th": 38.758,
-   "errMs": -7.5,
+   "errMs": -7.7,
    "frames": -0.23
   },
   {
    "name": "ring2",
    "t": 39,
    "nearest16th": 39.008,
-   "errMs": -7.5,
+   "errMs": -7.7,
    "frames": -0.23
   },
   {
    "name": "sw3",
    "t": 40,
    "nearest16th": 40.008,
-   "errMs": -7.5,
+   "errMs": -7.8,
    "frames": -0.23
   },
   {
    "name": "ka",
    "t": 40.5,
    "nearest16th": 40.508,
-   "errMs": -7.5,
+   "errMs": -7.8,
    "frames": -0.23
   },
   {
    "name": "fin",
    "t": 41.25,
    "nearest16th": 41.258,
-   "errMs": -7.6,
+   "errMs": -7.8,
    "frames": -0.23
   },
   {
    "name": "tip",
    "t": 44.25,
    "nearest16th": 44.258,
-   "errMs": -7.6,
-   "frames": -0.23
+   "errMs": -7.9,
+   "frames": -0.24
   },
   {
    "name": "toggle",
    "t": 45.25,
    "nearest16th": 45.258,
-   "errMs": -7.6,
-   "frames": -0.23
+   "errMs": -7.9,
+   "frames": -0.24
   },
   {
    "name": "tipHand",
    "t": 44.5,
    "nearest16th": 44.508,
-   "errMs": -7.6,
-   "frames": -0.23
+   "errMs": -7.9,
+   "frames": -0.24
   },
   {
    "name": "endType",
    "t": 49,
    "nearest16th": 49.008,
-   "errMs": -7.7,
-   "frames": -0.23
+   "errMs": -8,
+   "frames": -0.24
   },
   {
    "name": "ep",
    "t": 49.5,
    "nearest16th": 49.508,
-   "errMs": -7.7,
-   "frames": -0.23
+   "errMs": -8,
+   "frames": -0.24
   },
   {
    "name": "sting",
    "t": 50,
    "nearest16th": 50.008,
-   "errMs": -7.7,
-   "frames": -0.23
+   "errMs": -8.1,
+   "frames": -0.24
   }
  ],
- "worstHitErrorFrames": 0.23
+ "worstHitErrorFrames": 0.24
 }

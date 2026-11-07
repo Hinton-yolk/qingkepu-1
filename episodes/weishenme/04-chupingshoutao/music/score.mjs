@@ -16,7 +16,7 @@ import { createRequire } from "node:module";
 import { writeFileSync } from "node:fs";
 const require = createRequire(import.meta.url);
 const TL = require("../timeline.js");
-const { T, DUR, HITS, buzzK } = TL;
+const { T, DUR, HITS, buzzK, buzzVis } = TL;
 
 const SR = 48000, N = Math.ceil(SR * (DUR + 0.6)), TAU = Math.PI * 2, BEAT = 0.5, BAR = 2, S16 = BEAT / 4;
 const bus = () => [new Float32Array(N), new Float32Array(N)];
@@ -190,7 +190,7 @@ const VIB = bus();
 {
   let ph = 0; const lp = svf();
   for (let n = 0; n < Math.floor(DUR * SR); n++) {
-    const t = n / SR, b = buzzK(t); if (b <= 0 || silent(t)) { lp(0, 600); continue; }
+    const t = n / SR, b = buzzVis(t); if (b <= 0 || silent(t)) { lp(0, 600); continue; }
     const lev = t < T.myth ? 1 : t < T.a2 ? 0.7 : t < T.dive ? 0.45 * (1 - (t - T.a2) / (T.dive - T.a2)) : t >= T.ring2 ? 0.9 : 0;
     ph = (ph + 146.83 / SR) % 1;
     const s = 0.6 * Math.sin(TAU * ph) + 0.3 * Math.sin(TAU * 2 * ph) + 0.15 * sawBL(ph, 146.83 / SR);
