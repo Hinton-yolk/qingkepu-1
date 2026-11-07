@@ -376,7 +376,7 @@ string('inv-RD', edge('V6'), ctop('RD', 250)); gocard('RD')
 t0 = g8(now()); speak('X44'); hw = g8(max(t0 + 0.25, span('X44', '在高速上')[0])); mt = g8(max(hw + 0.75, span('X44', '还是在山路上')[0]))
 clabel('RD', '“能跑 200 公里每小时”', 0, -410, t0 + 0.25, size=40); clabel('RD', '在高速上？', 260, -100, hw, size=40); clabel('RD', '还是在山路上？', 220, 400, mt, size=40, bg='red')
 sfx(hw, 'whoosh', dur=0.5, g=0.06); sfx(mt, 'thock')
-after('X44', 0.375); adv(max(0, g8(mt + 1.5 - now()))); CUE['RD'] = dict(t0=t0, hw=hw, mt=mt, end=now()); hold(0, 0)
+after('X44', 0.375); adv(max(0, g8(mt + 1.5 - now()))); CUE['RD'] = dict(t0=t0, hw=t0 + 0.25, mt=mt, end=now()); hold(0, 0)       # 高速一进来就在跑；山路在说到时出现
 string('RD-ask', cbot('RD', 250), edge('Q1', 'l')); gost('ask', 1.0, 'sine', 0.12)
 speak('X45'); fwin('ask', ['Q1', 'Q1b', 'Q2', 'Q3', 'Q4', 'Q5'], 'X45'); vmark('Q1', 'hl', '我们的芯片', 'X45', '我们的芯片'); vmark('Q1b', 'hl', '能跑200G', 'X45', '能跑 200G、400G、800G')
 MARKS[-1]['segs'][-1][2] = round(MARKS[-1]['segs'][-1][2] + INS_W, 2)      # 荧光笔一直划到接上去的「/400G/800G…」
@@ -391,17 +391,17 @@ after('X46', 0.375); CUE['K11'] = dict(t0=t0, claim=claim, qs=qs, res=res, end=n
 ally = [c['at'][1] for c in CLIPS.values()] + [c['at'][1] for c in CARDS.values()]
 OVER = dict(x=850, y=round((min(ally) + max(ally)) / 2), z=round(1920 / (max(ally) - min(ally) + 1400), 4))
 go([OVER['x'], OVER['y']], OVER['z'], 1.5, 'cubic', 0.16); hold(0.5, 0.03)
-eb = STACKS['end']['bb']; he = CARDS['HE']; top_, bot_ = eb[1], he['at'][1] + he['h'] / 2 + 140
-zE = round(min(SZ('end'), (1440 - 235) / (bot_ - top_ + 40)), 3); go([SC('end')[0], round((top_ + bot_) / 2 + (960 - (235 + 1440) / 2) / zE, 1)], zE, 1.5, 'cubic', 0.10); arrive('end')
+gost('end', 1.5, 'cubic', 0.10)
 speak('X47'); fwin('end', ['E0', 'E1', 'E2', 'E3', 'E4'], 'X47')
 vmark('E0', 'hl', '一句话带走', 'X47', '一句话带走'); vmark('E1', 'hl', '变弱、拖尾', 'X47', '变弱、拖尾'); vmark('E2', 'hl', '越快、越远就越难认清', 'X47', '越快、越远，就越难认清')
 vmark('E3', 'hl', '把路修短、把路修好', 'X47', '把路修短、把路修好'); vmark('E4', 'hl', '在路上修信号', 'X47', '在路上修信号')
-hq = g8(span('X47', '办法是')[0]); CUE['HE'] = dict(t0=hq, end=hq + 1)
-after('X47', 0.375)
+after('X47', 0.25); hold(0, 0)
+# 一句话带走读完，镜头下移到小路线图：你在这里 → 下一篇
+he = CARDS['HE']; go([he['at'][0], he['at'][1] - 40], 1.15, 1.0); hq = g8(now() - 0.5); CUE['HE'] = dict(t0=hq, end=hq + 1)
 speak('X48'); after('X48', 0.125)
 def rightof(cid, gap=50): c = CLIPS[cid]; return [round(c['at'][0] + (c['crop'][2] - c['crop'][0]) * c['k'] / 2 + gap, 1), c['at'][1]]
-label('下一篇：路上的检修站', [SC('end')[0], round(he['at'][1] + he['h'] / 2 + 60, 1)], LINE['X48'], size=28, r=-0.01)
-label('白话光互连 · 03', rightof('E0'), LINE['X48'] + 0.5, size=24, align='left', bg='red', r=-0.02)
+label('下一篇：路上的检修站', [he['at'][0], round(he['at'][1] + he['h'] / 2 + 60, 1)], LINE['X48'], size=34, r=-0.01)
+label('白话光互连 · 03', rightof('E0'), LINE['X47'] + 0.5, size=24, align='left', bg='red', r=-0.02)
 hold(2.25, 0.02)
 
 # ---------- 字幕 ----------
