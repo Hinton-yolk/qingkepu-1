@@ -227,9 +227,10 @@ LENS = dict(at=[0, 0], zin=[1e6, 1e6 + 1], open=[1e6, 1e6 + 1], sharp=1e6, shave
 cam(0, PC('RK', 0, -20), 1.08, 'lin')
 clabel('RK', '最先进的 AI 机柜，为什么塞满铜线？', 0, -570, 0, size=46, bg='red', r=-0.012, rate=400)
 adv(0.125); speak('D1'); after('D1', 0.25)
-speak('D2'); k_ = g8(span('D2', '几千根铜缆')[0]); clabel('RK', '几千根铜缆', 300, 380, k_, size=46, r=-0.02); after('D2', 0.125)
+speak('D2'); mag = g8(LINE['D2']); k_ = g8(span('D2', '几千根铜缆')[0]); clabel('RK', '几千根铜缆', 300, 380, k_, size=46, r=-0.02); after('D2', 0.125)
+clabel('RK', '柜里距离短：信号还清楚', 120, 100, mag + 0.5, size=40); sfx(mag, 'thock')        # 用户 2026-11-07：第一个演示太晚，2 秒放大镜钻进一根铜缆
 speak('D3'); fb_ = g8(span('D3', '换成光')[0]); clabel('RK', '不是要换成光吗？', 300, -520, fb_, size=40, bg='#3fb5a5'); sfx(fb_, 'laser')
-after('D3', 0.125); CUE['RK'] = dict(t0=0, fiber=fb_, end=now()); hold(0, 0.05)
+after('D3', 0.125); CUE['RK'] = dict(t0=0, mag=mag, fiber=fb_, end=now()); hold(0, 0.05)
 # --- 快递路线图：亮第二站「路上」 ---
 string('RK-RT', cbot('RK', 300), ctop('RT', -250)); gocard('RT', 1.15, 0.75)
 t0 = g8(now()); speak('D4'); lit = g8(max(t0 + 0.5, span('D4', '铜线这一段路')[0]))
