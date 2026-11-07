@@ -80,7 +80,9 @@ const drawClip = (c, id, t, view) => {
 // ---------- 卡片 ----------
 const drawCard = (c, id, t, view) => {
   const cd = D.cards[id]; if (cd.at[0] + cd.w / 2 + 80 < view[0] || cd.at[0] - cd.w / 2 - 80 > view[2] || cd.at[1] + cd.h / 2 + 80 < view[1] || cd.at[1] - cd.h / 2 - 80 > view[3]) return;
-  c.save(); c.translate(cd.at[0], cd.at[1]); c.rotate(cd.r);
+  // 环境动态：卡片和纸条一样，在台灯下轻轻晃（±0.2°、±2 px）
+  const sd = id.length * 13 + id.charCodeAt(0) + id.charCodeAt(id.length - 1), A_ = window.NO_AMBIENT ? 0 : 1, sway = A_ * (Math.sin(t * 2 * Math.PI / (2.9 + (sd % 5) * 0.31) + sd) + 0.6 * Math.sin(t * 2 * Math.PI / (1.8 + (sd % 4) * 0.21) + sd * 2.3)), lift = A_ * (Math.sin(t * 2 * Math.PI / 3.3 + sd * 1.7) + 0.5 * Math.sin(t * 2 * Math.PI / 2.1 + sd));
+  c.save(); c.translate(cd.at[0] + 1.5 * sway, cd.at[1] + 2 * lift); c.rotate(cd.r + 0.0032 * sway);
   if (!cd.bare) {                                   // bare：直接摆在桌上的实物（雷电线、小路线图），不垫黑卡片
   c.save(); c.translate(-cd.w / 2, -cd.h / 2); c.shadowColor = 'rgba(40,30,15,.35)'; c.shadowBlur = 12; c.shadowOffsetX = 3; c.shadowOffsetY = 7; c.fillStyle = COL.card;
     CL.tornRect(c, cd.w, cd.h, 70 + id.length * 7 + id.charCodeAt(id.length - 1), 4); c.fill(); c.restore();
@@ -172,7 +174,7 @@ const drawLens = (c, t, k) => {
   if (t > L.open[0] && t < L.out[0]) { const e = MO.cubicInOut(seg(t, L.open[0], L.open[1])); R = 1300 * Math.pow(e, 2.2); lc = [lerp(zs[0], 540, MO.smooth(e)), lerp(zs[1], 960, MO.smooth(e))]; sc = lerp(0.3, 1, e); }
   else if (t >= L.out[0] && t < L.out[1]) { R = 1300 * Math.pow(k.z / L.zmax, 1.15) * (1 - seg(t, L.out[1] - 0.25, L.out[1] - 0.05)); sc = Math.max(0.02, R / 1300); }
   if (R <= 1) return;
-  c.save(); c.beginPath(); c.arc(lc[0], lc[1], R, 0, 7); c.clip(); c.translate(lc[0], lc[1]); c.scale(sc, sc); c.translate(-540, -960); drawCross(c, t); c.restore();
+  c.save(); c.beginPath(); c.arc(lc[0], lc[1], R, 0, 7); c.clip(); c.translate(lc[0], lc[1]); c.scale(sc, sc); if (!window.NO_AMBIENT && t > L.open[1]) { const dz = 1 + 0.06 * seg(t, L.open[1], L.out[0]); c.scale(dz, dz); } c.translate(-540, -960); drawCross(c, t); c.restore();   // 放大镜头里慢慢推近，不出现静止
   c.save(); c.strokeStyle = COL.tealHi; c.lineWidth = 6; c.beginPath(); c.arc(lc[0], lc[1], R, 0, 7); c.stroke(); c.restore();
 };
 
