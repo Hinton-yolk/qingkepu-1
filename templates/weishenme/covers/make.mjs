@@ -29,10 +29,10 @@ const COVERS = [
     hero: "ep03-hero-xhs", heroDy: 0, anchor: A["ep03-hero-xhs"], inset: { img: "ep03-inset", cx: 560, cy: 1000, src: 430, x: 830, y: 1215, r: 175 },
     ser: 108, t1: 252, t2: 398, size: 128, wash: 540 },
   { out: "ep04-douyin", W: 1080, H: 1920, ep: "EP.04", title: ["戴着手套，", "为什么点不动<b>屏幕</b>？"],
-    hero: "ep04-hero-dy", heroDy: 0, anchor: A["ep04-hero-dy"], inset: { img: "ep04-inset", cx: 420, cy: 1110, src: 330, x: 850, y: 1500, r: 195 },
+    hero: "ep04-hero-dy", heroDy: 0, anchor: A["ep04-hero-dy"], inset: { img: "ep04-inset", cx: 375, cy: 1125, src: 330, x: 880, y: 960, r: 180 },
     ser: 300, t1: 452, t2: 602, size: 124, wash: 760 },
   { out: "ep04-xiaohongshu", W: 1080, H: 1440, ep: "EP.04", title: ["戴着手套，", "为什么点不动<b>屏幕</b>？"],
-    hero: "ep04-hero-xhs", heroDy: 0, anchor: A["ep04-hero-xhs"], inset: { img: "ep04-inset", cx: 420, cy: 1110, src: 330, x: 850, y: 1215, r: 175 },
+    hero: "ep04-hero-xhs", heroDy: 0, anchor: A["ep04-hero-xhs"], inset: { img: "ep04-inset", cx: 375, cy: 1125, src: 330, x: 875, y: 770, r: 165 },
     ser: 108, t1: 252, t2: 398, size: 120, wash: 480 },
 ];
 const ONLY = process.argv[2];                                   // node make.mjs ep04 → only those covers
