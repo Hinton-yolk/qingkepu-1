@@ -16,8 +16,9 @@ const kw = (id, w, k = 0, end = false) => { const l = L[id]; if (!l) throw new E
   const ii = end ? Math.min(l.ch.length - 1, i + w.length - 1) : i; return end ? Math.min(l.t1, l.ch[ii] + 0.12) : l.ch[ii]; };
 const txt = (c, s, x, y, { size = 40, fam = 'PuHui-Medium', col = COL.cream, align = 'left', base = 'middle', alpha = 1 } = {}) => {
   c.save(); c.globalAlpha *= alpha; c.font = `${size}px "${fam}"`; c.fillStyle = col; c.textAlign = align; c.textBaseline = base; c.fillText(s, x, y); c.restore(); };
-const tape = (c, s, x, y, o = {}) => MD.label(c, s, x, y, { size: 52, align: 'center', bg: COL.red, fg: '#f6efe4', ...o });
-const tag = (c, s, x, y, o = {}) => MD.label(c, s, x, y, { size: 44, align: 'center', bg: COL.cream, fg: COL.ink, ...o });
+const NVK = D.novoice ? 1.25 : 1;                 // 纯动画版：没有旁白，画面里的字放大 25%
+const tape = (c, s, x, y, o = {}) => MD.label(c, s, x, y, { size: 52, align: 'center', bg: COL.red, fg: '#f6efe4', ...o, ...(o.size ? { size: o.size * NVK } : { size: 52 * NVK }) });
+const tag = (c, s, x, y, o = {}) => MD.label(c, s, x, y, { size: 44, align: 'center', bg: COL.cream, fg: COL.ink, ...o, ...(o.size ? { size: o.size * NVK } : { size: 44 * NVK }), maxW: 1000 });
 // 弹出：0→1，带一点回弹（12 fps 步进，像纸片被按上去）
 const pop = (t, at, d = 0.25) => MO.backOut(clamp((MO.step(t, 24) - at) / d), 2.2);
 const E = { s: MO.smooth, c: MO.cubicInOut, o: MO.quintOut, l: MO.longTail, b: MO.backOut };
@@ -148,6 +149,11 @@ const SP_MECH_ROUTE = (c, t, sh) => {
   txt(c, '发件', 160, 1460, { size: 34, fam: 'PuHui-Heavy', col: COL.creamDim, align: 'center' }); txt(c, '收件', 930, 200, { size: 34, fam: 'PuHui-Heavy', col: COL.creamDim, align: 'center' });
   if (SP.ROUTE_EXTRA) SP.ROUTE_EXTRA(c, t, sh);
 };
+// 纯动画版：贴在画面里的短字（D.caps：[开始, 结束, 字, x, y]）
+const drawCaps = (c, t) => { (D.caps || []).forEach(([a, b, s, x, y]) => { if (t < a || t > b) return; const q = Math.min(1, pop(t, a, 0.2)), out = 1 - seg(t, b - 0.15, b);
+  c.save(); c.globalAlpha = out; c.translate(x, y); c.scale(0.9 + 0.1 * q, 0.9 + 0.1 * q); c.font = '64px "PuHui-Heavy"'; const w = c.measureText(s).width + 70, h = 108;
+  c.save(); c.translate(-w / 2, -h / 2); c.shadowColor = 'rgba(0,0,0,.55)'; c.shadowBlur = 18; c.fillStyle = '#0f0f0e'; CL.tornRect(c, w, h, s.length * 7 + 3, 4); c.fill(); c.restore();
+  c.fillStyle = '#f6efe4'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(s, 0, 4); c.restore(); }); };
 window.SP = { deskType, phone, D, L, W, H, COL, kw, txt, tape, tag, pop, ease, seg, darkBg, deskBg, deskShot, hookText, endCard, hlBand, MECH: {}, STN };
 
 SP.MECH.route = (...a) => SP_MECH_ROUTE(...a);
@@ -163,7 +169,7 @@ SCENES.split = {
       for (let i = 24; i >= 0; i--) c.lineTo(W * i / 24, yE + (r() - .5) * 28); c.closePath(); c.clip(); c.drawImage(B, 0, 0); c.restore();
       c.save(); c.strokeStyle = 'rgba(0,0,0,.25)'; c.lineWidth = 6; c.beginPath(); const r2 = U.rng(k * 13 + 1); for (let i = 24; i >= 0; i--) { const yy = yE + (r2() - .5) * 28; i === 24 ? c.moveTo(W, yy) : c.lineTo(W * i / 24, yy); } c.stroke(); c.restore(); }
     else paint(c, sh);
-    drawHud(c, t); drawSubs(c, t, sh);
+    drawHud(c, t); drawSubs(c, t, sh); drawCaps(c, t);
   },
 };
 })();

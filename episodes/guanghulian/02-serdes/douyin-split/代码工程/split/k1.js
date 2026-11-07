@@ -31,11 +31,11 @@ SP.MECH.photo = (c, t, sh) => {
     g.fillStyle = '#95ec69'; g.beginPath(); g.roundRect(x + w - 240, y + 740, 190, 66, 16); g.fill(); txt(g, '已发送', x + w - 145, y + 774, { size: 30, fam: 'PuHui-Heavy', col: '#1b1b1a', align: 'center' }); });
   c.restore();
   if (go < 0.15) { const lx = W / 2 + 70, ly = 860 - 540 + 180 + 520 * 6.5 / NS; c.save(); c.strokeStyle = COL.redHi; c.lineWidth = 5; c.beginPath(); c.moveTo(170, ly + 150); c.lineTo(lx - 150, ly); c.stroke(); c.restore();
-    tag(c, '晚到半步的一条', 230, ly + 180, { size: 48, bg: COL.coral, fg: COL.ink, r: -0.03 }); }
+    tag(c, '晚到半步的一条', 300, ly + 180, { size: 48, bg: COL.coral, fg: COL.ink, r: -0.03 }); }
   if (go > 0) { const p = clamp((t - tGo + 0.3) / 1.0), px = lerp(300, 760, MO.cubicInOut(p)), py = lerp(560, 1050, MO.cubicInOut(p)) - 200 * Math.sin(Math.PI * p), sc = lerp(0.5, 0.25, p);
     T.chip(c, 760, 1100, 360, 360, { label: '芯片', t: t * 1.5, glow: seg(t, tGo + 0.3, tGo + 0.7) });
     if (p < 1) { c.save(); c.translate(px, py); c.rotate(0.3 * p); c.scale(sc, sc); assembled(c, -200, -260, 400, 520, Array(NS).fill(0)); c.restore(); } }
-  hookText(c, t, ['你发出去的每张照片，', '在芯片之间都要跑一趟。'], { y: 1420, size: 52, ids: ['p01', 'p02'], bg: '#0f0f0e' });
+  if (!SP.D.novoice) hookText(c, t, ['你发出去的每张照片，', '在芯片之间都要跑一趟。'], { y: 1420, size: 52, ids: ['p01', 'p02'], bg: '#0f0f0e' });
 };
 
 // ---------- 2. 照片切成 12 条、各走一条路 → 慢：拼得严丝合缝 → 一快：一张紧跟一张、一条晚到半步拼进下一张 → 照片错位 → 转账错一位 → 路越多越难一样长 ----------
@@ -88,7 +88,7 @@ SP.MECH.strips = (c, t, sh) => {
     SP.phone(c, 0, 0, 560, 900, (g, x, y, w, h) => { chatBg(g, x, y, w, h); const flip = t > tFlip;
       const card = (yy, amt, col, lab) => { g.fillStyle = col; g.beginPath(); g.roundRect(x + 40, yy, w - 80, 200, 18); g.fill(); txt(g, lab, x + 70, yy + 50, { size: 30, fam: 'PuHui-Heavy', col: '#fff' }); txt(g, amt, x + 70, yy + 130, { size: 76, fam: 'PuHui-Heavy', col: '#fff' }); };
       card(y + 180, '¥ 520.00', '#f0a043', '发出：转账'); card(y + 440, flip ? '¥ 528.00' : '¥ 520.00', flip ? '#c8503f' : '#f0a043', '收到：转账'); }); c.restore();
-    if (t > tFlip) tag(c, '错一位（示意）', W / 2 + 150, 1100, { size: 44, bg: COL.coral, fg: COL.ink, t, at: tFlip }); }
+    if (t > tFlip) tag(c, '错一位（示意）', W / 2 + 60, 1330, { size: 44, bg: COL.coral, fg: COL.ink, t, at: tFlip }); }
   if (t > tAll - 0.2) { const [tx, ty] = T.P(k, 0, 300, 2600); tag(c, '路越多，越难条条一样长', tx, ty, { size: 44, bg: COL.coral, fg: COL.ink, t, at: tAll - 0.2 }); }
 };
 
