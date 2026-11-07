@@ -1,114 +1,119 @@
 [
  {
-  "id": "z01",
+  "id": "u01",
   "text": "AI 芯片的新闻，",
   "sub": null,
   "big": "AI 芯片的新闻，",
   "seg": "open",
-  "reuse": "c01"
+  "reuse": "c01",
+  "say": "AI 芯片的新闻，"
  },
  {
-  "id": "z02",
+  "id": "u02",
   "text": "天天在说速度翻倍。",
   "sub": null,
   "big": "天天在说速度翻倍。",
   "seg": "open",
-  "reuse": "c02"
+  "reuse": "c02",
+  "say": "天天在说速度翻倍。"
  },
  {
-  "id": "z03",
+  "id": "u03",
   "text": "可这就像汽车说最高时速 300，没说是在什么路上跑的。",
   "sub": "最高时速 300，在什么路上？",
   "big": null,
   "seg": "open",
-  "reuse": "c03"
+  "reuse": "c03",
+  "say": "可这就像汽车说最高时速 300，没说是在什么路上跑的。"
  },
  {
-  "id": "z04",
+  "id": "u04",
   "text": "看懂这类新闻，先问三个问题。",
   "sub": null,
   "big": null,
   "seg": "open",
-  "reuse": null
+  "reuse": "z04",
+  "say": "看懂这类新闻，先问三个问题。"
  },
  {
-  "id": "z05",
+  "id": "u05",
   "text": "第一问：在什么路上跑出来的？",
   "sub": null,
   "big": null,
   "seg": "explain",
-  "reuse": null
+  "reuse": "z05",
+  "say": "第一问：在什么路上跑出来的？"
  },
  {
-  "id": "z06",
+  "id": "u06",
   "text": "同样写着 224G，一个能推过一米长的铜缆，一个只跑几厘米。",
   "sub": "同样 224G：一米，还是几厘米",
   "big": null,
   "seg": "explain",
-  "reuse": "c03b"
+  "reuse": "c03b",
+  "say": "同样写着 224G，一个能推过一米长的铜缆，一个只跑几厘米。"
  },
  {
-  "id": "z07",
-  "text": "路越长、损耗越大，越难跑。",
-  "sub": null,
-  "big": null,
-  "seg": "explain",
-  "reuse": null
- },
- {
-  "id": "z08",
+  "id": "u07",
   "text": "第二问：每传一个比特，花多少电？",
   "sub": null,
   "big": null,
   "seg": "explain",
-  "reuse": null
+  "reuse": "z08",
+  "say": "第二问：每传一个比特，花多少电？"
  },
  {
-  "id": "z09",
-  "text": "要是每个比特的电降不下来，速度翻倍，耗电也跟着翻倍。几万颗芯片一起跑，每一点电都是成本。",
-  "sub": "速度翻倍，耗电也可能翻倍",
+  "id": "u08",
+  "text": "每个比特的电降不下来，速度翻倍，电费也跟着翻倍；几万颗芯片一起跑，这就是真金白银。",
+  "sub": "速度翻倍，电费也翻倍",
   "big": null,
   "seg": "explain",
-  "reuse": null
+  "reuse": null,
+  "say": "每个比特的电降不下来，速度翻倍，电费也跟着翻倍；几万颗芯片一起跑，这就是真金白银。"
  },
  {
-  "id": "z10",
-  "text": "第三问：在真实芯片上跑通了吗？",
+  "id": "u09",
+  "text": "第三问：是 PPT 上的速度，还是真芯片测出来的？",
   "sub": null,
   "big": null,
   "seg": "reveal",
-  "reuse": null
+  "reuse": null,
+  "say": "第三问：是 PPT 上的速度，还是真芯片测出来的？"
  },
  {
-  "id": "z11",
-  "text": "纸面和仿真里的速度，和真做出芯片、测出来的速度，是两回事。",
-  "sub": "仿真 ≠ 实测",
+  "id": "u10",
+  "text": "做出来、测出来，才算数。",
+  "sub": null,
   "big": null,
   "seg": "reveal",
-  "reuse": null
+  "reuse": null,
+  "say": "做出来、测出来，才算数。"
  },
  {
-  "id": "z12",
+  "id": "u11",
   "text": "一句话带走：",
   "sub": null,
   "big": null,
   "seg": "end",
-  "reuse": "a19"
+  "reuse": "a19",
+  "say": "一句话带走："
  },
  {
-  "id": "z13",
-  "text": "下次看到速度翻倍，先问三句：什么路？多少电？跑通没有？",
+  "id": "u12",
+  "text": "下次看到速度翻倍，先问：什么路？多少电？测过没有？",
   "sub": null,
   "big": null,
   "seg": "end",
-  "reuse": null
+  "reuse": null,
+  "say": "下次看到速度翻倍，先问：什么路？多少电？测过没有？"
  },
  {
-  "id": "z14",
+  "id": "u13",
   "text": "下一条：信号上路以后，为什么会越跑越模糊？",
   "sub": null,
   "big": null,
   "seg": "end",
-  "reuse": null
+  "reuse": "z14",
+  "say": "下一条：信号上路以后，为什么会越跑越模糊？"
  }
 ]

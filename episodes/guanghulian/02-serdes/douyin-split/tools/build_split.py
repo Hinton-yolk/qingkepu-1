@@ -6,13 +6,14 @@ N = sys.argv[1]; SRC = '/home/user/kepu-studio/episodes/guanghulian/02-serdes/do
 S = json.load(open(f'{SRC}/script_{N}.json')); A = json.load(open(f'{SRC}/align_{N}.json'))
 TK = lambda text, line, a=None, b=None: dict(text=text, line=line, **{'from': a}, to=b)
 SHOTS = {
- 's1': [('ai', 'x01'), ('few', 'x04'), ('lanes', 'x07'), ('serial', 'x13'),
-        ('take', 'x14', [TK('一句话带走', 'x14'), TK('路少不是退步。', 'x15', '路少', '退步'), TK('速度一高，「一起到」', 'x15', '速度', '一起到'), TK('比「路多」更难。', 'x15', '比', '更难')])],
- 's2': [('video', 'y01'), ('beat', 'y06'), ('scramble', 'y10'),
-        ('take', 'y12', [TK('一句话带走', 'y12'), TK('芯片不是在看 0 和 1，', 'y13', '芯片', '0 和 1'), TK('是在听节拍：', 'y13', '是在', '节拍'), TK('每一次跳变，都是它的节拍器。', 'y13', '每一次', '节拍器')])],
- 's3': [('news', 'z01'), ('road', 'z05'), ('power', 'z08'), ('real', 'z10'),
-        ('take', 'z12', [TK('一句话带走', 'z12'), TK('看到「速度翻倍」，先问三句：', 'z13', '下次', '三句'), TK('什么路？多少电？', 'z13', '什么路', '多少电'), TK('跑通没有？', 'z13', '跑通', '没有')])],
+ 's1': [('tunnel', 'w01'), ('race', 'w05'), ('serial', 'w09'),
+        ('take', 'w10', [TK('一句话带走', 'w10'), TK('速度一高，「一起到」', 'w11', '速度', '一起到'), TK('比「路多」更难。', 'w11', '比', '更难')])],
+ 's2': [('ribbon', 'v01'), ('beat', 'v05'), ('scramble', 'v09'),
+        ('take', 'v11', [TK('一句话带走', 'v11'), TK('芯片不是在看 0 和 1，', 'v12', '芯片', '0 和 1'), TK('是在听节拍。', 'v12', '是在', '节拍')])],
+ 's3': [('x2', 'u01'), ('road', 'u05'), ('power', 'u07'), ('ppt', 'u09'),
+        ('take', 'u11', [TK('一句话带走', 'u11'), TK('什么路？多少电？', 'u12', '什么路', '多少电'), TK('测过没有？', 'u12', '测过', '没有')])],
 }[N]
+HOLD = {'w07': 1.1, 'v07': 0.9, 'u09': 0.8}   # 高潮后的停顿（慢动作 / 咔一下 / 碎掉），秒
 LEAD, TAIL = 0.35, 1.6
 t = LEAD; lines = []; prev = None
 for i, s in enumerate(S):
@@ -32,7 +33,7 @@ for i, s in enumerate(S):
         cs = list(c)
         for j, _ in enumerate(cs): ch.append(round(t0 + (u0 - a['on']) + (u1 - u0) * j / max(1, len(cs)), 3))
     lines.append(dict(id=s['id'], t0=round(t0, 3), t1=round(t1, 3), clip=round(t0 - a['on'], 3), text=''.join(cl), ch=ch, sub=s['sub'], big=s['big'], seg=s['seg'], src=s.get('src', '')))
-    t = t1; prev = s
+    t = t1 + HOLD.get(s['id'], 0); prev = s
 dur = round(t + TAIL, 2)
 L = {x['id']: x for x in lines}; shots = []
 for k, (kind, first, *rest) in enumerate(SHOTS):
