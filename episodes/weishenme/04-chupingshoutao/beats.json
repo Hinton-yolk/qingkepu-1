@@ -403,20 +403,6 @@
    "frames": -0.22
   },
   {
-   "name": "swing",
-   "t": 27.5,
-   "nearest16th": 27.507,
-   "errMs": -7.4,
-   "frames": -0.22
-  },
-  {
-   "name": "swing",
-   "t": 36,
-   "nearest16th": 36.007,
-   "errMs": -7.5,
-   "frames": -0.22
-  },
-  {
    "name": "q7",
    "t": 29.25,
    "nearest16th": 29.257,

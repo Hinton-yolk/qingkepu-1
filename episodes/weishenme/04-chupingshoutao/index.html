@@ -123,12 +123,13 @@ const KQ = key(P, [540, 1150], 3.6);                           // push in on the
 const KD = key(P, [540, 1150], 6.0);                           // through the glass (flat)
 const TH = 50;                                                  // the pitch inside the screen (the net)
 const KSIDE = key([P[0] + 1.5, P[1], 0.5], [540, 1150], 12.4, 90);   // the side cut along the touched row, close on the touch
-const KSIDE2 = key([P[0] + 1.2, P[1], 0.5], [540, 1155], 13.2, 90);
-const KTOP = key([P[0] + 4, P[1] + 3], [540, 1080], 6.6, 0);    // straight down: the scan
-const KTOP2 = key([P[0] + 4, P[1] + 3], [540, 1085], 7.0, 0);
-const KTOP3 = key([P[0] + 4.5, P[1] + 3], [540, 1090], 7.3, 0);
+const KSIDE2 = key([P[0] - 0.8, P[1], 0.5], [540, 1155], 13.2, 90);
+const KSIDE3 = key([P[0] - 1.4, P[1], 0.6], [540, 1160], 14.0, 90);
+const KTOP = key([P[0] + 4, P[1] + 3], [540, 1080], 6.4, 0);    // straight down: the scan (the only view from above)
+const KTOP2 = key([P[0] + 1, P[1] + 1.5], [560, 1095], 7.6, 0);
+const KTOP3 = key([P[0] - 1, P[1] + 0.5], [580, 1110], 8.6, 0);
 const KTOPT = key([P[0] + 2, P[1] + 2], [520, 1100], 6.4, 0);
-const KT = key(P, [500, 1280], 6.2, TH);                        // tilted: the grid, the arcs
+const KT = key(P, [500, 1175], 6.2, TH);                        // tilted: the grid, the arcs
 const KF = key(P, [560, 1330], 8.4, TH);                        // the finger
 const KG = key(P, [560, 1330], 8.5, TH);                        // the glove
 const KG2 = key([P[0] - 1.2, P[1]], [560, 1345], 9.7, TH);
@@ -140,13 +141,13 @@ const KS2 = key([0, -2], [540, 1040], 1.5, TL2);                // the screen li
 const KTG = key(P, [470, 1120], 3.0, 0);                        // the touch glove, close (flat again)
 const KTG2 = key([P[0] + 1, P[1] - 1], [480, 1110], 3.55, 0);
 const KC = key([0, 2], [540, 1010], 1.05);                      // the same call again
-const KC2 = key([0, 6], [540, 1030], 1.3);
+const KC2 = key([0, 8], [540, 1036], 1.42);
 const KTip = key([2, 8], [540, 1040], 1.55);                    // the tip: the settings page
-const KTip2 = key([7, 9], [540, 1040], 1.98);
+const KTip2 = key([8, 10], [540, 1040], 2.15);
 const K7 = key([0, 0], [232, 545], 0.47);                       // the end badge
 // holds drift at a constant speed (no eased stops: the picture never parks), moves ease in and out
 const lin = (x) => x;
-const KT3 = key([P[0] - 3, P[1]], [520, 1290], 6.9, TH);
+const KT3 = key([P[0] - 3, P[1]], [520, 1185], 6.9, TH);
 const KF3 = key([P[0] - 1, P[1] - 1], [560, 1340], 9.2, TH);
 const KF4 = key([P[0] - 1.6, P[1] - 1], [560, 1345], 9.55, TH);
 const KS3 = key([0, -4], [540, 1062], 1.64, TL2);
@@ -164,18 +165,15 @@ function cam(t) {
   if (t < T.scan1) return interp(KSIDE2, KTOP, E.p2io(prog(t, T.a5, T.scan1)));          // up, to look straight down
   if (t < T.name) return interp(KTOP, KTOP2, lin(prog(t, T.scan1, T.name)));
   if (t < T.q6) { const pk = 1 + 0.06 * Math.sin(Math.PI * clamp((t - T.name) / 0.45)); return punch(interp(KTOP2, KTOP3, lin(prog(t, T.name, T.q6))), pk); }   // a punch on the name
-  if (t < T.q6 + 0.75) return interp(KTOP3, KSIDE, E.p2io(prog(t, T.q6, T.q6 + 0.75)));   // the same side cut, for the glove
-  if (t < T.sideOut) return interp(KSIDE, KSIDE2, lin(prog(t, T.q6 + 0.75, T.sideOut)));
-  if (t < T.scan2) return interp(KSIDE2, KTOP, E.p2io(prog(t, T.sideOut, T.scan2)));
-  if (t < T.climb) return interp(KTOP, KTOP2, lin(prog(t, T.scan2, T.climb)));
-  if (t < T.climbEnd) return interp(KTOP2, KS, E.p3out(prog(t, T.climb, T.climbEnd)), E.p2io(prog(t, T.climb, T.climbEnd)));
+  if (t < T.q6 + 0.75) return interp(KTOP3, KSIDE, E.p2io(prog(t, T.q6, T.q6 + 0.75)));   // back down to the same side cut, and stay
+  if (t < T.climb) return interp(KSIDE, KSIDE3, lin(prog(t, T.q6 + 0.75, T.climb)));
+  if (t < T.climbEnd) return interp(KSIDE3, KS, E.p3out(prog(t, T.climb, T.climbEnd)), E.p2io(prog(t, T.climb, T.climbEnd)));
   if (t < T.saus - 0.25) return KS;
   if (t < T.wake) return interp(KS, KSz, E.p3io(prog(t, T.saus - 0.25, T.wake)));
   if (t < T.wake + 1.0) return interp(KSz, KS2, E.p3io(prog(t, T.wake, T.wake + 1.0)));
   if (t < T.tgIn - 0.25) return interp(KS2, KS3, lin(prog(t, T.wake + 1.0, T.tgIn - 0.25)));
   if (t < T.dive2) return interp(KS3, KTG, E.p3io(prog(t, T.tgIn - 0.25, T.dive2)), E.p2io(prog(t, T.tgIn - 0.25, T.tg + 0.1)));
-  if (t < T.top2) return interp(KTG, KTOPT, E.p2in(prog(t, T.dive2, T.top2)) * 0.5 + 0.5 * prog(t, T.dive2, T.top2));   // into the fingertip
-  if (t < T.side2) return interp(KTOPT, KSIDE, E.p2io(prog(t, T.top2, T.side2)));          // and down to the side cut
+  if (t < T.side2) return interp(KTG, KSIDE, E.p2in(prog(t, T.dive2, T.side2)) * 0.5 + 0.5 * prog(t, T.dive2, T.side2), E.p2io(prog(t, T.dive2, T.side2)));   // into the fingertip, down to the side cut
   if (t < T.climb2) return interp(KSIDE, KSIDE2, lin(prog(t, T.side2, T.climb2)));
   if (t < T.climb2End) return interp(KSIDE2, KC, E.p3io(prog(t, T.climb2, T.climb2End)), E.p2out(prog(t, T.climb2, T.climb2 + 0.5)));
   if (t < T.tip) return interp(KC, KC2, lin(prog(t, T.climb2End, T.tip)));
@@ -296,12 +294,11 @@ function wallpaper(t, home = false) {                     // the lock screen: a 
 function homeScreen(t) {                                      // a generic home screen: muted tiles, no brands
   wallpaper(t, true);
   const pal = ["#B9B3A9", "#8C877F", "#D6D0C5", "#6F6B66", "#A49E94", "#C7C1B6"], r = mulberry32(12);
-  for (let row = 0; row < 5; row++) for (let col = 0; col < 4; col++) {
-    const x = -22.5 + 15 * col, y = -52 + 17 * row, tapK = (Math.abs(x - ICON[0]) < 1 && Math.abs(y - ICON[1]) < 1) ? Math.sin(Math.PI * prog(t, T.iconTap, T.iconTap + 0.35)) : 0;
-    const sc = 1 - 0.12 * tapK, w = 10.5 * sc;
-    ctx.fillStyle = pal[Math.floor(r() * pal.length)]; rr(x - w / 2, y - w / 2, w, w, 2.6 * sc); ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.beginPath(); ctx.arc(x, y, 2.2 * sc, 0, TAU); ctx.fill();
-    ctx.fillStyle = "rgba(241,240,236,0.7)"; rr(x - 4, y + 7, 8, 1, 0.5); ctx.fill();
+  for (let row = 0; row < 3; row++) for (let col = 0; col < 3; col++) {               // a few large tiles, no small repeats
+    const x = -18 + 18 * col, y = -48 + 22 * row, tapK = (Math.abs(x - ICON[0]) < 1 && Math.abs(y - ICON[1]) < 1) ? Math.sin(Math.PI * prog(t, T.iconTap, T.iconTap + 0.35)) : 0;
+    const sc = 1 - 0.12 * tapK, w = 13 * sc;
+    ctx.fillStyle = pal[Math.floor(r() * pal.length)]; rr(x - w / 2, y - w / 2, w, w, 3.4 * sc); ctx.fill();
+    ctx.fillStyle = "rgba(241,240,236,0.7)"; rr(x - 4.5, y + 8.5, 9, 1, 0.5); ctx.fill();
   }
   ctx.fillStyle = "rgba(241,240,236,0.85)"; rr(-12, 70.5, 24, 1.3, 0.65); ctx.fill();
 }
@@ -317,9 +314,11 @@ function uiCall(t, connected) {
   personIcon(0, -36, 13, "#3A3D42", "#8D9197");
   uiText(COPY.caller, 0, -12.5, 7.5, "#F1F0EC");
   uiText(connected ? COPY.inCall : COPY.incoming, 0, -4.5, 3.4, "rgba(241,240,236,0.6)", { weight: 400 });
-  if (connected) {                                                       // a live call: a small level meter
-    for (let i = 0; i < 13; i++) { const h = 1.2 + 6.5 * Math.abs(Math.sin(t * 7 + i * 1.7) * Math.sin(t * 2.3 + i)) * (1 - Math.abs(i - 6) / 9); ctx.fillStyle = `rgba(${PAP},${0.6 * ck})`; rr(-13 + i * 2.1, 7 - h / 2, 1.1, h, 0.55); ctx.fill(); }
-    [-18, 0, 18].forEach((x, i) => { ctx.fillStyle = `rgba(58,61,66,${ck})`; ctx.beginPath(); ctx.arc(x, 30, 5.5, 0, TAU); ctx.fill(); ctx.fillStyle = `rgba(${PAP},${0.7 * ck})`; if (i === 0) { rr(x - 1.2, 27, 2.4, 4.2, 1.2); ctx.fill(); } else if (i === 1) { for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) { ctx.beginPath(); ctx.arc(x - 2 + c * 2, 28 + r * 2, 0.5, 0, TAU); ctx.fill(); } } else { ctx.beginPath(); ctx.moveTo(x - 2, 28.8); ctx.lineTo(x - 0.6, 28.8); ctx.lineTo(x + 1.6, 27); ctx.lineTo(x + 1.6, 33); ctx.lineTo(x - 0.6, 31.2); ctx.lineTo(x - 2, 31.2); ctx.closePath(); ctx.fill(); } });
+  if (connected) {                                                       // a live call: the timer runs, the voice moves
+    const sec = Math.max(0, Math.floor(t - T.ka)); uiText(`00:${String(sec).padStart(2, "0")}`, 0, 2.2, 3.6, `rgba(241,240,236,${0.85 * ck})`, { weight: 700 });
+    const syl = 0.35 + 0.65 * Math.abs(Math.sin(TAU * 1.7 * t) * Math.sin(TAU * 0.6 * t + 1));
+    for (let i = 0; i < 25; i++) { const h = 1.2 + 15 * syl * Math.abs(Math.sin(t * 9 + i * 1.3) * Math.sin(t * 3.1 + i * 0.7)) * (1 - Math.abs(i - 12) / 15); ctx.fillStyle = `rgba(${PAP},${0.78 * ck})`; rr(-27.6 + i * 2.3, 14 - h / 2, 1.3, h, 0.65); ctx.fill(); }
+    [-18, 0, 18].forEach((x, i) => { const y0 = 36; ctx.fillStyle = `rgba(58,61,66,${ck})`; ctx.beginPath(); ctx.arc(x, y0, 5.5, 0, TAU); ctx.fill(); ctx.fillStyle = `rgba(${PAP},${0.7 * ck})`; if (i === 0) { rr(x - 1.2, y0 - 3, 2.4, 4.2, 1.2); ctx.fill(); } else if (i === 1) { for (let r = 0; r < 3; r++) { rr(x - 2.2, y0 - 2.4 + r * 1.9, 4.4, 0.8, 0.4); ctx.fill(); } } else { ctx.beginPath(); ctx.moveTo(x - 2, y0 - 1.2); ctx.lineTo(x - 0.6, y0 - 1.2); ctx.lineTo(x + 1.6, y0 - 3); ctx.lineTo(x + 1.6, y0 + 3); ctx.lineTo(x - 0.6, y0 + 1.2); ctx.lineTo(x - 2, y0 + 1.2); ctx.closePath(); ctx.fill(); } });
   }
   // the slider: track, hint, knob
   const tk = 1 - ck;
@@ -392,7 +391,7 @@ function ripple(t, t0, x, y, col, rmax = 16, dur = 0.6) {
 // ---------------------------------------------------------------- the phone (body, glass, screen)
 function shakeOff(t) {                                         // the vibration motor (mm)
   const b = buzzK(t); if (b <= 0) return [0, 0];
-  return [0.6 * b * Math.sin(TAU * 31 * t), 0.35 * b * Math.sin(TAU * 23 * t + 1)];
+  return [1.0 * b * Math.sin(TAU * 13.3 * t), 0.6 * b * Math.sin(TAU * 11.7 * t + 1)];   // below 15 Hz, so it reads as a buzz at 30 fps
 }
 function drawPhone(t, K, fade = 0) {
   const sh = shakeOff(t), o = [sh[0] + pressShift(t)[0], sh[1] + pressShift(t)[1]];
@@ -494,7 +493,15 @@ const HAND = (() => {
   for (let x = 78; x < 172; x += ROW) for (let y = -66; y < 20; y += COL) st.dorsum.push([x + J(), y + J(), 1, J()]);
   for (let x = 64; x < 100; x += ROW) for (let y = -62; y < -10; y += COL) st.bumps.push([x + J(), y + J(), 0.8, J()]);
   for (let x = 64; x < 165; x += ROW) for (let y = 5; y < 28; y += COL) st.thumb.push([x + J(), y + J(), 0.85, J()]);
-  return { index, indexEdge, dorsum, bumps, thumb, sleeve, cuff, st };
+  const X = (p, m) => { const q = new Path2D(); q.addPath(p, new DOMMatrix(m)); return q; };
+  const about = (cx, cy, sx, sy) => [sx, 0, 0, sy, cx - sx * cx, cy - sy * cy];
+  const glove = {
+    index: X(index, [1.03, 0, 0, 1.24, -1.6, 0]), indexEdge: X(indexEdge, [1.03, 0, 0, 1.24, -1.6, 0]),
+    dorsum: X(dorsum, about(125, -25, 1.05, 1.06)),
+    bumps: [[-53, 15.5, 77], [-37.6, 17, 73.5], [-20.6, 18, 71]].map(([y, w, x0], i) => X(bumps[i], about((x0 + 97) / 2, y, 1.1, 1.17))),
+    thumb: X(thumb, about(110, 16, 1.03, 1.28)), cuff: X(cuff, about(174, -16, 1.04, 1.07)),
+  };
+  return { index, indexEdge, dorsum, bumps, thumb, sleeve, cuff, st, glove };
 })();
 function knitStroke(list, xmax, dark, light, xmin = -1e9) {        // V stitches (two leaning loops), batched in two strokes
   const pth = new Path2D(), pl = new Path2D();
@@ -513,51 +520,60 @@ function part(p, fill, ppx, puff) {
 // kind: "glove" | "bare" | "touch"; tip: world xy; ang: rad (direction of local +x); h: hover (mm); prs: press (0..1)
 function drawHand(t, K, kind, tip, ang, h = 0, prs = 0) {
   const sc = (1 + 0.011 * h) * (1 - 0.025 * prs), ppx = K.A * sc;
-  const glove = kind !== "bare", puff = glove ? 1.7 : 0;
+  const glove = kind !== "bare", puff = 0, HP = glove ? HAND.glove : HAND;
   // shadow on the glass/ground (offset grows with height)
   planeT(K, G, [tip[0] + 1.6 + 0.55 * h, tip[1] + 2.4 + 0.85 * h], sc); ctx.rotate(ang);
   ctx.save(); ctx.filter = `blur(${Math.min(40, (0.9 + 0.25 * h) * K.A).toFixed(1)}px)`; ctx.fillStyle = `rgba(10,10,12,${0.3 - 0.008 * Math.min(h, 20)})`;
-  [HAND.dorsum, HAND.thumb, HAND.index, ...HAND.bumps].forEach((p) => ctx.fill(p)); ctx.restore(); ctx.filter = "none";
+  [HP.dorsum, HP.thumb, HP.index, ...HP.bumps].forEach((p) => ctx.fill(p)); ctx.restore(); ctx.filter = "none";
   planeT(K, G + h, tip, sc); ctx.rotate(ang);
   // sleeve, cuff / wrist
   part(HAND.sleeve, C.sleeve, ppx, 0);
   ctx.save(); ctx.clip(HAND.sleeve); ctx.strokeStyle = C.sleeveD; ctx.lineWidth = 1.6; [[232, 10], [260, -50], [300, 20]].forEach(([x, y]) => { ctx.beginPath(); ctx.moveTo(x, y); ctx.bezierCurveTo(x + 12, y - 12, x + 26, y - 4, x + 40, y - 18); ctx.stroke(); }); ctx.restore();
-  if (glove) { part(HAND.cuff, C.knit, ppx, puff); ctx.save(); ctx.clip(HAND.cuff); ctx.strokeStyle = C.knitD; ctx.lineWidth = 1.1; for (let y = -70; y < 30; y += 3.2) line(155, y, 192, y + 1.5); ctx.restore(); }
+  // a shaded part: flat fill, then a soft light-to-shadow wash across it (light from the upper left)
+  const shade = (p, x0, y0, x1, y1, a = 0.16) => { ctx.save(); ctx.clip(p); const g = ctx.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, `rgba(255,255,255,${a})`); g.addColorStop(0.45, "rgba(255,255,255,0)"); g.addColorStop(1, `rgba(10,14,20,${a * 1.3})`); ctx.fillStyle = g; ctx.fillRect(-20, -120, 420, 240); ctx.restore(); };
+  if (glove) {                                                     // the cuff: a few ribs, nothing more
+    part(HP.cuff, C.knitD, ppx, puff); shade(HP.cuff, 160, -55, 188, 23, 0.12);
+    ctx.save(); ctx.clip(HP.cuff); ctx.strokeStyle = "rgba(10,14,20,0.32)"; ctx.lineWidth = 0.7; ctx.lineCap = "round";
+    [-44, -31, -18, -5, 8].forEach((y) => { ctx.beginPath(); ctx.moveTo(156, y - 2.2); ctx.lineTo(194, y + 1.6); ctx.stroke(); }); ctx.restore();
+  }
   const fill = glove ? C.knit : C.skin;
-  part(HAND.dorsum, fill, ppx, puff);
-  if (glove) { ctx.save(); ctx.clip(HAND.dorsum); knitStroke(HAND.st.dorsum, 1e9, C.knitD, C.knitL); ctx.restore(); }
-  HAND.bumps.forEach((b) => { part(b, fill, ppx, puff); if (glove) { ctx.save(); ctx.clip(b); knitStroke(HAND.st.bumps, 1e9, C.knitD, C.knitL); ctx.restore(); } });
+  part(HP.dorsum, fill, ppx, puff);
+  if (glove) shade(HP.dorsum, 80, -60, 170, 20, 0.18);
+  HP.bumps.forEach((b) => { part(b, fill, ppx, puff); if (glove) shade(b, 66, -60, 98, -10, 0.2); });
   if (!glove) {                                                           // knuckles and tendons, lightly
     ctx.strokeStyle = "rgba(20,20,20,0.22)"; ctx.lineWidth = 2 / ppx * 1.2; ctx.lineCap = "round";
     [[-20.6, 94], [-37.6, 95], [-53, 96]].forEach(([y, x]) => { ctx.beginPath(); ctx.arc(x, y, 4.5, Math.PI * 0.6, Math.PI * 1.4); ctx.stroke(); });
     ctx.strokeStyle = "rgba(20,20,20,0.10)"; [[-20.6], [-37.6], [-4]].forEach(([y]) => { ctx.beginPath(); ctx.moveTo(100, y); ctx.lineTo(165, y * 0.8 - 6); ctx.stroke(); });
   }
-  part(HAND.thumb, fill, ppx, puff);
-  if (glove) { ctx.save(); ctx.clip(HAND.thumb); knitStroke(HAND.st.thumb, 1e9, C.knitD, C.knitL); ctx.restore(); }
+  part(HP.thumb, fill, ppx, puff);
+  if (glove) shade(HP.thumb, 70, 4, 150, 30, 0.18);
   else { ctx.fillStyle = C.nail; ctx.beginPath(); ctx.ellipse(66.5, 15.5, 4.8, 4.0, 0.05, 0, TAU); ctx.fill(); ctx.strokeStyle = "rgba(20,20,20,0.55)"; ctx.lineWidth = 1.6 / ppx; ctx.stroke(); }
   // the index finger, with a soft cylindrical shading (inked along its sides only: it runs into the hand)
   ctx.lineJoin = "round"; ctx.lineCap = "butt";
-  if (puff > 0) { ctx.strokeStyle = C.ink; ctx.lineWidth = 2 * puff + 2.6 / ppx; ctx.stroke(HAND.indexEdge); ctx.strokeStyle = fill; ctx.lineWidth = 2 * puff; ctx.stroke(HAND.index); }
-  ctx.fillStyle = fill; ctx.fill(HAND.index);
-  if (puff <= 0) { ctx.strokeStyle = C.ink; ctx.lineWidth = 2.6 / ppx; ctx.stroke(HAND.indexEdge); }
-  ctx.save(); ctx.clip(HAND.index);
-  const gsh = ctx.createLinearGradient(0, -10, 0, 10); gsh.addColorStop(0, "rgba(20,20,20,0.10)"); gsh.addColorStop(0.42, "rgba(255,255,255,0.10)"); gsh.addColorStop(1, "rgba(20,20,20,0.14)");
-  ctx.fillStyle = gsh; ctx.fillRect(-2, -12, 72, 24);
+  ctx.fillStyle = fill; ctx.fill(HP.index);
+  ctx.save(); ctx.clip(HP.index);
+  const gsh = ctx.createLinearGradient(0, -10, 0, 10);
+  if (glove) { gsh.addColorStop(0, "rgba(255,255,255,0.05)"); gsh.addColorStop(0.3, "rgba(255,255,255,0.17)"); gsh.addColorStop(0.62, "rgba(10,14,20,0.04)"); gsh.addColorStop(1, "rgba(10,14,20,0.26)"); ctx.fillStyle = gsh; ctx.fillRect(-4, -14, 76, 28);
+    for (let k = 0; k < 12; k++) { ctx.globalAlpha = 1 - (k + 1) / 13; ctx.fillRect(72 + 1.2 * k, -14, 1.2, 28); } ctx.globalAlpha = 1; }
+  else { gsh.addColorStop(0, "rgba(20,20,20,0.10)"); gsh.addColorStop(0.42, "rgba(255,255,255,0.10)"); gsh.addColorStop(1, "rgba(20,20,20,0.14)"); ctx.fillStyle = gsh; ctx.fillRect(-2, -12, 72, 24); }
   if (glove) {
-    if (kind === "touch") {                                         // the touch glove: silver yarn knitted into the tip
-      ctx.fillStyle = C.silver; ctx.beginPath(); ctx.moveTo(-2, -12); ctx.lineTo(15.5, -12); ctx.bezierCurveTo(14, -4, 14, 4, 15.5, 12); ctx.lineTo(-2, 12); ctx.closePath(); ctx.fill();
-      knitStroke(HAND.st.index, 1e9, C.knitD, C.knitL, 15);
-      knitStroke(HAND.st.index, 15, C.silverD, C.silverL);
-      const gl = (t * 0.7) % 1; ctx.fillStyle = `rgba(255,255,255,${0.45 * Math.sin(Math.PI * gl)})`; ctx.beginPath(); ctx.ellipse(2 + 11 * gl, -3 + 4 * gl, 1.6, 4.2, 0.3, 0, TAU); ctx.fill();
+    // one seam along the finger, and the soft crease where the knuckle bends
+    ctx.lineCap = "round"; ctx.strokeStyle = "rgba(10,14,20,0.42)"; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(kind === "touch" ? 15.5 : 3.0, 4.3); ctx.bezierCurveTo(22, 3.6, 50, 4.0, 86, 5.0); ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,0.18)"; ctx.lineWidth = 0.35; ctx.beginPath(); ctx.moveTo(kind === "touch" ? 15.5 : 3.0, 3.6); ctx.bezierCurveTo(22, 2.9, 50, 3.3, 86, 4.3); ctx.stroke();
+    if (kind === "touch") {                                         // the touch glove: the tip is a patch of silver conductive yarn
+      ctx.fillStyle = C.silver; ctx.beginPath(); ctx.moveTo(-4, -14); ctx.lineTo(15.5, -14); ctx.bezierCurveTo(14, -4, 14, 4, 15.5, 14); ctx.lineTo(-4, 14); ctx.closePath(); ctx.fill();
+      const gs = ctx.createLinearGradient(0, -9, 0, 9); gs.addColorStop(0, "rgba(255,255,255,0.35)"); gs.addColorStop(0.5, "rgba(255,255,255,0)"); gs.addColorStop(1, "rgba(10,14,20,0.25)"); ctx.fillStyle = gs; ctx.fillRect(-4, -14, 19.5, 28);
+      ctx.strokeStyle = "rgba(10,14,20,0.45)"; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(15.5, -12); ctx.bezierCurveTo(14, -4, 14, 4, 15.5, 12); ctx.stroke();
       // the conductive yarn: three bright strands; the field runs up them into the finger
       const yk = yarnK(t);
       [-3.6, 0.2, 3.8].forEach((y0, i) => {
-        const pth = new Path2D(); for (let k = 0; k <= 30; k++) { const x = 0.8 + 21 * k / 30, y = y0 * Math.min(1, (x + 1) / 6) + 0.9 * Math.sin(k * 1.7 + i); k ? pth.lineTo(x, y) : pth.moveTo(x, y); }
+        const pth = new Path2D(); for (let k = 0; k <= 30; k++) { const x = 0.8 + 12.8 * k / 30, y = y0 * Math.min(1, (x + 1) / 6) + 0.9 * Math.sin(k * 1.7 + i); k ? pth.lineTo(x, y) : pth.moveTo(x, y); }
         ctx.lineCap = "round"; ctx.strokeStyle = `rgba(255,255,255,${0.75 + 0.25 * yk})`; ctx.lineWidth = 0.75; ctx.stroke(pth);
         if (yk > 0.01) for (let q = 0; q < 3; q++) { const u = ((t - T.yarn) * 0.9 + q / 3 + i * 0.13) % 1; if (u < 0) continue; const x = 0.8 + 30 * u, y = y0 * Math.min(1, (x + 1) / 6) + 0.9 * Math.sin(u * 30 * 1.7 * 21 / 30 + i);
           ctx.fillStyle = `rgba(${ACC},${yk * (x < 22 ? 1 : Math.max(0, 1 - (x - 22) / 9))})`; ctx.beginPath(); ctx.arc(x, y, 1.0, 0, TAU); ctx.fill(); }
       });
-    } else knitStroke(HAND.st.index, 1e9, C.knitD, C.knitL);
+    }
   } else {
     ctx.fillStyle = C.nail; ctx.beginPath(); ctx.roundRect(1.4, -5.1, 11.6, 10.2, [4.6, 2.5, 2.5, 4.6]); ctx.fill();
     ctx.strokeStyle = "rgba(20,20,20,0.5)"; ctx.lineWidth = 1.6 / ppx; ctx.stroke();
@@ -566,7 +582,7 @@ function drawHand(t, K, kind, tip, ang, h = 0, prs = 0) {
     [[20, 3], [42, 4]].forEach(([x, n]) => { for (let i = 0; i < n; i++) { const y = -3.2 + 6.4 * i / (n - 1); ctx.beginPath(); ctx.moveTo(x - 1.4, y); ctx.quadraticCurveTo(x, y + 0.9, x + 1.4, y + 0.1); ctx.stroke(); } });
   }
   ctx.restore();
-  if (!glove) { ctx.strokeStyle = C.ink; ctx.lineWidth = 2.6 / ppx; ctx.lineCap = "butt"; ctx.stroke(HAND.indexEdge); }
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 2.6 / ppx; ctx.lineCap = "butt"; ctx.lineJoin = "round"; ctx.stroke(HP.indexEdge);
 }
 // ---- where the hands are (world xy of the fingertip, angle, hover, press)
 const ANG0 = 30 * RAD;
@@ -593,9 +609,9 @@ function handTip(t, kind) {
   if (t < T.tg) { const u = E.p3out(prog(t, T.tgIn, T.tg)); return [lerp(P[0] + 60, P[0], u), lerp(P[1] + 55, P[1], u)]; }
   if (t < T.sw3) return [P[0] + 1.5 * Math.sin(Math.PI * prog(t, T.climb2, T.sw3)), P[1] + 1.0 * Math.sin(Math.PI * prog(t, T.climb2, T.sw3))];
   if (t < T.ka + 0.25) return [lerp(P[0], 21.5, E.p2io(prog(t, T.sw3, T.ka - 0.08))), P[1] - 0.6 * Math.sin(Math.PI * prog(t, T.sw3, T.ka))];
-  const REST = [33, 76];
-  if (t < T.tipHand) { const u = E.p2io(prog(t, T.ka + 0.25, T.fin + 0.75)); return [lerp(21.5, REST[0], u), lerp(P[1], REST[1], u)]; }
-  // the tip: the same glove taps 手套模式
+  const REST = [62, 112];                                         // after the call connects the glove drifts away, off the phone
+  if (t < T.tipHand) { const u = E.sine(prog(t, T.ka + 0.25, T.tip)); return [lerp(21.5, REST[0], u), lerp(P[1], REST[1], u)]; }
+  // the tip: the same glove comes back and taps 手套模式
   if (t < T.toggle) { const u = E.p2io(prog(t, T.tipHand, T.toggle)); return [lerp(REST[0], 21.5, u), lerp(REST[1], 6, u)]; }
   const u = 0.45 * E.p2io(prog(t, T.tipHandOut, T.tipHandOut + 1.4)) + 0.55 * E.p2in(prog(t, T.end - 0.4, T.end + 0.45)); return [21.5 + 64 * u, 6 + 60 * u];
 }
@@ -615,8 +631,8 @@ function handHover(t, kind) {
   if (t < T.climb2) return 0;
   if (t < T.sw3) return 7 * Math.sin(Math.PI * prog(t, T.climb2, T.sw3));
   if (t < T.ka + 0.25) return 0;
-  if (t < T.tipHand) return 7 * E.p2io(prog(t, T.ka + 0.25, T.fin + 0.75));
-  if (t < T.toggle) return 7 + 5 * Math.sin(Math.PI * prog(t, T.tipHand, T.toggle)) - 7 * E.p2io(prog(t, T.tipHand, T.toggle));
+  if (t < T.tipHand) return 16 * E.sine(prog(t, T.ka + 0.25, T.tip));
+  if (t < T.toggle) return 16 * (1 - E.p2io(prog(t, T.tipHand, T.toggle)));
   if (t < T.tipHandOut) return 0;
   return 8 * E.p2io(prog(t, T.tipHandOut, T.tipHandOut + 1.4)) + 16 * E.p2in(prog(t, T.end - 0.4, T.end + 0.45));
 }
@@ -641,7 +657,7 @@ function capsulePath(c) {
   ID(); const a0 = Math.atan2(c.ny, c.nx);
   ctx.beginPath(); ctx.arc(c.p[0], c.p[1], c.R, a0, a0 + Math.PI); ctx.arc(c.q[0], c.q[1], c.R, a0 + Math.PI, a0 + TAU); ctx.closePath();
 }
-const ICON = [7.5, -18];
+const ICON = [0, -4];
 function sausagePos(t) {                                      // the tip's lowest point (on the glass when touching)
   let c = [S[0], S[1]], lift = 0;
   if (t < T.saus) lift = 70 * (1 - E.p3out(prog(t, T.sausIn, T.saus)));
@@ -667,8 +683,6 @@ function drawSausage(t, K) {
   ctx.save(); ctx.clip();                                         // the casing: faint wrinkles and a few specks
   ctx.strokeStyle = "rgba(120,70,55,0.35)"; ctx.lineWidth = Math.max(1, 0.25 * K.A);
   [-0.55, -0.15, 0.4].forEach((o, i) => { ctx.beginPath(); for (let k = 0; k <= 30; k++) { const s = k / 30, w = o + 0.06 * Math.sin(s * 14 + i); const x = lerp(c.p[0], c.q[0], 0.08 + 0.9 * s) + c.nx * c.R * w, y = lerp(c.p[1], c.q[1], 0.08 + 0.9 * s) + c.ny * c.R * w; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); });
-  const rr2 = mulberry32(7); ctx.fillStyle = "rgba(150,90,70,0.45)";
-  for (let i = 0; i < 40; i++) { const s = rr2(), w = rr2() * 1.6 - 0.8; ctx.beginPath(); ctx.arc(lerp(c.p[0], c.q[0], s) + c.nx * c.R * w, lerp(c.p[1], c.q[1], s) + c.ny * c.R * w, Math.max(0.8, 0.12 * K.A), 0, TAU); ctx.fill(); }
   ctx.restore();
   capsulePath(c); strokePx(Math.max(2, 0.32 * K.A), C.ink);
   // the crimped end (a small twist of casing at the tip)
@@ -844,8 +858,9 @@ function sideCut(t, K, a, y0, xc0, obj, steal, x0, x1) {
   const cols = []; for (let i = -6; i <= 6; i++) { const x = xc0 + i * PITCH; if (x > x0 - 3 && x < x1 + 3) cols.push([i, x]); }
   const isGlove = obj && obj.kind === "glove", capt = obj && !isGlove ? steal : 0;
   const reading = (i) => 1 - 0.9 * wAt(i * PITCH + (xc0 - P[0]) * 0, 0) * capt;
+  const sweep = t >= T.scan2 && t < T.climb && y0 === P[1] ? P[0] - 7.5 + 13.3 * (t - T.scan2) : null;
   cols.forEach(([i, x]) => {
-    const b = reading(i);
+    const b = reading(i) * (sweep !== null && Math.abs(sweep - x) < 0.9 ? 1.25 : 1);
     vplaneT(K, y0); ctx.fillStyle = `rgba(${PAP},${0.35 + 0.6 * b})`; ctx.fillRect(x - 0.8, ZRX - EW / 2, 1.6, EW);      // RX: a column, cut across
     // how much arrives at this crossing: a bar that hangs under it
     ctx.strokeStyle = `rgba(${PAP},0.22)`; ctx.lineWidth = 0.06; ctx.strokeRect(x - 0.42, ZBAR - BARH, 0.84, BARH);
@@ -900,6 +915,7 @@ function drawCharges(K, y0, list, a) {
 // ---- the net (tilted) and the top view (scan): all rows
 function drawNet(t, K, a, topK, st) {
   ctx.save(); ctx.globalAlpha *= a;
+  planeT(K, 0); rr(SCR.x0, SCR.y0, SCR.w, SCR.h, SCR.r); ctx.clip();
   const s = Math.sin(K.th), tk = clamp(s / Math.sin(TH * RAD));
   const reveal = E.p2io(prog(t, T.dive + 0.2, T.floodEnd));
   const scan = scanRow(t);
@@ -977,24 +993,36 @@ function drawInterior(t, K, a) {
   const gloveOn = kind === "glove" ? E.p2io(prog(t, T.wrap, T.wrapEnd)) : kind === "touch" ? 1 : 0;
   const st = kind === "glove" ? 0 : stealK(t) * (t < T.fOut || t >= TOUCH0 ? 1 : 1 - prog(t, T.fOut, T.fOut + 0.3));
   const gg = fpts && gloveOn > 0 ? gloveGeom(fpts, gloveOn) : null;
-  if (1 - sideK > 0.01) drawNet(t, K, 1 - sideK, topK, st);
-  let charges = [];
-  if (sideK > 0.01) {
-    const obj = fpts ? { pts: fpts, kind: gloveOn > 0.5 ? kind : "bare", gg, cx: fingerPose(t).x } : null;
-    charges = sideCut(t, K, sideK, P[1], P[0], obj, st, P[0] - 26, P[0] + 30);
-  }
-  if (fpts && topK < 0.99) { ctx.save(); ctx.globalAlpha *= 1 - topK; drawFingerSection(t, K, fpts, gloveOn, kind, gg); ctx.restore(); }
-  if (charges.length) drawCharges(K, P[1], charges, sideK);
-  if (fpts && topK > 0.01) drawGhost(t, K, kind, topK);
-  // the scan's verdict, from above: an orange ring locks on the dim cell — or a dashed ring searches and finds nothing
-  if (topK > 0.01) {
-    ctx.save(); ctx.globalAlpha *= topK; lockRing(t, K, T.lock1, T.q6 + 0.3);
-    if (t >= T.miss && t < T.miss + 0.9) {
-      const u = prog(t, T.miss, T.miss + 0.9); planeT(K, 0, [P[0] + 1.6 * Math.sin(u * 14), P[1]]); ctx.beginPath(); ctx.arc(0, 0, 4.2 + 0.8 * u, 0, TAU);
-      ID(); ctx.setLineDash([14, 10]); ctx.lineWidth = 6; ctx.strokeStyle = `rgba(${PAP},${0.85 * Math.sin(Math.PI * u)})`; ctx.stroke(); ctx.setLineDash([]);
-    }
+  const netPhase = t < T.q6 + 0.8, sideA = netPhase ? sideK : 1, netA = netPhase ? 1 - sideK : 0;
+  const topA = t >= T.a5 && t < T.q6 + 0.8 ? topK : 0, secA = netPhase ? 1 - topK : 1;
+  if (netA > 0.01) drawNet(t, K, netA, topK, st);
+  if (netA > 0.01 && t < T.q4 + 0.8) {                            // the phone's own edge and the screen's edge, so we know where we are
+    ctx.save(); ctx.globalAlpha *= netA * E.p2io(prog(t, T.dive + 0.3, T.floodEnd));
+    planeT(K, G); rr(-36, -78, 72, 156, 10); strokePx(4, "rgba(241,240,236,0.6)");
+    planeT(K, G); rr(SCR.x0, SCR.y0, SCR.w, SCR.h, SCR.r); strokePx(2, "rgba(241,240,236,0.32)");
     ctx.restore();
   }
+  let charges = [];
+  if (sideA > 0.01) {
+    const obj = fpts ? { pts: fpts, kind: gloveOn > 0.5 ? kind : "bare", gg, cx: fingerPose(t).x } : null;
+    charges = sideCut(t, K, sideA, P[1], P[0], obj, st, P[0] - 26, P[0] + 30);
+  }
+  if (fpts && secA > 0.01) { ctx.save(); ctx.globalAlpha *= secA; drawFingerSection(t, K, fpts, gloveOn, kind, gg); ctx.restore(); }
+  if (charges.length) drawCharges(K, P[1], charges, sideA);
+  if (fpts && topA > 0.01) drawGhost(t, K, kind, topA);
+  // the glove, in the side cut: a reading line sweeps along the row; at the touch nothing has dropped — a dashed ring finds nothing
+  if (!netPhase && t >= T.scan2 && t < T.climb) {
+    const sx = P[0] - 7.5 + 13.3 * (t - T.scan2);
+    vplaneT(K, P[1]); const g = ctx.createLinearGradient(sx - 0.9, 0, sx + 0.9, 0); g.addColorStop(0, `rgba(${PAP},0)`); g.addColorStop(0.5, `rgba(${PAP},0.32)`); g.addColorStop(1, `rgba(${PAP},0)`);
+    ctx.fillStyle = g; ctx.fillRect(sx - 0.9, ZBAR - BARH - 0.3, 1.8, G + 0.8 - (ZBAR - BARH - 0.3));
+    vplaneT(K, P[1]); ctx.beginPath(); ctx.moveTo(sx, ZBAR - BARH - 0.3); ctx.lineTo(sx, G + 0.5); strokePx(3, `rgba(${PAP},0.75)`);
+  }
+  if (!netPhase && t >= T.miss && t < T.miss + 0.9) {
+    const u = prog(t, T.miss, T.miss + 0.9); vplaneT(K, P[1]); ctx.beginPath(); ctx.ellipse(P[0] + 0.25 * Math.sin(u * 14), ZRX - 0.8, 2.3 + 0.4 * u, 2.3 + 0.4 * u, 0, 0, TAU);
+    ctx.save(); ID(); ctx.setLineDash([14, 10]); ctx.lineWidth = 6; ctx.strokeStyle = `rgba(${PAP},${0.85 * Math.sin(Math.PI * u)})`; ctx.stroke(); ctx.restore();
+  }
+  // the scan's verdict, from above: an orange ring locks on the dim cell
+  if (topA > 0.01) { ctx.save(); ctx.globalAlpha *= topA; lockRing(t, K, T.lock1, T.q6 + 0.3); ctx.restore(); }
   // the touch glove, from the side: the bar under the touched crossing drops, the ring locks round that crossing
   if (sideK > 0.01 && t >= T.lock2 && t < T.climb2 + 0.3) {
     const k = E.p3out(prog(t, T.lock2, T.lock2 + 0.3)), fo = 1 - prog(t, T.climb2, T.climb2 + 0.3);
@@ -1036,15 +1064,15 @@ function drawFingerSection(t, K, pts, gloveOn, kind, gg) {
         const sp = new Path2D(); let pen = false; run.forEach((i) => { const d = Math.abs(i - padI) < N / 2 ? Math.abs(i - padI) : N - Math.abs(i - padI); if (d <= 16) { const q = gg.outer[i]; pen ? sp.lineTo(q[0], q[1]) : sp.moveTo(q[0], q[1]); pen = true; } });
         ctx.strokeStyle = C.silver; ctx.lineWidth = 2 * GLOVE + 0.6; ctx.stroke(sp);
       }
-      [[0, C.knitD, 0.62], [Math.PI, C.knitL, 0.62]].forEach(([ph, col, lw]) => {
-        const yp = new Path2D(); let L = 0;
-        run.forEach((i, k) => { if (k) L += Math.hypot(pts[i][0] - pts[run[k - 1]][0], pts[i][1] - pts[run[k - 1]][1]); const o = GLOVE * (0.5 + 0.36 * Math.sin(TAU * L / 2.3 + ph)); const q = [pts[i][0] + gg.nrm[i][0] * o, pts[i][1] + gg.nrm[i][1] * o]; k ? yp.lineTo(q[0], q[1]) : yp.moveTo(q[0], q[1]); });
-        ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineJoin = "round"; ctx.stroke(yp);
-      });
+      // soft shading through the thickness: lighter at the outer surface, darker against the skin
+      const inner = new Path2D(); run.forEach((i, k) => { const q = [pts[i][0] + gg.nrm[i][0] * GLOVE * 0.38, pts[i][1] + gg.nrm[i][1] * GLOVE * 0.38]; k ? inner.lineTo(q[0], q[1]) : inner.moveTo(q[0], q[1]); });
+      ctx.strokeStyle = "rgba(10,14,20,0.22)"; ctx.lineWidth = GLOVE * 0.75; ctx.lineJoin = "round"; ctx.stroke(inner);
       ctx.restore();
-      vplaneT(K, P[1]); ctx.beginPath(); run.forEach((i, k) => { const q = gg.outer[i]; k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }); strokePx(3, "rgba(241,240,236,0.85)"); vplaneT(K, P[1]);
+      // a soft, slightly fuzzy outer edge
+      vplaneT(K, P[1]); ctx.beginPath(); run.forEach((i, k) => { const q = gg.outer[i]; k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
+      ctx.save(); ID(); ctx.filter = "blur(2.5px)"; ctx.lineWidth = 7; ctx.strokeStyle = "rgba(140,155,173,0.55)"; ctx.stroke(); ctx.filter = "none"; ctx.lineWidth = 2.4; ctx.strokeStyle = "rgba(241,240,236,0.7)"; ctx.stroke(); ctx.restore(); vplaneT(K, P[1]);
     });
-    if (kind === "touch") gg.strands.forEach((sp) => {                // the conductive yarns, right through the fabric
+    if (kind === "touch") gg.strands.forEach((sp) => {                // the conductive yarns (white zigzags), right through the fabric
       ctx.beginPath(); sp.forEach((p, k) => (k ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.lineCap = "round";
       ctx.strokeStyle = C.silverD; ctx.lineWidth = 0.7; ctx.stroke(); ctx.strokeStyle = C.silverL; ctx.lineWidth = 0.32; ctx.stroke();
     });
@@ -1081,7 +1109,7 @@ function sausageInset(t, K) {
   const spts = sausageSection([S[0], S[1]]), steal = E.p2io(prog(t, T.inset + 0.1, T.sLock));
   const ch = sideCut(t, KI, 1, S[1], S[0], { pts: spts, kind: "saus", cx: S[0] }, steal, S[0] - 12, S[0] + 12);
   vplaneT(KI, S[1]); const sp = new Path2D(); spts.forEach((p, i) => (i ? sp.lineTo(p[0], p[1]) : sp.moveTo(p[0], p[1]))); sp.closePath();
-  ctx.fillStyle = C.saus; ctx.fill(sp); ctx.save(); ctx.clip(sp); const rr2 = mulberry32(5); ctx.fillStyle = "rgba(150,90,70,0.5)"; for (let i = 0; i < 160; i++) { ctx.beginPath(); ctx.arc(S[0] - 10 + 40 * rr2(), G + 30 * rr2(), 0.18 + 0.12 * rr2(), 0, TAU); ctx.fill(); } ctx.restore();
+  ctx.fillStyle = C.saus; ctx.fill(sp); ctx.save(); ctx.clip(sp); const gsa = ctx.createLinearGradient(S[0] - 6, G, S[0] + 6, G + 14); gsa.addColorStop(0, "rgba(255,255,255,0.18)"); gsa.addColorStop(1, "rgba(80,40,30,0.18)"); ctx.fillStyle = gsa; ctx.fillRect(S[0] - 20, G - 2, 60, 40); ctx.restore();
   ctx.strokeStyle = C.sausD; ctx.lineWidth = 0.4; ctx.stroke(sp); ctx.stroke(sp); strokePx(2.5, "rgba(241,240,236,0.8)");
   drawCharges(KI, S[1], ch, 1);
   if (t >= T.sLock) { vplaneT(KI, S[1]); const k = E.p3out(prog(t, T.sLock, T.sLock + 0.3)); ctx.beginPath(); ctx.arc(S[0], ZRX - 0.8, 2.2 + 0.8 * (1 - k), -Math.PI / 2, -Math.PI / 2 + TAU * k); ctx.save(); ID(); ctx.lineWidth = 6; ctx.strokeStyle = C.acc; ctx.lineCap = "round"; ctx.stroke(); ctx.restore(); }
@@ -1142,7 +1170,7 @@ function xray(t, K, at, R, open, bend, obj, t0lock, t1lock, flat = false) {
 const orangeK = (t) => E.p2io(prog(t, T.myth, T.myth + 0.3)) * (1 - E.p2io(prog(t, T.unOrange, T.unOrange + 0.3)));
 function groundCol(t) { const o = orangeK(t); return o > 0 ? mixHex(C.ground, C.acc, o) : C.ground; }
 function flood(t) {
-  if (t >= T.dive2) return E.p2io(prog(t, T.dive2 + 0.3, T.top2)) * (1 - E.p2io(prog(t, T.climb2 + 0.3, T.climb2 + 0.55)));
+  if (t >= T.dive2) return E.p2io(prog(t, T.dive2 + 0.12, T.dive2 + 0.4)) * (1 - E.p2io(prog(t, T.climb2 + 0.3, T.climb2 + 0.55)));
   if (t < T.flood) return 0;
   if (t < T.floodEnd) return E.p2io(prog(t, T.flood, T.floodEnd));
   if (t < T.unflood) return 1;
@@ -1218,6 +1246,15 @@ function textBand(t) {
   lines(COPY.tip, t, T.tip + 0.15, T.tipOut, { style: "blur", col: L, lineGap: 0.3 });
 }
 function overlays(t, K) {                               // labels in the picture: few and short
+  if (flood(t) > 0.5 && t >= T.arcsOn + 0.5 && t < T.q4 + 0.3) {   // inside the phone: name the glass and the net of wires
+    const k = E.p3out(prog(t, T.arcsOn + 0.5, T.arcsOn + 0.9)), fo = 1 - prog(t, T.q4, T.q4 + 0.3);
+    const ag = proj(K, P[0] - 9, YFRONT, G), an = proj(K, P[0] + 7.5, P[1] + 5, -0.3);
+    ID(); ctx.save(); ctx.globalAlpha = k * fo; ctx.strokeStyle = "rgba(241,240,236,0.7)"; ctx.lineWidth = 2.5; ctx.fillStyle = "rgba(241,240,236,0.9)";
+    [[ag, 150, 1424], [an, 600, 1424]].forEach(([a, lx, ly]) => { ctx.beginPath(); ctx.moveTo(lx + 44, ly - 50); ctx.lineTo(a[0], a[1]); ctx.stroke(); ctx.beginPath(); ctx.arc(a[0], a[1], 6, 0, TAU); ctx.fill(); });
+    ctx.restore();
+    label(COPY.glassLabel, 150, 1424, 46, "rgba(241,240,236,0.92)", t, T.arcsOn + 0.5, T.q4 + 0.3, { weight: 700, alpha: fo });
+    label(COPY.netLabel, 600, 1424, 46, "rgba(241,240,236,0.92)", t, T.arcsOn + 0.5, T.q4 + 0.3, { weight: 700, alpha: fo });
+  }
   if (flood(t) > 0.5 && t >= T.q4 + 0.5 && t < T.a5) {        // the side cut: name the glass once
     const q = proj(K, P[0] - 20, P[1], G * 0.5); label("玻璃", 64, q[1] + 16, 44, "rgba(241,240,236,0.75)", t, T.q4 + 0.6, T.a5, { weight: 700 });
   }
