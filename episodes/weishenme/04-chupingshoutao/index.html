@@ -307,8 +307,8 @@ function uiCall(t, connected) {
   ctx.fillStyle = g; ctx.fillRect(SCR.x0, SCR.y0, SCR.w, SCR.h);
   const ck = connected ? E.p3out(prog(t, T.ka, T.ka + 0.35)) : 0;
   // the caller
-  if (!connected) for (let i = 0; i < 3; i++) {                         // ringing: ripples off the avatar
-    const u = ((t * 0.9 + i / 3) % 1); ctx.strokeStyle = `rgba(${PAP},${0.32 * (1 - u)})`; ctx.lineWidth = 0.5;
+  if (!connected) for (let i = 0; i < 2; i++) {                         // ringing: two slow, faint ripples off the avatar
+    const u = ((t * 0.5 + i / 2) % 1); ctx.strokeStyle = `rgba(${PAP},${0.22 * (1 - u)})`; ctx.lineWidth = 0.5;
     ctx.beginPath(); ctx.arc(0, -36, 13 + 13 * u, 0, TAU); ctx.stroke();
   }
   personIcon(0, -36, 13, "#3A3D42", "#8D9197");
@@ -640,7 +640,7 @@ function handHover(t, kind) {
   if (t < T.tipHandOut) return 0;
   return 8 * E.p2io(prog(t, T.tipHandOut, T.tipHandOut + 1.4)) + 16 * E.p2in(prog(t, T.end - 0.4, T.end + 0.45));
 }
-function sway(t, s, h) { const a = 0.22 + 0.06 * h; return { dx: a * Math.sin(TAU * 0.55 * t + s), dy: a * 0.8 * Math.sin(TAU * 0.43 * t + 2 * s), da: 1.6 * RAD * Math.sin(TAU * 0.37 * t + s) + 0.8 * RAD * Math.sin(TAU * 0.91 * t + 3 * s) }; }
+function sway(t, s, h) { const a = 0.12 + 0.03 * h; return { dx: a * Math.sin(TAU * 0.4 * t + s), dy: a * 0.8 * Math.sin(TAU * 0.31 * t + 2 * s), da: 0.6 * RAD * Math.sin(TAU * 0.3 * t + s) }; }   // a calm hand (「抖动太多」)
 function swayed(t, K, kind, tip, ang, h, prs, s) { const w = sway(t, s, h); drawHand(t, K, kind, [tip[0] + w.dx, tip[1] + w.dy], ang + w.da, h, prs); }
 function drawHands(t, K) {
   if (t < T.a2 + 0.3) {
