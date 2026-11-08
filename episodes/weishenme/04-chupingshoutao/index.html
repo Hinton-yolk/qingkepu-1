@@ -389,12 +389,16 @@ function ripple(t, t0, x, y, col, rmax = 16, dur = 0.6) {
 }
 
 // ---------------------------------------------------------------- the phone (body, glass, screen)
-function shakeOff(t) {                                         // the vibration motor (mm)
-  const b = buzzVis(t); if (b <= 0) return [0, 0];
-  return [0.45 * b * Math.sin(TAU * 13.3 * t), 0.25 * b * Math.sin(TAU * 11.7 * t + 1)];   // a few px, below 15 Hz so it reads as a buzz
+function shakeOff(t, K) {                                      // the vibration motor (mm)
+  // user, twice: 「开篇的画面还是抖动的太多了」 — about 1 px on screen whatever the zoom, and only while the call is
+  // first seen (before the wrong guess) and when it rings again; the zoomed-in shots stay still (the motor is still heard)
+  const vis = t < T.myth || (t >= T.ring2 && t < T.ka);
+  const b = vis ? buzzVis(t) : 0; if (b <= 0) return [0, 0];
+  const mm = 1.0 / K.A;
+  return [mm * b * Math.sin(TAU * 13.3 * t), 0.6 * mm * b * Math.sin(TAU * 11.7 * t + 1)];
 }
 function drawPhone(t, K, fade = 0) {
-  const sh = shakeOff(t), o = [sh[0] + pressShift(t)[0], sh[1] + pressShift(t)[1]];
+  const sh = shakeOff(t, K), o = [sh[0] + pressShift(t)[0], sh[1] + pressShift(t)[1]];
   const s = Math.sin(K.th), A = K.A;
   ctx.save(); ctx.globalAlpha = 1 - fade;
   // shadow on the ground
