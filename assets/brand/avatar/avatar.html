@@ -3,263 +3,219 @@
 <head>
 <meta charset="utf-8">
 <title>Avatar</title>
-<style>html,body{margin:0;background:#4C6555;overflow:hidden}svg{display:block}</style>
+<style>html,body{margin:0;background:#F2EDE3;overflow:hidden}svg{display:block}</style>
 </head>
 <body>
 <div id="root"></div>
 <script>
-// Hand-drawn editorial avatar, v2. ?size=1080&glasses=1
-// 1000×1000 drawing space; light comes from the viewer's left. Clean shapes with soft cel shading,
-// a light pencil outline and grain so it still reads as drawn by hand.
+// 「一语道破」 avatar, v3: manga / magazine-illustration line art with two-tone cel shading.
+// Likeness first: drawn feature by feature from the sailing photo (main), the selfie under the tree
+// (ears, brows, hair) and the museum selfie (frontal proportions). Head turned slightly to the viewer's right.
+// ?size=1080
 const q = new URLSearchParams(location.search);
 const S = +(q.get('size') || 1080);
-const GLASSES = q.get('glasses') === '1';
 function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-const R = mulberry32(2026);
+const R = mulberry32(31);
 const rr = (a, b) => a + (b - a) * R();
 
 const C = {
-  bg: '#4C6555', bgLight: '#6E8B79',
-  line: '#3B2A22',
-  skin: '#F0CBAA', skinLight: '#F8DDC5', skinShade: '#D9A27E', skinDeep: '#C08262', ear: '#EAB898',
-  hair: '#1E1A18', hairMid: '#2E2926', hairHi: '#5B524C', hairRim: '#7C7068',
-  navy: '#2C3850', navyShade: '#1F283B', navyLight: '#3B4A68',
-  shirt: '#DDE7F0', shirtShade: '#B6C6D6',
-  iris: '#2B1E18', white: '#F7F2EA', lip: '#B97C69', lipLight: '#D9A08E',
+  bg: '#F2EDE3', sage: '#DCE3D3', khaki: '#E9DFCB',
+  ink: '#2A1F1A', inkSoft: '#5A463C',
+  skin: '#F2CDAE', skinShade: '#DDA07D', skinLight: '#F9E1CC', ear: '#EDAE92', blush: '#E9A08C',
+  hair: '#1D1816', hairLine: '#100C0B', hairHi: '#4B4440',
+  lipTop: '#B8705F', lip: '#CC8574', lipHi: '#E6AE9E', mouth: '#4A2A22',
+  iris: '#2D1F18', white: '#F8F3EB',
+  navy: '#2B3650', navyShade: '#1E263A', navyRib: '#232C42', navyHi: '#3A4866',
+  shirt: '#DCE7F1', shirtShade: '#B3C4D5',
 };
-
-function pencil(d, { w = 2.4, op = 0.7, amp = 0.45, step = 5, passes = 2, color = C.line } = {}) {
-  const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  p.setAttribute('d', d);
-  const L = p.getTotalLength();
-  let out = '';
-  for (let k = 0; k < passes; k++) {
-    let dd = '';
-    for (let s = 0; s <= L; s += step) {
-      const pt = p.getPointAtLength(s);
-      dd += `${s === 0 ? 'M' : 'L'}${(pt.x + rr(-amp, amp)).toFixed(1)},${(pt.y + rr(-amp, amp)).toFixed(1)} `;
-    }
-    out += `<path d="${dd}" fill="none" stroke="${color}" stroke-width="${(w * (k ? 0.55 : 1)).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round" opacity="${(k ? op * 0.45 : op).toFixed(2)}"/>`;
-  }
-  return out;
-}
+const line = (d, w = 3.2, op = 1, color = C.ink) =>
+  `<path d="${d}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" opacity="${op}"/>`;
 
 // ---------- shapes ----------
-const FACE_SIDES = 'C622,460 621,515 612,560 C606,592 590,620 564,644 C547,660 528,668 500,669 C472,668 453,660 436,644 C410,620 394,592 388,560 C379,515 378,460 384,410';
-const FACE = `M500,338 C562,338 610,360 616,410 ${FACE_SIDES} C390,360 438,338 500,338 Z`;
-const FACE_OUTLINE = `M616,410 ${FACE_SIDES}`;
-const EAR_L = 'M388,462 C366,448 351,468 355,497 C358,523 370,542 391,540 Z';
-const EAR_R = 'M612,462 C634,448 649,468 645,497 C642,523 630,542 609,540 Z';
-const NECK = 'M448,628 C450,690 446,738 432,778 L568,778 C554,738 550,690 552,628 Z';
-const SWEATER = 'M96,1000 C104,932 150,892 250,868 C340,848 400,826 438,796 Q500,822 562,796 C600,826 660,848 750,868 C850,892 896,932 904,1000 Z';
-// textured quiff: volume pushed up and swept toward the viewer's left
-const HAIR_BACK = 'M384,418 C372,360 392,296 452,268 C512,244 588,254 618,302 C636,334 630,384 618,418 C612,398 604,384 592,374 C570,360 534,355 500,355 C466,355 430,360 408,374 C396,384 388,398 384,418 Z';
-const QUIFF = 'M398,356 C390,314 408,266 456,242 C500,222 558,222 596,244 C622,260 632,288 626,314 C622,334 612,348 598,358 C566,344 530,338 496,340 C458,342 424,348 398,356 Z';
+const FACE = 'M372,318 C364,352 360,392 362,432 C365,480 372,524 388,566 C404,606 432,640 468,660 C490,670 522,672 544,664 C572,650 596,622 610,586 C624,550 630,502 630,452 C631,406 628,360 618,322 L612,270 L380,270 Z';
+const FACE_OUT = 'M372,318 C364,352 360,392 362,432 C365,480 372,524 388,566 C404,606 432,640 468,660 C490,670 522,672 544,664 C572,650 596,622 610,586 C624,550 630,502 630,452 C631,406 628,360 618,322';
+const EAR_L = 'M364,404 C342,384 318,398 321,434 C323,470 336,496 366,502 Z';
+const EAR_R = 'M628,410 C645,394 664,407 662,437 C660,467 648,489 625,494 Z';
+const NECK = 'M448,620 C452,664 446,708 432,744 L594,744 C584,708 580,664 584,610 Z';
+const SWEATER = 'M36,1000 C48,898 108,850 220,826 C300,808 362,786 404,752 C444,790 490,800 512,800 C540,800 588,790 626,750 C668,786 726,808 806,826 C918,850 976,898 988,1000 Z';
+const HAIR = 'M364,402 C348,326 358,258 414,228 C462,206 540,204 588,222 C638,244 650,300 630,402 C626,362 618,328 604,315 C576,304 540,302 500,303 C460,304 422,306 398,317 C381,329 373,358 373,402 Z';
+const HAIR_TOP = 'M366,360 C352,306 366,254 414,228 C462,206 540,204 588,222 C632,240 646,288 638,340';
 
-let s = '';
-s += `<defs>
-  <radialGradient id="bgG" cx="0.5" cy="0.4" r="0.62">
-    <stop offset="0" stop-color="${C.bgLight}"/><stop offset="1" stop-color="${C.bg}"/>
-  </radialGradient>
-  <linearGradient id="skinG" x1="0" y1="0" x2="1" y2="0">
-    <stop offset="0" stop-color="${C.skinLight}"/><stop offset="0.5" stop-color="${C.skin}"/><stop offset="1" stop-color="#E8BC98"/>
-  </linearGradient>
-  <linearGradient id="neckG" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0" stop-color="${C.skinDeep}"/><stop offset="0.45" stop-color="${C.skinShade}"/><stop offset="1" stop-color="${C.skin}"/>
-  </linearGradient>
-  <linearGradient id="sweaterG" x1="0" y1="0" x2="1" y2="0">
-    <stop offset="0" stop-color="${C.navyLight}"/><stop offset="0.45" stop-color="${C.navy}"/><stop offset="1" stop-color="${C.navyShade}"/>
-  </linearGradient>
-  <linearGradient id="hairG" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="${C.hairMid}"/><stop offset="1" stop-color="${C.hair}"/>
-  </linearGradient>
-  <filter id="b1" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.6"/></filter>
-  <filter id="b4" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4"/></filter>
-  <filter id="b10" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="10"/></filter>
+let s = `<defs>
+  <filter id="b2" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2"/></filter>
+  <filter id="b8" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="8"/></filter>
   <filter id="grain" x="0" y="0" width="100%" height="100%">
-    <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="5"/><feColorMatrix type="saturate" values="0"/>
+    <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" seed="7"/><feColorMatrix type="saturate" values="0"/>
+  </filter>
+  <filter id="paper" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="3" seed="2"/><feColorMatrix type="saturate" values="0"/>
   </filter>
   <clipPath id="faceClip"><path d="${FACE}"/></clipPath>
   <clipPath id="neckClip"><path d="${NECK}"/></clipPath>
   <clipPath id="sweaterClip"><path d="${SWEATER}"/></clipPath>
 </defs>`;
 
-// ---------- background: green with a soft halo and a faint band of split light ----------
-s += `<rect width="1000" height="1000" fill="url(#bgG)"/>`;
-s += `<g transform="translate(500 610) scale(1.08) translate(-500 -610)">`;
+// ---------- background: warm off-white, faint sage and khaki blocks, paper ----------
+s += `<rect width="1000" height="1000" fill="${C.bg}"/>`;
+s += `<circle cx="610" cy="420" r="318" fill="${C.sage}"/>`;
+s += `<rect x="70" y="520" width="330" height="360" fill="${C.khaki}" transform="rotate(-8 235 700)"/>`;
+s += `<rect x="760" y="120" width="120" height="120" fill="${C.khaki}" opacity="0.7" transform="rotate(12 820 180)"/>`;
+s += `<rect width="1000" height="1000" filter="url(#paper)" opacity="0.06" style="mix-blend-mode:multiply"/>`;
 
-// ---------- shoulders ----------
-s += `<path d="${SWEATER}" fill="url(#sweaterG)"/>`;
-s += `<g clip-path="url(#sweaterClip)">
-  <path d="M640,830 C720,850 800,880 860,960 L882,1000 L700,1000 C690,930 670,880 640,830 Z" fill="${C.navyShade}" opacity="0.45" filter="url(#b4)"/>
-  <path d="M300,880 C330,920 340,960 344,1000" fill="none" stroke="${C.navyShade}" stroke-width="5" opacity="0.5" filter="url(#b1)"/>
-  <path d="M700,880 C670,920 660,960 656,1000" fill="none" stroke="${C.navyShade}" stroke-width="5" opacity="0.5" filter="url(#b1)"/>
-  <path d="M180,900 C220,870 260,856 300,848" fill="none" stroke="#5A6B8C" stroke-width="3" opacity="0.35"/>
-</g>`;
-for (let i = 0; i < 34; i++) {
-  const y = rr(850, 995), x = rr(160, 840);
-  s += `<path d="M${x.toFixed(0)},${y.toFixed(0)} q5,-6 10,0 q5,6 10,0" fill="none" stroke="#FFFFFF" stroke-width="1.4" opacity="${rr(0.04, 0.09).toFixed(2)}"/>`;
-}
-s += pencil(SWEATER.replace(' Z', ''), { w: 2.6, op: 0.55 });
-
+s += `<g transform="translate(500 560) scale(1.1) translate(-500 -560)">`;
 // ---------- neck ----------
-s += `<path d="${NECK}" fill="url(#neckG)"/>`;
+s += `<path d="${NECK}" fill="${C.skin}"/>`;
 s += `<g clip-path="url(#neckClip)">
-  <path d="M440,676 C470,706 530,706 560,676 L560,734 C530,750 470,750 440,734 Z" fill="${C.skinDeep}" opacity="0.45" filter="url(#b4)"/>
-  <path d="M470,722 C474,742 470,755 462,775" fill="none" stroke="${C.skinDeep}" stroke-width="4" opacity="0.35" filter="url(#b1)"/>
-  <path d="M532,722 C528,742 532,755 540,775" fill="none" stroke="${C.skinDeep}" stroke-width="4" opacity="0.35" filter="url(#b1)"/>
+  <path d="M446,630 C480,676 548,682 586,618 L590,690 C540,708 484,708 440,692 Z" fill="${C.skinShade}"/>
+  <path d="M560,690 C566,710 572,726 580,742 L604,742 L600,680 Z" fill="${C.skinShade}"/>
 </g>`;
-s += pencil('M448,640 C450,690 446,738 432,778', { w: 2.2, op: 0.5 }) + pencil('M552,640 C550,690 554,738 568,778', { w: 2.2, op: 0.5 });
+s += line('M448,624 C452,664 446,708 432,744', 3.4) + line('M584,614 C580,664 584,708 594,744', 3.4);
 
-// ---------- collar: shirt band, sweater rib, collar points ----------
-s += `<path d="M436,752 Q500,780 564,752 L570,790 Q500,824 430,790 Z" fill="${C.shirt}"/>`;
-s += `<path d="M436,752 Q500,780 564,752" fill="none" stroke="${C.shirtShade}" stroke-width="3"/>`;
-s += `<path d="M412,792 Q500,866 588,792" fill="none" stroke="${C.navyShade}" stroke-width="24" stroke-linecap="round"/>`;
-for (let x = 424; x <= 576; x += 8) { const t = (x - 412) / 176, y = 792 + 37 * 4 * t * (1 - t); s += `<line x1="${x}" y1="${(y - 9).toFixed(0)}" x2="${x}" y2="${(y + 9).toFixed(0)}" stroke="#FFFFFF" stroke-width="1.3" opacity="0.07"/>`; }
-s += `<path d="M430,788 L497,826 L466,852 Z" fill="${C.shirt}"/><path d="M570,788 L503,826 L534,852 Z" fill="${C.shirt}"/>`;
-s += `<path d="M534,852 L503,826 L570,788" fill="none" stroke="${C.shirtShade}" stroke-width="3"/>`;
-s += `<path d="M466,852 L470,846 L438,794" fill="none" stroke="#FFFFFF" stroke-width="2" opacity="0.6"/>`;
-s += pencil('M430,788 L497,826 L466,852 Z', { w: 1.6, op: 0.45, step: 4, passes: 1 }) + pencil('M570,788 L503,826 L534,852 Z', { w: 1.6, op: 0.45, step: 4, passes: 1 });
+// ---------- shirt collar band (under the sweater) ----------
+s += `<path d="M418,716 C470,740 556,740 608,712 L614,748 C560,774 466,776 412,750 Z" fill="${C.shirt}"/>`;
+s += line('M418,716 C470,740 556,740 608,712', 2.4, 0.8, C.inkSoft);
 
-s += `<g transform="translate(0 40)">`;
+// ---------- sweater ----------
+s += `<path d="${SWEATER}" fill="${C.navy}"/>`;
+s += `<g clip-path="url(#sweaterClip)">
+  <path d="M640,770 C700,806 770,826 840,842 C930,866 976,912 988,1000 L700,1000 C700,930 690,860 640,770 Z" fill="${C.navyShade}"/>
+  <path d="M120,880 C170,850 230,834 300,818" fill="none" stroke="${C.navyHi}" stroke-width="10" stroke-linecap="round" opacity="0.6"/>
+  <path d="M300,890 C318,930 326,966 328,1000" fill="none" stroke="${C.navyShade}" stroke-width="5"/>
+  <path d="M712,890 C696,930 688,966 686,1000" fill="none" stroke="#151B2A" stroke-width="5"/>
+</g>`;
+s += line('M36,1000 C48,898 108,850 220,826 C300,808 362,786 404,752', 4);
+s += line('M626,750 C668,786 726,808 806,826 C918,850 976,898 988,1000', 4);
+// crew-neck rib
+s += `<path d="M396,748 C438,806 586,806 632,746" fill="none" stroke="${C.navyRib}" stroke-width="30" stroke-linecap="round"/>`;
+for (let t = 0.04; t < 0.97; t += 0.035) {
+  const x = (1 - t) ** 3 * 396 + 3 * (1 - t) ** 2 * t * 438 + 3 * (1 - t) * t * t * 586 + t ** 3 * 632;
+  const y = (1 - t) ** 3 * 748 + 3 * (1 - t) ** 2 * t * 806 + 3 * (1 - t) * t * t * 806 + t ** 3 * 746;
+  s += `<line x1="${x.toFixed(1)}" y1="${(y - 12).toFixed(1)}" x2="${x.toFixed(1)}" y2="${(y + 12).toFixed(1)}" stroke="#4A5878" stroke-width="2" opacity="0.5"/>`;
+}
+s += line('M381,742 C430,822 594,822 648,740', 3.2, 0.9);
+// shirt collar points resting on the rib
+s += `<path d="M414,744 L490,790 L452,822 Z" fill="${C.shirt}"/><path d="M614,740 L536,788 L574,818 Z" fill="${C.shirtShade}"/>`;
+s += `<path d="M614,740 L536,788 L560,800 Z" fill="${C.shirt}"/>`;
+s += line('M414,744 L490,790 L452,822 Z', 3) + line('M614,740 L536,788 L574,818 Z', 3);
+
 // ---------- ears ----------
-s += `<path d="${EAR_L}" fill="${C.ear}"/><path d="${EAR_R}" fill="${C.ear}"/>`;
-s += `<path d="${EAR_R}" fill="${C.skinShade}" opacity="0.45"/>`;
-s += `<path d="M376,474 C364,482 364,506 374,522" fill="none" stroke="${C.skinDeep}" stroke-width="3.5" stroke-linecap="round" opacity="0.6"/>`;
-s += `<path d="M624,474 C636,482 636,506 626,522" fill="none" stroke="${C.skinDeep}" stroke-width="3.5" stroke-linecap="round" opacity="0.6"/>`;
-s += pencil('M388,462 C366,448 351,468 355,497 C358,523 370,542 391,540', { w: 2.2, op: 0.6 });
-s += pencil('M612,462 C634,448 649,468 645,497 C642,523 630,542 609,540', { w: 2.2, op: 0.6 });
+s += `<path d="${EAR_L}" fill="${C.ear}"/><path d="${EAR_R}" fill="${C.skinShade}"/>`;
+s += `<path d="M352,412 C338,418 336,452 344,474 C350,486 358,490 364,490" fill="none" stroke="${C.skinShade}" stroke-width="7" stroke-linecap="round"/>`;
+s += line('M352,412 C338,418 336,452 344,474', 2.4, 0.8);
+s += line('M342,442 C348,448 352,458 352,470', 2, 0.6);
+s += line('M364,404 C342,384 318,398 321,434 C323,470 336,496 366,502', 3.6);
+s += line('M628,410 C645,394 664,407 662,437 C660,467 648,489 625,494', 3.4);
+s += line('M640,420 C650,426 652,450 644,470', 2, 0.6);
 
 // ---------- face ----------
-s += `<path d="${FACE}" fill="url(#skinG)"/>`;
+s += `<path d="${FACE}" fill="${C.skin}"/>`;
 s += `<g clip-path="url(#faceClip)">
-  <!-- shadow side (viewer's right): cheek and jaw -->
-  <path d="M600,400 C590,470 594,540 578,600 C566,640 540,668 510,682 L640,700 L640,380 Z" fill="${C.skinShade}" opacity="0.55" filter="url(#b4)"/>
-  <!-- cheekbone shading -->
-  <path d="M410,560 C428,580 440,600 452,612" fill="none" stroke="${C.skinShade}" stroke-width="10" opacity="0.35" filter="url(#b10)"/>
-  <!-- shadow under the hair on the forehead -->
-  <path d="M380,360 C440,390 560,390 620,360 L620,330 L380,330 Z" fill="${C.skinDeep}" opacity="0.4" filter="url(#b10)"/>
-  <!-- eye sockets -->
-  <ellipse cx="452" cy="470" rx="34" ry="16" fill="${C.skinShade}" opacity="0.28" filter="url(#b4)"/>
-  <ellipse cx="548" cy="470" rx="34" ry="16" fill="${C.skinShade}" opacity="0.32" filter="url(#b4)"/>
-  <!-- chin and jaw definition -->
-  <ellipse cx="500" cy="652" rx="34" ry="9" fill="${C.skinLight}" opacity="0.5" filter="url(#b4)"/>
-  <!-- cheek warmth -->
-  <ellipse cx="428" cy="540" rx="24" ry="12" fill="#E8A08A" opacity="0.18" filter="url(#b10)"/>
-  <ellipse cx="572" cy="540" rx="24" ry="12" fill="#E8A08A" opacity="0.14" filter="url(#b10)"/>
+  <!-- cel shadow: far side of the face -->
+  <path d="M618,322 C628,360 631,406 630,452 C630,502 624,550 610,586 C596,622 572,650 544,664 C562,636 580,604 590,568 C600,526 602,476 600,432 C598,390 592,352 584,330 Z" fill="${C.skinShade}"/>
+  <!-- shadow cast by the hair on the forehead -->
+  <path d="M360,296 C420,290 580,290 640,300 L640,320 C600,316 560,326 500,322 C450,320 400,320 360,328 Z" fill="${C.skinShade}"/>
+  <!-- eye sockets, under-nose, under-lip, chin -->
+  <path d="M412,406 C432,394 462,394 478,408 C462,402 434,402 412,414 Z" fill="${C.skinShade}" opacity="0.7"/>
+  <path d="M538,406 C556,395 584,396 596,409 C580,402 556,402 538,414 Z" fill="${C.skinShade}" opacity="0.7"/>
+  <path d="M488,516 C500,524 528,524 544,514 C534,528 500,530 488,516 Z" fill="${C.skinShade}"/>
+  <path d="M484,592 C500,602 526,602 544,590 C530,610 498,610 484,592 Z" fill="${C.skinShade}"/>
+  <!-- warmth and light -->
+  <ellipse cx="428" cy="494" rx="30" ry="16" fill="${C.blush}" opacity="0.28" filter="url(#b8)"/>
+  <ellipse cx="580" cy="498" rx="22" ry="14" fill="${C.blush}" opacity="0.22" filter="url(#b8)"/>
+  <ellipse cx="418" cy="446" rx="26" ry="40" fill="${C.skinLight}" opacity="0.6" filter="url(#b8)"/>
 </g>`;
-// very light stubble on the jaw and chin
-for (let i = 0; i < 120; i++) {
-  const a = rr(0.15, Math.PI - 0.15), r = rr(0.55, 1);
-  const x = 500 + Math.cos(a) * 92 * r * (R() < 0.5 ? -1 : 1) * 0.8, y = 612 + Math.sin(a) * 50 * r;
-  s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rr(0.6, 1.1).toFixed(2)}" fill="${C.hairMid}" opacity="${rr(0.05, 0.13).toFixed(2)}"/>`;
+// faint stubble on chin and jaw
+for (let i = 0; i < 140; i++) {
+  const a = rr(0.2, Math.PI - 0.2), r = rr(0.6, 1);
+  const x = 506 + Math.cos(a) * 104 * r * (R() < 0.5 ? -1 : 1) * 0.85, y = 604 + Math.sin(a) * 58 * r;
+  s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rr(0.6, 1.1).toFixed(2)}" fill="${C.inkSoft}" opacity="${rr(0.06, 0.14).toFixed(2)}"/>`;
 }
-// pencil hatching on the shadow side
-let hatch = '';
-for (let y = 420; y < 650; y += 9) hatch += pencil(`M${598 - (y - 420) * 0.15},${y + 12} L${624},${y - 8}`, { w: 1.1, op: 0.16, amp: 0.4, step: 4, passes: 1 });
-s += `<g clip-path="url(#faceClip)">${hatch}</g>`;
-s += pencil(FACE_OUTLINE, { w: 2.6, op: 0.65 });
+s += line(FACE_OUT, 4.6);
 
-// ---------- hair ----------
-// short faded sides above the ears
-s += `<g clip-path="url(#faceClip)" filter="url(#b4)">
-  <path d="M380,380 C386,364 398,356 410,354 C407,380 403,404 401,428 L380,428 Z" fill="${C.hair}" opacity="0.2"/>
-  <path d="M620,380 C614,364 602,356 590,354 C593,380 597,404 599,428 L620,428 Z" fill="${C.hair}" opacity="0.2"/></g>`;
-s += `<path d="${HAIR_BACK}" fill="url(#hairG)"/>`;
-s += `<path d="${QUIFF}" fill="url(#hairG)"/>`;
-// fine textured tips along the top of the quiff, rooted inside it and pushed up and to the viewer's left
-const tuft = (bx, by, dir, len, wid, fill) => {
-  const nx = Math.cos(dir), ny = -Math.sin(dir), px = -ny, py = nx;
-  const tx = bx + nx * len, ty = by + ny * len, bend = rr(-0.2, 0.05) * len;
-  const m1x = bx + nx * len * 0.55 + px * (wid * 0.6) + px * bend, m1y = by + ny * len * 0.55 + py * (wid * 0.6) + py * bend;
-  const m2x = bx + nx * len * 0.55 - px * (wid * 0.4) + px * bend, m2y = by + ny * len * 0.55 - py * (wid * 0.4) + py * bend;
-  return `<path d="M${(bx + px * wid).toFixed(1)},${(by + py * wid).toFixed(1)} Q${m1x.toFixed(1)},${m1y.toFixed(1)} ${tx.toFixed(1)},${ty.toFixed(1)} Q${m2x.toFixed(1)},${m2y.toFixed(1)} ${(bx - px * wid).toFixed(1)},${(by - py * wid).toFixed(1)} Z" fill="${fill}"/>`;
-};
-const qp = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-qp.setAttribute('d', QUIFF);
-const QL = qp.getTotalLength();
-for (let k = 0; k < 52; k++) {
-  const pt = qp.getPointAtLength(((k + rr(0, 0.7)) / 52) * QL);
-  if (pt.y > 318) continue;
-  const dir = Math.PI / 2 + 0.32 - (pt.x - 505) * 0.0022 + rr(-0.14, 0.14);
-  s += tuft(pt.x, pt.y + 7, dir, rr(14, 30), rr(6, 10), R() < 0.4 ? C.hairMid : C.hair);
+// ---------- hair: short, slightly standing up, flat hairline ----------
+// short sides above the ears
+// tufts along the crown, rooted inside the hair mass
+const tp = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+tp.setAttribute('d', HAIR_TOP);
+const TL = tp.getTotalLength();
+let tufts = '';
+for (let k = 0; k < 22; k++) {
+  const t = (k + rr(0.05, 0.95)) / 22, pt = tp.getPointAtLength(t * TL);
+  const vx = pt.x - 500, vy = pt.y - 345, vl = Math.hypot(vx, vy);
+  const nx = vx / vl * 0.55, ny = vy / vl * 0.55 - 0.5;
+  const dl = Math.hypot(nx, ny), dx = nx / dl - 0.12 + rr(-0.2, 0.2), dy = ny / dl;
+  const top = Math.max(0, 1 - Math.abs(pt.x - 500) / 170);
+  const len = rr(5, 11) + top * rr(4, 12), wid = rr(13, 19);
+  const bx = pt.x - vx / vl * 9, by = pt.y - vy / vl * 9;
+  const px = -dy, py = dx, tx = bx + dx * len, ty = by + dy * len;
+  const bend = rr(-0.15, 0.05) * len;
+  tufts += `<path d="M${(bx + px * wid).toFixed(1)},${(by + py * wid).toFixed(1)} Q${(bx + dx * len * 0.55 + px * wid * 0.55 + px * bend).toFixed(1)},${(by + dy * len * 0.55 + py * wid * 0.55 + py * bend).toFixed(1)} ${tx.toFixed(1)},${ty.toFixed(1)} Q${(bx + dx * len * 0.55 - px * wid * 0.4 + px * bend).toFixed(1)},${(by + dy * len * 0.55 - py * wid * 0.4 + py * bend).toFixed(1)} ${(bx - px * wid).toFixed(1)},${(by - py * wid).toFixed(1)} Z" fill="${C.hair}" stroke="${C.hairLine}" stroke-width="2.2" stroke-linejoin="round"/>`;
 }
-// strands following the flow, and a soft highlight across the quiff
-s += `<path d="M432,272 C470,240 540,232 598,254" fill="none" stroke="${C.hairRim}" stroke-width="12" opacity="0.28" filter="url(#b4)"/>`;
-for (let i = 0; i < 36; i++) {
-  const x = rr(412, 598), y = rr(250, 345), l = rr(24, 42), a = -Math.PI / 2 - 0.3 + (x - 505) * 0.003 + rr(-0.12, 0.12);
-  const ex = x + l * Math.cos(a), ey = y + l * Math.sin(a);
-  s += `<path d="M${x.toFixed(1)},${y.toFixed(1)} Q${(x + (ex - x) * 0.5 - 6).toFixed(1)},${(y + (ey - y) * 0.5).toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)}" fill="none" stroke="${R() < 0.6 ? C.hairHi : C.hairRim}" stroke-width="${rr(1.2, 2.4).toFixed(1)}" stroke-linecap="round" opacity="${rr(0.3, 0.6).toFixed(2)}"/>`;
+s += tufts;
+s += `<path d="${HAIR}" fill="${C.hair}"/>`;
+s += line('M364,402 C350,334 356,280 386,244', 3.2, 1, C.hairLine) + line('M624,248 C644,276 646,320 630,402', 3.2, 1, C.hairLine);
+// highlights: short upward strokes and a broken sheen band, manga style
+for (let i = 0; i < 26; i++) {
+  const x = rr(396, 612), y = rr(240, 298), l = rr(12, 24);
+  const a = -Math.PI / 2 - 0.1 + (x - 505) * 0.004 + rr(-0.12, 0.12);
+  s += line(`M${x.toFixed(1)},${y.toFixed(1)} l${(l * Math.cos(a)).toFixed(1)},${(l * Math.sin(a)).toFixed(1)}`, rr(1.4, 2.6).toFixed(1), rr(0.45, 0.8).toFixed(2), C.hairHi);
 }
-// clean front hairline with a few short strands
-for (let x = 410; x <= 592; x += rr(7, 11)) {
-  const y = 352 + Math.abs(x - 500) * 0.07;
-  s += tuft(x, y - 4, -Math.PI / 2 - 0.55 + rr(-0.15, 0.15), rr(8, 17), rr(2.5, 4.5), R() < 0.5 ? C.hair : C.hairMid);
-}
-s += pencil('M384,418 C372,360 392,296 452,268', { w: 1.6, op: 0.22 }) + pencil('M618,302 C636,334 630,384 618,418', { w: 1.6, op: 0.22 });
+// hairline: nearly straight, a little ragged
+let hl = 'M373,402 C373,360 381,330 398,317';
+for (let x = 404; x <= 600; x += 8) hl += ` L${x},${(305 + Math.abs(x - 502) * 0.04 + rr(-1.2, 2)).toFixed(1)}`;
+hl += ' C618,328 626,362 630,402';
+s += line(hl, 2.4, 1, C.hairLine);
 
-// ---------- brows: strong, straight, slightly lowered at the inner ends ----------
-s += `<path d="M412,446 C428,434 452,428 480,432 C484,433 486,436 485,440 L484,447 C462,443 440,446 414,454 Z" fill="${C.hair}"/>`;
-s += `<path d="M588,446 C572,434 548,428 520,432 C516,433 514,436 515,440 L516,447 C538,443 560,446 586,454 Z" fill="${C.hair}"/>`;
-for (let i = 0; i < 46; i++) {
-  const side = i % 2 ? -1 : 1, d = rr(18, 86), x = 500 + side * d, y = 440 + (d - 18) * 0.08 + rr(-5, 4);
-  s += `<line x1="${x.toFixed(1)}" y1="${y.toFixed(1)}" x2="${(x + side * 8).toFixed(1)}" y2="${(y - 2).toFixed(1)}" stroke="${C.hairHi}" stroke-width="1.3" stroke-linecap="round" opacity="0.45"/>`;
+// ---------- brows: straight, fairly thick, sitting low over the eyes ----------
+s += `<path d="M402,381 C420,371 446,366 472,367 C478,367 480,373 475,376 C450,376 424,380 405,389 C398,391 397,385 402,381 Z" fill="${C.hair}"/>`;
+s += `<path d="M534,367 C558,364 584,367 602,377 C607,381 603,387 597,385 C576,378 554,376 536,377 C529,376 529,369 534,367 Z" fill="${C.hair}"/>`;
+for (let i = 0; i < 30; i++) {
+  const left = i % 2 === 0, x = left ? rr(406, 470) : rr(538, 598), y = left ? 380 - (x - 406) * 0.1 + rr(-3, 3) : 372 + (x - 538) * 0.1 + rr(-3, 3);
+  s += line(`M${x.toFixed(1)},${y.toFixed(1)} l${left ? 6 : 6},${-2.4}`, 1.3, 0.5, C.hairHi);
 }
 
-// ---------- eyes: sharp almond shape, outer corners lifted ----------
-function eye(cx, flip) {
-  const f = v => (cx + flip * v).toFixed(1);
-  const shape = `M${f(-29)},474 C${f(-18)},458 ${f(10)},453 ${f(30)},464 C${f(16)},483 ${f(-12)},485 ${f(-29)},474 Z`;
-  const id = `eye${cx}`;
+// ---------- eyes: narrow almond, single lid with a slight fold ----------
+function eye(cx, cy, w, h, flipFlick, id) {
+  const l = cx - w / 2, r = cx + w / 2;
+  const shape = `M${l},${cy + 4} C${l + w * 0.2},${cy - h * 0.7} ${l + w * 0.72},${cy - h * 0.95} ${r},${cy - 2} C${l + w * 0.75},${cy + h * 0.65} ${l + w * 0.25},${cy + h * 0.6} ${l},${cy + 4} Z`;
+  const flick = flipFlick > 0 ? ` L${r + 7},${cy - 5}` : '';
+  const flickL = flipFlick < 0 ? `M${l - 6},${cy - 1} L${l},${cy + 4} ` : '';
   return `<clipPath id="${id}"><path d="${shape}"/></clipPath>
     <path d="${shape}" fill="${C.white}"/>
     <g clip-path="url(#${id})">
-      <circle cx="${f(1)}" cy="471" r="12.5" fill="${C.iris}"/>
-      <circle cx="${f(1)}" cy="471" r="12.5" fill="none" stroke="#5A3E30" stroke-width="2" opacity="0.6"/>
-      <circle cx="${f(1)}" cy="471" r="5.5" fill="#0E0A08"/>
-      <path d="M${f(-30)},458 C${f(-10)},452 ${f(12)},451 ${f(31)},458 L${f(31)},464 C${f(12)},459 ${f(-10)},460 ${f(-30)},466 Z" fill="${C.skinDeep}" opacity="0.2"/>
+      <circle cx="${cx + 2}" cy="${cy + 1}" r="11.5" fill="${C.iris}"/>
+      <circle cx="${cx + 2}" cy="${cy + 1}" r="5" fill="#0D0908"/>
+      <path d="M${l},${cy - 14} L${r},${cy - 14} L${r},${cy - 4} C${l + w * 0.7},${cy - 10} ${l + w * 0.3},${cy - 9} ${l},${cy - 2} Z" fill="${C.skinShade}" opacity="0.6"/>
     </g>
-    <circle cx="${f(5)}" cy="465" r="3.2" fill="#FFFFFF"/>
-    <circle cx="${f(-3)}" cy="476" r="1.4" fill="#FFFFFF" opacity="0.6"/>
-    <path d="M${f(-31)},475 C${f(-19)},456 ${f(10)},450 ${f(31)},462 L${f(35)},458" fill="none" stroke="${C.line}" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M${f(-22)},480 C${f(-8)},484 ${f(10)},482 ${f(24)},473" fill="none" stroke="${C.line}" stroke-width="1.4" opacity="0.45"/>
-    <path d="M${f(-28)},458 C${f(-12)},450 ${f(12)},448 ${f(30)},455" fill="none" stroke="${C.skinDeep}" stroke-width="2" opacity="0.3"/>`;
+    <circle cx="${cx + 5}" cy="${cy - 3}" r="2.8" fill="#FFFFFF"/>
+    <path d="${flickL}M${l - 2},${cy + 5} C${l + w * 0.2},${cy - h * 0.75} ${l + w * 0.72},${cy - h * 1.0} ${r + 1},${cy - 2}${flick}" fill="none" stroke="${C.ink}" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round"/>
+    ${line(`M${l + 8},${cy + 8} C${l + w * 0.35},${cy + h * 0.62} ${l + w * 0.7},${cy + h * 0.55} ${r - 4},${cy + 2}`, 1.8, 0.5)}
+    ${line(`M${l + 6},${cy - h * 0.55} C${l + w * 0.35},${cy - h * 1.15} ${l + w * 0.75},${cy - h * 1.1} ${r - 2},${cy - h * 0.55}`, 2, 0.35, C.inkSoft)}`;
 }
-s += eye(452, 1) + eye(548, -1);
+s += eye(444, 420, 60, 17, 1, 'eyeL') + eye(566, 419, 54, 16, 1, 'eyeR');
 
-// ---------- nose: shadow and highlight only ----------
-s += `<path d="M486,478 C484,505 482,530 476,548 C482,556 492,560 500,560" fill="none" stroke="${C.skinShade}" stroke-width="7" opacity="0.5" filter="url(#b4)"/>`;
-s += `<ellipse cx="502" cy="560" rx="22" ry="7" fill="${C.skinDeep}" opacity="0.35" filter="url(#b4)"/>`;
-s += `<ellipse cx="497" cy="546" rx="8" ry="6" fill="${C.skinLight}" opacity="0.85" filter="url(#b1)"/>`;
-s += `<path d="M486,556 Q492,561 497,558 M503,558 Q508,561 514,556" fill="none" stroke="${C.line}" stroke-width="2" stroke-linecap="round" opacity="0.55"/>`;
-s += `<path d="M476,550 C474,556 478,560 484,560" fill="none" stroke="${C.line}" stroke-width="1.6" opacity="0.35"/>`;
-s += `<path d="M524,550 C526,556 522,560 516,560" fill="none" stroke="${C.line}" stroke-width="1.6" opacity="0.35"/>`;
+// ---------- nose: straight bridge, rounded tip, broad wings ----------
+s += `<path d="M522,446 C526,464 530,480 534,492 L524,496 C519,482 515,466 513,450 Z" fill="${C.skinShade}" opacity="0.6"/>`;
+s += `<ellipse cx="508" cy="493" rx="9" ry="6" fill="${C.skinLight}"/>`;
+s += line('M530,460 C536,478 538,490 532,500', 2.6, 0.8);
+s += line('M476,496 C476,508 486,514 498,511', 3, 0.95);
+s += line('M526,511 C538,514 548,508 548,496', 3, 0.95);
+s += `<ellipse cx="493" cy="509" rx="7" ry="3.2" fill="#7A4638" opacity="0.75"/><ellipse cx="529" cy="509" rx="6" ry="3" fill="#7A4638" opacity="0.75"/>`;
+s += line('M500,514 C506,517 516,517 522,514', 2, 0.55);
 
-// ---------- mouth: closed, a quiet half smile ----------
-s += `<path d="M470,606 C482,600 492,598 500,601 C508,598 518,600 530,605 C516,610 484,611 470,606 Z" fill="${C.lip}" opacity="0.7"/>`;
-s += `<path d="M474,609 C486,624 516,624 528,608 C512,613 490,613 474,609 Z" fill="${C.lipLight}" opacity="0.75"/>`;
-s += `<ellipse cx="502" cy="616" rx="12" ry="3" fill="#F1C4B2" opacity="0.6"/>`;
-s += pencil('M466,606 C480,611 500,612 516,609 C524,607 530,603 536,600', { w: 2.4, op: 0.8, amp: 0.25, step: 3 });
-s += `<path d="M494,586 Q500,592 506,586" fill="none" stroke="${C.skinShade}" stroke-width="2.4" opacity="0.45"/>`;
-s += `<ellipse cx="500" cy="632" rx="22" ry="6" fill="${C.skinShade}" opacity="0.4" filter="url(#b4)"/>`;
+// ---------- mouth: full lips, a very light smile ----------
+s += `<path d="M472,563 C486,555 497,551 506,555 C512,552 522,552 534,556 C542,558 548,560 553,562 C538,567 520,568 510,567 C496,567 484,566 472,563 Z" fill="${C.lipTop}"/>`;
+s += `<path d="M475,566 C487,588 535,589 550,565 C530,571 494,571 475,566 Z" fill="${C.lip}"/>`;
+s += `<ellipse cx="512" cy="577" rx="15" ry="4.5" fill="${C.lipHi}"/>`;
+s += line('M468,562 C486,567 508,568 528,567 C540,566 550,563 557,559', 3.2, 1, C.mouth);
+s += line('M468,562 C465,561 463,559 462,557', 1.8, 0.6, C.mouth);
+s += line('M557,559 C560,558 562,556 563,553', 1.8, 0.6, C.mouth);
+s += line('M498,534 C500,542 503,548 505,553', 1.8, 0.45, C.inkSoft) + line('M517,534 C516,542 515,548 514,553', 1.8, 0.45, C.inkSoft);
+s += line('M492,628 C506,635 524,633 538,624', 2.2, 0.45, C.inkSoft);
 
-// ---------- optional glasses: thin dark translucent frames ----------
-if (GLASSES) {
-  const lens = x0 => `M${x0 + 12},446 L${x0 + 70},446 Q${x0 + 82},446 ${x0 + 82},458 L${x0 + 82},488 Q${x0 + 82},502 ${x0 + 68},502 L${x0 + 14},502 Q${x0},502 ${x0},488 L${x0},458 Q${x0},446 ${x0 + 12},446 Z`;
-  [lens(410), lens(508)].forEach(d => {
-    s += `<path d="${d}" fill="#FFFFFF" opacity="0.06"/>`;
-    s += `<path d="${d}" fill="none" stroke="#3E444C" stroke-width="5" opacity="0.88"/>`;
-    s += `<path d="${d}" fill="none" stroke="#9AA3AD" stroke-width="1.4" opacity="0.55"/>`;
-  });
-  s += `<path d="M420,496 L446,450 M432,500 L448,472" stroke="#FFFFFF" stroke-width="3" opacity="0.14"/>`;
-  s += `<path d="M518,496 L544,450" stroke="#FFFFFF" stroke-width="3" opacity="0.14"/>`;
-  s += `<path d="M492,462 Q500,454 508,462" fill="none" stroke="#3E444C" stroke-width="4.5"/>`;
-  s += `<path d="M410,458 L384,466 M590,458 L616,466" stroke="#3E444C" stroke-width="4.5" stroke-linecap="round"/>`;
-}
-
-s += `</g></g>`;
-// paper grain
-s += `<rect width="1000" height="1000" filter="url(#grain)" opacity="0.07" style="mix-blend-mode:multiply"/>`;
+s += `</g>`;
+// paper grain over everything
+s += `<rect width="1000" height="1000" filter="url(#grain)" opacity="0.06" style="mix-blend-mode:multiply"/>`;
 
 document.getElementById('root').innerHTML =
   `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}" viewBox="0 0 1000 1000">${s}</svg>`;
