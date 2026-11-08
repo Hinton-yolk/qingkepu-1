@@ -106,6 +106,7 @@ FULL.CARD.scramble = (c, t, id, cd, Q) => {
   txt(c, '原来的数据', X0, YA - 140, { size: 30, fam: 'PuHui-Heavy', col: COL.creamDim });
   const qa = MO.cubicInOut(seg(t, Q.flat, Q.flat + 0.8));
   stroke(c, X0, lerp(X0, X1, qa), x => (x < xb(1) ? LO : HI), { lw: 6, step: 1 });
+  if (qa >= 1) { c.save(); c.globalCompositeOperation = 'lighter'; const gx = X0 + ((t - Q.flat) * 420) % (X1 - X0), gg = c.createRadialGradient(gx, HI, 0, gx, HI, 30); gg.addColorStop(0, 'rgba(245,215,126,.8)'); gg.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = gg; c.fillRect(gx - 30, HI - 30, 60, 60); c.restore(); }   // 数据一直在线上流
   // 本地的拍子：从唯一的跳变出发，越往后越偏（红）
   const drift = MO.smooth(seg(t, Q.flat + 0.4, Q.flat + 2.6));
   for (let i = 0; i < N; i++) { if (xb(i) > lerp(X0, X1, qa)) break; const off = drift * 0.055 * bw * Math.pow(Math.max(0, i - 1), 1.35), x = xb(i) + bw / 2 + off, bad = Math.abs(off) > bw * 0.45;

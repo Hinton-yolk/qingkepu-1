@@ -16,7 +16,7 @@ CUE['RT'] = dict(t0=t0, lit=lit, end=now()); hold(0, 0)
 # --- 纸条一拍：直觉上并排走更快 ---
 string('RT-w', cbot('RT', -250), edge('W1', 'r')); gost('w', 1.0, 'sine', 0.12)
 speak('x5'); fwin('w', ['W1', 'W2'], 'x5'); vmark('W1', 'hl', '并排走似乎更快', 'x5', '直觉上'); vmark('W2', 'hl', '修几十条路，几十件货同时出发', 'x5', '几十件货同时出发')
-after('x5', 0.125); hold(0, 0)
+after('x5', 0.125); hold(0, 0.04)
 # --- 演示：慢的时候对齐 ✓；一快，长一点的那条晚到一步 ✗ ---
 string('w-K4', edge('W2'), ctop('K4', -250)); gocard('K4')
 t0 = g8(now()); s0 = t0 + 0.25; speak('x6'); f0 = g8(max(s0 + 2.25, span('x6', '速度一快')[0]))
@@ -26,7 +26,7 @@ after('x6', 0.25); adv(max(0, g8(f0 + 2.5 - now()))); CUE['K4'] = dict(t0=t0, sl
 # --- 纸条一拍：运动员同时冲线 ---
 string('K4-q', cbot('K4', -250), edge('Q2', 'r')); gost('q', 1.0, 'sine', 0.12)
 speak('x7'); fwin('q', ['Q2', 'Q3', 'Q4', 'Q5'], 'x7'); vmark('Q2', 'hl', '同时冲线', 'x7', '同时冲线'); vmark('Q4', 'hl', '晚到一步', 'x7', '越难齐'); vmark('Q5', 'hl', '整排数据就拼错了', 'x7', '越难齐', 0.5)
-after('x7', 0.125); hold(0, 0)
+after('x7', 0.125); hold(0, 0.04)
 # --- 演示：出口不够，每多一条线就多占面积、多耗电 ---
 string('q-K3', edge('Q5'), ctop('K3', -250)); gocard('K3')
 t0 = g8(now()); speak('x8'); mo = g8(max(t0 + 1.75, span('x8', '每多一条线')[0]))
@@ -37,7 +37,7 @@ after('x8', 0.25); adv(max(0, g8(mo + 2.0 - now()))); CUE['K3'] = dict(t0=t0, li
 # --- 纸条一拍：只修少数几条路，排成一列 ---
 string('K3-l', cbot('K3', -250), edge('L1', 'r')); gost('l', 1.0, 'sine', 0.12)
 speak('x9'); fwin('l', ['L1', 'L2', 'L3'], 'x9'); vmark('L1', 'hl', '只修少数几条路', 'x9', '只修少数几条路'); vmark('L2', 'hl', '排成一列', 'x9', '排成一列'); vmark('L3', 'hl', '跑到极快', 'x9', '跑到极快')
-after('x9', 0.125); hold(0, 0)
+after('x9', 0.125); hold(0, 0.04)
 # --- 演示：很多条慢路 vs 少数几条快路 ---
 string('l-K5', edge('L3'), ctop('K5', -250)); gocard('K5')
 t0 = g8(now()); many = t0 + 0.25; speak('x10'); few = g8(max(many + 1.25, span('x10', '一条路')[0] - 0.25)); big = g8(span('x10', '上千亿')[0])
@@ -48,7 +48,7 @@ after('x10', 0.25); CUE['K5'] = dict(t0=t0, many=many, few=few, end=now()); hold
 string('K5-n', cbot('K5', -250), edge('N1', 'r')); gost('n', 1.0, 'sine', 0.12)
 speak('x11'); fwin('n', ['N1', 'N2', 'N3', 'N4'], 'x11'); vmark('N1', 'hl', 'Serializer（串行化）', 'x11', 'Ser 是'); vmark('N2', 'hl', '排成一列', 'x11', '排成一列')
 vmark('N3', 'hl', 'Deserializer', 'x11', 'Des 是'); vmark('N4', 'hl', '拆回一排', 'x11', '拆回一排')
-after('x11', 0.125); hold(0, 0)
+after('x11', 0.125); hold(0, 0.04)
 # --- 演示：发货口排成一列 → 收货口拆回一排 ---
 string('n-K1', edge('N4'), ctop('K1', -250)); gocard('K1')
 t0 = g8(now()); ser = t0 + 0.25; speak('x12'); des = g8(max(ser + 2.0, span('x12', '收货口')[0]))
