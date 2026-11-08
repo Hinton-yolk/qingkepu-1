@@ -1,0 +1,327 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Profile background</title>
+<style>html,body{margin:0;background:#F1ECE2;overflow:hidden}svg{display:block}</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+// Editorial illustration: a researcher's desk against a warm wall.
+// Pure function of (w, h): ?w=1125&h=633. Everything is laid out in units of u = h/100,
+// left group anchored to the left edge, right group to the right edge, so any aspect ratio
+// keeps the calm upper-centre wall free for typography.
+const q = new URLSearchParams(location.search);
+const W = +(q.get('w') || 1125), H = +(q.get('h') || 633);
+const u = H / 100, WU = W / u, CX = WU / 2;
+const X = v => (v * u).toFixed(2);
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const R = mulberry32(20261108);
+const rr = (a, b) => a + (b - a) * R();
+
+const C = {
+  wall: '#F1ECE2', graphite: '#3A3631', paper: '#FBF7EE',
+  oak: '#D8B98E', oakBack: '#CBA77A', oakFront: '#DDBF96', oakGrain: '#A98455', oakFace: '#A9845A',
+  green: '#46604F', greenDark: '#2F463A', greenLight: '#5C7867',
+  amber: '#C8904A', wood: '#E2BC86', cream: '#E9DFCB', shadow: '#5A4630',
+};
+const pts = a => a.map(([x, y]) => `${X(x)},${X(y)}`).join(' ');
+
+// Hand-drawn pencil line: subdivided with seeded jitter, drawn twice like a real pencil pass.
+function sketch(points, { w = 0.16, op = 0.75, amp = 0.05, passes = 2, close = false } = {}) {
+  const p = close ? [...points, points[0]] : points;
+  let out = '';
+  for (let k = 0; k < passes; k++) {
+    let d = '';
+    for (let i = 0; i < p.length; i++) {
+      const [x, y] = p[i];
+      if (i === 0) { d += `M${X(x + rr(-amp, amp))},${X(y + rr(-amp, amp))}`; continue; }
+      const [x0, y0] = p[i - 1];
+      const n = Math.max(1, Math.round(Math.hypot(x - x0, y - y0) / 1.1));
+      for (let j = 1; j <= n; j++) {
+        const t = j / n;
+        d += ` L${X(x0 + (x - x0) * t + rr(-amp, amp))},${X(y0 + (y - y0) * t + rr(-amp, amp))}`;
+      }
+    }
+    out += `<path d="${d}" fill="none" stroke="${C.graphite}" stroke-width="${X(w * (k ? 0.7 : 1))}" stroke-linecap="round" stroke-linejoin="round" opacity="${(k ? op * 0.45 : op).toFixed(2)}"/>`;
+  }
+  return out;
+}
+function arrow(x0, y0, x1, y1, o = {}) {
+  const a = Math.atan2(y1 - y0, x1 - x0), s = 0.75;
+  return sketch([[x0, y0], [x1, y1]], o) +
+    sketch([[x1 - s * Math.cos(a - 0.45), y1 - s * Math.sin(a - 0.45)], [x1, y1], [x1 - s * Math.cos(a + 0.45), y1 - s * Math.sin(a + 0.45)]], o);
+}
+const shadow = (cx, cy, rx, ry, op, blur = 'blur2') =>
+  `<ellipse cx="${X(cx)}" cy="${X(cy)}" rx="${X(rx)}" ry="${X(ry)}" fill="${C.shadow}" opacity="${op}" filter="url(#${blur})"/>`;
+
+let s = '';
+// ---------- defs ----------
+s += `<defs>
+  <filter id="blur1" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${X(0.5)}"/></filter>
+  <filter id="blur2" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${X(1.1)}"/></filter>
+  <filter id="blur3" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${X(2.4)}"/></filter>
+  <filter id="grain" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" seed="4"/>
+    <feColorMatrix type="saturate" values="0"/>
+  </filter>
+  <filter id="plaster" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency="${(0.9 / (6 * u)).toFixed(4)}" numOctaves="3" seed="9"/>
+    <feColorMatrix type="saturate" values="0"/>
+  </filter>
+  <linearGradient id="wallG" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#F6F0E4"/><stop offset="0.55" stop-color="#F1EBE0"/><stop offset="1" stop-color="#EAE2D4"/>
+  </linearGradient>
+  <linearGradient id="wallFoot" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#5A4630" stop-opacity="0"/><stop offset="1" stop-color="#5A4630" stop-opacity="0.14"/>
+  </linearGradient>
+  <linearGradient id="deskG" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="${C.oakBack}"/><stop offset="1" stop-color="${C.oakFront}"/>
+  </linearGradient>
+  <linearGradient id="faceG" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#B08B5F"/><stop offset="1" stop-color="#957249"/>
+  </linearGradient>
+  <radialGradient id="pool" cx="0.5" cy="0.5" r="0.5">
+    <stop offset="0" stop-color="#F3C987" stop-opacity="0.5"/><stop offset="1" stop-color="#F3C987" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="sunDesk" cx="0.5" cy="0.5" r="0.5">
+    <stop offset="0" stop-color="#FFF4DC" stop-opacity="0.45"/><stop offset="1" stop-color="#FFF4DC" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="shadeG" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="${C.greenLight}"/><stop offset="0.6" stop-color="${C.green}"/><stop offset="1" stop-color="${C.greenDark}"/>
+  </linearGradient>
+  <linearGradient id="pageL" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#FCF8F0"/><stop offset="0.85" stop-color="#F6EFE1"/><stop offset="1" stop-color="#E4D8C2"/>
+  </linearGradient>
+  <linearGradient id="pageR" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#E4D8C2"/><stop offset="0.15" stop-color="#F6EFE1"/><stop offset="1" stop-color="#FCF8F0"/>
+  </linearGradient>
+  <linearGradient id="mugG" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#F6EFE2"/><stop offset="0.55" stop-color="#ECE2D0"/><stop offset="1" stop-color="#CFC1A8"/>
+  </linearGradient>
+  <linearGradient id="irid" x1="0" y1="0" x2="1" y2="0.6">
+    <stop offset="0" stop-color="#A9B6C4"/><stop offset="0.3" stop-color="#C5B5D2"/><stop offset="0.55" stop-color="#B7D3C9"/>
+    <stop offset="0.78" stop-color="#E1CDA4"/><stop offset="1" stop-color="#A6BACB"/>
+  </linearGradient>
+  <radialGradient id="vig" cx="0.5" cy="0.42" r="0.75">
+    <stop offset="0.6" stop-color="#3C2C1C" stop-opacity="0"/><stop offset="1" stop-color="#3C2C1C" stop-opacity="0.13"/>
+  </radialGradient>
+</defs>`;
+
+// ---------- wall ----------
+const DESK = 56, FRONT = 94;
+s += `<rect width="${W}" height="${X(DESK + 1)}" fill="url(#wallG)"/>`;
+s += `<rect width="${W}" height="${X(DESK + 1)}" filter="url(#plaster)" opacity="0.05" style="mix-blend-mode:multiply"/>`;
+// window light falling on the wall from the left: two soft panes
+s += `<g filter="url(#blur3)" opacity="0.85">
+  <polygon points="${pts([[2, 8], [16, 6], [24, 47], [9, 50]])}" fill="#FFF5E0"/>
+  <polygon points="${pts([[18.5, 5.6], [32, 3.6], [40, 44], [26, 46.6]])}" fill="#FFF5E0"/>
+</g>`;
+s += `<rect y="${X(DESK - 4)}" width="${W}" height="${X(4)}" fill="url(#wallFoot)"/>`;
+// soft shadows the window light throws onto the wall (light from the left, so they fall to the right)
+s += `<clipPath id="wallClip"><rect width="${W}" height="${X(DESK)}"/></clipPath>`;
+s += `<g clip-path="url(#wallClip)"><g transform="translate(${X(7)} ${X(2.5)})" filter="url(#blur2)" opacity="0.09" fill="${C.shadow}" stroke="${C.shadow}">
+  <line x1="${X(12)}" y1="${X(61.6)}" x2="${X(17)}" y2="${X(30)}" stroke-width="${X(1)}"/>
+  <line x1="${X(17)}" y1="${X(30)}" x2="${X(29)}" y2="${X(21)}" stroke-width="${X(1)}"/>
+  <path d="M${X(27.4)},${X(19.6)} L${X(31.6)},${X(18.4)} L${X(42.2)},${X(27)} Q${X(38.6)},${X(33.8)} ${X(31.4)},${X(33.6)} Z" stroke="none"/>
+</g>
+<g filter="url(#blur2)" opacity="0.10" fill="${C.shadow}">
+  <rect x="${X(WU - 40 + 2.5)}" y="${X(57)}" width="${X(10)}" height="${X(4)}" rx="${X(2)}"/>
+  <polygon points="${pts([[WU - 12, 49], [WU - 3, 46], [WU + 1, 56], [WU - 10, 56]])}"/>
+  <rect x="${X(WU - 25)}" y="${X(53.5)}" width="${X(22)}" height="${X(3)}" rx="${X(1.5)}"/>
+</g></g>`;
+
+// ---------- desk ----------
+s += `<rect y="${X(DESK)}" width="${W}" height="${X(FRONT - DESK)}" fill="url(#deskG)"/>`;
+for (let i = 0; i < 70; i++) {
+  const y = rr(DESK + 0.6, FRONT - 0.4), amp = rr(0.08, 0.45), wl = rr(18, 55), ph = rr(0, 6.3);
+  let d = '';
+  for (let x = -2; x <= WU + 2; x += 2) d += `${x < 0 ? 'M' : 'L'}${X(x)},${X(y + amp * Math.sin(x / wl * 6.283 + ph) + (x - CX) * 0.004 * (y - 75) / 20)} `;
+  s += `<path d="${d}" fill="none" stroke="${C.oakGrain}" stroke-width="${X(rr(0.05, 0.2))}" opacity="${rr(0.07, 0.22).toFixed(2)}"/>`;
+}
+s += `<ellipse cx="${X(14)}" cy="${X(70)}" rx="${X(30)}" ry="${X(12)}" fill="url(#sunDesk)"/>`;
+s += `<rect y="${X(FRONT)}" width="${W}" height="${X(100 - FRONT + 1)}" fill="url(#faceG)"/>`;
+s += `<rect y="${X(FRONT - 0.1)}" width="${W}" height="${X(0.3)}" fill="#E8CEA6" opacity="0.8"/>`;
+s += `<line x1="0" y1="${X(DESK)}" x2="${W}" y2="${X(DESK)}" stroke="#8C6B45" stroke-width="${X(0.12)}" opacity="0.5"/>`;
+
+// ---------- left: desk lamp ----------
+const lx = 12, ly = 63;
+s += `<polygon points="${pts([[31.5, 33.5], [42, 27], [60, 70], [26, 73]])}" fill="#F7D9A2" opacity="0.10" filter="url(#blur3)"/>`;
+s += `<ellipse cx="${X(41)}" cy="${X(73)}" rx="${X(19)}" ry="${X(6.5)}" fill="url(#pool)"/>`;
+s += shadow(lx + 4, ly + 1.4, 9, 1.7, 0.28);
+s += `<line x1="${X(lx)}" y1="${X(ly - 1.4)}" x2="${X(17)}" y2="${X(30)}" stroke="${C.greenDark}" stroke-width="${X(0.95)}" stroke-linecap="round"/>`;
+s += `<line x1="${X(lx + 0.3)}" y1="${X(ly - 1.4)}" x2="${X(17.3)}" y2="${X(30)}" stroke="${C.greenLight}" stroke-width="${X(0.25)}" stroke-linecap="round" opacity="0.7"/>`;
+s += `<line x1="${X(17)}" y1="${X(30)}" x2="${X(29)}" y2="${X(21)}" stroke="${C.greenDark}" stroke-width="${X(0.95)}" stroke-linecap="round"/>`;
+s += `<line x1="${X(17.1)}" y1="${X(29.6)}" x2="${X(29)}" y2="${X(20.7)}" stroke="${C.greenLight}" stroke-width="${X(0.25)}" stroke-linecap="round" opacity="0.7"/>`;
+s += `<ellipse cx="${X(lx)}" cy="${X(ly)}" rx="${X(6)}" ry="${X(1.5)}" fill="${C.greenDark}"/>`;
+s += `<path d="M${X(lx - 5)},${X(ly - 0.2)} Q${X(lx - 4.6)},${X(ly - 2.6)} ${X(lx)},${X(ly - 2.7)} Q${X(lx + 4.6)},${X(ly - 2.6)} ${X(lx + 5)},${X(ly - 0.2)} Z" fill="${C.green}"/>`;
+s += `<path d="M${X(lx - 3.6)},${X(ly - 1.4)} Q${X(lx - 2.2)},${X(ly - 2.4)} ${X(lx + 0.4)},${X(ly - 2.5)}" stroke="#7E9886" stroke-width="${X(0.25)}" fill="none" opacity="0.7"/>`;
+s += `<circle cx="${X(17)}" cy="${X(30)}" r="${X(1.05)}" fill="${C.green}" stroke="${C.greenDark}" stroke-width="${X(0.18)}"/>`;
+s += `<circle cx="${X(29)}" cy="${X(21)}" r="${X(0.95)}" fill="${C.green}" stroke="${C.greenDark}" stroke-width="${X(0.18)}"/>`;
+s += `<path d="M${X(27.4)},${X(19.6)} L${X(31.6)},${X(18.4)} L${X(42.2)},${X(27)} Q${X(38.6)},${X(33.8)} ${X(31.4)},${X(33.6)} Z" fill="url(#shadeG)"/>`;
+s += `<path d="M${X(29)},${X(19.4)} L${X(36.5)},${X(25.5)}" stroke="#7E9886" stroke-width="${X(0.3)}" opacity="0.6"/>`;
+s += `<ellipse cx="${X(36.8)}" cy="${X(30.3)}" rx="${X(5.9)}" ry="${X(1.5)}" transform="rotate(-38 ${X(36.8)} ${X(30.3)})" fill="#22322A"/>`;
+s += `<ellipse cx="${X(36.8)}" cy="${X(30.3)}" rx="${X(5.9)}" ry="${X(1.5)}" transform="rotate(-38 ${X(36.8)} ${X(30.3)})" fill="none" stroke="#E9B970" stroke-width="${X(0.22)}" opacity="0.75"/>`;
+s += `<ellipse cx="${X(37.4)}" cy="${X(30.9)}" rx="${X(2.6)}" ry="${X(0.6)}" transform="rotate(-38 ${X(37.4)} ${X(30.9)})" fill="#FBE2B0" opacity="0.55" filter="url(#blur1)"/>`;
+
+// ---------- left: open notebook with pencil sketches ----------
+const nbx = 38, nby = 80;
+s += shadow(nbx + 2.5, nby + 2.2, 23, 6.2, 0.22);
+let nb = '';
+nb += `<rect x="${X(-22.3)}" y="${X(-8.5)}" width="${X(44.6)}" height="${X(17.2)}" rx="${X(0.7)}" fill="${C.green}"/>`;
+nb += `<rect x="${X(-21.5)}" y="${X(-7.8)}" width="${X(21.3)}" height="${X(15.9)}" fill="url(#pageL)"/>`;
+nb += `<rect x="${X(0.2)}" y="${X(-7.8)}" width="${X(21.3)}" height="${X(15.9)}" fill="url(#pageR)"/>`;
+nb += `<line x1="${X(-21.4)}" y1="${X(8.35)}" x2="${X(-0.3)}" y2="${X(8.35)}" stroke="#DCCFB6" stroke-width="${X(0.18)}"/>`;
+nb += `<line x1="${X(0.3)}" y1="${X(8.35)}" x2="${X(21.4)}" y2="${X(8.35)}" stroke="#DCCFB6" stroke-width="${X(0.18)}"/>`;
+nb += `<line x1="0" y1="${X(-7.8)}" x2="0" y2="${X(8.1)}" stroke="#BFAF92" stroke-width="${X(0.15)}"/>`;
+for (let gx = -20.3; gx < 21; gx += 1.45) for (let gy = -6.6; gy < 7.6; gy += 1.45) {
+  if (Math.abs(gx) < 0.7) continue;
+  nb += `<circle cx="${X(gx)}" cy="${X(gy)}" r="${X(0.07)}" fill="#9C8F78" opacity="0.35"/>`;
+}
+// left page: light bending through a prism, dispersing into a fan
+const tri = [[-15.2, 4.4], [-7.6, 4.4], [-11.4, -3.3]];
+nb += sketch(tri, { close: true, w: 0.18 });
+for (let i = 0; i < 4; i++) nb += sketch([[-9.6 + i * 0.45, 0.4 + i * 0.95], [-8.6 + i * 0.45, 0.2 + i * 0.95]], { w: 0.1, op: 0.5, passes: 1 });
+nb += arrow(-20.2, -0.6, -13.4, 0.5, { w: 0.16 });
+nb += sketch([[-13.4, 0.5], [-9.7, 1.2]], { w: 0.12, op: 0.6 });
+[-2.1, -0.9, 0.3, 1.5, 2.7].forEach((ye, i) => { nb += sketch([[-9.7, 1.2], [-2.4, ye + 0.4 * i * 0.2]], { w: 0.12, op: 0.62 - i * 0.04, passes: 1 }); });
+let wave = [];
+for (let x = -20; x <= -12.5; x += 0.35) wave.push([x, -5.7 + 0.55 * Math.sin((x + 20) * 1.7)]);
+nb += sketch(wave, { w: 0.13, op: 0.6, amp: 0.03 });
+nb += arrow(-12.3, -5.7, -10.4, -5.7, { w: 0.13, op: 0.6 });
+nb += sketch([[-6.2, -6.6], [-6.2, -4.4]], { w: 0.12, op: 0.4, passes: 1 });
+nb += `<circle cx="${X(-4.4)}" cy="${X(-5.5)}" r="${X(0.55)}" fill="none" stroke="${C.graphite}" stroke-width="${X(0.1)}" opacity="0.45"/>`;
+// right page: hexagonal lattice (wurtzite top view), layered cross-section, band sketch
+const hexR = 1.45, hc = [6.5, -2.6];
+const hexCenters = [[0, 0]].concat([0, 1, 2, 3, 4, 5].map(k => [Math.sqrt(3) * hexR * Math.cos(Math.PI / 6 + k * Math.PI / 3), Math.sqrt(3) * hexR * Math.sin(Math.PI / 6 + k * Math.PI / 3)]));
+hexCenters.forEach(([hx, hy]) => {
+  const v = [0, 1, 2, 3, 4, 5].map(k => [hc[0] + hx + hexR * Math.cos(k * Math.PI / 3), hc[1] + hy + hexR * Math.sin(k * Math.PI / 3)]);
+  nb += sketch(v, { close: true, w: 0.11, op: 0.58, amp: 0.03, passes: 1 });
+  v.forEach(([px, py]) => { nb += `<circle cx="${X(px)}" cy="${X(py)}" r="${X(0.2)}" fill="${C.graphite}" opacity="0.62"/>`; });
+});
+const layers = [[1.7, 0.8, 'h'], [2.5, 1.0, ''], [3.5, 0.75, 'x'], [4.25, 2.1, 'h2']];
+const lx0 = 11.6, lx1 = 19.8;
+layers.forEach(([y0, h, f]) => {
+  nb += sketch([[lx0, y0], [lx1, y0], [lx1, y0 + h], [lx0, y0 + h]], { close: true, w: 0.12, op: 0.65, amp: 0.03, passes: 1 });
+  if (f === 'h' || f === 'h2') {
+    const step = f === 'h' ? 0.45 : 0.75;
+    for (let x = lx0 + 0.2; x < lx1 - 0.1; x += step) nb += sketch([[x, y0 + h - 0.08], [Math.min(x + h * 0.7, lx1 - 0.05), y0 + 0.08]], { w: 0.07, op: 0.42, amp: 0.02, passes: 1 });
+  }
+  if (f === 'x') for (let x = lx0 + 0.4; x < lx1; x += 0.6) nb += `<circle cx="${X(x)}" cy="${X(y0 + h / 2)}" r="${X(0.08)}" fill="${C.graphite}" opacity="0.5"/>`;
+});
+layers.forEach(([y0, h], i) => {
+  const yy = y0 + h / 2;
+  nb += sketch([[lx0 - 0.3, yy], [lx0 - 2.6 - (i % 2) * 0.8, yy - 0.2]], { w: 0.08, op: 0.45, passes: 1 });
+  nb += `<circle cx="${X(lx0 - 2.8 - (i % 2) * 0.8)}" cy="${X(yy - 0.2)}" r="${X(0.22)}" fill="none" stroke="${C.graphite}" stroke-width="${X(0.08)}" opacity="0.5"/>`;
+});
+let cb = [], vb = [];
+for (let x = 13; x <= 20.2; x += 0.3) { const b = 1.1 * Math.exp(-((x - 16.4) ** 2) / 2.2); cb.push([x, -6.3 + b]); vb.push([x, -3.6 + b]); }
+nb += sketch(cb, { w: 0.13, op: 0.62, amp: 0.025 });
+nb += sketch(vb, { w: 0.13, op: 0.62, amp: 0.025 });
+for (let x = 13.1; x < 20; x += 0.9) nb += sketch([[x, -4.75], [x + 0.45, -4.75]], { w: 0.08, op: 0.45, passes: 1, amp: 0.01 });
+nb += arrow(1.8, 5.4, 9.6, 5.4, { w: 0.1, op: 0.45 });
+s += `<g transform="translate(${X(nbx)} ${X(nby)}) rotate(-2.5) scale(1 0.9)">${nb}</g>`;
+
+// pencil shavings and graphite dust beside the notebook
+const shav = (x, y, sc, rot) => `<g transform="translate(${X(x)} ${X(y)}) rotate(${rot}) scale(${sc})">
+  <path d="M0,0 C${X(1.3)},${X(-1.1)} ${X(2.6)},${X(0.2)} ${X(1.5)},${X(1.05)} C${X(0.6)},${X(1.6)} ${X(-0.4)},${X(0.6)} ${X(0.4)},${X(0.05)}" fill="none" stroke="#D9B07A" stroke-width="${X(0.5)}" stroke-linecap="round"/>
+  <path d="M0,0 C${X(1.3)},${X(-1.1)} ${X(2.6)},${X(0.2)} ${X(1.5)},${X(1.05)}" fill="none" stroke="${C.green}" stroke-width="${X(0.12)}" opacity="0.8"/></g>`;
+s += shadow(64, 90.6, 2.6, 0.7, 0.18, 'blur1') + shav(62.6, 89.4, 1.0, -15) + shav(65.8, 91.2, 0.8, 40);
+for (let i = 0; i < 14; i++) s += `<circle cx="${X(rr(60.5, 68))}" cy="${X(rr(88.6, 92.4))}" r="${X(rr(0.05, 0.13))}" fill="${C.graphite}" opacity="${rr(0.25, 0.55).toFixed(2)}"/>`;
+
+// pencil lying across the notebook
+const p0 = [46.5, 88.2], ang = -17, pl = 19;
+const pencil = (fill1, fill2, fill3, tip) => `<rect x="0" y="${X(-0.48)}" width="${X(pl)}" height="${X(0.96)}" fill="${fill1}"/>
+  <rect x="0" y="${X(-0.16)}" width="${X(pl)}" height="${X(0.2)}" fill="${fill2}"/>
+  <rect x="${X(-0.5)}" y="${X(-0.48)}" width="${X(0.5)}" height="${X(0.96)}" fill="${fill3}"/>
+  <polygon points="${pts([[pl, -0.48], [pl + 2.6, -0.13], [pl + 2.6, 0.13], [pl, 0.48]])}" fill="${fill3}"/>
+  <polygon points="${pts([[pl + 1.85, -0.18], [pl + 2.8, 0], [pl + 1.85, 0.18]])}" fill="${tip}"/>`;
+s += `<g transform="translate(${X(p0[0] + 0.6)} ${X(p0[1] + 0.9)}) rotate(${ang})" filter="url(#blur1)" opacity="0.28">${pencil(C.shadow, C.shadow, C.shadow, C.shadow)}</g>`;
+s += `<g transform="translate(${X(p0[0])} ${X(p0[1])}) rotate(${ang})">${pencil(C.green, C.greenLight, C.wood, C.graphite)}</g>`;
+
+// ---------- centre: prism, its spectrum, and a wafer fragment ----------
+const mugX = WU - 40;
+const px = CX - 6, py = 70;
+const A = [px - 6.2, py], B = [px + 6.2, py], T = [px, py - 10.6], off = [4.4, -2.9];
+const A2 = [A[0] + off[0], A[1] + off[1]], B2 = [B[0] + off[0], B[1] + off[1]], T2 = [T[0] + off[0], T[1] + off[1]];
+s += shadow(px + 4, py + 0.3, 8.5, 1.5, 0.16);
+const fanEnd = Math.min(px + 30, mugX - 7.5);
+const bands = ['#D98A7A', '#E0A66E', '#E4CC7A', '#9FC08F', '#8FAFC8', '#A79AC6'];
+let fan = '';
+bands.forEach((c, i) => {
+  const y0 = py - 1.4 + i * 0.22, y1a = py - 4.2 + i * 1.15, y1b = y1a + 1.15;
+  fan += `<polygon points="${pts([[B[0] + 0.6, y0], [fanEnd, y1a], [fanEnd, y1b], [B[0] + 0.6, y0 + 0.22]])}" fill="${c}"/>`;
+});
+s += `<g opacity="0.33" filter="url(#blur1)">${fan}</g>`;
+s += `<ellipse cx="${X(fanEnd - 1)}" cy="${X(py - 1)}" rx="${X(3)}" ry="${X(1.2)}" fill="#FFF3D8" opacity="0.35" filter="url(#blur2)"/>`;
+s += `<polygon points="${pts([A2, B2, T2])}" fill="#E7EFEC" opacity="0.30" stroke="#FFFFFF" stroke-width="${X(0.15)}"/>`;
+s += `<polygon points="${pts([T, B, B2, T2])}" fill="#F4F8F6" opacity="0.42"/>`;
+s += `<polygon points="${pts([A, T, T2, A2])}" fill="#DCE7E3" opacity="0.30"/>`;
+s += `<polygon points="${pts([A, B, T])}" fill="#E3ECE9" opacity="0.40"/>`;
+s += `<polygon points="${pts([A, B, T])}" fill="none" stroke="#FFFFFF" stroke-width="${X(0.28)}" opacity="0.95"/>`;
+s += `<polyline points="${pts([B, B2, T2, T])}" fill="none" stroke="#FFFFFF" stroke-width="${X(0.2)}" opacity="0.85"/>`;
+s += `<polyline points="${pts([A, B, T, A])}" fill="none" stroke="${C.graphite}" stroke-width="${X(0.08)}" opacity="0.35"/>`;
+s += `<line x1="${X(T[0] + 0.5)}" y1="${X(T[1] + 1.4)}" x2="${X(B[0] - 1.6)}" y2="${X(B[1] - 1.2)}" stroke="#FFFFFF" stroke-width="${X(0.5)}" opacity="0.6" filter="url(#blur1)"/>`;
+
+// wafer fragment: a quarter-wafer wedge, one edge is the original round rim, two straight cleaves
+const wx = CX + 10, wy = 84.6;
+s += shadow(wx + 1.4, wy + 1.6, 8.5, 2.0, 0.2, 'blur1');
+const wr = 9;
+const wafer = `M${X(0)},${X(-wr * 0.62)} L${X(-wr * 0.71)},${X(wr * 0.71 - wr * 0.62)} ` +
+  `A${X(wr)},${X(wr)} 0 0 0 ${X(wr * 0.71)},${X(wr * 0.71 - wr * 0.62)} L${X(1.2)},${X(-wr * 0.62 + 0.9)} L${X(0.6)},${X(-wr * 0.62 + 0.3)} Z`;
+let grid = '';
+for (let g = -10; g <= 10; g += 1.25) grid += `<line x1="${X(g)}" y1="${X(-8)}" x2="${X(g)}" y2="${X(8)}"/><line x1="${X(-10)}" y1="${X(g)}" x2="${X(10)}" y2="${X(g)}"/>`;
+s += `<g transform="translate(${X(wx)} ${X(wy)}) rotate(-8) scale(1 0.5)">
+  <clipPath id="wclip"><path d="${wafer}"/></clipPath>
+  <path d="${wafer}" fill="url(#irid)"/>
+  <g clip-path="url(#wclip)" stroke="#6F7A88" stroke-width="${X(0.06)}" opacity="0.32">${grid}</g>
+  <polygon clip-path="url(#wclip)" points="${pts([[-4.5, -7], [-2.2, -7], [3.4, 6], [1.1, 6]])}" fill="#FFFFFF" opacity="0.4"/>
+  <path d="${wafer}" fill="none" stroke="#5E6672" stroke-width="${X(0.12)}" opacity="0.6"/></g>`;
+// a faint coffee ring left on the desk
+s += `<ellipse cx="${X(mugX - 15)}" cy="${X(80)}" rx="${X(4.4)}" ry="${X(1.25)}" fill="none" stroke="#8A5A36" stroke-width="${X(0.22)}" opacity="0.13"/>`;
+s += `<ellipse cx="${X(mugX - 15.3)}" cy="${X(80.1)}" rx="${X(4.2)}" ry="${X(1.15)}" fill="none" stroke="#8A5A36" stroke-width="${X(0.1)}" opacity="0.08"/>`;
+
+// ---------- right: coffee mug ----------
+s += shadow(mugX + 4.5, 70.9, 8.5, 1.5, 0.24);
+s += `<path d="M${X(mugX + 5)},${X(60.4)} C${X(mugX + 9.4)},${X(60.2)} ${X(mugX + 9.6)},${X(67)} ${X(mugX + 5)},${X(67.2)}" fill="none" stroke="#D9CCB4" stroke-width="${X(1.35)}" stroke-linecap="round"/>`;
+s += `<path d="M${X(mugX + 5)},${X(60.4)} C${X(mugX + 9.4)},${X(60.2)} ${X(mugX + 9.6)},${X(67)} ${X(mugX + 5)},${X(67.2)}" fill="none" stroke="#B9AA90" stroke-width="${X(0.35)}" opacity="0.7"/>`;
+s += `<path d="M${X(mugX - 5)},${X(58)} L${X(mugX - 5)},${X(69.2)} Q${X(mugX - 5)},${X(70.7)} ${X(mugX)},${X(70.7)} Q${X(mugX + 5)},${X(70.7)} ${X(mugX + 5)},${X(69.2)} L${X(mugX + 5)},${X(58)} Z" fill="url(#mugG)"/>`;
+s += `<rect x="${X(mugX - 5)}" y="${X(60)}" width="${X(10)}" height="${X(0.45)}" fill="${C.green}" opacity="0.85"/>`;
+s += `<ellipse cx="${X(mugX)}" cy="${X(58)}" rx="${X(5)}" ry="${X(1.15)}" fill="#F8F2E7" stroke="#CDBFA7" stroke-width="${X(0.12)}"/>`;
+s += `<ellipse cx="${X(mugX)}" cy="${X(58.25)}" rx="${X(4.3)}" ry="${X(0.85)}" fill="#5A3D2B"/>`;
+s += `<ellipse cx="${X(mugX - 1.3)}" cy="${X(58.05)}" rx="${X(1.4)}" ry="${X(0.25)}" fill="#A07A5C" opacity="0.6"/>`;
+
+// ---------- right: books ----------
+const bx = WU - 27;
+const standing = [[WU - 12.8, 49.5, 3.3, '#E6DCC6', -3], [WU - 9.3, 46.2, 3.4, '#3F5A4A', -7], [WU - 5.6, 48.4, 2.6, '#4A4740', -11]];
+standing.forEach(([x, top, w, c, rot]) => {
+  s += `<g transform="rotate(${rot} ${X(x + w / 2)} ${X(68.5)})">
+    <rect x="${X(x)}" y="${X(top)}" width="${X(w)}" height="${X(68.5 - top)}" rx="${X(0.3)}" fill="${c}"/>
+    <rect x="${X(x)}" y="${X(top + 2)}" width="${X(w)}" height="${X(0.3)}" fill="#FFFFFF" opacity="0.18"/>
+    <rect x="${X(x)}" y="${X(66)}" width="${X(w)}" height="${X(0.3)}" fill="#FFFFFF" opacity="0.18"/>
+    <rect x="${X(x + w - 0.5)}" y="${X(top)}" width="${X(0.5)}" height="${X(68.5 - top)}" fill="#000000" opacity="0.12"/></g>`;
+});
+s += shadow(bx + 13, 71, 15, 1.6, 0.26);
+const stack = [[3.4, 23, 0, '#4A4740'], [2.8, 21, 1.2, '#E6DCC6'], [3.6, 22.2, -0.4, '#4C6555'], [2.4, 19, 1.8, '#C79A5E']];
+let by = 70.6;
+stack.forEach(([h, w, dx, c]) => {
+  const top = by - h, x = bx + dx;
+  s += `<polygon points="${pts([[x, top], [x + w, top], [x + w + 0.5, top - 0.75], [x + 0.5, top - 0.75]])}" fill="${c}"/>`;
+  s += `<polygon points="${pts([[x, top], [x + w, top], [x + w + 0.5, top - 0.75], [x + 0.5, top - 0.75]])}" fill="#FFFFFF" opacity="0.16"/>`;
+  s += `<rect x="${X(x)}" y="${X(top)}" width="${X(w)}" height="${X(h)}" rx="${X(0.35)}" fill="${c}"/>`;
+  s += `<rect x="${X(x)}" y="${X(top)}" width="${X(w)}" height="${X(h * 0.35)}" rx="${X(0.35)}" fill="#FFFFFF" opacity="0.08"/>`;
+  [2.1, w - 2.4].forEach(o => { s += `<rect x="${X(x + o)}" y="${X(top + h * 0.18)}" width="${X(0.28)}" height="${X(h * 0.64)}" fill="#FFFFFF" opacity="0.22"/>`; });
+  by = top - 0.05;
+});
+
+// ---------- finishing: vignette and paper grain ----------
+s += `<rect width="${W}" height="${H}" fill="url(#vig)"/>`;
+s += `<rect width="${W}" height="${H}" filter="url(#grain)" opacity="0.07" style="mix-blend-mode:multiply"/>`;
+
+document.getElementById('root').innerHTML =
+  `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${s}</svg>`;
+window.ready = true;
+</script>
+</body>
+</html>
