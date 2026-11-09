@@ -107,20 +107,20 @@ const CH = { F: [53, 57, 60, 65], CE: [52, 55, 60, 64], Dm: [50, 53, 57, 62], Am
 const ROOT = { F: 29, CE: 28, Dm: 26, AmC: 24, Bb: 22, FA: 21, Gm: 19, C: 24, Gm7: 19, Csus: 24, Am: 21 };
 const HAS_F = new Set(["F", "Dm", "Bb", "FA", "Gm7", "Csus"]);
 const PROG = [[0, "Gm7"], [2, "Csus"], [2.5, "C"], [T.myth, "Dm"], [T.a2, "Bb"], [6, "C"],
-  [8, "F"], [9, "CE"], [10, "Dm"], [11, "AmC"], [12, "Bb"], [13, "FA"], [14, "Gm"], [15, "C"],
-  [16, "F"], [17, "CE"], [18, "Dm"], [19, "AmC"], [20, "Bb"], [20.5, "C"],
-  [21, "F"], [22, "Am"], [23, "Bb"], [24, "C"],
-  [26, "Gm7"], [27, "C"], [28, "F"], [29, "Dm"], [30, "Gm7"], [31, "C"], [32, "Am"], [33, "Dm"], [34, "Bb"], [35, "C"], [36, "Am"], [37, "Dm"], [38, "Gm"], [39, "C"],
-  [40, "Gm7"], [40.5, "C"], [41, "F"], [42, "Am"], [43, "Bb"], [43.5, "C"],
-  [44, "F"], [45, "Dm"], [46, "Gm7"], [47, "C"], [48, "F"], [49, "Bb"], [T.end, "F"]];
+  [8, "F"], [9, "CE"], [10, "Dm"], [11, "AmC"], [12, "Bb"], [13, "FA"], [14, "Gm"], [15, "C"],          // the current, the ride, the principle
+  [16, "F"], [17, "CE"], [18, "Dm"], [19, "AmC"], [20, "Bb"], [21, "FA"], [22, "Gm"], [23, "C"],       // the dive, the two samples
+  [24, "Bb"], [24.5, "C"], [25, "F"], [26, "Am"], [27, "Bb"], [28, "C"],                                // IV–V, stop, the name on I
+  [30, "Gm7"], [31, "C"], [32, "F"], [33, "Dm"], [34, "Gm7"], [35, "C"], [36, "Am"], [37, "Dm"], [38, "Bb"], [39, "C"], [40, "Am"], [41, "Dm"], [42, "Gm"], [43, "C"],
+  [44, "Gm7"], [44.5, "C"], [45, "F"], [46, "Am"], [47, "Bb"], [47.5, "C"],
+  [48, "F"], [49, "Dm"], [50, "Gm7"], [51, "C"], [52, "F"], [53, "Bb"], [T.end, "F"]];
 const chordAt = (t) => { let c = PROG[0][1]; for (const [a, ch] of PROG) if (t >= a - 1e-6) c = ch; return c; };
-const SECS = [[0, "hook"], [T.myth, "myth"], [T.strike, "ans"], [T.q3, "dig"], [T.a3, "path"], [T.dive, "dive"], [T.labels, "mech"], [T.stop1, "stop"], [T.name, "name"],
+const SECS = [[0, "hook"], [T.myth, "myth"], [T.strike, "ans"], [T.q3, "dig"], [T.a3, "path"], [T.dive, "dive"], [T.labels + 0.25, "mech"], [T.stop1, "stop"], [T.name, "name"],
   [T.q5, "out"], [T.a7, "card"], [T.a8, "phone"], [T.a9, "water"], [T.a10, "jump"], [T.q9, "build"], [T.stop2, "stop"], [T.ka, "payoff"], [T.tip, "tip"], [T.end, "end"]];
 const secAt = (t) => { let s = SECS[0][1]; for (const [t0, n] of SECS) if (t >= t0 - 1e-6) s = n; return s; };
 const silent = (t) => (t >= T.hush && t < T.strike) || (t >= T.stop1 && t < T.name) || (t >= T.stop2 && t < T.ka);
 // the "current" shimmer while the fat is talked about: dull 8ths; as the fat thickens, notes drop out
-const fatPart = (t) => t >= T.a5 && t < T.stop1;
-const dropNote = (t, i) => { if (t < T.thick) return false; const k = (fatK(t) - 1) / 1.2; return ((i * 0.618034) % 1) < 0.7 * k; };
+const fatPart = (t) => t >= T.a5 && t < T.a6;
+const dropNote = (t, i) => { if (t < T.thick || t >= T.stop1) return false; const k = (fatK(t) - 1) / 1.2; return ((i * 0.618034) % 1) < 0.5 * k; };
 
 // ------------------------------------------------------------------ arrangement
 const ARP = [0, 1, 2, 3, 2, 1, 2, 3];
@@ -139,7 +139,7 @@ for (let t = 0; t < DUR - 1e-6; t += BEAT) {
   if (sec === "name" || sec === "payoff") { kick(t, q === 0 ? 1 : 0.85); if (q === 1 || q === 3) clap(t, 0.75); for (let e = 0; e < 4; e++) { if (e === 2) hat(t + e * S16, 0.75, true, 0.2); else hat(t + e * S16, e % 2 ? 0.4 : 0.22); } }
   if (sec === "out" || sec === "card" || sec === "phone") { if (q === 0) kick(t, 0.6); if (q === 2) rim(t, 0.45); hat(t + BEAT / 2, 0.32); if (sec !== "out") hat(t, 0.15); }
   if (sec === "water") { if (q === 0) kick(t, 0.5); hat(t + BEAT / 2, 0.28); }
-  if (sec === "build") { if (q === 0 || q === 2) kick(t, 0.65); for (let e = 0; e < 4; e++) { const tt = t + e * S16; if (!silent(tt)) { hat(tt, 0.15 + 0.3 * (tt - T.q9)); snare(tt, 0.12 + 0.5 * (tt - T.q9)); } } }
+  if (sec === "build") { if (q === 0 || q === 2) kick(t, 0.65); for (let e = 0; e < 4; e++) { const tt = t + e * S16; if (!silent(tt)) { hat(tt, 0.15 + 0.22 * (tt - T.q9)); snare(tt, 0.08 + 0.26 * (tt - T.q9)); } } }
   if (sec === "tip") { if (q === 0) kick(t, 0.5); hat(t + BEAT / 2, 0.3); }
   // bass
   if (sec === "hook" && q === 0) bass(t, root + 12, BEAT * 3.6, 0.55);
@@ -189,14 +189,14 @@ play(T.ka + 2.0, [[0, 86, 2], [2, 89, 2], [4, 86, 4], [8, 84, 2], [10, 81, 2]], 
 [[0, 86], [2, 84], [4, 81], [8, 84]].forEach(([s, m], i) => pluck(T.q2 + 0.5 + s * S16, m, 0.8, -0.2 + 0.15 * i));
 // the tip: soft mallet answers (F – Dm – Gm7 – C – F)
 [[0, 81], [2, 84], [4, 89], [6, 88], [8, 84]].forEach(([s, m]) => mallet(T.tip + 0.5 + s * S16, m, 0.6, 0.15));
-[[0, 82], [2, 86], [4, 89], [6, 86], [10, 84]].forEach(([s, m]) => mallet(46 + s * S16, m, 0.55, -0.15));
-[[0, 81], [2, 84], [4, 88], [8, 89]].forEach(([s, m]) => mallet(48 + s * S16, m, 0.5, 0.1));
+[[0, 82], [2, 86], [4, 89], [6, 86], [10, 84]].forEach(([s, m]) => mallet(T.tip + 2 + s * S16, m, 0.55, -0.15));
+[[0, 81], [2, 84], [4, 88], [8, 89]].forEach(([s, m]) => mallet(T.tip + 4 + s * S16, m, 0.5, 0.1));
 // the last word: mi-sol-DO, the DO on the sting
 [[0, 81, 2], [2, 84, 2], [4, 89, 12]].forEach(([s, m, d]) => lead(T.sting - 0.5 + s * S16, m, d * S16 * 0.92, 0.85, 0.9));
 
 // ------------------------------------------------------------------ the current's hum: F2, only under chords holding an F
 {
-  const HUM = [[T.line, T.out + 1.0, 1], [T.ka, T.ka + 1.8, 0.8]];
+  const HUM = [[T.line, T.dive + 0.3, 1], [T.ka, T.ka + 1.8, 0.8]];
   let ph = 0; const lp = svf();
   for (let n = 0; n < Math.floor(DUR * SR); n++) {
     const t = n / SR; let lev = 0;
@@ -223,8 +223,7 @@ for (let i = 0; i < 4; i++) tick(T.bfOn + i * S16, 0.3, -0.1, 2600 + 120 * (i % 
 beep(T.lockF, 96, 0.13, 0.7); beep(T.lockF + 0.16, 96, 0.08, 0.45);
 // 2 the guess: the scan; silence; struck; the pads light up; a pulse goes into the foot
 softImpact(T.myth, 0.3);
-glide(T.scan, T.scanEnd - T.scan, 72, 60, 0.5, -0.1);
-for (let i = 0; i < 4; i++) thunk(T.scanEnd + i * 0.5 * 0 + i * S16 * 2, 0.18, 70);
+HITS.glint.forEach((t, i) => { put(SFX, t, 0.6, (tt) => 0.05 * (Math.sin(TAU * mtof(96 + [0, 5, 9, 12][i]) * tt) + 0.5 * Math.sin(TAU * mtof(108 + [0, 5, 9, 12][i]) * tt)) * Math.min(1, tt / 0.02) * Math.exp(-tt * 6), { pan: -0.4 + 0.27 * i, rev: 0.5 }); });
 impact(T.strike, 1.4); stab(T.strike, [50, 56, 61, 65, 68], 0.7, 1.1, 1.3);
 buzz(T.strike, 0.3, 1); thunk(T.strike, 0.8, 120); thunk(T.strike + 0.125, 0.8, 110); buzz(T.strike + 0.125, 0.25, 0.8);
 HITS.rings.forEach((t, i) => { blip(t, [89, 93, 96, 101][i], 0.6, -0.3 + 0.2 * i); tick(t, 0.3, 0, 3000); });
@@ -233,15 +232,21 @@ glide(T.pulse, T.pulseEnd - T.pulse, 77, 89, 0.55, 0.25); blip(T.pulse, 89, 0.45
 tick(T.close + 0.5, 0.25, 0.2, 2400);
 glide(T.pullB, T.pullBEnd - T.pullB, 74, 67, 0.4, 0);
 glide(T.line, T.lineEnd - T.line, 65, 89, 0.7, 0); bloom(T.lineEnd, [77, 81, 84], 0.45);
+// what is it measuring? ride the pulse up, over, down; the principle: the dial swings to "how hard"
+glide(T.follow, 0.85, 72, 84, 0.5, 0.2); glide(T.follow + 0.9, 0.85, 84, 72, 0.5, -0.2);
+tick(T.dial, 0.5, 0.4, 2600); blip(T.dial, 84, 0.4, 0.4); glide(T.swing, 0.5, 72, 81, 0.5, 0.4); blip(T.swingEnd - 0.25, 89, 0.45, 0.4);
 // the dive: a riser, the cut, the dark
 riser(T.dive, T.flood - T.dive + 0.1, 0.75); glide(T.dive, 1.0, 60, 77, 0.6, 0.1);
 tick(T.cut, 0.7, -0.3, 3600); tick(T.cut + 0.125, 0.5, 0.3, 3900); thunk(T.cut, 0.25, 90);
 bloom(T.flood, [65, 69, 72], 0.6);
 blip(T.labels, 84, 0.45, -0.3); blip(T.labels + 0.08, 89, 0.4, -0.3);
-// 4 the mechanism: water drops in the muscle; the one in the fat; the fat thickens (falling), the meter
-HITS.dropsM.forEach((t, i) => plink(t, [84, 86, 89, 93][i], 0.7, -0.3 + 0.2 * i));
-plink(T.dropF, 77, 0.6, 0.2);
-glide(T.thick, T.thickEnd - T.thick, 86, 74, 0.6, 0.25); tick(T.meter, 0.5, 0.4, 2800);
+// 4 the mechanism: two samples come out of the cut; water in the muscle (many drops); the fat: one drop, the charges stall;
+//   two calves: the right one's fat thickens (falling), its dial climbs
+blip(T.blocks, 84, 0.55, -0.4); blip(T.blocks + 0.125, 77, 0.5, 0.4); bloom(T.blocksEnd, [77, 81, 84], 0.35);
+HITS.dropsM.forEach((t, i) => plink(t, [81, 84, 86, 89, 91, 93][i], 0.6, -0.5 + 0.12 * i));
+plink(T.fatGo + 0.1, 77, 0.6, 0.4); glide(T.fatGo + 0.25, 0.75, 72, 86, 0.45, 0.4);
+HITS.fatSteps.forEach((t) => tap(t, 0.32, 150));
+bloom(T.twin, [74, 77, 81], 0.4); glide(T.thick, T.thickEnd - T.thick, 86, 74, 0.6, 0.25); glide(T.thick + 0.2, 0.8, 72, 84, 0.35, 0.4);
 impact(T.name, 1.3); stab(T.name, [53, 60, 65, 69, 72], 0.6, 1, 1.2); bloom(T.name + 0.25, [89, 93, 96], 0.7);
 // 5 the missing step: out of the leg; the card; the phone; the history; the water; the numbers jump
 glide(T.out, T.outEnd - T.out, 79, 67, 0.55, 0);
@@ -315,5 +320,5 @@ writeFileSync(new URL(`./score-${STYLE}.wav`, import.meta.url), buf);
   const top3 = { strike: pk(T.strike), name: pk(T.name), close: pk(T.ka) };
   let others = -99, at = 0; for (let t = 0; t < DUR - 0.2; t += 0.125) { if ([T.strike, T.name, T.ka].some((h) => Math.abs(t - h) < 0.3)) continue; const p = pk(t); if (p > others) { others = p; at = t; } }
   console.log(`peaks dBFS: strike ${top3.strike}, name ${top3.name}, closing step ${top3.close}; loudest other ${others} at ${at.toFixed(2)} s; sting ${pk(T.sting)}`);
-  console.log(`rms dB: hook ${rms(0.1, 2.7)}, myth ${rms(2.8, 4.45)}, hush ${rms(T.hush + 0.01, T.strike - 0.01)}, mech ${rms(14, 20.5)}, name ${rms(21.2, 23.8)}, card ${rms(26.3, 29)}, phone ${rms(29.5, 34.5)}, payoff ${rms(41.2, 43.8)}, tip ${rms(44.5, 48.5)}`); }
+  console.log(`rms dB: hook ${rms(0.1, 2.7)}, myth ${rms(2.8, 4.45)}, hush ${rms(T.hush + 0.01, T.strike - 0.01)}, mech ${rms(T.a4, T.stop1)}, name ${rms(T.name + 0.2, T.q5 - 0.2)}, card ${rms(T.a7, T.a8)}, phone ${rms(T.a8 + 0.3, T.a9)}, payoff ${rms(T.ka + 0.2, T.tip - 0.2)}, tip ${rms(T.tip + 0.5, T.tipOut)}`); }
 console.log(`score-${STYLE}.wav: ${DUR} s @ ${SR} Hz, mix peak ${peak.toFixed(2)} -> normalised`);

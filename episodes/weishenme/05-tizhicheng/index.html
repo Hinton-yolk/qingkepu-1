@@ -135,19 +135,20 @@ const KH0 = key([0, -20, 120], [540, 925], 2.45, 50);          // frame 0: the s
 const KH1 = key([-8, -8, 104], [540, 890], 2.8, 50);
 const KW = key([0, -6, GS], [540, 1070], 2.05, 30);             // the guess: from higher up, the whole scale
 const KW2 = key([20, -10, GS], [540, 1036], 2.58, 30);
-const KF = key([FX - 4, 14, 52], [560, 1000], 4.4, 44);         // close on the left foot
-const KF2 = key([FX, 4, 58], [560, 990], 4.9, 44);
+const KF = key([FX - 6, -24, 46], [560, 985], 3.4, 46);        // the left foot on its pad (from a little above; no toe close-up)
+const KF2 = key([FX - 2, -30, 50], [560, 960], 3.8, 46);
 const KB = key([0, -70, 560], [540, 1000], 0.8, 90);          // the lower body from the front
 const KB2 = key([16, -70, 545], [540, 950], 0.95, 90);
 const CALF = [FX, -90, ZC];                                     // the cut's centre
 const KCut = key(CALF, [520, 1080], 5.0, 90);
 const KSec = key(CALF, [500, 1150], 6.5, 58);                   // looking at the cut
 const KSec2 = key([CALF[0] - 2, CALF[1], ZC], [504, 1154], 6.8, 56);
-const KSecM = key([CALF[0] - 4, CALF[1] - 14, ZC], [520, 1150], 7.4, 57);       // 肌肉: closer on the muscle
-const KSecF = key([CALF[0] - 30, CALF[1] - 24, ZC], [560, 1150], 7.8, 55);      // 脂肪: along the fat ring
-const KSecT = key([CALF[0] + 8, CALF[1] - 4, ZC], [470, 1140], 6.0, 58);        // 脂肪越多: the whole ring, room for the meter
-const KSecT2 = key([CALF[0] + 10, CALF[1] - 4, ZC], [466, 1146], 6.25, 58);
-const KSecN = key([CALF[0] + 14, CALF[1] - 4, ZC], [430, 1180], 5.2, 60);       // the name: the meter takes over
+const KPr = key([90, -70, 540], [420, 1000], 0.8, 90);          // the principle: the body on the left, a big dial on the right
+const KPr2 = key([96, -70, 530], [416, 990], 0.86, 90);
+function kFollow(t) {                                            // ride one pulse round the loop
+  const u = E.sine(prog(t, T.follow + 0.15, T.followEnd)), p = cAt(CPATH.len * u);
+  return key([p[0], -70, p[2]], [540, 1010], 1.7, 90);
+}
 const KH2 = key([30, -30, 150], [540, 1000], 1.62, 50);         // out again (the card sits over it)
 const KH2b = key([50, -30, 150], [540, 990], 1.9, 50);
 const KP = key([PH.x, PH.y - 6, 8], [540, 1020], 8.4, 14);     // the phone, its form
@@ -168,16 +169,14 @@ function cam(t) {
   if (t < T.closeEnd) return interp(KW2, KF, E.p3io(prog(t, T.close, T.closeEnd)));
   if (t < T.pullB) return interp(KF, KF2, lin(prog(t, T.closeEnd, T.pullB)));
   if (t < T.pullBEnd) return interp(KF2, KB, E.p3io(prog(t, T.pullB, T.pullBEnd)), E.p2io(prog(t, T.pullB, T.pullBEnd)));
-  if (t < T.dive) return interp(KB, KB2, lin(prog(t, T.pullBEnd, T.dive)));
-  if (t < T.tilt) return interp(KB2, KCut, E.p2in(prog(t, T.dive, T.tilt)) * 0.55 + 0.45 * prog(t, T.dive, T.tilt));   // one take: in
+  if (t < T.follow) return interp(KB, KB2, lin(prog(t, T.pullBEnd, T.follow)));
+  if (t < T.followEnd) return interp(KB2, kFollow(t), E.p2io(prog(t, T.follow, T.follow + 0.45)));
+  if (t < T.prWideEnd) return interp(kFollow(T.followEnd), KPr, E.p3io(prog(t, T.followEnd, T.prWideEnd)));
+  if (t < T.dive) return interp(KPr, KPr2, lin(prog(t, T.prWideEnd, T.dive)));
+  if (t < T.tilt) return interp(KPr2, KCut, E.p2in(prog(t, T.dive, T.tilt)) * 0.55 + 0.45 * prog(t, T.dive, T.tilt));   // one take: in
   if (t < T.tiltEnd) return interp(KCut, KSec, E.p2out(prog(t, T.tilt, T.tiltEnd)), E.p2io(prog(t, T.tilt, T.tiltEnd)));
-  if (t < T.a4) return interp(KSec, KSec2, lin(prog(t, T.tiltEnd, T.a4)));
-  if (t < T.a5) return interp(KSec2, KSecM, E.sine(prog(t, T.a4, T.a5)));
-  if (t < T.a6) return interp(KSecM, KSecF, E.sine(prog(t, T.a5, T.a6)));
-  if (t < T.a6 + 0.6) return interp(KSecF, KSecT, E.p3io(prog(t, T.a6, T.a6 + 0.6)));
-  if (t < T.name) return interp(KSecT, KSecT2, lin(prog(t, T.a6 + 0.6, T.name)));
-  if (t < T.q5) { const pk = 1 + 0.06 * Math.sin(Math.PI * clamp((t - T.name) / 0.45)); return punch(interp(KSecT2, KSecN, E.sine(prog(t, T.name, T.q5))), pk, [500, 1150]); }
-  if (t < T.outEnd) return interp(KSecN, KH2, E.p3io(prog(t, T.out, T.outEnd)), E.p2io(prog(t, T.out, T.outEnd)));
+  if (t < T.out) return interp(KSec, KSec2, lin(prog(t, T.tiltEnd, T.out)));
+  if (t < T.outEnd) return interp(KSec2, KH2, E.p3io(prog(t, T.out, T.outEnd)), E.p2io(prog(t, T.out, T.outEnd)));
   if (t < T.pan) return interp(KH2, KH2b, lin(prog(t, T.outEnd, T.pan)));
   if (t < T.panEnd) return interp(KH2b, KP, E.p3io(prog(t, T.pan, T.panEnd)), E.p2io(prog(t, T.pan, T.panEnd)));
   if (t < T.back) return interp(KP, KP2, lin(prog(t, T.panEnd, T.back)));
@@ -275,12 +274,13 @@ const NR = 20;
 // a horizontal ring (an ellipse in the plane z = c[2])
 function ringH(K, c, rx, ry) { const o = []; for (let i = 0; i < NR; i++) { const a = TAU * i / NR; o.push(proj(K, c[0] + rx * Math.cos(a), c[1] + ry * Math.sin(a), c[2])); } return o; }
 // a frontal ring (the plane y = c[1]): a flat-bottomed section of a foot or a toe; xl lateral half-width, xm medial
-function ringF(K, c, xm, xl, h, sgn, flat = 0.35) {
+function ringF(K, c, xm, xl, h, sgn, flat = 0.35, arch = 0) {
   const o = [], z0 = c[2];
   for (let i = 0; i < NR; i++) {
     const a = TAU * i / NR, ca = Math.cos(a), sa = Math.sin(a), hw = (ca * sgn >= 0 ? xl : xm);
     const x = c[0] + hw * Math.sign(ca) * Math.pow(Math.abs(ca), sa < 0 ? 0.7 : 1);
-    const z = sa >= 0 ? z0 + h * 0.42 + h * 0.58 * sa : z0 + h * 0.42 - h * 0.42 * Math.pow(Math.abs(sa), flat);
+    let z = sa >= 0 ? z0 + h * 0.42 + h * 0.58 * sa : z0 + h * 0.42 - h * 0.42 * Math.pow(Math.abs(sa), flat);
+    if (arch > 0 && sa < 0 && ca * sgn < 0) z += arch * Math.pow(-ca * sgn, 1.5);
     o.push(proj(K, x, c[1], z));
   }
   return o;
@@ -302,9 +302,11 @@ const LEG = (() => {
   out.push(LEG0[N - 1]); return out;
 })();
 // foot rings, heel to toe roots: [v from the heel, medial half-width, lateral half-width, height]
-const FOOT = [[0, 14, 14, 26], [6, 22, 22, 42], [18, 28, 27, 58], [36, 31, 30, 72], [58, 33, 32, 80], [84, 37, 35, 72], [112, 41, 39, 60], [140, 44, 43, 48], [162, 46, 46, 38], [178, 47, 47, 32], [192, 46, 46, 26]];
+const FOOT = [[0, 14, 14, 26], [6, 22, 22, 42], [18, 28, 27, 58], [36, 30, 30, 72], [58, 32, 32, 80], [84, 36, 35, 70], [112, 40, 39, 58], [140, 44, 43, 46], [162, 47, 46, 37], [178, 48, 47, 31], [190, 46, 45, 25], [199, 42, 41, 19]];
+const ARCH = (v) => 9 * Math.max(0, Math.sin(Math.PI * (v - 60) / 100)) * (v > 60 && v < 160 ? 1 : 0);
 // toes: [u (+ lateral), v start, v end, width, height]
-const TOES = [[-30, 182, 245, 27, 23], [-8, 190, 238, 18, 17], [8, 188, 230, 17, 16], [23, 184, 220, 16, 15], [37, 178, 207, 15, 13.5]];
+// [u (+ lateral), v of the web, v of the tip, width, height] — the toe line slopes from the big toe to the little one
+const TOES = [[-30, 192, 246, 30, 24], [-8.5, 199, 240, 18, 18], [6.5, 198, 233, 16.5, 16], [20, 195, 224, 15.5, 14.5], [33, 189, 213, 14, 13]];
 const ANKY = HEEL + 62;                                       // the ankle's axis (y)
 function legAxis(h) { return [FX + 12 * h / 840, ANKY + 8 * h / 840]; }
 function footPose(t, s) {                                     // the right foot (s = −1) steps on; returns lift (mm) and y shift
@@ -332,12 +334,14 @@ function legRings(K, s, pose, h0 = 0, h1 = 1e9) {            // horizontal rings
   return out;
 }
 function footRings(K, s, pose) {
-  return FOOT.map(([v, xm, xl, h]) => ringF(K, [s * FX, HEEL + v + pose.dy, GS + pose.lift], xm, xl, h, s));
+  return FOOT.map(([v, xm, xl, h]) => ringF(K, [s * FX, HEEL + v + pose.dy, GS + pose.lift], xm, xl, h, s, 0.35, ARCH(v)));
 }
-function toeRings(K, s, pose, toe) {
-  const [u, v0, v1, w, h] = toe, out = [], L = v1 - v0;
-  const P = [[0, 1, 1], [0.3, 0.97, 0.92], [0.62, 0.92, 0.82], [0.86, 0.8, 0.68], [0.97, 0.5, 0.45], [1, 0.18, 0.2]];
-  for (const [f, kw, kh] of P) out.push(ringF(K, [s * (FX + u + 1.5 * f * Math.sign(u)), HEEL + v0 + L * f + pose.dy, GS + pose.lift], w / 2 * kw, w / 2 * kw, h * kh, s, 0.5));
+function toeRings(K, s, pose, toe, i) {
+  const [u, vw, v1, w, h] = toe, v0 = vw - 14, out = [], L = v1 - v0, curl = i === 0 ? 0 : 0.12 * i;
+  // base (inside the foot) → a slight neck → the rounded tip pad → the cap on the glass
+  const P = [[0, 1, 1], [0.35, 0.94, 0.9], [0.62, 0.97, 0.8 - curl * 0.5], [0.8, 0.95, 0.7 - curl], [0.92, 0.78, 0.56 - curl], [0.98, 0.48, 0.4 - curl * 0.6], [1, 0.16, 0.18]];
+  const lean = i === 0 ? 1.8 : -0.6 * i;                        // the big toe leans a little towards the others; the small ones curl in
+  for (const [f, kw, kh] of P) out.push(ringF(K, [s * (FX + u + lean * f), HEEL + v0 + L * f + pose.dy, GS + pose.lift], w / 2 * kw, w / 2 * kw, h * Math.max(0.15, kh), s, 0.6));
   return out;
 }
 // a soft shaded fill of a path: a light-to-shadow wash across x (light from the upper left) and a darker rim (roundness)
@@ -357,6 +361,8 @@ function ghostK(t) {
 }
 // ---- the person is drawn into its own layer (so an x-ray is an outline over a see-through fill), then put down at once
 const LAY = document.createElement("canvas"); LAY.width = W; LAY.height = H;
+const CMP = document.createElement("canvas"); CMP.width = W; CMP.height = H;
+const CMPX = CMP.getContext("2d");
 const LAYX = LAY.getContext("2d");
 function part(path, fill, g, inkC, inkW, shade) {               // outline under, knock the inside out, fill (see-through by g)
   ctx.lineJoin = "round"; ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1;
@@ -370,7 +376,7 @@ function drawLegInto(t, K, s, o) {
   const hMax = o.hMax ?? 1e9, hMin = o.hMin ?? 0;
   const body = new Path2D();
   tubeInto(body, legRings(K, s, pose, hMin, hMax));
-  if (hMin <= 0) tubeInto(body, footRings(K, s, pose));
+  if (hMin <= 0) { tubeInto(body, footRings(K, s, pose)); TOES.forEach((toe, i) => tubeInto(body, toeRings(K, s, pose, toe, i))); }
   const [ax] = legAxis(HC), cx = proj(K, s * ax, 0, 0)[0], hw = 62 * K.A;
   part(body, fill, g, inkC, ink, () => shadeX(body, cx - hw, cx + hw, 0.22, "110,62,28"));
   ctx.globalAlpha = 1 - 0.7 * g;
@@ -384,18 +390,39 @@ function drawLegInto(t, K, s, o) {
     ctx.strokeStyle = rgba(inkC, 0.3); ctx.lineWidth = Math.max(1.2, 0.33 * K.A); ctx.lineCap = "round";
     ctx.beginPath(); ctx.arc(m[0], m[1], 7 * K.A, Math.PI * (s > 0 ? 0.55 : -0.45), Math.PI * (s > 0 ? 1.25 : 0.25)); ctx.stroke();
     ctx.beginPath(); ctx.arc(l[0], l[1], 7 * K.A, Math.PI * (s > 0 ? -0.35 : 0.65), Math.PI * (s > 0 ? 0.45 : 1.45)); ctx.stroke();
-    // the toes: each its own outline, little toe first; a nail on each
-    for (let i = TOES.length - 1; i >= 0; i--) {
-      const tp = new Path2D(); tubeInto(tp, toeRings(K, s, pose, TOES[i]));
-      const tc = proj(K, s * (FX + TOES[i][0]), 0, 0)[0], tw = TOES[i][3] * K.A * 0.6;
-      part(tp, fill, g, inkC, ink * 0.8, () => shadeX(tp, tc - tw, tc + tw, 0.16, "110,62,28"));
-      const [u, v0, v1, w, h] = TOES[i], nl = i === 0 ? 15 : i === 4 ? 5 : 7.5, nw = i === 0 ? 16 : i === 4 ? 6 : 8.5;
-      const nc = [s * (FX + u + 1.2 * Math.sign(u)), HEEL + v1 - nl * 0.75 - 1.5 + pose.dy, GS + pose.lift + h * 0.74];
-      ctx.save(); ctx.globalAlpha = 1 - 0.6 * g; planeT(K, nc[2], [nc[0], nc[1]]);
-      ctx.beginPath(); ctx.ellipse(0, 0, nw / 2, nl / 2, 0, 0, TAU); ctx.fillStyle = C.nail; ctx.fill();
-      ctx.restore(); ctx.save(); ctx.globalAlpha = 1 - 0.6 * g; planeT(K, nc[2], [nc[0], nc[1]]); ctx.beginPath(); ctx.ellipse(0, 0, nw / 2, nl / 2, 0, 0, TAU); ctx.restore();
-      ctx.save(); ctx.globalAlpha = 1 - 0.6 * g; ctx.strokeStyle = rgba(inkC, 0.5); ctx.lineWidth = Math.max(1, 0.25 * K.A); ID(); ctx.stroke(); ctx.restore();
+    // the toes: one skin with the foot; thin creases where they touch, pinkish tips, small pale nails
+    const P3 = (x, y, z) => proj(K, s * x, HEEL + y + pose.dy, GS + pose.lift + z);
+    ctx.save(); ctx.clip(body); ctx.globalAlpha = 1 - g;
+    TOES.forEach(([u, vw, v1, w, h], i) => {                        // a warmer tip on every toe
+      const q = P3(FX + u, v1 - w * 0.35, h * 0.45), r = w * 0.7 * K.A;
+      const gr = ctx.createRadialGradient(q[0], q[1], 0, q[0], q[1], r); gr.addColorStop(0, "rgba(222,140,118,0.24)"); gr.addColorStop(1, "rgba(222,140,118,0)");
+      ctx.fillStyle = gr; ctx.fillRect(q[0] - r, q[1] - r, 2 * r, 2 * r);
+    });
+    // the long tendon to the big toe catches the light; the ball of the foot a touch darker at the sides
+    ctx.lineCap = "round"; ctx.strokeStyle = "rgba(255,246,232,0.16)"; ctx.lineWidth = Math.max(4, 7 * K.A);
+    ctx.filter = `blur(${(3 * K.A).toFixed(1)}px)`;
+    { const a0 = P3(FX - 8, 72, 74), a1 = P3(FX - 22, 140, 44), a2 = P3(FX - 30, 186, 25); ctx.beginPath(); ctx.moveTo(a0[0], a0[1]); ctx.quadraticCurveTo(a1[0], a1[1], a2[0], a2[1]); ctx.stroke(); }
+    ctx.filter = "none";
+    ctx.restore();
+    ctx.save(); ctx.globalAlpha = 1 - 0.7 * g; ctx.lineCap = "round";
+    for (let i = 0; i < TOES.length - 1; i++) {                     // where two toes touch: a short crease from the front gap back towards the web
+      const A = TOES[i], Bt = TOES[i + 1], xm = (A[0] + A[3] / 2 + Bt[0] - Bt[3] / 2) / 2 + (i === 0 ? 1 : -0.6 * i);
+      const vEnd = Math.min(A[2], Bt[2]) - 1.5, vStart = vEnd - 0.55 * (vEnd - Math.max(A[1], Bt[1])), zz = Math.min(A[4], Bt[4]);
+      const c0 = P3(FX + xm, vStart, zz * 0.8), c1 = P3(FX + xm + 0.3, (vStart + vEnd) / 2, zz * 0.72), c2 = P3(FX + xm, vEnd, zz * 0.45);
+      const gl = ctx.createLinearGradient(c0[0], c0[1], c2[0], c2[1]); gl.addColorStop(0, rgba(inkC === C.ink ? "#6E3E1E" : inkC, 0)); gl.addColorStop(0.45, rgba(inkC === C.ink ? "#6E3E1E" : inkC, 0.5)); gl.addColorStop(1, rgba(inkC === C.ink ? "#6E3E1E" : inkC, 0.7));
+      ctx.strokeStyle = gl; ctx.lineWidth = Math.max(1.3, 0.42 * K.A);
+      ctx.beginPath(); ctx.moveTo(c0[0], c0[1]); ctx.quadraticCurveTo(c1[0], c1[1], c2[0], c2[1]); ctx.stroke();
     }
+    TOES.forEach(([u, vw, v1, w, h], i) => {                        // the nails: small, pale, near the tip, on top
+      const nw = i === 0 ? 14 : i === 4 ? 4.5 : w * 0.42, nl = i === 0 ? 12 : i === 4 ? 4 : 5.5, lean = i === 0 ? 1.8 : -0.6 * i;
+      const vy = v1 - nl * 0.5 - (i === 0 ? 4 : 2.5), zt = h * (i === 0 ? 0.66 : 0.6 - 0.12 * i);
+      ctx.save(); planeT(K, GS + pose.lift + zt, [s * (FX + u + lean * 0.9), HEEL + vy + pose.dy]);
+      ctx.beginPath(); ctx.roundRect(-nw / 2, -nl / 2, nw, nl, [nw * 0.45, nw * 0.45, nw * 0.3, nw * 0.3]);
+      ctx.fillStyle = C.nail; ctx.fill(); ctx.restore();
+      ctx.strokeStyle = rgba(inkC === C.ink ? "#9A6A4E" : inkC, 0.55); ctx.lineWidth = Math.max(0.9, 0.22 * K.A); ID(); ctx.stroke();
+      if (i === 0) { ctx.save(); planeT(K, GS + pose.lift + zt, [s * (FX + u + lean * 0.9) - s * 2.5, HEEL + vy + pose.dy - 1.5]); ctx.beginPath(); ctx.ellipse(0, 0, 2.2, 3.2, 0, 0, TAU); ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.fill(); ctx.restore(); }
+    });
+    ctx.restore();
   }
   ctx.globalAlpha = 1;
 }
@@ -526,11 +553,18 @@ function drawScale(t, K, o = {}) {
   planeT(K, GS); rr(-SC.hx, -SC.hy, 2 * SC.hx, 2 * SC.hy, SC.r); strokePx(2.4, C.ink);
   planeT(K, GS); rr(-SC.hx + 3, -SC.hy + 3, 2 * SC.hx - 6, 2 * SC.hy - 6, SC.r - 3); strokePx(1.2, "rgba(255,255,255,0.16)");
   // the four electrode pads (brushed steel)
-  PADS.forEach(([cx, cy, w, h]) => {
+  PADS.forEach(([cx, cy, w, h], i) => {
     planeT(K, GS, [cx, cy]); rr(-w / 2, -h / 2, w, h, 13);
     const gp = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2); gp.addColorStop(0, C.steelL); gp.addColorStop(0.45, C.steel); gp.addColorStop(0.55, "#B7BDC4"); gp.addColorStop(1, C.steelL);
     ctx.fillStyle = gp; ctx.fill(); strokePx(1.6, C.steelD);
     planeT(K, GS, [cx, cy]); rr(-w / 2 + 2.5, -h / 2 + 2.5, w - 5, h - 5, 11); strokePx(1, "rgba(255,255,255,0.45)");
+    // the guess: they glint like chrome trim — a slow light sweeping across each in turn
+    if (t >= T.glint && t < T.a2 + 0.3) {
+      const u = ((t - T.glint - i * 0.25) / 1.6) % 1, k = t - T.glint - i * 0.25 >= 0 ? 1 : 0, fo = 1 - prog(t, T.a2, T.a2 + 0.3);
+      if (k && u < 0.5) { const x = lerp(-w * 0.9, w * 0.9, u / 0.5); planeT(K, GS, [cx, cy]); ctx.save(); rr(-w / 2, -h / 2, w, h, 13); ctx.clip();
+        const gg = ctx.createLinearGradient(x - 26, -h / 2, x + 26, h / 2); gg.addColorStop(0, "rgba(255,255,255,0)"); gg.addColorStop(0.5, `rgba(255,255,255,${0.85 * fo})`); gg.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = gg; ctx.fillRect(-w, -h, 2 * w, 2 * h); ctx.restore(); }
+    }
   });
   if (o.xray > 0.001) { planeT(K, GS); ctx.save(); rr(-SC.hx, -SC.hy, 2 * SC.hx, 2 * SC.hy, SC.r); ctx.clip(); xrayInside(t, K, o.xray); ctx.restore(); }
   // the display — drawn upright to the camera (upside-down digits read as 「h22」, like a glitch)
@@ -600,7 +634,7 @@ function drawCurrent(t, K, u0, u1, a, flow = 1) {             // the line from f
   ctx.strokeStyle = C.acc; ctx.lineWidth = 3.6; ctx.stroke();
   // pulses: evenly spaced, moving along
   const gapS = 140, sp = 300 * flow;
-  for (let s = ((t * sp) % gapS); s < len; s += gapS) { if (s < s0 || s > s1) continue; const q = proj(K, ...cAt(s)); ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(q[0], q[1], 9, 0, TAU); ctx.fill(); ctx.fillStyle = `rgba(${PAP},0.9)`; ctx.beginPath(); ctx.arc(q[0], q[1], 2.6, 0, TAU); ctx.fill(); }
+  for (let s = ((t * sp) % gapS); s < len; s += gapS) { if (s < s0 || s > s1) continue; const q = proj(K, ...cAt(s)); ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(q[0], q[1], 10, 0, TAU); ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = 2.5; ctx.stroke(); ctx.fillStyle = `rgba(${PAP},0.9)`; ctx.beginPath(); ctx.arc(q[0], q[1], 2.6, 0, TAU); ctx.fill(); }
   // the head
   if (u1 < 0.999) { const q = proj(K, ...cAt(s1)); ctx.fillStyle = `rgba(${ACC},0.3)`; ctx.beginPath(); ctx.arc(q[0], q[1], 22, 0, TAU); ctx.fill(); ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(q[0], q[1], 13, 0, TAU); ctx.fill(); ctx.fillStyle = C.paper; ctx.beginPath(); ctx.arc(q[0], q[1], 5, 0, TAU); ctx.fill(); }
   ctx.restore();
@@ -676,7 +710,7 @@ function drawFlow(t, K, cx, cy, zc, sh, o) {
     for (let q = 0; q < n; q++) {
       const u = ((t * v + ph + q / n) % 1 + 1) % 1, z = zc + hgt * u, pp = proj(K, cx + p[0], cy + p[1], z);
       const al = a * Math.min(1, u / 0.08) * (1 - E.p2in(u));
-      ctx.fillStyle = `rgba(${ACC},${al})`; ctx.beginPath(); ctx.arc(pp[0], pp[1], m ? r : r * 1.1, 0, TAU); ctx.fill();
+      ctx.fillStyle = `rgba(${ACC},${al})`; ctx.beginPath(); ctx.arc(pp[0], pp[1], m ? r : r * 1.1, 0, TAU); ctx.fill(); ctx.strokeStyle = `rgba(${INK},${0.8 * al})`; ctx.lineWidth = 2; ctx.stroke();
       ctx.fillStyle = `rgba(${PAP},${0.85 * al})`; ctx.beginPath(); ctx.arc(pp[0], pp[1], r * 0.32, 0, TAU); ctx.fill();
     }
     // the mouth of the lane on the cut: a small orange ring
@@ -908,7 +942,7 @@ function drawLight(t, K) {
   ID(); ctx.fillStyle = groundCol(t); ctx.fillRect(0, 0, W, H);
   // the phone on the floor (to the right of the scale)
   phoneShot(t, K, endFade);
-  const xr = t >= T.xray && t < T.a2 + 0.5 ? E.p2io(prog(t, T.xray, T.xray + 0.3)) * (1 - E.p2io(prog(t, T.a2, T.a2 + 0.5))) : 0;
+  const xr = 0;
   drawScale(t, K, { fade: endFade, xray: xr });
   if (endFade > 0) {                                                 // the badge: the scale as an outline, its four pads, the display
     ctx.save(); ctx.globalAlpha = endFade; planeT(K, GS); rr(-SC.hx, -SC.hy, 2 * SC.hx, 2 * SC.hy, SC.r); strokePx(9, C.ink);
@@ -926,8 +960,14 @@ function drawLight(t, K) {
       drawCurrent(t, K, 0, Math.max(0.002, u), fo, 0.6);
     }
     if (t >= T.line && t < T.flood + 0.3) drawCurrent(t, K, 0, E.p2io(prog(t, T.line, T.lineEnd)), 1 - prog(t, T.flood, T.flood + 0.3), 1);
+    if (t >= T.follow && t < T.followEnd + 0.3) {                      // the one pulse the camera rides round the loop
+      const u = E.sine(prog(t, T.follow + 0.15, T.followEnd)), q = proj(K, ...cAt(CPATH.len * u)), fo = 1 - prog(t, T.followEnd, T.followEnd + 0.3);
+      ID(); ctx.save(); ctx.globalAlpha = fo; ctx.fillStyle = `rgba(${ACC},0.25)`; ctx.beginPath(); ctx.arc(q[0], q[1], 30, 0, TAU); ctx.fill();
+      ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(q[0], q[1], 16, 0, TAU); ctx.fill(); ctx.fillStyle = C.paper; ctx.beginPath(); ctx.arc(q[0], q[1], 6, 0, TAU); ctx.fill(); ctx.restore();
+    }
     if (t >= T.ka && t < T.finOut + 0.4) drawCurrent(t, K, 0, 1, E.p3out(prog(t, T.ka, T.ka + 0.3)) * (1 - E.p2io(prog(t, T.finOut - 0.3, T.finOut + 0.4))), 1.2);
   }
+  principle(t, K);
   // the guess is struck: a big ✕ across the scale
   if (t >= T.strike && t < T.unOrange) {
     const c = proj(K, 0, -10, GS), fo = 1 - prog(t, T.a2 + 0.25, T.a2 + 0.55);
@@ -940,26 +980,27 @@ function drawLight(t, K) {
   }
   ID();
 }
-// the dive: the left calf, cut across; above the cut only its outline, below it the leg; the cut face in colour
+// the dive: the left calf, cut across; above the cut only its outline, below it the leg; the cut face in colour.
+// It stays until the two samples come out of it (18.5) and comes back on the way out (28.0), when the cut closes again.
+function secShowK(t) {
+  if (t < T.blocks) return 1;
+  if (t < T.out) return 1 - E.p2io(prog(t, T.blocks + 0.1, T.blocksEnd + 0.25));
+  return E.p2io(prog(t, T.out, T.out + 0.3));
+}
 function drawInterior(t, K, a) {
   if (a <= 0.002) return;
   ID(); ctx.fillStyle = `rgba(23,25,28,${a})`; ctx.fillRect(0, 0, W, H);
-  ctx.save(); ctx.globalAlpha = a;
-  // where we are: the rest of the body as a faint outline, the left leg above the cut as an outline, below it the leg itself
+  const sk = secShowK(t); if (sk <= 0.005) return;
+  ctx.save(); ctx.globalAlpha = a * sk;
   const secA = 1 - E.p2io(prog(t, T.out + 0.4, T.out + 0.75));               // pulling out: the cut closes again
-  const yF = proj(K, CALF[0], CALF[1] + 50, ZC)[1];
-  drawPerson(t, K, { ghost: 1, inkC: C.paper, inkW: 2, alpha: lerp(0.28, 0.6, prog(t, T.out, T.out + 0.5)), legs: [{ s: -1 }] });
-  drawPerson(t, K, { ghost: 1, inkC: C.paper, inkW: 2.4, alpha: 0.6, legs: [{ s: 1, hMin: secA > 0.5 ? HC : 0 }], shorts: false });
-  if (secA > 0.01) drawPerson(t, K, { ghost: 0, inkC: C.paper, inkW: 2.4, alpha: secA, fill: mixHex(C.skin, C.dark, 0.3), legs: [{ s: 1, hMax: HC }], shorts: false, fadeBelow: [yF + 60, yF + 560] });
-  ctx.globalAlpha = a * secA;
-  const fk = fatK(t);
-  const hiM = t >= T.a4 && t < T.a5 + 0.3 ? E.p2io(prog(t, T.a4, T.a4 + 0.3)) * (1 - prog(t, T.a5, T.a5 + 0.3)) : 0;
-  const hiF = t >= T.a5 && t < T.a6 + 0.3 ? E.p2io(prog(t, T.a5, T.a5 + 0.3)) * (1 - prog(t, T.a6, T.a6 + 0.3)) : t >= T.a6 && t < T.stop1 ? 0.6 : 0;
-  const sh = drawSection(t, K, CALF[0], CALF[1], ZC, { fk, hiM, hiF });
-  const show = E.p2io(prog(t, T.tilt + 0.3, T.tiltEnd));
-  const aM = show * (t < T.a5 ? 1 : t < T.a6 ? lerp(1, 0.3, E.p2io(prog(t, T.a5, T.a5 + 0.4))) : lerp(0.3, 1, E.p2io(prog(t, T.a6, T.a6 + 0.5)))), aF = show * lerp(0.35, 1, E.p2io(prog(t, T.a5, T.a5 + 0.4)));
-  if (show > 0.01) drawFlow(t, K, CALF[0], CALF[1], ZC, sh, { aM, aF, speed: 1, r: 11 });
-  if (t >= T.dropsM) drawDrops(t, K, CALF[0], CALF[1], ZC, 4, T.dropsM, t >= T.dropF ? prog(t, T.dropF, T.dropF + 0.4) : 0, 21 * K.A / 6.5);
+  const yF = proj(K, CALF[0], CALF[1] + 50, ZC)[1], A0 = a * sk;
+  drawPerson(t, K, { ghost: 1, inkC: C.paper, inkW: 2, alpha: A0 * lerp(0.28, 0.6, prog(t, T.out, T.out + 0.5)), legs: [{ s: -1 }] });
+  drawPerson(t, K, { ghost: 1, inkC: C.paper, inkW: 2.4, alpha: A0 * 0.6, legs: [{ s: 1, hMin: secA > 0.5 ? HC : 0 }], shorts: false });
+  if (secA > 0.01) drawPerson(t, K, { ghost: 0, inkC: C.paper, inkW: 2.4, alpha: A0 * secA, fill: mixHex(C.skin, C.dark, 0.3), legs: [{ s: 1, hMax: HC }], shorts: false, fadeBelow: [yF + 60, yF + 560] });
+  ctx.globalAlpha = A0 * secA;
+  const sh = drawSection(t, K, CALF[0], CALF[1], ZC, { fk: 1, hiM: 0, hiF: 0 });
+  const show = E.p2io(prog(t, T.tilt + 0.3, T.tiltEnd));                  // the current keeps coming up through the cut (faint: not explained yet)
+  if (show > 0.01) drawFlow(t, K, CALF[0], CALF[1], ZC, sh, { aM: 0.55 * show, aF: 0.4 * show, speed: 1, r: 10 });
   // the cut itself: a bright line sweeping across the calf
   if (t >= T.cut && t < T.tilt + 0.45) {
     const u = E.p2io(prog(t, T.cut, T.cutEnd)), fo = 1 - prog(t, T.tilt, T.tilt + 0.45);
@@ -968,16 +1009,124 @@ function drawInterior(t, K, a) {
   }
   ctx.restore();
 }
-// the meter beside the cut (screen space)
-function meterK(t) { return t >= T.meter && t < T.out + 0.6 ? E.p3out(prog(t, T.meter, T.meter + 0.35)) * (1 - E.p2io(prog(t, T.out + 0.2, T.out + 0.6))) : 0; }
-function drawMeter(t) {
-  const a = meterK(t); if (a <= 0.01) return;
-  const v = 0.3 + 0.55 * (fatK(t) - 1) / 1.2 + 0.015 * Math.sin(TAU * 0.35 * t);
-  const nm = t >= T.name ? spring(t - T.name, 14, 0.45) : 0, kick = t >= T.name && t < T.name + 0.6 ? 0.12 * Math.sin(Math.PI * prog(t, T.name, T.name + 0.6)) : 0;
-  const mv = 0;
-  const big = t >= T.name ? E.p3out(prog(t, T.name, T.name + 0.35)) : 0;
-  const cx = lerp(935, 870, big), cy = lerp(1060, 1100, big), R = lerp(108, 160, big), sc = 1 + 0.12 * Math.sin(Math.PI * clamp((t - T.name) / 0.3)) * (t >= T.name ? 1 : 0);
-  const fl = flood(t); meter(t, cx, cy, R, v + kick * (1 - nm), a, { sc, col: fl > 0.5 ? PAP : INK, bg: "rgba(0,0,0,0)" });
+
+// ---------------------------------------------------------------- the dial: one round panel meter (paper face, ink scale, orange needle)
+// val 0 = the current goes easily … 1 = it has a hard time; o: {label, sc, dark}
+function dial(cx, cy, R, val, a, o = {}) {
+  if (a <= 0.01) return;
+  ID(); ctx.save(); ctx.globalAlpha = a; ctx.translate(cx, cy); const sc = o.sc ?? 1; ctx.scale(sc, sc);
+  const a0 = Math.PI * 1.15, a1 = Math.PI * 1.85, cyN = R * 0.22;              // the scale arc sits in the upper part of the face
+  ctx.fillStyle = C.paper; ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.fill();
+  ctx.lineWidth = Math.max(4, R * 0.045); ctx.strokeStyle = C.ink; ctx.stroke();
+  ctx.lineCap = "round"; const Ra = R * 0.78;
+  ctx.strokeStyle = "rgba(20,20,20,0.75)"; ctx.lineWidth = Math.max(3, R * 0.03); ctx.beginPath(); ctx.arc(0, cyN, Ra, a0, a1); ctx.stroke();
+  ctx.strokeStyle = C.acc; ctx.lineWidth = Math.max(5, R * 0.06); ctx.beginPath(); ctx.arc(0, cyN, Ra, lerp(a0, a1, 0.68), a1); ctx.stroke();
+  for (let i = 0; i <= 8; i++) { const an = lerp(a0, a1, i / 8), r0 = Ra - (i % 4 === 0 ? R * 0.16 : R * 0.09); ctx.strokeStyle = "rgba(20,20,20,0.8)"; ctx.lineWidth = Math.max(2, R * 0.022); ctx.beginPath(); ctx.moveTo(r0 * Math.cos(an), cyN + r0 * Math.sin(an)); ctx.lineTo((Ra - 2) * Math.cos(an), cyN + (Ra - 2) * Math.sin(an)); ctx.stroke(); }
+  const an = lerp(a0, a1, clamp(val, -0.03, 1.03));
+  ctx.strokeStyle = C.acc; ctx.lineWidth = Math.max(4, R * 0.045); ctx.beginPath(); ctx.moveTo(-R * 0.1 * Math.cos(an), cyN - R * 0.1 * Math.sin(an)); ctx.lineTo(Ra * 0.94 * Math.cos(an), cyN + Ra * 0.94 * Math.sin(an)); ctx.stroke();
+  ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(0, cyN, Math.max(5, R * 0.06), 0, TAU); ctx.fill();
+  if (o.label) { ctx.font = `700 ${Math.round(R * 0.3)}px ${UI}`; ctx.fillStyle = C.ink; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.globalAlpha = a * (o.labelA ?? 1); ctx.fillText(o.label, 0, cyN + R * 0.42); }
+  ctx.restore();
+}
+// the principle (13.75–16.25): the current goes round; the dial beside the body swings to "how hard"
+function principle(t, K) {
+  if (t < T.dial - 0.1 || t >= T.dive + 0.45) return;
+  const a = E.p3out(prog(t, T.dial, T.dial + 0.35)) * (1 - E.p2io(prog(t, T.dive, T.dive + 0.4)));
+  const v = 0.55 * spring(t - T.swing, 9, 0.55) * (t >= T.swing ? 1 : 0) + 0.012 * Math.sin(TAU * 0.4 * t);
+  const C0 = [805, 985], R = 185, sc = 0.7 + 0.3 * E.p3out(prog(t, T.dial, T.dial + 0.35));
+  // a wire from the scale to the dial: the scale is the meter
+  const e = proj(K, 160, 0, 13), k = E.p3out(prog(t, T.dial + 0.15, T.dial + 0.6));
+  ID(); ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = C.ink; ctx.lineWidth = 3.5; ctx.lineJoin = "round";
+  ctx.beginPath(); ctx.moveTo(e[0], e[1]); const mx = C0[0], my = e[1]; ctx.lineTo(lerp(e[0], mx, Math.min(1, k * 2)), my); if (k > 0.5) ctx.lineTo(mx, lerp(my, C0[1] + R, (k - 0.5) * 2)); ctx.stroke();
+  ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(e[0], e[1], 6, 0, TAU); ctx.fill(); ctx.restore();
+  dial(C0[0], C0[1], R, v, a, { sc });
+}
+// the two samples (18.5–23): a block of muscle and a block of fat, each between the same two terminals, each with a meter
+const BLK = { w: 350, h: 198, dx: 30, dy: -26, y: 870, xm: 290, xf: 790, my: 1250, mr: 104 };
+const DROPS_M = [[-0.3, -0.28], [0.05, -0.3], [0.33, -0.26], [-0.18, 0.3], [0.16, 0.32], [0.38, 0.28]], DROPS_F = [[0.08, -0.27]];
+function blockK(t) { return t < T.twin ? 1 : 1 - E.p2io(prog(t, T.twin, T.twin + 0.4)); }
+function sampleBlock(t, kind, cx, cy, sc, a, lit) {
+  if (a <= 0.01) return;
+  const w = BLK.w, h = BLK.h, dx = BLK.dx, dy = BLK.dy, m = kind === "m";
+  const col = m ? [C.muscle, C.muscleL, C.muscleD] : [C.fat, "#F8EBC2", C.fatD];
+  ID(); ctx.save(); ctx.globalAlpha = a; ctx.translate(cx, cy); ctx.scale(sc, sc);
+  const x0 = -w / 2, x1 = w / 2, y0 = -h / 2, y1 = h / 2;
+  // the terminals: a steel plate at each end (behind the block's ends)
+  [[x0 - 20, 1], [x1 + 4, -1]].forEach(([px]) => { const gp = ctx.createLinearGradient(px, y0, px + 16, y1); gp.addColorStop(0, C.steelL); gp.addColorStop(0.5, C.steel); gp.addColorStop(1, "#AEB4BB");
+    ctx.fillStyle = gp; rr(px, y0 - 22, 16, h + 34, 5); ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = 2.5; ctx.stroke(); });
+  // top face, side face, front face
+  ctx.lineJoin = "round"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(241,240,236,0.85)";
+  ctx.beginPath(); ctx.moveTo(x0 + 8, y0); ctx.lineTo(x0 + 8 + dx, y0 + dy); ctx.lineTo(x1 - 8 + dx, y0 + dy); ctx.lineTo(x1 - 8, y0); ctx.closePath(); ctx.fillStyle = col[1]; ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x1 - 8, y0); ctx.lineTo(x1 - 8 + dx, y0 + dy); ctx.lineTo(x1 - 8 + dx, y1 + dy - 8); ctx.lineTo(x1 - 8, y1); ctx.closePath(); ctx.fillStyle = col[2]; ctx.fill(); ctx.stroke();
+  rr(x0, y0, w, h, 14); ctx.fillStyle = col[0]; ctx.fill();
+  ctx.save(); ctx.clip();
+  const gs = ctx.createLinearGradient(0, y0, 0, y1); gs.addColorStop(0, "rgba(255,255,255,0.14)"); gs.addColorStop(1, "rgba(60,20,10,0.16)"); ctx.fillStyle = gs; ctx.fillRect(x0, y0, w, h);
+  if (m) { ctx.strokeStyle = rgba(C.muscleD, 0.55); ctx.lineWidth = 2.2; [-0.42, 0.04, 0.44].forEach((f, i) => { ctx.beginPath(); for (let k = 0; k <= 24; k++) { const x = lerp(x0, x1, k / 24), y = f * h / 2 + 7 * Math.sin(k / 24 * Math.PI * 2 + i); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); }); }
+  ctx.restore();
+  rr(x0, y0, w, h, 14); ctx.strokeStyle = "rgba(241,240,236,0.85)"; ctx.lineWidth = 3; ctx.stroke();
+  if (lit > 0.01) { ctx.save(); ctx.globalAlpha = a * lit; ctx.filter = "blur(10px)"; rr(x0 - 6, y0 - 6, w + 12, h + 12, 18); ctx.strokeStyle = `rgba(${ACC},0.7)`; ctx.lineWidth = 8; ctx.stroke(); ctx.restore(); }
+  // water: big drops, well apart (many in the muscle, one in the fat)
+  const D = m ? DROPS_M : DROPS_F, t0 = m ? T.dropsM : T.fatGo + 0.1;
+  D.forEach(([fx, fy], i) => { const k = spring(t - (t0 + i * S16), 16, 0.6); if (k <= 0.01) return; const bob = 0.03 * Math.sin(TAU * 0.4 * t + i); ctx.save(); ctx.translate(fx * w, fy * h); droplet(0, 0, 21 * k * (1 + bob), 1); ctx.restore(); });
+  // the current from the left terminal to the right one: a quick steady stream in muscle, a few stalling steps in fat
+  ctx.save(); rr(x0, y0, w, h, 14); ctx.clip();
+  const yc = 2, dot = (x, al) => { ctx.fillStyle = `rgba(${ACC},${al})`; ctx.beginPath(); ctx.arc(x, yc, 13, 0, TAU); ctx.fill(); ctx.strokeStyle = `rgba(${INK},${al})`; ctx.lineWidth = 3; ctx.stroke(); ctx.fillStyle = `rgba(${PAP},${al})`; ctx.beginPath(); ctx.arc(x, yc, 4.6, 0, TAU); ctx.fill(); };
+  const on = clamp((t - T.blocksEnd) / 0.3);
+  if (on > 0) {
+    if (m) { const gap = 40, off = (t * 330) % gap; ctx.strokeStyle = `rgba(${ACC},${0.35 * on})`; ctx.lineWidth = 5; line(x0, yc, x1, yc); for (let x = x0 - gap + off; x < x1 + gap; x += gap) dot(x, on); }
+    else {
+      const go = t >= T.fatGo ? 1 : 0.35, L = w + 40;
+      ctx.strokeStyle = `rgba(${ACC},${0.18 * on})`; ctx.lineWidth = 4; ctx.setLineDash([10, 12]); line(x0, yc, x1, yc); ctx.setLineDash([]);
+      for (let q = 0; q < 3; q++) { const tt = (t - T.blocksEnd) * go + q * 4.2, n = Math.floor(tt / 0.5), f = (tt / 0.5) - n, step = E.p3io(clamp(f / 0.35));   // moves a little, then stalls
+        const x = x0 - 20 + ((n + step) * 22) % L, al = on * Math.min(1, (x - x0 + 20) / 30) * Math.min(1, (x1 + 20 - x) / 30); if (al > 0.01) dot(x, al); }
+    }
+  }
+  ctx.restore();
+  ctx.restore();
+}
+function samples(t, K) {
+  if (t < T.blocks || t >= T.twinEnd) return;
+  const bk = blockK(t), em = E.p3out(prog(t, T.blocks, T.blocksEnd));
+  const fromM = proj(K, CALF[0] - 6, CALF[1] - 14, ZC), fromF = proj(K, CALF[0] - 46, CALF[1] - 6, ZC);
+  const litM = t < T.a5 ? 1 : 0.4, litF = t < T.a5 ? 0.32 : 1;
+  const posM = [lerp(fromM[0], BLK.xm, em), lerp(fromM[1], BLK.y, em)], posF = [lerp(fromF[0], BLK.xf, em), lerp(fromF[1], BLK.y, em)], sc = lerp(0.22, 1, em) * lerp(1, 0.7, 1 - bk);
+  // the wires and meters underneath (after the blocks have landed)
+  const wk = E.p3out(prog(t, T.blocksEnd, T.blocksEnd + 0.35)) * bk;
+  [[BLK.xm, "m", litM, 0.18 * spring(t - T.blocksEnd - 0.2, 10, 0.6)], [BLK.xf, "f", litF, t >= T.fatGo ? 0.88 * spring(t - T.fatGo - 0.25, 7, 0.55) : 0.0]].forEach(([x, kind, lit, v]) => {
+    if (wk <= 0.01) return;
+    const al = wk * lerp(0.62, 1, lit > 0.5 ? 1 : 0), xa = x - BLK.w / 2 - 12, xb = x + BLK.w / 2 + 12, yb = BLK.y + BLK.h / 2 + 12;
+    ID(); ctx.save(); ctx.globalAlpha = al; ctx.strokeStyle = "rgba(241,240,236,0.8)"; ctx.lineWidth = 3; ctx.lineJoin = "round";
+    ctx.beginPath(); ctx.moveTo(xa, yb); ctx.lineTo(xa, BLK.my); ctx.lineTo(x - BLK.mr, BLK.my); ctx.moveTo(xb, yb); ctx.lineTo(xb, BLK.my); ctx.lineTo(x + BLK.mr, BLK.my); ctx.stroke(); ctx.restore();
+    dial(x, BLK.my, BLK.mr, v, al);
+  });
+  sampleBlock(t, "m", posM[0], posM[1], sc, bk * (0.35 + 0.65 * Math.max(em, 0.3)) * lerp(0.72, 1, litM > 0.5 ? 1 : 0), litM > 0.5 ? E.p2io(prog(t, T.blocksEnd, T.blocksEnd + 0.3)) * (t < T.a5 ? 1 - prog(t, T.a5 - 0.2, T.a5) : 0) : 0);
+  sampleBlock(t, "f", posF[0], posF[1], sc, bk * (0.35 + 0.65 * Math.max(em, 0.3)) * lerp(0.72, 1, litF > 0.5 ? 1 : 0), t >= T.a5 ? E.p2io(prog(t, T.a5, T.a5 + 0.3)) * (1 - prog(t, T.twin - 0.2, T.twin)) : 0);
+}
+// two calves side by side (22.5–28): the same current; thin fat on the left, thick on the right — the right dial reads higher
+const KTL = key([0, -6, 0], [302, 975], 3.9, 58), KTR = key([0, -6, 0], [780, 975], 3.9, 58);
+function twinK(t) { return t < T.twin ? 0 : E.p3out(prog(t, T.twin, T.twinEnd)) * (1 - E.p2io(prog(t, T.out, T.out + 0.35))); }
+function twins(t) {
+  const a = twinK(t); if (a <= 0.01) return;
+  const dim = t >= T.name ? lerp(1, 0.55, E.p2io(prog(t, T.name, T.name + 0.3))) : 1, z = lerp(0.55, 1, E.p3out(prog(t, T.twin, T.twinEnd)));
+  [[KTL, 1], [KTR, fatK(t)]].forEach(([K0, fk]) => {
+    const K = { ...K0, A: K0.A * z, Z: K0.Z * z }; K.B = [K0.B[0] + (1 - z) * (K0.B[0] - K0.B[0]), K0.B[1]];
+    ctx.save(); ctx.globalAlpha = a * dim;
+    const sh = drawSection(t, K, 0, 0, 0, { fk, hiM: 0, hiF: 0, lineW: 2.5 });
+    drawFlow(t, K, 0, 0, 0, sh, { hgt: 66, aM: 1, aF: 0.9, speed: 1, r: 8 });
+    ctx.restore();
+  });
+  const vR = lerp(0.3, 0.86, (fatK(t) - 1) / 1.2), vL = 0.3;
+  dial(302, 1305, 100, vL * spring(t - T.twinEnd, 9, 0.6), a * dim);
+  dial(780, 1305, 100, vR * spring(t - T.twinEnd, 9, 0.6), a * dim);
+}
+// the name (25–28): the big dial comes back over the two calves, and now it has a name: 电阻
+function nameDial(t) {
+  if (t < T.name || t >= T.out + 0.5) return;
+  const a = E.p3out(prog(t, T.name, T.name + 0.12)) * (1 - E.p2io(prog(t, T.out, T.out + 0.4)));
+  const sc = slamScale(t - T.name) * (1 + 0.05 * Math.sin(Math.PI * clamp((t - T.name - 0.17) / 0.35)));
+  const v = 0.86 + 0.08 * Math.sin(Math.PI * clamp((t - T.name) / 0.5)) + 0.01 * Math.sin(TAU * 0.4 * t);
+  ID(); ctx.save(); ctx.globalAlpha = 0.6 * a; ctx.fillStyle = C.dark; ctx.beginPath(); ctx.arc(540, 1075, 250 * sc, 0, TAU); ctx.fill(); ctx.restore();
+  dial(540, 1075, 215, v, a, { sc, label: COPY.ohm });
 }
 
 // ---------------------------------------------------------------- text
@@ -999,12 +1148,14 @@ function textBand(t) {
   lines(COPY.h1, t, -1, T.h1Out + 0.16, { style: "none", col: L });
   underline(COPY.h1[1], "你有多少", "脂肪", 1, t, T.underline, T.h1Out + 0.16);
   // 2 the wrong guess (on orange), struck, turned over
-  lines(COPY.q2, t, T.q2, T.a2, { style: "blur", col: L, acc: C.paper, exit: 0.001 });
+  lines(COPY.q2, t, T.q2, T.a2, { style: "blur", col: L, acc: C.paper, exit: 0.001, size: 96, ys: [292, 412, 532], lineGap: 0.12 });
   lines(COPY.a2, t, T.a2, T.q3, { style: "slam", col: L, acc: C.paper, lineGap: 0.2 });
   // 3 dig in
   lines(COPY.q3, t, T.q3, T.a3, { style: "blur", col: L });
   lines(COPY.a3, t, T.a3, T.q4, { style: "blur", col: L });
-  lines(COPY.q4, t, T.q4, T.a4, { style: "blur", col: mixHex(L, D, fl) });
+  lines(COPY.q4, t, T.q4, T.pr, { style: "blur", col: L });
+  lines(COPY.pr, t, T.pr, T.fq, { style: "blur", col: L });
+  lines(COPY.fq, t, T.fq, T.a4, { style: "blur", col: mixHex(L, D, fl) });
   // 4 one mechanism (dark)
   lines(COPY.a4, t, T.a4, T.a5, { style: "blur", col: D });
   lines(COPY.a5, t, T.a5, T.a6, { style: "blur", col: D });
@@ -1026,16 +1177,21 @@ function textBand(t) {
 }
 function overlays(t, K) {                               // labels in the picture: few and short
   const fl = flood(t);
-  if (fl > 0.5 && t >= T.labels && t < T.q5 + 0.3) {    // inside the calf: name the two layers
-    const k = E.p3out(prog(t, T.labels, T.labels + 0.35)), fo = 1 - prog(t, T.q5, T.q5 + 0.3);
-    const sh = secShape(fatK(t));
+  if (fl > 0.5 && t >= T.labels && t < T.blocks + 0.3) {    // inside the calf: name the two layers
+    const k = E.p3out(prog(t, T.labels, T.labels + 0.35)), fo = 1 - prog(t, T.blocks, T.blocks + 0.3);
+    const sh = secShape(1);
     const pm = proj(K, CALF[0] - 22, CALF[1] - 12, ZC), pf = proj(K, CALF[0] + sh.out[24][0] * 0.5 + sh.mus[24][0] * 0.5, CALF[1] + sh.out[24][1] * 0.5 + sh.mus[24][1] * 0.5, ZC);
     const lm = [72, 860], lf = [72, 1420];
     ID(); ctx.save(); ctx.globalAlpha = fo;
     leader(lm[0] + 116, lm[1] - 18, pm[0], pm[1], "rgba(241,240,236,0.8)", k); leader(lf[0] + 116, lf[1] - 18, pf[0], pf[1], "rgba(241,240,236,0.8)", k);
     ctx.restore();
-    label(COPY.muscle, lm[0], lm[1], 56, "rgba(241,240,236,0.95)", t, T.labels, T.q5 + 0.3, { alpha: fo });
-    label(COPY.fat, lf[0], lf[1], 56, "rgba(241,240,236,0.95)", t, T.labels, T.q5 + 0.3, { alpha: fo });
+    label(COPY.muscle, lm[0], lm[1], 56, "rgba(241,240,236,0.95)", t, T.labels, T.blocks + 0.3, { alpha: fo });
+    label(COPY.fat, lf[0], lf[1], 56, "rgba(241,240,236,0.95)", t, T.labels, T.blocks + 0.3, { alpha: fo });
+  }
+  if (t >= T.blocksEnd && t < T.twin + 0.4) {               // the two samples carry their names
+    const fo = 1 - prog(t, T.twin, T.twin + 0.4), aM = t < T.a5 ? 1 : 0.5, aF = t < T.a5 ? 0.5 : 1;
+    label(COPY.muscle, BLK.xm, BLK.y - BLK.h / 2 - 58, 58, "rgba(241,240,236,0.95)", t, T.blocksEnd, T.twin + 0.4, { align: "center", alpha: fo * aM });
+    label(COPY.fat, BLK.xf, BLK.y - BLK.h / 2 - 58, 58, "rgba(241,240,236,0.95)", t, T.blocksEnd, T.twin + 0.4, { align: "center", alpha: fo * aF });
   }
   // the pacemaker note: a small label under the tip
   if (t >= T.pace && t < T.tipOut) {
@@ -1062,7 +1218,11 @@ function frame(t) {
   const K = cam(t), fl = flood(t);
   if (fl < 0.999) drawLight(t, K);
   drawInterior(t, K, fl);
-  drawMeter(t);
+  if (t >= T.blocks && t < T.out + 0.5) {                          // the comparison: its own layer, slowly pushed in (it never parks)
+    const prev = ctx; ctx = CMPX; ctx.reset(); samples(t, K); twins(t); nameDial(t); ctx = prev;
+    const z = 1 + 0.011 * (t - T.blocks) + (t >= T.name ? 0.015 * (t - T.name) : 0), cx = 540, cy = 1060, dx = 6 * Math.sin(TAU * (t - T.blocks) / 9.5);
+    ID(); ctx.save(); ctx.setTransform(z, 0, 0, z, cx - z * cx + dx, cy - z * cy); ctx.drawImage(CMP, 0, 0); ctx.restore();
+  }
   overlays(t, K);
   card(t);
   displayMag(t, K);
@@ -1072,7 +1232,7 @@ function frame(t) {
 }
 
 // ---------------------------------------------------------------- motion blur: temporal supersampling where things move fast
-const BLUR = [[0, 0.6], [2.75, 3.5], [4.95, 5.45], [7.5, 8.45], [9.25, 10.3], [11.75, 13.8], [20.95, 21.45], [24.0, 25.3], [26.2, 27.5], [29.25, 30.35], [32.25, 32.7], [34.75, 35.6], [39.75, 41.3], [44.0, 44.95], [48.45, 50.6]];
+const BLUR = [[0, 0.6], [2.75, 3.5], [4.95, 5.45], [7.5, 8.45], [9.25, 10.3], [11.75, 14.3], [16.25, 18.3], [18.5, 19.2], [22.5, 23.2], [24.95, 25.45], [28.0, 29.3], [30.2, 31.5], [33.25, 34.35], [36.25, 36.7], [38.75, 39.6], [43.75, 45.3], [48.0, 48.95], [52.45, 54.6]];
 const SUB = 6, SHUTTER = 0.5 / FPS;
 window.seek = function seek(t) {
   t = clamp(t, 0, DUR - 1e-6);
