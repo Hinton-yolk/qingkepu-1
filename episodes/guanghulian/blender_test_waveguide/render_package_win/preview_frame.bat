@@ -5,7 +5,7 @@ call "%~dp0find_blender.cmd"
 if not defined B goto fail
 echo.
 echo 先渲一帧看看（第 385 帧，波导亮起来那一刻），确认显卡能用、大约多久一帧。
-"%B%" -b --python-exit-code 1 --python "%~dp0shot_waveguide.py" -- "%~dp0preview" 1080 1920 128 --gpu --fps 30 385
+"%B%" -b --python-exit-code 1 --python "%~dp0shot_waveguide.py" -- "%~dp0preview" 1080 1920 64 --gpu --fps 30 385
 if errorlevel 1 goto broke
 if not exist "%~dp0preview\f0385.png" goto broke
 echo.

@@ -242,8 +242,11 @@ if GPU:
         except Exception: pass
     if ok: sc.cycles.device = 'GPU'; print('GPU_DEVICE', ok, [d.name for d in prefs.devices if d.use])
     else: print('GPU_DEVICE none —— 没找到 NVIDIA 显卡，改用 CPU（会很慢）')
-sc.cycles.samples = SAMP; sc.cycles.use_denoising = True; sc.cycles.use_adaptive_sampling = True; sc.cycles.max_bounces = 8
-sc.cycles.transmission_bounces = 8; sc.render.use_motion_blur = True; sc.render.motion_blur_shutter = 0.4; sc.render.use_persistent_data = True
+sc.cycles.samples = SAMP; sc.cycles.use_denoising = True; sc.cycles.use_adaptive_sampling = True; sc.cycles.adaptive_threshold = 0.03
+# 反弹次数够用即可（场景是简单方块 + 发光体）：比 8 次反弹快约一倍，画面看不出差别（2026-11-09 实测）
+sc.cycles.max_bounces = 4; sc.cycles.diffuse_bounces = 2; sc.cycles.glossy_bounces = 2; sc.cycles.transparent_max_bounces = 8
+if GPU and hasattr(sc.cycles, 'denoising_use_gpu'): sc.cycles.denoising_use_gpu = True
+sc.cycles.transmission_bounces = 6; sc.render.use_motion_blur = True; sc.render.motion_blur_shutter = 0.4; sc.render.use_persistent_data = True
 sc.render.resolution_x, sc.render.resolution_y = W, H; sc.render.fps = FPS; sc.frame_start, sc.frame_end = 1, NF
 sc.view_settings.view_transform = 'AgX'
 for lk in ('AgX - Medium High Contrast', 'Medium High Contrast'):
