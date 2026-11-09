@@ -31,7 +31,7 @@
 // neighbouring rings unioned into one path; ink outline underneath, flat fill, soft shading on top.
 // No timers, no rAF, no CSS transitions, no state between frames (the context is reset every frame); seeded noise only.
 // ============================================================================================
-const { T, COPY, W, H, DUR, FPS, S16, WEIGHT, BF, BF_JUMPS, fatK, waterN } = TL;
+const { T, COPY, W, H, DUR, FPS, S16, WEIGHT, BF, BF_EVE, BF_JUMPS, BF_DRY, fatK, waterN, waterDry } = TL;
 const cv = document.getElementById("c");
 const MAIN = cv.getContext("2d");
 const OFF = document.createElement("canvas"); OFF.width = W; OFF.height = H;
@@ -133,11 +133,11 @@ const HC = 330, ZC = GS + HC;                           // the calf cut: 330 mm 
 const lin = (x) => x;
 const KH0 = key([0, -20, 120], [540, 925], 2.45, 50);          // frame 0: the scale, the feet, the shins
 const KH1 = key([-8, -8, 104], [540, 890], 2.8, 50);
-const KW = key([0, -6, GS], [540, 1070], 2.05, 30);             // the guess: from higher up, the whole scale
+const KW = key([0, -6, GS], [540, 1070], 2.05, 30);             // the pads: from higher up, the whole scale
 const KW2 = key([20, -10, GS], [540, 1036], 2.58, 30);
-const KF = key([FX - 6, -24, 46], [560, 985], 3.4, 46);        // the left foot on its pad (from a little above; no toe close-up)
+const KF = key([FX - 6, -24, 46], [560, 985], 3.4, 46);         // the left foot on its pad (from a little above; no toe close-up)
 const KF2 = key([FX - 2, -30, 50], [560, 960], 3.8, 46);
-const KB = key([0, -70, 560], [540, 1000], 0.8, 90);          // the lower body from the front
+const KB = key([0, -70, 560], [540, 1000], 0.8, 90);            // the lower body from the front
 const KB2 = key([16, -70, 545], [540, 950], 0.95, 90);
 const CALF = [FX, -90, ZC];                                     // the cut's centre
 const KCut = key(CALF, [520, 1080], 5.0, 90);
@@ -149,23 +149,26 @@ function kFollow(t) {                                            // ride one pul
   const u = E.sine(prog(t, T.follow + 0.15, T.followEnd)), p = cAt(CPATH.len * u);
   return key([p[0], -70, p[2]], [540, 1010], 1.7, 90);
 }
+const KHc = key([-110, -20, 200], [600, 1000], 1.5, 50);         // the person on the right: the magnifiers (display / calf)
+const KHc2 = key([-60, -20, 196], [560, 984], 1.66, 50);
+const KSecB = key(CALF, [380, 1120], 5.4, 58);                  // the second dive: the cut on the left, a dial on the right
+const KSecB2 = key([CALF[0] + 2, CALF[1], ZC], [384, 1124], 5.65, 57);
 const KH2 = key([30, -30, 150], [540, 1000], 1.62, 50);         // out again (the card sits over it)
 const KH2b = key([50, -30, 150], [540, 990], 1.9, 50);
-const KP = key([PH.x, PH.y - 6, 8], [540, 1020], 8.4, 14);     // the phone, its form
-const KP2 = key([PH.x + 2, PH.y - 10, 8], [540, 965], 9.0, 14);
-const KHc = key([-110, -20, 200], [600, 1000], 1.5, 50);         // the calf magnifier / the display
-const KHc2 = key([-60, -20, 196], [560, 984], 1.66, 50);
+const KP = key([PH.x, PH.y - 6, 8], [540, 1060], 7.6, 14);      // the phone, its form (its top edge under the caption wash)
+const KP2 = key([PH.x + 2, PH.y - 8, 8], [540, 1052], 7.9, 14);
 const KR = key([0, -20, 120], [540, 925], 2.45, 50);            // step on again
 const KR2 = key([8, -8, 104], [540, 890], 2.8, 50);
-const KT = key([PH.x, PH.y - 10, 8], [540, 1010], 9.6, 14);      // the tip: the history
-const KT2 = key([PH.x + 2, PH.y - 11, 8], [540, 1004], 10.6, 14);
-const KE = key([0, -10, GS], [540, 1020], 2.0, 28);                 // back to the scale, empty now
+const KT = key([PH.x, PH.y - 10, 8], [540, 1030], 7.6, 14);     // the tip: the history
+const KT2 = key([PH.x + 2, PH.y - 11, 8], [540, 1024], 8.1, 14);
+const KE = key([0, -10, GS], [540, 1060], 2.0, 28);             // back to the scale, empty now
+const KE2 = key([0, -12, GS], [540, 1056], 2.15, 28);
 const K7 = key([0, 0, GS], [232, 545], 0.53, 0);                // the end badge (from straight above)
 function punch(K, pk, c = [540, 1100]) { return { ...K, A: K.A * pk, Z: K.Z * pk, B: [c[0] + pk * (K.B[0] - c[0]), c[1] + pk * (K.B[1] - c[1])] }; }
 function cam(t) {
-  if (t < T.myth) return interp(KH0, KH1, lin(prog(t, 0, T.myth)));
-  if (t < T.myth + 0.7) return interp(KH1, KW, E.p3io(prog(t, T.myth, T.myth + 0.7)));
-  if (t < T.close) return interp(KW, KW2, lin(prog(t, T.myth + 0.7, T.close)));
+  if (t < T.a2) return interp(KH0, KH1, lin(prog(t, 0, T.a2)));
+  if (t < T.a2 + 0.7) return interp(KH1, KW, E.p3io(prog(t, T.a2, T.a2 + 0.7)));
+  if (t < T.close) return interp(KW, KW2, lin(prog(t, T.a2 + 0.7, T.close)));
   if (t < T.closeEnd) return interp(KW2, KF, E.p3io(prog(t, T.close, T.closeEnd)));
   if (t < T.pullB) return interp(KF, KF2, lin(prog(t, T.closeEnd, T.pullB)));
   if (t < T.pullBEnd) return interp(KF2, KB, E.p3io(prog(t, T.pullB, T.pullBEnd)), E.p2io(prog(t, T.pullB, T.pullBEnd)));
@@ -176,19 +179,22 @@ function cam(t) {
   if (t < T.tilt) return interp(KPr2, KCut, E.p2in(prog(t, T.dive, T.tilt)) * 0.55 + 0.45 * prog(t, T.dive, T.tilt));   // one take: in
   if (t < T.tiltEnd) return interp(KCut, KSec, E.p2out(prog(t, T.tilt, T.tiltEnd)), E.p2io(prog(t, T.tilt, T.tiltEnd)));
   if (t < T.out) return interp(KSec, KSec2, lin(prog(t, T.tiltEnd, T.out)));
-  if (t < T.outEnd) return interp(KSec2, KH2, E.p3io(prog(t, T.out, T.outEnd)), E.p2io(prog(t, T.out, T.outEnd)));
-  if (t < T.pan) return interp(KH2, KH2b, lin(prog(t, T.outEnd, T.pan)));
+  if (t < T.outEnd) return interp(KSec2, KHc, E.p3io(prog(t, T.out, T.outEnd)), E.p2io(prog(t, T.out, T.outEnd)));
+  if (t < T.dive2) return interp(KHc, KHc2, lin(prog(t, T.outEnd, T.dive2)));
+  if (t < T.tilt2End) return interp(KHc2, KSecB, E.p2in(prog(t, T.dive2, T.tilt2End)) * 0.5 + 0.5 * E.sine(prog(t, T.dive2, T.tilt2End)), E.p2io(prog(t, T.dive2 + 0.4, T.tilt2End)));   // in again
+  if (t < T.out2) return interp(KSecB, KSecB2, lin(prog(t, T.tilt2End, T.out2)));
+  if (t < T.out2End) return interp(KSecB2, KH2, E.p3io(prog(t, T.out2, T.out2End)), E.p2io(prog(t, T.out2, T.out2End)));
+  if (t < T.pan) return interp(KH2, KH2b, lin(prog(t, T.out2End, T.pan)));
   if (t < T.panEnd) return interp(KH2b, KP, E.p3io(prog(t, T.pan, T.panEnd)), E.p2io(prog(t, T.pan, T.panEnd)));
-  if (t < T.back) return interp(KP, KP2, lin(prog(t, T.panEnd, T.back)));
-  if (t < T.backEnd) return interp(KP2, KHc, E.p3io(prog(t, T.back, T.backEnd)), E.p2io(prog(t, T.back, T.backEnd)));
-  if (t < T.q9) return interp(KHc, KHc2, lin(prog(t, T.backEnd, T.q9)));
-  if (t < T.q9 + 0.6) return interp(KHc2, KR, E.p3io(prog(t, T.q9, T.q9 + 0.6)));
+  if (t < T.q9) return interp(KP, KP2, lin(prog(t, T.panEnd, T.q9)));
+  if (t < T.q9 + 0.6) return interp(KP2, KR, E.p3io(prog(t, T.q9, T.q9 + 0.6)), E.p2io(prog(t, T.q9, T.q9 + 0.6)));
   if (t < T.ka) return interp(KR, KR2, lin(prog(t, T.q9 + 0.6, T.tip)));
   if (t < T.tip) { const pk = 1 + 0.04 * Math.sin(Math.PI * clamp((t - T.ka) / 0.4)); return punch(interp(KR, KR2, lin(prog(t, T.q9 + 0.6, T.tip))), pk, [540, 1200]); }
   if (t < T.pan2End) return interp(KR2, KT, E.p3io(prog(t, T.pan2, T.pan2End)), E.p2io(prog(t, T.pan2, T.pan2End)));
-  if (t < T.end - 0.75) return interp(KT, KT2, lin(prog(t, T.pan2End, T.end - 0.75)));
-  if (t < T.end) return interp(KT2, KE, E.p3io(prog(t, T.end - 0.75, T.end)), E.p2io(prog(t, T.end - 0.75, T.end)));
-  return interp(KE, K7, E.p3io(prog(t, T.end, T.endMorph)), E.p2io(prog(t, T.end, T.endMorph)));
+  if (t < T.back3) return interp(KT, KT2, lin(prog(t, T.pan2End, T.back3)));
+  if (t < T.back3End) return interp(KT2, KE, E.p3io(prog(t, T.back3, T.back3End)), E.p2io(prog(t, T.back3, T.back3End)));
+  if (t < T.end) return interp(KE, KE2, lin(prog(t, T.back3End, T.end)));
+  return interp(KE2, K7, E.p3io(prog(t, T.end, T.endMorph)), E.p2io(prog(t, T.end, T.endMorph)));
 }
 
 // ---------------------------------------------------------------- drawing helpers
@@ -354,8 +360,9 @@ function shadeX(path, x0, x1, a = 0.16, dark = "96,60,30", rim = 0) {
 }
 // how see-through the body is (0 solid … 1 x-ray outline)
 function ghostK(t) {
-  if (t >= T.xray && t < T.q3 + 0.4) return E.p2io(prog(t, T.xray, T.xray + 0.35)) * (1 - E.p2io(prog(t, T.q3, T.q3 + 0.35))) * lerp(0.78, 0.5, E.p2io(prog(t, T.a2, T.a2 + 0.4)));
+  if (t >= T.xray && t < T.q3 + 0.4) return 0.5 * E.p2io(prog(t, T.xray, T.xray + 0.35)) * (1 - E.p2io(prog(t, T.q3, T.q3 + 0.35)));
   if (t >= T.pullB + 0.5 && t < T.out + 1.2) return 0.6 * E.p2io(prog(t, T.pullB + 0.5, T.pullBEnd)) * (1 - E.p2io(prog(t, T.out + 0.7, T.out + 1.2)));
+  if (t >= T.dive2 + 0.2 && t < T.out2 + 1.0) return 0.55 * E.p2io(prog(t, T.dive2 + 0.2, T.flood2)) * (1 - E.p2io(prog(t, T.out2 + 0.5, T.out2 + 1.0)));
   if (t >= T.ka && t < T.finOut + 0.4) return 0.5 * E.p3out(prog(t, T.ka, T.ka + 0.3)) * (1 - 0.3 * prog(t, T.ka + 0.3, T.ka + 1.2)) * (1 - E.p2io(prog(t, T.finOut - 0.3, T.finOut + 0.4)));
   return 0;
 }
@@ -478,16 +485,17 @@ function powerK(t) {                                          // the display: 0 
   if (t < T.wake) return 0;
   if (t < T.lift) return 1;
   if (t < T.ka) return 1 - prog(t, T.lift, T.lift + 0.3);
-  return prog(t, T.ka, T.ka + 0.08);
+  return prog(t, T.ka, T.ka + 0.08) * (1 - prog(t, T.pan2End + 0.3, T.pan2End + 0.6));   // nobody on it any more: it goes dark
 }
-function lcdState(t) {                                        // what the display shows
+function lcdState(t) {                                        // what the display shows (one body-fat reading; its value changes)
   if (t < T.wake) return { mode: "off" };
   if (t < T.bfOn) { const u = E.p3out(prog(t, T.rollW, T.lockW)); return { mode: "w", v: WEIGHT * u, blink: t >= T.lockW ? prog(t, T.lockW, T.lockW + 0.36) : -1 }; }
   if (t < T.bfOn + 0.25) return { mode: "meas", k: (t - T.bfOn) / S16 };
-  if (t < T.jump1) { const u = E.p3out(prog(t, T.bfOn + 0.25, T.lockF)); return { mode: "bf", v: BF * u, blink: t >= T.lockF ? prog(t, T.lockF, T.lockF + 0.36) : -1 }; }
+  if (t < T.eve) { const u = E.p3out(prog(t, T.bfOn + 0.25, T.lockF)); return { mode: "bf", v: BF * u, blink: t >= T.lockF ? prog(t, T.lockF, T.lockF + 0.36) : -1 }; }
+  if (t < T.jump1) return { mode: "bf", v: lerp(BF, BF_EVE, E.p3out(prog(t, T.eve, T.eve + 0.25))), blink: -1 };   // 早 → 晚
   if (t < T.lift) {                                           // the readings jump about with the water
     const J = [[T.jump1, BF_JUMPS[0]], [T.jump2, BF_JUMPS[1]], [T.jump3, BF_JUMPS[2]], [T.jump4, BF_JUMPS[3]]];
-    let v = BF, prev = BF, t0 = T.jump1;
+    let v = BF_EVE, prev = BF_EVE, t0 = T.jump1;
     for (const [tj, vj] of J) if (t >= tj) { prev = v; v = vj; t0 = tj; }
     const u = E.p3out(prog(t, t0, t0 + 0.18)); return { mode: "bf", v: lerp(prev, v, u), blink: -1 };
   }
@@ -510,6 +518,7 @@ function seg7(ch, x, y, w, h, th, on, off) {                 // one 7-segment di
 }
 // the display's content in its own coordinates (mm, origin at its centre, p to the reader's right, q towards the reader)
 function lcdContent(t, st, pw) {
+  const a0 = ctx.globalAlpha;                                   // respect a fading magnifier / dial
   ctx.fillStyle = C.lcd; rr(-LCDP.w / 2, -LCDP.h / 2, LCDP.w, LCDP.h, 4); ctx.fill();
   if (st.mode === "off" || pw <= 0) return;
   const on = `rgba(${PAP},${0.95 * pw})`, off = `rgba(${PAP},0.05)`;
@@ -519,15 +528,16 @@ function lcdContent(t, st, pw) {
     for (let i = 0; i < 4; i++) { const lit = Math.floor(st.k) % 4 === i; seg7("-", -27 + i * (dw + gap + 1), -9.5, dw, dh, th, lit ? on : off, null); }
     return;
   }
-  ctx.globalAlpha = blinkA;
+  ctx.globalAlpha = a0 * blinkA;
   const v = Math.max(0, st.v), str = v.toFixed(1), [ip, fp] = str.split(".");
-  const digits = ip.padStart(2, " ") + fp, xr = st.mode === "w" ? 17 : 24;
-  const xs = [xr - 3 * dw - 2 * gap - 3.2, xr - 2 * dw - gap - 3.2, xr - dw];
-  for (let i = 0; i < 3; i++) if (digits[i] !== " ") seg7(digits[i], xs[i], -10, dw, dh, th, on, off);
-  ctx.fillStyle = on; ctx.beginPath(); ctx.arc(xr - dw - 2.2, 8.2, 1.3, 0, TAU); ctx.fill();
-  if (st.mode === "w") uiText(COPY.kg, 30.5, 8.6, 6.2, on, { weight: 700 });
-  else { uiText(COPY.pct, 33, 8.6, 6.4, on, { weight: 700 }); uiText(COPY.bfLabel, -24, 1.6, 5.0, on, { weight: 700 }); }
-  ctx.globalAlpha = 1;
+  const digits = ip.padStart(2, " ") + fp, bf = st.mode === "bf";
+  const W7 = bf ? 9 : dw, H7 = bf ? 17 : dh, G7 = bf ? 2.6 : gap, xr = bf ? 23 : 17, y7 = bf ? -9 : -10;
+  const xs = [xr - 3 * W7 - 2 * G7 - 3.2, xr - 2 * W7 - G7 - 3.2, xr - W7];
+  for (let i = 0; i < 3; i++) if (digits[i] !== " ") seg7(digits[i], xs[i], y7, W7, H7, bf ? 2.2 : th, on, off);
+  ctx.fillStyle = on; ctx.beginPath(); ctx.arc(xr - W7 - 2.2, y7 + H7 - 0.8, 1.3, 0, TAU); ctx.fill();
+  if (!bf) uiText(COPY.kg, 30.5, 8.6, 6.2, on, { weight: 700 });
+  else { uiText(COPY.pct, 30.5, 7.6, 6.2, on, { weight: 700 }); uiText(COPY.bfLabel, -38.2, 3.0, 8.0, on, { weight: 700, align: "left" }); }   // 体脂率 as large as the panel allows
+  ctx.globalAlpha = a0;
 }
 function drawScale(t, K, o = {}) {
   const s = Math.sin(K.th), A = K.A, fade = o.fade ?? 0, outline = o.outline ?? 0;
@@ -558,11 +568,10 @@ function drawScale(t, K, o = {}) {
     const gp = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2); gp.addColorStop(0, C.steelL); gp.addColorStop(0.45, C.steel); gp.addColorStop(0.55, "#B7BDC4"); gp.addColorStop(1, C.steelL);
     ctx.fillStyle = gp; ctx.fill(); strokePx(1.6, C.steelD);
     planeT(K, GS, [cx, cy]); rr(-w / 2 + 2.5, -h / 2 + 2.5, w - 5, h - 5, 11); strokePx(1, "rgba(255,255,255,0.45)");
-    // the guess: they glint like chrome trim — a slow light sweeping across each in turn
-    if (t >= T.glint && t < T.a2 + 0.3) {
-      const u = ((t - T.glint - i * 0.25) / 1.6) % 1, k = t - T.glint - i * 0.25 >= 0 ? 1 : 0, fo = 1 - prog(t, T.a2, T.a2 + 0.3);
-      if (k && u < 0.5) { const x = lerp(-w * 0.9, w * 0.9, u / 0.5); planeT(K, GS, [cx, cy]); ctx.save(); rr(-w / 2, -h / 2, w, h, 13); ctx.clip();
-        const gg = ctx.createLinearGradient(x - 26, -h / 2, x + 26, h / 2); gg.addColorStop(0, "rgba(255,255,255,0)"); gg.addColorStop(0.5, `rgba(255,255,255,${0.85 * fo})`); gg.addColorStop(1, "rgba(255,255,255,0)");
+    if (t >= T.back3End - 0.3 && t < T.end) {                     // the empty scale: a slow light across each pad in turn
+      const u = ((t - T.back3End + 0.3 - i * 0.35) / 1.4) % 1;
+      if (t - T.back3End + 0.3 - i * 0.35 >= 0 && u < 0.6) { const x = lerp(-w * 0.9, w * 0.9, u / 0.6); planeT(K, GS, [cx, cy]); ctx.save(); rr(-w / 2, -h / 2, w, h, 13); ctx.clip();
+        const gg = ctx.createLinearGradient(x - 26, -h / 2, x + 26, h / 2); gg.addColorStop(0, "rgba(255,255,255,0)"); gg.addColorStop(0.5, "rgba(255,255,255,0.75)"); gg.addColorStop(1, "rgba(255,255,255,0)");
         ctx.fillStyle = gg; ctx.fillRect(-w, -h, 2 * w, 2 * h); ctx.restore(); }
     }
   });
@@ -733,7 +742,7 @@ function drawDrops(t, K, cx, cy, zc, nM, popT, fShow, sz) {
     const p = DROPS[i], q = proj(K, cx + p[0], cy + p[1], zc);
     const pop = popT !== null && i < 4 ? spring(t - (popT + i * S16), 18, 0.55) : spring(k * 0.6, 18, 0.55) * (k < 1 ? k : 1);
     const bob = 0.03 * Math.sin(TAU * 0.4 * t + i);                // a slow float
-    droplet(q[0], q[1] - sz * 0.15, sz * (i < 4 && popT !== null ? pop : Math.max(0, k)) * (1 + bob), 1);
+    droplet(q[0], q[1] - sz * 0.15, sz * (i < 4 && popT !== null ? pop * Math.min(1, k) : Math.max(0, k)) * (1 + bob), 1);
   }
   if (fShow > 0.01) { const q = proj(K, cx - 6, cy - 53, zc); droplet(q[0], q[1] - sz * 0.1, sz * 0.8 * spring(fShow * 0.7, 18, 0.55), 1); }
 }
@@ -755,7 +764,7 @@ function meter(t, cx, cy, R, val, a, o = {}) {
 
 // ---------------------------------------------------------------- the phone on the floor and its generic app
 function phoneShot(t, K, fade = 0) {
-  const s = Math.sin(K.th), vis = clamp((62 * RAD - K.th) / (8 * RAD)) * (1 - fade);
+  const s = Math.sin(K.th), vis = clamp((62 * RAD - K.th) / (8 * RAD)) * (1 - fade) * (1 - prog(t, T.back3 + 0.45, T.back3 + 0.8));
   if (vis <= 0.005) return;
   ctx.save(); ctx.globalAlpha = vis;
   planeT(K, 0, [PH.x + 4, PH.y + 6]); ctx.save(); ctx.filter = `blur(${Math.min(60, 4 * K.A).toFixed(1)}px)`; ctx.fillStyle = "rgba(20,20,20,0.22)"; rr(-PH.w / 2, -PH.h / 2, PH.w, PH.h, 10); ctx.fill(); ctx.restore(); ctx.filter = "none";
@@ -855,18 +864,24 @@ function magFrame(C0, R, tip, op, k, inner) {
 }
 function magDisplayK(t) {
   const win = (a, b) => E.p3out(prog(t, a, a + 0.28)) * (1 - E.p2io(prog(t, b - 0.25, b)));
-  if (t < T.myth + 0.1) return win(T.magIn, T.myth + 0.1);
+  if (t < T.a2 + 0.1) return win(T.magIn, T.a2 + 0.1);
+  if (t >= T.magE && t < T.a9 + 0.26) return win(T.magE, T.a9 + 0.26);
   if (t >= T.magD && t < T.magDOut + 0.26) return win(T.magD, T.magDOut + 0.26);
-  if (t >= T.magF && t < T.tip + 0.3) return win(T.magF, T.tip + 0.3);
+  if (t >= T.magF && t < T.finOut + 0.3) return win(T.magF, T.finOut + 0.3);
   return 0;
 }
 function displayMag(t, K) {
   const op = magDisplayK(t); if (op <= 0.005) return;
-  const C0 = [540, 668], R = 152, tip = proj(K, LCDP.x, LCDP.y, GS);
+  const C0 = [540, 775], R = 248, tip = proj(K, LCDP.x, LCDP.y, GS);
   magFrame(C0, R, tip, op, 1, () => {
     ctx.fillStyle = C.glass; ctx.fillRect(C0[0] - R, C0[1] - R, 2 * R, 2 * R);
-    ctx.setTransform(3.4, 0, 0, 3.4, C0[0], C0[1] + 4);
+    ctx.setTransform(5.6, 0, 0, 5.6, C0[0], C0[1] + 10);
     lcdContent(t, lcdState(t), powerK(t) || 1);
+    if (t >= T.magE && t < T.a9 + 0.3) {                         // two readings, morning and evening: the same number, a different value
+      ID(); const k = E.p3out(prog(t, T.eve, T.eve + 0.2)); ctx.font = `700 52px ${UI}`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+      ctx.fillStyle = `rgba(${PAP},${1 - k})`; ctx.fillText(COPY.am, C0[0], C0[1] - 128);
+      ctx.fillStyle = `rgba(${ACC},${k})`; ctx.fillText(COPY.pm, C0[0], C0[1] - 128);
+    }
   });
 }
 function calfMag(t, K) {
@@ -883,8 +898,9 @@ function calfMag(t, K) {
 }
 
 // ---------------------------------------------------------------- the card: what the estimate needs (screen space)
-const CHIPS = [[COPY.cR, 205, 870], [COPY.cH, 540, 870], [COPY.cW, 862, 870], [COPY.cA, 395, 1030], [COPY.cS, 685, 1030]];
-const PLUS = [[null], [376, 870], [705, 870], [250, 1030], [540, 1030]];
+// v3: 电阻 + 体重 (the scale weighs you: 秤称) + 身高 + 年龄 + 性别 (you type them in: 你填) → 体脂率 (估算)
+const CHIPS = [[COPY.cR, 330, 860], [COPY.cW, 690, 860], [COPY.cH, 270, 1062], [COPY.cA, 540, 1062], [COPY.cS, 810, 1062]];
+const PLUS = [null, [522, 860], [150, 1062], [405, 1062], [675, 1062]];
 function chipBox(txt, x, y, k, o = {}) {
   if (k <= 0.005) return;
   ID(); const f = `700 ${o.size ?? 60}px ${UI}`, w = mw(f, txt) + 64 + (o.icon ? 64 : 0), h = o.h ?? 116;
@@ -894,47 +910,54 @@ function chipBox(txt, x, y, k, o = {}) {
   if (o.icon) { ctx.restore(); meter(t0g, x - w / 2 * sc + 56 * sc, y + 16 * sc, 28 * sc, 0.8, o.a ?? 1, { col: INK, bg: "rgba(0,0,0,0)", sc: 1 }); return; }
   ctx.restore();
 }
+function tagPill(txt, x, y, a, col = C.ink) {                      // a small tag (术语 / 注释 are small text)
+  if (a <= 0.01) return;
+  ID(); ctx.save(); ctx.globalAlpha = a; const f = `700 44px ${UI}`, w = mw(f, txt) + 40;
+  rr(x - w / 2, y - 32, w, 64, 32); ctx.fillStyle = C.ground; ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 3.5; ctx.stroke();
+  ctx.font = f; ctx.fillStyle = col; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(txt, x, y + 2); ctx.restore();
+}
 let t0g = 0;
 function card(t) {
   if (t < T.a7 - 0.4 || t >= T.panEnd) return;
   t0g = t;
-  const veil = E.p2io(prog(t, T.a7 - 0.3, T.a7)) * (1 - E.p2io(prog(t, T.pan, T.pan + 0.5)));
-  if (veil > 0.01) { ID(); ctx.fillStyle = rgba(C.ground, 0.84 * veil); ctx.fillRect(0, 560, W, 900); }
+  const veil = E.p2io(prog(t, T.a7 + 0.5, T.chip0)) * (1 - E.p2io(prog(t, T.pan, T.pan + 0.5)));
+  if (veil > 0.01) { ID(); ctx.fillStyle = rgba(C.ground, 0.86 * veil); ctx.fillRect(0, 560, W, 900); }
   const fly = E.p3io(prog(t, T.fly, T.flyEnd)), gone = E.p2io(prog(t, T.pan, T.pan + 0.35));
   CHIPS.forEach(([txt, x, y], i) => {
     const t0 = T.chip0 + i * 0.25; if (t < t0) return;
-    const sc = i === 0 ? 1 : slamScale(t - t0);
-    if (i === 1 || i === 3 || i === 4) {                          // 身高 / 年龄 / 性别 go into the phone's form
-      const K = cam(t), rowY = i === 1 ? -38 : i === 3 ? -14 : 10, tgt = proj(K, PH.x - 30 + 12, PH.y + rowY - 2, 8);
+    const sc = i === 0 ? slamScale(t - t0) : slamScale(t - t0);
+    if (i >= 2) {                                                  // 身高 / 年龄 / 性别 go into the phone's form
+      const K = cam(t), rowY = i === 2 ? -38 : i === 3 ? -14 : 10, tgt = proj(K, PH.x - 30 + 12, PH.y + rowY - 2, 8);
       const px = lerp(x, tgt[0], fly), py = lerp(y, tgt[1], fly);
       chipBox(txt, px, py, 1, { sc: sc * lerp(1, 0.55, fly), a: 1 - E.p2in(prog(t, T.flyEnd - 0.2, T.flyEnd)) });
     } else chipBox(txt, x, y, 1, { sc, a: 1 - gone, icon: i === 0 });
-    if (i > 0 && gone < 1) { ID(); ctx.save(); ctx.globalAlpha = (1 - gone) * E.p3out(prog(t, t0, t0 + 0.15)); ctx.font = `700 64px ${UI}`; ctx.fillStyle = C.ink; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    if (PLUS[i] && gone < 1) { ID(); ctx.save(); ctx.globalAlpha = (1 - gone) * E.p3out(prog(t, t0, t0 + 0.15)); ctx.font = `700 64px ${UI}`; ctx.fillStyle = C.ink; ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText("+", PLUS[i][0], PLUS[i][1] + 3); ctx.restore(); }
   });
+  // where each input comes from: the scale weighs you; the other three you type in
+  tagPill(COPY.cScale, 690, 958, (1 - gone) * E.p3out(prog(t, T.chip0 + 0.4, T.chip0 + 0.65)));
+  if (t >= T.chip0 + 1.15 && gone < 1) {
+    const k = E.p3out(prog(t, T.chip0 + 1.15, T.chip0 + 1.4)); ID(); ctx.save(); ctx.globalAlpha = (1 - gone) * k; ctx.strokeStyle = C.ink; ctx.lineWidth = 3; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(190, 1124); ctx.lineTo(190, 1136); ctx.lineTo(890, 1136); ctx.lineTo(890, 1124); ctx.stroke(); ctx.restore();
+    tagPill(COPY.cYou, 540, 1172, (1 - gone) * k);
+  }
   if (t >= T.arrow && gone < 1) {
     const k = E.p3out(prog(t, T.arrow, T.arrow + 0.25)); ID(); ctx.save(); ctx.globalAlpha = 1 - gone; ctx.strokeStyle = C.ink; ctx.lineWidth = 6; ctx.lineCap = "round";
-    line(540, 1104, 540, 1104 + 80 * k); if (k > 0.9) { ctx.beginPath(); ctx.moveTo(518, 1164); ctx.lineTo(540, 1186); ctx.lineTo(562, 1164); ctx.stroke(); }
+    line(540, 1212, 540, 1212 + 46 * k); if (k > 0.9) { ctx.beginPath(); ctx.moveTo(522, 1242); ctx.lineTo(540, 1260); ctx.lineTo(558, 1242); ctx.stroke(); }
     // what goes in flows down: small orange dots from every chip into the result
-    if (k > 0.9) CHIPS.forEach(([, x, y], i) => { for (let q = 0; q < 3; q++) { const u = ((t - T.arrow) * 0.8 + q / 3 + i * 0.13) % 1, px = lerp(x, 540, E.p2io(u)), py = lerp(y + 40, 1200, u); ctx.fillStyle = `rgba(${ACC},${Math.sin(Math.PI * u)})`; ctx.beginPath(); ctx.arc(px, py, 9, 0, TAU); ctx.fill(); } });
+    if (k > 0.9) CHIPS.forEach(([, x, y], i) => { for (let q = 0; q < 3; q++) { const u = ((t - T.arrow) * 0.8 + q / 3 + i * 0.13) % 1, px = lerp(x, 540, E.p2io(u)), py = lerp(y + 40, 1262, u); ctx.fillStyle = `rgba(${ACC},${Math.sin(Math.PI * u)})`; ctx.beginPath(); ctx.arc(px, py, 9, 0, TAU); ctx.fill(); ctx.strokeStyle = `rgba(${INK},${Math.sin(Math.PI * u)})`; ctx.lineWidth = 2; ctx.stroke(); } });
     ctx.restore();
   }
-  if (t >= T.result) chipBox(COPY.cOut, 540, 1278, 1, { sc: slamScale(t - T.result), fill: C.acc, col: C.paper, a: 1 - gone, size: 66, h: 126 });
-  if (t >= T.tag && gone < 1) {
-    const k = E.p3out(prog(t, T.tag, T.tag + 0.25)); ID(); ctx.save(); ctx.globalAlpha = (1 - gone) * k;
-    const f = `700 46px ${UI}`, w = mw(f, COPY.cEst) + 40, x = 540 + 178, y = 1278;
-    rr(x, y - 34, w, 68, 34); ctx.strokeStyle = C.acc; ctx.lineWidth = 3.5; ctx.stroke(); ctx.font = f; ctx.fillStyle = C.acc; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(COPY.cEst, x + 18, y + 2); ctx.restore();
-  }
+  if (t >= T.result) chipBox(COPY.cOut, 540, 1330, 1, { sc: slamScale(t - T.result), fill: C.acc, col: C.paper, a: 1 - gone, size: 66, h: 126 });
+  if (t >= T.tag) tagPill(COPY.cEst, 540 + 230, 1330, (1 - gone) * E.p3out(prog(t, T.tag, T.tag + 0.25)), C.acc);
 }
 
 // ---------------------------------------------------------------- the scenes
-const orangeK = (t) => E.p2io(prog(t, T.myth, T.myth + 0.3)) * (1 - E.p2io(prog(t, T.unOrange, T.unOrange + 0.3)));
+const orangeK = () => 0;                                        // v3: no orange full-bleed beat any more
 function groundCol(t) { const o = orangeK(t); return o > 0 ? mixHex(C.ground, C.acc, o) : C.ground; }
-function flood(t) {
-  if (t < T.flood) return 0;
-  if (t < T.floodEnd) return E.p2io(prog(t, T.flood, T.floodEnd));
-  if (t < T.unflood) return 1;
-  return 1 - E.p2io(prog(t, T.unflood, T.unflood + 0.25));
+function flood(t) {                                             // two dark stretches: the first dive, the second dive
+  const one = (a, b, u) => (t < a ? 0 : t < b ? E.p2io(prog(t, a, b)) : t < u ? 1 : 1 - E.p2io(prog(t, u, u + 0.25)));
+  return t < T.dive2 ? one(T.flood, T.floodEnd, T.unflood) : one(T.flood2, T.flood2End, T.unflood2);
 }
 const personOn = (t) => t < T.pan2End + 0.2;
 function drawLight(t, K) {
@@ -952,8 +975,7 @@ function drawLight(t, K) {
   padRings(t, K);
   if (personOn(t)) {
     footShadows(t, K);
-    const myth = t >= T.xray && t < T.q3 + 0.4, lt = myth ? clamp(ghostK(t) / 0.78) * (1 - E.p2io(prog(t, T.a2, T.a2 + 0.4))) : 0;   // the x-ray outline is light on orange / dark glass
-    drawPerson(t, K, { ghost: ghostK(t), inkC: mixHex(C.ink, C.paper, 0.9 * lt), fill: mixHex(C.skin, C.paper, 0.35 * lt) });
+    drawPerson(t, K, { ghost: ghostK(t) });
     // the current: a pulse into the left foot (a2); the whole path (a3 → the dive); a flash on the closing step
     if (t >= T.pulse && t < T.q3 + 0.4) {
       const u = E.p2io(prog(t, T.pulse, T.pulseEnd)) * 0.09, fo = 1 - prog(t, T.q3, T.q3 + 0.4);
@@ -968,48 +990,68 @@ function drawLight(t, K) {
     if (t >= T.ka && t < T.finOut + 0.4) drawCurrent(t, K, 0, 1, E.p3out(prog(t, T.ka, T.ka + 0.3)) * (1 - E.p2io(prog(t, T.finOut - 0.3, T.finOut + 0.4))), 1.2);
   }
   principle(t, K);
-  // the guess is struck: a big ✕ across the scale
-  if (t >= T.strike && t < T.unOrange) {
-    const c = proj(K, 0, -10, GS), fo = 1 - prog(t, T.a2 + 0.25, T.a2 + 0.55);
-    const k1 = E.p3out(prog(t, T.strike, T.strike + 0.1)), k2 = E.p3out(prog(t, T.strike + 0.125, T.strike + 0.225)), R = 250;
-    ID(); ctx.save(); ctx.globalAlpha = fo; ctx.lineCap = "round"; ctx.translate(c[0], c[1]); ctx.rotate(14 * RAD); ctx.translate(-c[0], -c[1]);
-    [[C.paper, 42], [C.ink, 27]].forEach(([col, w]) => { ctx.strokeStyle = col; ctx.lineWidth = w;
-      line(c[0] - R, c[1] - R, lerp(c[0] - R, c[0] + R, k1), lerp(c[1] - R, c[1] + R, k1));
-      if (k2 > 0) line(c[0] + R, c[1] - R, lerp(c[0] + R, c[0] - R, k2), lerp(c[1] - R, c[1] + R, k2)); });
-    ctx.restore();
-  }
   ID();
 }
 // the dive: the left calf, cut across; above the cut only its outline, below it the leg; the cut face in colour.
 // It stays until the two samples come out of it (18.5) and comes back on the way out (28.0), when the cut closes again.
+// two dives into the same calf: the first (the samples come out of it), the second (the water)
+function dv(t) {
+  return t < T.dive2 ? { cut: T.cut, cutEnd: T.cutEnd, tilt: T.tilt, tiltEnd: T.tiltEnd, out: T.out, hide0: T.blocks, hide1: T.blocksEnd, second: false }
+    : { cut: T.cut2, cutEnd: T.cut2End, tilt: T.tilt2, tiltEnd: T.tilt2End, out: T.out2, hide0: Infinity, hide1: Infinity, second: true };
+}
 function secShowK(t) {
-  if (t < T.blocks) return 1;
-  if (t < T.out) return 1 - E.p2io(prog(t, T.blocks + 0.1, T.blocksEnd + 0.25));
-  return E.p2io(prog(t, T.out, T.out + 0.3));
+  const d = dv(t);
+  if (t < d.hide0) return 1;
+  if (t < d.out) return 1 - E.p2io(prog(t, d.hide0 + 0.1, d.hide1 + 0.25));
+  return E.p2io(prog(t, d.out, d.out + 0.3));
 }
 function drawInterior(t, K, a) {
   if (a <= 0.002) return;
   ID(); ctx.fillStyle = `rgba(23,25,28,${a})`; ctx.fillRect(0, 0, W, H);
-  const sk = secShowK(t); if (sk <= 0.005) return;
+  const d = dv(t), sk = secShowK(t); if (sk <= 0.005) return;
   ctx.save(); ctx.globalAlpha = a * sk;
-  const secA = 1 - E.p2io(prog(t, T.out + 0.4, T.out + 0.75));               // pulling out: the cut closes again
+  const secA = 1 - E.p2io(prog(t, d.out + 0.4, d.out + 0.75));               // pulling out: the cut closes again
   const yF = proj(K, CALF[0], CALF[1] + 50, ZC)[1], A0 = a * sk;
-  drawPerson(t, K, { ghost: 1, inkC: C.paper, inkW: 2, alpha: A0 * lerp(0.28, 0.6, prog(t, T.out, T.out + 0.5)), legs: [{ s: -1 }] });
+  drawPerson(t, K, { ghost: 1, inkC: C.paper, inkW: 2, alpha: A0 * lerp(0.28, 0.6, prog(t, d.out, d.out + 0.5)), legs: [{ s: -1 }] });
   drawPerson(t, K, { ghost: 1, inkC: C.paper, inkW: 2.4, alpha: A0 * 0.6, legs: [{ s: 1, hMin: secA > 0.5 ? HC : 0 }], shorts: false });
   if (secA > 0.01) drawPerson(t, K, { ghost: 0, inkC: C.paper, inkW: 2.4, alpha: A0 * secA, fill: mixHex(C.skin, C.dark, 0.3), legs: [{ s: 1, hMax: HC }], shorts: false, fadeBelow: [yF + 60, yF + 560] });
   ctx.globalAlpha = A0 * secA;
   const sh = drawSection(t, K, CALF[0], CALF[1], ZC, { fk: 1, hiM: 0, hiF: 0 });
-  const show = E.p2io(prog(t, T.tilt + 0.3, T.tiltEnd));                  // the current keeps coming up through the cut (faint: not explained yet)
-  if (show > 0.01) drawFlow(t, K, CALF[0], CALF[1], ZC, sh, { aM: 0.55 * show, aF: 0.4 * show, speed: 1, r: 10 });
+  const show = E.p2io(prog(t, d.tilt + 0.3, d.tiltEnd));
+  if (!d.second) { if (show > 0.01) drawFlow(t, K, CALF[0], CALF[1], ZC, sh, { aM: 0.55 * show, aF: 0.4 * show, speed: 1, r: 10 }); }   // (faint: not explained yet)
+  else {
+    // the second dive: water as it should be; then less of it — the scale counts the difference as fat (an orange band inside the fat)
+    const wv = waterDry(t), dk = E.p2io(prog(t, T.dry + 0.15, T.dryEnd + 0.1));
+    if (dk > 0.005) {
+      const calc = secShape(1 + 1.1 * dk);
+      planeT(K, ZC, [CALF[0], CALF[1]]); const band = new Path2D(); addPoly(band, sh.mus); addPoly(band, calc.mus.slice().reverse());
+      ctx.save(); ctx.globalAlpha *= 0.9; ctx.fillStyle = `rgba(${ACC},0.42)`; ctx.fill(band, "evenodd"); ctx.restore();
+      planeT(K, ZC, [CALF[0], CALF[1]]); ctx.beginPath(); addPoly(ctx, calc.mus); ctx.save(); ID(); ctx.setLineDash([12, 9]); ctx.lineWidth = 3.5; ctx.strokeStyle = C.acc; ctx.stroke(); ctx.restore();
+    }
+    if (show > 0.01) drawFlow(t, K, CALF[0], CALF[1], ZC, sh, { aM: show, aF: 0.8 * show, speed: 0.5 + 0.5 * wv / 4, r: 10 });
+    drawDrops(t, K, CALF[0], CALF[1], ZC, wv, T.tilt2End - 0.2, 0, 22 * K.A / 5.4);
+  }
   // the cut itself: a bright line sweeping across the calf
-  if (t >= T.cut && t < T.tilt + 0.45) {
-    const u = E.p2io(prog(t, T.cut, T.cutEnd)), fo = 1 - prog(t, T.tilt, T.tilt + 0.45);
+  if (t >= d.cut && t < d.tilt + 0.45) {
+    const u = E.p2io(prog(t, d.cut, d.cutEnd)), fo = 1 - prog(t, d.tilt, d.tilt + 0.45);
     const L = proj(K, CALF[0] - 58, CALF[1] + 60, ZC), R = proj(K, CALF[0] + 60, CALF[1] + 60, ZC);
     ID(); ctx.save(); ctx.globalAlpha *= fo; ctx.strokeStyle = C.paper; ctx.lineWidth = 4; line(L[0], L[1], lerp(L[0], R[0], u), lerp(L[1], R[1], u)); ctx.restore();
   }
   ctx.restore();
 }
-
+// the second dive's instrument: the same dial (好走 … 难走) with a 正常含水 mark, and the one body-fat reading under it
+function waterDial(t) {
+  if (t < T.dial2 - 0.05 || t >= T.out2 + 0.5) return;
+  const a = E.p3out(prog(t, T.dial2, T.dial2 + 0.35)) * (1 - E.p2io(prog(t, T.out2, T.out2 + 0.4))), C0 = [840, 1000], R = 165;
+  const v = 0.5 * spring(t - T.dial2 - 0.1, 9, 0.6) + 0.3 * E.p2io(prog(t, T.dry + 0.15, T.dryEnd + 0.1)) + 0.01 * Math.sin(TAU * 0.4 * t);
+  const mk = E.p3out(prog(t, T.mark, T.mark + 0.35));
+  dial(C0[0], C0[1], R, v, a, { ends: true, endsCol: C.paper, mark: 0.5, markA: mk });
+  if (mk > 0.01) { ID(); ctx.save(); ctx.globalAlpha = a * mk; ctx.font = `700 46px ${UI}`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.fillStyle = C.paper; ctx.fillText(COPY.normal, C0[0], C0[1] - R - 22); ctx.restore(); }
+  // the reading: 体脂率 rises when the water drops (the same single reading as on the scale)
+  const rv = lerp(BF, BF_DRY, E.p3out(prog(t, T.dry + 0.25, T.dry + 0.85)));
+  ID(); ctx.save(); ctx.globalAlpha = a; ctx.setTransform(5.5, 0, 0, 5.5, C0[0], 1352);
+  lcdContent(t, { mode: "bf", v: rv, blink: t >= T.dry + 0.85 ? prog(t, T.dry + 0.85, T.dry + 1.2) : -1 }, 1); ctx.restore();
+}
 // ---------------------------------------------------------------- the dial: one round panel meter (paper face, ink scale, orange needle)
 // val 0 = the current goes easily … 1 = it has a hard time; o: {label, sc, dark}
 function dial(cx, cy, R, val, a, o = {}) {
@@ -1026,7 +1068,15 @@ function dial(cx, cy, R, val, a, o = {}) {
   ctx.strokeStyle = C.acc; ctx.lineWidth = Math.max(4, R * 0.045); ctx.beginPath(); ctx.moveTo(-R * 0.1 * Math.cos(an), cyN - R * 0.1 * Math.sin(an)); ctx.lineTo(Ra * 0.94 * Math.cos(an), cyN + Ra * 0.94 * Math.sin(an)); ctx.stroke();
   ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(0, cyN, Math.max(5, R * 0.06), 0, TAU); ctx.fill();
   if (o.label) { ctx.font = `700 ${Math.round(R * 0.3)}px ${UI}`; ctx.fillStyle = C.ink; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.globalAlpha = a * (o.labelA ?? 1); ctx.fillText(o.label, 0, cyN + R * 0.42); }
+  if (o.mark != null && o.markA > 0.01) {                         // a reference tick on the scale (正常含水)
+    const am = lerp(a0, a1, o.mark), r0 = Ra - R * 0.22, r1 = Ra + R * 0.16; ctx.globalAlpha = a * o.markA;
+    ctx.strokeStyle = C.ink; ctx.lineWidth = Math.max(5, R * 0.05); ctx.setLineDash([R * 0.07, R * 0.05]); ctx.beginPath(); ctx.moveTo(r0 * Math.cos(am), cyN + r0 * Math.sin(am)); ctx.lineTo(r1 * Math.cos(am), cyN + r1 * Math.sin(am)); ctx.stroke(); ctx.setLineDash([]);
+  }
   ctx.restore();
+  if (o.ends) {                                                    // 好走 at the low end, 难走 at the high end (under the dial)
+    ID(); ctx.save(); ctx.globalAlpha = a * (o.endsA ?? 1); ctx.font = `700 44px ${UI}`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.fillStyle = o.endsCol ?? C.ink;
+    const sc = o.sc ?? 1, y = cy + (R + 50) * sc; ctx.fillText(COPY.easy, cx - R * 0.62 * sc, y); ctx.fillText(COPY.hard, cx + R * 0.62 * sc, y); ctx.restore();
+  }
 }
 // the principle (13.75–16.25): the current goes round; the dial beside the body swings to "how hard"
 function principle(t, K) {
@@ -1039,7 +1089,7 @@ function principle(t, K) {
   ID(); ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = C.ink; ctx.lineWidth = 3.5; ctx.lineJoin = "round";
   ctx.beginPath(); ctx.moveTo(e[0], e[1]); const mx = C0[0], my = e[1]; ctx.lineTo(lerp(e[0], mx, Math.min(1, k * 2)), my); if (k > 0.5) ctx.lineTo(mx, lerp(my, C0[1] + R, (k - 0.5) * 2)); ctx.stroke();
   ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(e[0], e[1], 6, 0, TAU); ctx.fill(); ctx.restore();
-  dial(C0[0], C0[1], R, v, a, { sc });
+  dial(C0[0], C0[1], R, v, a, { sc, ends: true });
 }
 // the two samples (18.5–23): a block of muscle and a block of fat, each between the same two terminals, each with a meter
 const BLK = { w: 350, h: 198, dx: 30, dy: -26, y: 870, xm: 290, xf: 790, my: 1250, mr: 104 };
@@ -1097,7 +1147,7 @@ function samples(t, K) {
     const al = wk * lerp(0.62, 1, lit > 0.5 ? 1 : 0), xa = x - BLK.w / 2 - 12, xb = x + BLK.w / 2 + 12, yb = BLK.y + BLK.h / 2 + 12;
     ID(); ctx.save(); ctx.globalAlpha = al; ctx.strokeStyle = "rgba(241,240,236,0.8)"; ctx.lineWidth = 3; ctx.lineJoin = "round";
     ctx.beginPath(); ctx.moveTo(xa, yb); ctx.lineTo(xa, BLK.my); ctx.lineTo(x - BLK.mr, BLK.my); ctx.moveTo(xb, yb); ctx.lineTo(xb, BLK.my); ctx.lineTo(x + BLK.mr, BLK.my); ctx.stroke(); ctx.restore();
-    dial(x, BLK.my, BLK.mr, v, al);
+    dial(x, BLK.my, BLK.mr, v, al, { ends: true, endsCol: C.paper });
   });
   sampleBlock(t, "m", posM[0], posM[1], sc, bk * (0.35 + 0.65 * Math.max(em, 0.3)) * lerp(0.72, 1, litM > 0.5 ? 1 : 0), litM > 0.5 ? E.p2io(prog(t, T.blocksEnd, T.blocksEnd + 0.3)) * (t < T.a5 ? 1 - prog(t, T.a5 - 0.2, T.a5) : 0) : 0);
   sampleBlock(t, "f", posF[0], posF[1], sc, bk * (0.35 + 0.65 * Math.max(em, 0.3)) * lerp(0.72, 1, litF > 0.5 ? 1 : 0), t >= T.a5 ? E.p2io(prog(t, T.a5, T.a5 + 0.3)) * (1 - prog(t, T.twin - 0.2, T.twin)) : 0);
@@ -1116,7 +1166,7 @@ function twins(t) {
     drawFlow(t, K, 0, 0, 0, sh, { hgt: 66, aM: sp < 1 ? 0.85 : 1, aF: 0.9, speed: sp, r: 8.5 });   // thick fat: fewer, slower charges
     ctx.restore();
   });
-  ID(); ctx.save(); ctx.globalAlpha = a * dim * E.p3out(prog(t, T.twinEnd - 0.2, T.twinEnd + 0.2)); ctx.font = `700 54px ${UI}`; ctx.fillStyle = C.paper; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+  ID(); ctx.save(); ctx.globalAlpha = a * dim * E.p3out(prog(t, T.twinEnd - 0.2, T.twinEnd + 0.2)) * (1 - E.p2io(prog(t, T.twinLabOut, T.twinLabOut + 0.3))); ctx.font = `700 54px ${UI}`; ctx.fillStyle = C.paper; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
   ctx.fillText(COPY.fatLow, 268, 1172); ctx.fillText(COPY.fatHigh, 800, 1172); ctx.restore();
   const sw = spring(t - T.twinEnd, 7, 0.55) * (t >= T.twinEnd ? 1 : 0), br = 0.012 * Math.sin(TAU * 0.4 * t);   // the needles swing over as the current flows
   dial(268, 1318, 100, 0.1 * sw + br, a * dim);
@@ -1136,47 +1186,49 @@ function nameDial(t) {
 function groundRGB(t) { const o = orangeK(t), g = hexRGB(C.ground), q = hexRGB(C.acc); return [0, 1, 2].map((i) => Math.round(lerp(g[i], q[i], o))).join(","); }
 function scrim(t) {
   const fl = flood(t);
-  if (fl > 0.02) { ID(); const g = ctx.createLinearGradient(0, 0, 0, 760); [[0, 1], [0.6, 1], [0.7, 0.85], [0.8, 0.55], [0.9, 0.22], [1, 0]].forEach(([o, k]) => g.addColorStop(o, `rgba(23,25,28,${0.9 * fl * k})`)); ctx.fillStyle = g; ctx.fillRect(0, 0, W, 760); }
-  const a = 0.9 * (1 - fl) * (t >= T.end ? 1 - prog(t, T.end, T.end + 0.3) : 1);
+  const STOPS = [[0, 1], [0.66, 1], [0.74, 0.86], [0.82, 0.56], [0.9, 0.24], [1, 0]];   // fully opaque down to y ≈ 528
+  if (fl > 0.02) { ID(); const g = ctx.createLinearGradient(0, 0, 0, 800); STOPS.forEach(([o, k]) => g.addColorStop(o, `rgba(23,25,28,${fl * k})`)); ctx.fillStyle = g; ctx.fillRect(0, 0, W, 800); }
+  const a = (1 - fl) * (t >= T.end ? 1 - prog(t, T.end, T.end + 0.3) : 1);
   if (a <= 0.01) return;
   const col = groundRGB(t);
-  ID(); const g = ctx.createLinearGradient(0, 0, 0, 780);
-  [[0, 1], [0.6, 1], [0.68, 0.9], [0.76, 0.66], [0.84, 0.38], [0.92, 0.14], [1, 0]].forEach(([o, k]) => g.addColorStop(o, `rgba(${col},${a * k})`));
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, 780);
+  ID(); const g = ctx.createLinearGradient(0, 0, 0, 800);
+  STOPS.forEach(([o, k]) => g.addColorStop(o, `rgba(${col},${a * k})`));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, 800);
 }
 function textBand(t) {
-  const L = C.ink, D = C.paper, fl = flood(t);
-  scrim(t);
+  const L = C.ink, D = C.paper, fl = flood(t), M = mixHex(L, D, fl);
   // 1 the phenomenon — no noun
   lines(COPY.h1, t, -1, T.h1Out + 0.16, { style: "none", col: L });
   underline(COPY.h1[1], "你有多少", "脂肪", 1, t, T.underline, T.h1Out + 0.16);
-  // 2 the wrong guess (on orange), struck, turned over
-  lines(COPY.q2, t, T.q2, T.a2, { style: "blur", col: L, acc: C.paper, exit: 0.001, size: 96, ys: [292, 412, 532], lineGap: 0.12 });
-  lines(COPY.a2, t, T.a2, T.q3, { style: "slam", col: L, acc: C.paper, lineGap: 0.2 });
-  // 3 dig in
+  // the fact, straight away (one of the three loudest hits)
+  lines(COPY.a2, t, T.a2, T.q3, { style: "slam", col: L, lineGap: 0.2 });
   lines(COPY.q3, t, T.q3, T.a3, { style: "blur", col: L });
   lines(COPY.a3, t, T.a3, T.q4, { style: "blur", col: L });
   lines(COPY.q4, t, T.q4, T.pr, { style: "blur", col: L });
   lines(COPY.pr, t, T.pr, T.fq, { style: "blur", col: L });
-  lines(COPY.fq, t, T.fq, T.a4, { style: "blur", col: mixHex(L, D, fl) });
-  // 4 one mechanism (dark)
+  lines(COPY.fq, t, T.fq, T.a4, { style: "blur", col: M });
+  // the comparison (dark)
   lines(COPY.a4, t, T.a4, T.a5, { style: "blur", col: D });
   lines(COPY.a5, t, T.a5, T.a6, { style: "blur", col: D });
   lines(COPY.a6, t, T.a6, T.stop1 + 0.12, { style: "blur", col: D });
-  lines(COPY.name, t, T.name, T.q5, { style: "slam", col: D, ys: [318, 492], size: [96, 136], lineGap: 0.25 });
-  // 5 the missing step
-  lines(COPY.q5, t, T.q5, T.a7, { style: "blur", col: mixHex(L, D, fl) });
-  lines(COPY.a7, t, T.a7, T.a8, { style: "blur", col: L });
-  lines(COPY.a8, t, T.a8, T.q6, { style: "blur", col: L });
-  lines(COPY.q6, t, T.q6, T.a9, { style: "blur", col: L });
+  lines(COPY.name, t, T.name, T.q6, { style: "slam", col: D, ys: [318, 492], size: [96, 136], lineGap: 0.25 });
+  // every time a different number; the water; can it tell?
+  lines(COPY.q6, t, T.q6, T.a9, { style: "blur", col: M });
   lines(COPY.a9, t, T.a9, T.a10, { style: "blur", col: L });
-  lines(COPY.a10, t, T.a10, T.q9, { style: "blur", col: L });
-  // 6 back to the phenomenon
+  lines(COPY.a10, t, T.a10, T.q7, { style: "blur", col: L });
+  lines(COPY.q7, t, T.q7, T.n1, { style: "blur", col: M });
+  lines(COPY.n1, t, T.n1, T.n2, { style: "blur", col: D });
+  lines(COPY.n2, t, T.n2, T.a7, { style: "blur", col: D });
+  // the estimate
+  lines(COPY.a7, t, T.a7, T.a8, { style: "blur", col: M });
+  lines(COPY.a8, t, T.a8, T.q9, { style: "blur", col: L });
+  // back to the phenomenon
   lines(COPY.q9, t, T.q9, T.fin, { style: "blur", col: L });
   lines(COPY.fin, t, T.fin, T.finOut, { style: "slam", col: L, lineGap: 0.25 });
-  // a small tip in the same place, after the last line; the pacemaker note as a small label
+  // the tip in the same place; then the safety line as its own full-size caption beat
   label(COPY.tipTag, 98, 206, 46, C.acc, t, T.tip, T.tipOut, { weight: 700 });
   lines(COPY.tip, t, T.tip + 0.15, T.tipOut, { style: "blur", col: L, lineGap: 0.3 });
+  lines(COPY.pace, t, T.pace, T.paceOut, { style: "blur", col: L, lineGap: 0.25 });
 }
 function overlays(t, K) {                               // labels in the picture: few and short
   const fl = flood(t);
@@ -1195,13 +1247,6 @@ function overlays(t, K) {                               // labels in the picture
     const fo = 1 - prog(t, T.twin, T.twin + 0.4), aM = t < T.a5 ? 1 : 0.5, aF = t < T.a5 ? 0.5 : 1;
     label(COPY.muscle, BLK.xm, BLK.y - BLK.h / 2 - 58, 58, "rgba(241,240,236,0.95)", t, T.blocksEnd, T.twin + 0.4, { align: "center", alpha: fo * aM });
     label(COPY.fat, BLK.xf, BLK.y - BLK.h / 2 - 58, 58, "rgba(241,240,236,0.95)", t, T.blocksEnd, T.twin + 0.4, { align: "center", alpha: fo * aF });
-  }
-  // the pacemaker note: a small label under the tip
-  if (t >= T.pace && t < T.tipOut) {
-    const k = E.p3out(prog(t, T.pace, T.pace + 0.3)), fo = 1 - prog(t, T.tipOut - 0.15, T.tipOut);
-    const f = `700 44px ${UI}`, w = mw(f, COPY.pace);
-    ID(); ctx.save(); ctx.globalAlpha = k * fo; ctx.fillStyle = rgba(C.ground, 0.92); rr(72, 1352, w + 48, 82, 41); ctx.fill(); ctx.restore();
-    label(COPY.pace, 96, 1408, 44, C.ink, t, T.pace, T.tipOut, { weight: 700 });
   }
 }
 function endCard(t) {
@@ -1226,6 +1271,8 @@ function frame(t) {
     const z = 1 + 0.011 * (t - T.blocks) + (t >= T.name ? 0.015 * (t - T.name) : 0), cx = 540, cy = 1060, dx = 6 * Math.sin(TAU * (t - T.blocks) / 9.5);
     ID(); ctx.save(); ctx.setTransform(z, 0, 0, z, cx - z * cx + dx, cy - z * cy); ctx.drawImage(CMP, 0, 0); ctx.restore();
   }
+  waterDial(t);
+  scrim(t);
   overlays(t, K);
   card(t);
   displayMag(t, K);
@@ -1235,8 +1282,8 @@ function frame(t) {
 }
 
 // ---------------------------------------------------------------- motion blur: temporal supersampling where things move fast
-const BLUR = [[0, 0.6], [2.75, 3.5], [4.95, 5.45], [7.5, 8.45], [9.25, 10.3], [11.75, 14.3], [16.25, 18.3], [18.5, 19.2], [22.5, 23.2], [24.95, 25.45], [28.0, 29.3], [30.2, 31.5], [33.25, 34.35], [36.25, 36.7], [38.75, 39.6], [43.75, 45.3], [48.0, 48.95], [52.45, 54.6]];
-const SUB = 6, SHUTTER = 0.5 / FPS;
+const BLUR = [[0, 0.6], [2.75, 3.5], [5.0, 5.95], [6.75, 7.8], [9.25, 11.8], [13.75, 15.05], [15.25, 15.8], [20.0, 20.65], [22.45, 22.95], [25.25, 26.3], [32.25, 33.8], [39.0, 40.05], [41.75, 42.65], [44.5, 45.85], [48.75, 49.7], [51.5, 52.35], [54.25, 54.9]];
+const SUB = 14, SHUTTER = 0.5 / FPS;            // 14 sub-frames: no stair-stepped ghosts
 window.seek = function seek(t) {
   t = clamp(t, 0, DUR - 1e-6);
   const blur = BLUR.some(([a, b]) => t >= a && t < b);
