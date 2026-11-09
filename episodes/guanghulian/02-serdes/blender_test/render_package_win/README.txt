@@ -1,7 +1,7 @@
-﻿光互连 02 上集开头 · Blender 渲染包（Windows + NVIDIA 显卡）· 2026-11-09 第二版：右边换成 USB 2.0 A 型插头（4 个触点）
+﻿光互连 02 上集开头 · Blender 渲染包（Windows + NVIDIA 显卡）· 2026-11-09 第四版：兼容 Blender 5.x；右边是 USB 2.0 A 型插头（4 个触点）
 
 【准备，只做一次】
-1. 安装 Blender 4.5 LTS（免费）：https://www.blender.org/download/lts/4-5/
+1. 安装 Blender（4.5 LTS 或 5.x 都可以，免费）：https://www.blender.org/download/lts/4-5/
    选 Windows Installer，按默认位置安装（C:\Program Files\Blender Foundation\Blender 4.5\）。
 2. 建议先更新 NVIDIA 显卡驱动（GeForce Experience 或 nvidia.cn 下载）。驱动太旧时 Blender 找不到显卡，会退回用 CPU，很慢。
 3. 把这个文件夹解压到一个不含中文的路径，比如 C:\render\blender_render_02_opening\。

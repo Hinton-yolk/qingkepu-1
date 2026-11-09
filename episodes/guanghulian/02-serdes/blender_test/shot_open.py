@@ -12,6 +12,26 @@ GPU = '--gpu' in rest; VIDEO = '--video' in rest; FPS = int(rest[rest.index('--f
 FRAMES = [int(a) for i, a in enumerate(rest) if a.isdigit() and not (i > 0 and rest[i - 1] == '--fps')]
 NF = round(8.25 * FPS); SPD = 24 / FPS          # 光环速度按 24 fps 调的，换帧率时按比例换算
 bpy.ops.wm.read_factory_settings(use_empty=True); sc = bpy.context.scene; os.makedirs(OUT, exist_ok=True)
+print('BLENDER_VERSION', bpy.app.version_string)
+def fcurves_of(o):        # Blender 4.x：action.fcurves；Blender 5.x：分层动作，F 曲线在 channelbag 里
+    ad = o.animation_data
+    if not ad or not ad.action: return []
+    act = ad.action
+    if hasattr(act, 'fcurves'): return list(act.fcurves)
+    try:
+        from bpy_extras import anim_utils
+        cb = anim_utils.action_get_channelbag_for_slot(act, ad.action_slot)
+        if cb: return list(cb.fcurves)
+    except Exception: pass
+    out = []
+    for layer in act.layers:
+        for strip in layer.strips:
+            for cb in strip.channelbags: out += list(cb.fcurves)
+    return out
+def set_fmt(fmt):          # Blender 5.x 先要指定输出类型（图片 / 视频），再选格式
+    ims = sc.render.image_settings
+    if hasattr(ims, 'media_type'): ims.media_type = 'VIDEO' if fmt == 'FFMPEG' else 'IMAGE'
+    ims.file_format = fmt
 
 # ---------- 材质 ----------
 def principled(name, col, metal=0.0, rough=0.5, emit=None, es=0.0, coat=0.0):
@@ -107,7 +127,7 @@ def pulses(path, n, r, minor, mat, speed_frac, phase0=0.0):
         for f in range(1, NF + 1, 2):
             c.offset_factor = min(0.999, (a + speed_frac * (f - 1)) % 1.0); c.keyframe_insert('offset_factor', frame=f)
         if o.animation_data and o.animation_data.action:
-            for fc in o.animation_data.action.fcurves:
+            for fc in fcurves_of(o):
                 for kp in fc.keyframe_points: kp.interpolation = 'LINEAR'
                 # 折回处（1 → 0）用常数插值，避免倒着扫过整根线
                 kps = fc.keyframe_points
@@ -132,7 +152,7 @@ cam.data.dof.use_dof = True; bpy.ops.object.empty_add(location=(-1.0, 0.0, 0.6))
 cam.keyframe_insert('location', frame=1); cam.location = (-1.15, -10.0, 10.4); cam.keyframe_insert('location', frame=NF)
 tgt.keyframe_insert('location', frame=1); tgt.location = (-1.15, 2.2, 0.4); tgt.keyframe_insert('location', frame=NF)
 for o in (cam, tgt):
-    for fc in o.animation_data.action.fcurves:
+    for fc in fcurves_of(o):
         for kp in fc.keyframe_points: kp.interpolation = 'BEZIER'; kp.easing = 'EASE_IN_OUT'
 
 # ---------- 渲染设置 ----------
@@ -142,7 +162,7 @@ if GPU:
     prefs = bpy.context.preferences.addons['cycles'].preferences; ok = None
     for dt in ('OPTIX', 'CUDA'):
         try:
-            prefs.compute_device_type = dt; prefs.get_devices(); devs = [d for d in prefs.devices if d.type == dt]
+            prefs.compute_device_type = dt; (prefs.refresh_devices() if hasattr(prefs, 'refresh_devices') else prefs.get_devices()); devs = [d for d in prefs.devices if d.type == dt]
             if devs:
                 for d in prefs.devices: d.use = d.type == dt
                 ok = dt; break
@@ -152,7 +172,11 @@ if GPU:
 sc.cycles.samples = SAMP; sc.cycles.use_denoising = True; sc.cycles.use_adaptive_sampling = True
 sc.cycles.max_bounces = 6; sc.render.use_motion_blur = True; sc.render.motion_blur_shutter = 0.5; sc.render.use_persistent_data = True
 sc.render.resolution_x, sc.render.resolution_y = W, H; sc.render.fps = FPS; sc.frame_start, sc.frame_end = 1, NF
-sc.view_settings.view_transform = 'AgX'; sc.view_settings.look = 'AgX - Medium High Contrast'; sc.render.image_settings.file_format = 'PNG'
+sc.view_settings.view_transform = 'AgX'
+for lk in ('AgX - Medium High Contrast', 'Medium High Contrast'):
+    try: sc.view_settings.look = lk; break
+    except Exception: pass
+set_fmt('PNG')
 
 # ---------- 每帧锚点（给 2D 标签） ----------
 ANCH = {'db25': Vector((DX, -0.6, ZC + 0.9)), 'usb': None, 'cableA': Vector((DX + 0.9, 12, 0.8)), 'cableB': Vector((UX - 0.6, 11, 0.4))}
@@ -161,8 +185,11 @@ for f in range(1, NF + 1):
     sc.frame_set(f); ANCH['usb'] = uanc.matrix_world.translation.copy(); anchors[f] = {k: [round(v.x * W, 1), round((1 - v.y) * H, 1)] for k, p in ANCH.items() for v in [world_to_camera_view(sc, cam, p)]}
 json.dump({'fps': FPS, 'nf': NF, 'w': W, 'frames': anchors}, open(os.path.join(OUT, 'anchors.json'), 'w'))
 if VIDEO and not FRAMES:      # 直接出一个 MP4（几乎无损），省得传一堆 PNG
-    sc.render.image_settings.file_format = 'FFMPEG'; sc.render.ffmpeg.format = 'MPEG4'; sc.render.ffmpeg.codec = 'H264'
-    sc.render.ffmpeg.constant_rate_factor = 'PERC_LOSSLESS'; sc.render.ffmpeg.ffmpeg_preset = 'GOOD'; sc.render.filepath = os.path.join(OUT, 'opening.mp4')
+    set_fmt('FFMPEG'); sc.render.ffmpeg.format = 'MPEG4'; sc.render.ffmpeg.codec = 'H264'
+    for k, v in (('constant_rate_factor', 'PERC_LOSSLESS'), ('ffmpeg_preset', 'GOOD')):
+        try: setattr(sc.render.ffmpeg, k, v)
+        except Exception as e: print('ffmpeg 设置跳过', k, e)
+    sc.render.filepath = os.path.join(OUT, 'opening.mp4')
     bpy.ops.render.render(animation=True)
 else:
     for f in (FRAMES or range(1, NF + 1)):
