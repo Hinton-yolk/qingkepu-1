@@ -10,6 +10,9 @@
 | 装心脏起搏器的人别用体脂功能 | Tanita、Omron、Philips、Withings、iHealth 的说明书 / 支持页都写明：装起搏器或其他植入式电子设备的人不要使用（部分品牌可只用称重模式） | [Tanita BC-G01 手册](https://www.manualslib.com/manual/1146253/Tanita-Bc-G01.html?page=4)；[Omron HBF-516](https://www.manualslib.com/manual/951905/Omron-Hbf-516.html?page=4)；[Philips](https://www.usa.philips.com/c-e/heart-health/devices/philips-body-analysis-scale/getting-started/when-can-i-not-use-the-scale-are-there-contraindications.html)；[Withings](https://support.withings.com/hc/en-us/articles/218438708-Body-Frequently-asked-questions-about-safety) |
 | （正文用，片中不讲）脚踩式秤的电主要在两条腿之间走（**仅单一来源**） | 脚对脚的电流只在两腿之间的回路里走，上半身的脂肪靠公式推 | [Acibadem: Smart scales and bioimpedance](https://acibademinternational.com/blog/smart-scales-and-bioimpedance-how-accurate-is-your-body-fat-reading/) |
 
+| 它默认你身体里的水都是正常的；水一少，就会被算成脂肪多 | BIA 公式的前提是去脂组织含水约 73% 这一「常数」；含水异常（脱水、水肿）时结果不可靠。脱水时阻抗升高，体脂被高估（2021 年研究：脱水是误差最大的因素）。多频秤能单独估一部分水，但同样假设含水正常，所以片中不说「分不清」，只说「默认正常」 | [Wang et al. 1999, AJCN 69(5):833–841](https://pubmed.ncbi.nlm.nih.gov/10232629)；[Kyle et al. 2004, ESPEN BIA 指南 II, Clin Nutr 23:1430–1453](https://pubmed.ncbi.nlm.nih.gov/15556267)；[BMC Public Health 2021](https://doi.org/10.1186/s12889-021-10552-y) |
+| 所以电越难走，脂肪一般就越多 | 「一般」：电阻还跟身高、腿长、腿粗有关，同样体型、含水正常时，电阻大才对应脂肪多；公式里用「身高² ÷ 电阻」正是为此 | [Kyle et al. 2004, ESPEN BIA 指南 I](https://pubmed.ncbi.nlm.nih.gov/15380917) |
+
 未核实、不使用：脚踩式秤「个人误差 4–8 个百分点」（只见于博客转述）。
 
 ## 画面上的简化（片中不写字，2026-11-09 制作时补）
