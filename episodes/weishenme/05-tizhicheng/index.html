@@ -483,7 +483,8 @@ function rrPts(x0, y0, w, h, r, z, K, n = 6) {               // a rounded rectan
 }
 function powerK(t) {                                          // the display: 0 off … 1 on
   if (t < T.wake) return 0;
-  if (t < T.lift) return 1;
+  if (t < T.dive2) return 1;
+  if (t < T.ka) return 1 - prog(t, T.dive2, T.dive2 + 0.15);      // nobody is reading it now: it times out before the push
   if (t < T.ka) return 1 - prog(t, T.lift, T.lift + 0.3);
   return prog(t, T.ka, T.ka + 0.08) * (1 - prog(t, T.pan2End + 0.3, T.pan2End + 0.6));   // nobody on it any more: it goes dark
 }
@@ -578,7 +579,8 @@ function drawScale(t, K, o = {}) {
   if (o.xray > 0.001) { planeT(K, GS); ctx.save(); rr(-SC.hx, -SC.hy, 2 * SC.hx, 2 * SC.hy, SC.r); ctx.clip(); xrayInside(t, K, o.xray); ctx.restore(); }
   // the display — drawn upright to the camera (upside-down digits read as 「h22」, like a glitch)
   planeT(K, GS, [LCDP.x, LCDP.y]);
-  lcdContent(t, lcdState(t), powerK(t));
+  const safe = clamp((1440 - proj(K, LCDP.x, LCDP.y + LCDP.h / 2, GS)[1]) / 50);   // nothing readable below y 1450: the digits fade before they get there
+  lcdContent(t, lcdState(t), powerK(t) * safe);
   ctx.restore();
 }
 // the x-ray under the glass: four load cells at the corners and the board — "just a scale"
@@ -1185,7 +1187,15 @@ function nameDial(t) {
 // ---------------------------------------------------------------- text
 function groundRGB(t) { const o = orangeK(t), g = hexRGB(C.ground), q = hexRGB(C.acc); return [0, 1, 2].map((i) => Math.round(lerp(g[i], q[i], o))).join(","); }
 function scrim(t) {
-  const fl = flood(t);
+  const ir = irisOf(t);
+  if (ir) {                                                      // each world keeps its own wash (no band where the two would mix)
+    ctx.save(); irisClip(ir, false); scrimOf(t, ir.into ? 0 : 1); ctx.restore();
+    ctx.save(); irisClip(ir, true); scrimOf(t, ir.into ? 1 : 0); ctx.restore();
+    return;
+  }
+  scrimOf(t, flood(t));
+}
+function scrimOf(t, fl) {
   const STOPS = [[0, 1], [0.66, 1], [0.74, 0.86], [0.82, 0.56], [0.9, 0.24], [1, 0]];   // fully opaque down to y ≈ 528
   if (fl > 0.02) { ID(); const g = ctx.createLinearGradient(0, 0, 0, 800); STOPS.forEach(([o, k]) => g.addColorStop(o, `rgba(23,25,28,${fl * k})`)); ctx.fillStyle = g; ctx.fillRect(0, 0, W, 800); }
   const a = (1 - fl) * (t >= T.end ? 1 - prog(t, T.end, T.end + 0.3) : 1);
@@ -1196,7 +1206,7 @@ function scrim(t) {
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, 800);
 }
 function textBand(t) {
-  const L = C.ink, D = C.paper, fl = flood(t), M = mixHex(L, D, fl);
+  const L = C.ink, D = C.paper, fl = TXF ?? flood(t), M = mixHex(L, D, fl);
   // 1 the phenomenon — no noun
   lines(COPY.h1, t, -1, T.h1Out + 0.16, { style: "none", col: L });
   underline(COPY.h1[1], "你有多少", "脂肪", 1, t, T.underline, T.h1Out + 0.16);
@@ -1260,12 +1270,29 @@ function endCard(t) {
   }
 }
 
+// dark ⇄ light switches: the new world opens through a growing circle centred on the calf (both worlds fully opaque)
+const IRIS = [540, 1150];
+function irisOf(t) {
+  const fl = flood(t); if (fl <= 0.001 || fl >= 0.999) return null;
+  const into = flood(t + 0.02) > fl, k = into ? fl : 1 - fl;
+  return { into, R: 40 + 2300 * k };
+}
+function irisClip(ir, inside) {                                  // clip to the inside (or the outside) of the iris
+  const p = new Path2D(); if (!inside) p.rect(0, 0, W, H); p.arc(IRIS[0], IRIS[1], ir.R, 0, TAU);
+  ID(); ctx.clip(p, inside ? "nonzero" : "evenodd");
+}
+let TXF = null;                                                  // caption colours: which world they sit on (null = flood(t))
 function frame(t) {
   ctx.reset();
   ID();
-  const K = cam(t), fl = flood(t);
-  if (fl < 0.999) drawLight(t, K);
-  drawInterior(t, K, fl);
+  const K = cam(t), fl = flood(t), ir = irisOf(t);
+  if (ir) {
+    if (ir.into) { drawLight(t, K); ctx.save(); irisClip(ir, true); drawInterior(t, K, 1); ctx.restore(); }
+    else { drawInterior(t, K, 1); ctx.save(); irisClip(ir, true); drawLight(t, K); ctx.restore(); }
+  } else {
+    if (fl < 0.999) drawLight(t, K);
+    drawInterior(t, K, fl);
+  }
   if (t >= T.blocks && t < T.out + 0.5) {                          // the comparison: its own layer, slowly pushed in (it never parks)
     const prev = ctx; ctx = CMPX; ctx.reset(); samples(t, K); twins(t); nameDial(t); ctx = prev;
     const z = 1 + 0.011 * (t - T.blocks) + (t >= T.name ? 0.015 * (t - T.name) : 0), cx = 540, cy = 1060, dx = 6 * Math.sin(TAU * (t - T.blocks) / 9.5);
@@ -1277,7 +1304,11 @@ function frame(t) {
   card(t);
   displayMag(t, K);
   calfMag(t, K);
-  textBand(t);
+  if (ir) {                                                      // the captions take the colour of the world they sit on
+    const nw = ir.into ? 1 : 0;
+    ctx.save(); irisClip(ir, false); TXF = 1 - nw; textBand(t); ctx.restore();
+    ctx.save(); irisClip(ir, true); TXF = nw; textBand(t); ctx.restore(); TXF = null;
+  } else textBand(t);
   endCard(t);
 }
 
