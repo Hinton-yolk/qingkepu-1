@@ -28,12 +28,13 @@ for (const [dir, name, t, camExpr, anchor] of JOBS.filter((j) => !ONLY || j[1].s
   const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
   await page.goto("file://" + path.resolve(dir, "index.html"));
   await page.waitForFunction(() => window.ready === true);
-  const a = await page.evaluate(({ t, camExpr, anchor }) => {
+  const a = await page.evaluate(({ t, camExpr, anchor, name }) => {
     window.textBand = () => {}; window.endCard = () => {};
     if (typeof window.hookOverlays === "function") window.hookOverlays = () => {};
     if (typeof window.darkOverlays === "function") window.darkOverlays = () => {};
     if (typeof window.microOverlays === "function") window.microOverlays = () => {};
     for (const f of ["displayMag", "calfMag"]) if (typeof window[f] === "function") window[f] = () => {};   // EP.05: no in-film magnifiers on the cover art
+    if (name.startsWith("ep05") && typeof window.overlays === "function") window.overlays = () => {};   // EP.05 inset: no label leaders cut off by the circle
     if (camExpr) { const K = eval(camExpr); window.cam = () => K; }
     if (camExpr && typeof window.sweeping === "function" && typeof window.drawPhone === "function") {
       // EP.01: the phone half seen through — the board above an orange scan line, the screen below it
@@ -43,7 +44,7 @@ for (const [dir, name, t, camExpr, anchor] of JOBS.filter((j) => !ONLY || j[1].s
     if (!anchor) return null;
     if (typeof window.toS !== "function") window.toS = (K, p) => proj(K, p[0], p[1], p[2] || 0);   // EP.04 on: the camera is proj()
     const p = toS(cam(t), eval(anchor)); return [Math.round(p[0]), Math.round(p[1])];
-  }, { t, camExpr, anchor });
+  }, { t, camExpr, anchor, name });
   await page.locator("#c").screenshot({ path: `art/${name}.png` });
   anchors[name] = a; await page.close();
 }
