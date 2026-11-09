@@ -1,0 +1,134 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+@font-face{font-family:H;src:url(NotoSansSC-900.woff)} @font-face{font-family:M;src:url(NotoSansSC-700.woff)}
+body{margin:0;background:#000}</style></head><body><canvas id="c" width="1080" height="1920"></canvas><script>
+// 光互连 02 上集 · 风格样片「等距实物剖面」（2026-11-09）。纯时间函数：window.seek(t) 画第 t 秒，不留状态、不用随机数。
+// 样片时间 0–8.25 = 正片 0–8.25（开头：并口线 vs USB）；8.25–17.125 = 正片 23.25–32.125（一快，长一点的那条晚到一步）。音频直接用正片混音的这两段。
+const cv = document.getElementById('c'), c = cv.getContext('2d'), W = 1080, H = 1920;
+const INK = '#16161a', CREAM = '#f6f1e6', RED = '#e5483f', YEL = '#ffc93c', TEAL = '#3fb5a5', COPPER = '#d0883f';
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x)), lerp = (a, b, k) => a + (b - a) * k, seg = (t, a, b) => clamp((t - a) / (b - a));
+const ease = k => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2, back = k => { const s = 1.7; k -= 1; return k * k * ((s + 1) * k + s) + 1; };
+const B0 = 8.25, OFF = 23.25 - B0;            // 样片里第二段开始的时刻；正片时间 = 样片时间 + OFF
+// —— 相机：世界坐标 (x, y, z) 等距投影 ——
+let CAM = { x: 0, y: 0, z: 0, s: 66 }, SY = 860;
+function P(x, y, z = 0) { const dx = x - CAM.x, dy = y - CAM.y; return [W / 2 + (dx - dy) * 0.866 * CAM.s, SY + (dx + dy) * 0.62 * CAM.s - (z - CAM.z) * CAM.s]; }   // 竖屏：比标准等距更俯一点，画面往上下铺开
+function poly(pts, fill, stroke) { c.beginPath(); pts.forEach((p, i) => { const q = P(...p); i ? c.lineTo(...q) : c.moveTo(...q); }); c.closePath(); if (fill) { c.fillStyle = fill; c.fill(); } if (stroke) { c.strokeStyle = stroke; c.lineWidth = 1.5; c.stroke(); } }
+function box(x, y, z, w, d, h, top, left, right, edge = 'rgba(0,0,0,.18)') {
+  poly([[x, y + d, z], [x + w, y + d, z], [x + w, y + d, z + h], [x, y + d, z + h]], left, edge);
+  poly([[x + w, y, z], [x + w, y + d, z], [x + w, y + d, z + h], [x + w, y, z + h]], right, edge);
+  poly([[x, y, z + h], [x + w, y, z + h], [x + w, y + d, z + h], [x, y + d, z + h]], top, edge); }
+function shade(hex, k) { const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255, f = v => Math.round(clamp(v * k, 0, 255)); return `rgb(${f(r)},${f(g)},${f(b)})`; }
+function cube(x, y, z, s, col) { box(x - s / 2, y - s / 2, z, s, s, s, col, shade(col, 0.72), shade(col, 0.86)); }
+function shadow(x, y, w, d, a = 0.18) { poly([[x, y, 0.001], [x + w, y, 0.001], [x + w, y + d, 0.001], [x, y + d, 0.001]], `rgba(60,50,35,${a})`); }
+// —— 平面上的字（屏幕坐标） ——
+function tag(s, x, y, size, bg, fg, t0, t, { align = 'center', rot = 0 } = {}) { if (t < t0) return; const k = clamp((t - t0) / 0.25), n = Math.ceil(s.length * k), str = s.slice(0, n);
+  c.save(); c.translate(x, y); c.rotate(rot); c.font = `${size}px H`; const w = c.measureText(s).width + size * 0.9, x0 = align === 'center' ? -w / 2 : align === 'left' ? 0 : -w;
+  const sc = t - t0 < 0.12 ? 0.9 + 0.1 * back(clamp((t - t0) / 0.12)) : 1; c.scale(sc, sc);
+  c.shadowColor = 'rgba(30,20,10,.25)'; c.shadowBlur = 14; c.shadowOffsetY = 5; c.fillStyle = bg; c.beginPath(); c.roundRect(x0, -size * 0.78, w, size * 1.56, size * 0.28); c.fill(); c.shadowColor = 'transparent';
+  c.fillStyle = fg; c.textBaseline = 'middle'; c.textAlign = 'left'; c.fillText(str, x0 + size * 0.45, 2); c.restore(); }
+function leader(a, b, col, k) { if (k <= 0) return; c.save(); c.strokeStyle = col; c.lineWidth = 4; c.setLineDash([10, 8]); c.beginPath(); c.moveTo(...a); c.lineTo(lerp(a[0], b[0], k), lerp(a[1], b[1], k)); c.stroke(); c.restore(); c.fillStyle = col; c.beginPath(); c.arc(...a, 8, 0, 7); c.fill(); }
+function txt(s, x, y, size, col, align = 'center', fam = 'H') { c.font = `${size}px ${fam}`; c.fillStyle = col; c.textAlign = align; c.textBaseline = 'middle'; c.fillText(s, x, y); }
+// —— 地面 ——
+function floor(t) { const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#efe9dc'); g.addColorStop(1, '#e2dacb'); c.fillStyle = g; c.fillRect(0, 0, W, H);
+  c.save(); c.strokeStyle = 'rgba(120,105,80,.10)'; c.lineWidth = 1.5; for (let i = -12; i <= 30; i++) { c.beginPath(); c.moveTo(...P(i, -12)); c.lineTo(...P(i, 32)); c.stroke(); c.beginPath(); c.moveTo(...P(-12, i)); c.lineTo(...P(32, i)); c.stroke(); } c.restore(); }
+
+// ========== 场景一：并口线（25 根） vs USB（4 根），线头剖开给你看 ==========
+const LEN = 4.5;
+function sceneA(t) {
+  // 并口线：宽扁的排线 + DB-25 插头；切口（+x 面）露出 25 根铜芯
+  shadow(-1.6, -0.3, LEN + 1.8, 3.4); box(-1.6, -0.35, 0, 1.6, 3.3, 0.95, '#e6e2d9', '#b5b0a5', '#cfcabf');
+  for (let k = 0; k < 2; k++) { const yy = [-0.05, 2.65][k]; box(-1.25, yy, 0.95, 0.45, 0.3, 0.12, '#f2efe8', '#bdb8ad', '#d6d1c6'); }
+  box(0, 0, 0, LEN, 2.6, 0.34, '#d5cfc2', '#a9a397', '#3b3833');
+  c.save(); c.strokeStyle = 'rgba(80,72,60,.28)'; c.lineWidth = 1.2; for (let k = 1; k < 25; k++) { const yy = k * 2.6 / 25; c.beginPath(); c.moveTo(...P(0, yy, 0.34)); c.lineTo(...P(LEN, yy, 0.34)); c.stroke(); } c.restore();
+  const cut = 0.6 + 0.4 * Math.sin(t * 4);
+  for (let k = 0; k < 25; k++) { const [px, py] = P(LEN, 0.052 + k * 2.6 / 25, 0.17); c.fillStyle = COPPER; c.beginPath(); c.arc(px, py, 3.8, 0, 7); c.fill(); }
+  // 排线上并排慢慢挪的货：一列一列（8 条代表很多条）
+  for (let k = 0; k < 4; k++) { const x = ((t * 0.45 + k * 1.15) % LEN); for (let j = 0; j < 8; j++) cube(x, 0.25 + j * 0.3, 0.34, 0.2, '#f0c35a'); }
+  // USB：圆圆的细线 + USB-C 插头；切口露出 4 根芯
+  const Y = 4.6; shadow(-1.3, Y - 0.1, LEN + 1.4, 0.8);
+  box(-1.25, Y + 0.02, 0.06, 1.25, 0.5, 0.42, '#f1efea', '#b9b6ae', '#d8d5ce'); box(-0.25, Y - 0.06, 0.02, 0.35, 0.66, 0.55, '#3a3a3e', '#202023', '#2c2c30');
+  box(0, Y, 0, LEN, 0.55, 0.55, '#2e2e33', '#1c1c20', '#141417');
+  [[0.16, 0.18, '#e5483f'], [0.39, 0.18, '#f4f4f4'], [0.16, 0.39, '#4cc06b'], [0.39, 0.39, '#555']].forEach(([dy, dz, col]) => { const [px, py] = P(LEN, Y + dy, dz); c.fillStyle = col; c.beginPath(); c.arc(px, py, 7, 0, 7); c.fill(); });
+  // USB 上排成一列飞快地跑
+  for (let k = 0; k < 12; k++) { const x = ((t * 6 + k * 0.375) % LEN); cube(x, Y + 0.275, 0.55, 0.17, YEL); }
+  // 收件台：USB 一秒一张照片往上摞；并口线二十秒才一张（进度环）
+  box(LEN + 0.5, 0, 0, 1.9, 2.6, 0.18, '#cfc8b9', '#a69f91', '#b8b1a3'); box(LEN + 0.5, Y - 0.6, 0, 1.9, 1.75, 0.18, '#cfc8b9', '#a69f91', '#b8b1a3');
+  const nU = Math.min(9, Math.floor(t)), lastAge = t - Math.floor(t);
+  for (let k = 0; k < nU; k++) { const pop = k === nU - 1 && nU === Math.floor(t) ? back(clamp(lastAge / 0.25)) : 1, z = 0.18 + k * 0.12 + (1 - pop) * 0.6;
+    box(LEN + 0.85, Y - 0.32, z, 1.2, 1.2, 0.09, k % 2 ? '#f6c27a' : '#f2b16a', '#b77a45', '#c98a52'); }
+  const [rx, ry] = P(LEN + 1.45, 1.3, 0.5), q = (t / 20) % 1; c.save(); c.lineWidth = 12; c.strokeStyle = 'rgba(60,50,40,.18)'; c.beginPath(); c.arc(rx, ry, 46, 0, 7); c.stroke();
+  c.strokeStyle = '#8a857a'; c.beginPath(); c.arc(rx, ry, 46, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * q); c.stroke(); c.restore();
+  // 标签
+  const a25 = P(LEN, 1.3, 0.34), a4 = P(LEN, Y + 0.27, 0.6);
+  leader(a25, [a25[0] + 40, a25[1] - 200], INK, seg(t, 0.3, 0.6)); tag('25 根线', a25[0] + 40, a25[1] - 230, 54, CREAM, INK, 0.45, t);
+  leader(a4, [a4[0] - 260, a4[1] + 150], RED, seg(t, 1.2, 1.5)); tag('4 根线', a4[0] - 260, a4[1] + 180, 54, RED, '#fff', 1.35, t);
+  tag('每秒约 2 MB', rx + 20, ry + 150, 42, CREAM, INK, 4.75, t); txt('已传 0 张', rx, ry + 82, 34, 'rgba(22,22,26,.65)', 'center', 'M');
+  const pU = P(LEN + 1.45, Y + 0.3, 0); tag('每秒几十 MB', pU[0] + 30, pU[1] + 120, 42, RED, '#fff', 7.25, t, { align: 'left' }); txt(`已传 ${nU} 张`, pU[0] + 40, pU[1] + 50, 36, INK, 'left', 'M');
+}
+
+// ========== 场景二：六条车道一起送；一快，绕了一小段的那条晚到一步 ==========
+const BY = 12, LANES = 5, LW = 0.85, LG = 1.05, TL = 6.5, V = 5, BUMP = [2.2, 4.4], BH = 0.7, DL = 0.4, LATE = 2;
+const laneY = i => BY + 0.3 + i * LG;
+function laneX(i, tt) {                       // 出发后 tt 秒，这件货走到哪（x, z）；第 4 条中间绕上一个坡，晚 DL 秒
+  const raw = V * tt; if (i !== LATE) return [raw, 0];
+  const a = BUMP[0], L = BUMP[1] - BUMP[0], extra = DL * V;
+  if (raw <= a) return [raw, 0];
+  if (raw <= a + L + extra) { const x = a + L * (raw - a) / (L + extra); return [x, BH * Math.sin(Math.PI * (x - a) / L)]; }
+  return [raw - extra, 0]; }
+function sceneB(t) {
+  const T = t + OFF, slow = 23.5, fast = 26.25, gap = 0.3, NF = 20;
+  const slowB = [0, 1, 2].map(k => ({ t0: slow + k * 1.05, col: '#f3ead8', win: 0.5, slow: true })), fastB = []; for (let k = 0; k < NF; k++) fastB.push({ t0: fast + k * gap, col: k % 2 ? '#9fd8cf' : '#f3ead8', win: 0.12 });
+  const batches = [...slowB, ...fastB];   // 一直有货在跑（慢的时候一秒一批，快了 0.3 秒一批）
+  const fastOn = T >= fast;
+  shadow(-0.6, BY, TL + 4.6, LANES * LG + 0.6, 0.14);
+  box(-0.6, BY, -0.25, TL + 0.6, LANES * LG + 0.6, 0.25, '#34353b', '#222327', '#2b2c31');
+  for (let i = 0; i < LANES; i++) {
+    poly([[-0.4, laneY(i), 0.002], [TL, laneY(i), 0.002], [TL, laneY(i) + LW, 0.002], [-0.4, laneY(i) + LW, 0.002]], '#555862');
+    if (i === LATE) { const pts = []; for (let k = 0; k <= 20; k++) { const x = BUMP[0] + (BUMP[1] - BUMP[0]) * k / 20; pts.push([x, BH * Math.sin(Math.PI * k / 20)]); }
+      c.beginPath(); pts.forEach(([x, z], k) => { const p = P(x, laneY(i) + LW, z); k ? c.lineTo(...p) : c.moveTo(...p); }); c.lineTo(...P(BUMP[0], laneY(i) + LW, 0)); c.closePath(); c.fillStyle = '#5a5c64'; c.fill();
+      c.beginPath(); pts.forEach(([x, z], k) => { const p = P(x, laneY(i), z); k ? c.lineTo(...p) : c.moveTo(...p); }); for (let k = 20; k >= 0; k--) c.lineTo(...P(pts[k][0], laneY(i) + LW, pts[k][1])); c.closePath(); c.fillStyle = '#7a7d86'; c.fill();
+    }
+    // 这条车道上的货
+    batches.forEach((b, bi) => { if (T < b.t0) return;
+      const [x, z] = laneX(i, T - b.t0); if (x > TL + 0.2) return;
+      const late = i === LATE && !b.slow; cube(x, laneY(i) + LW / 2, z, 0.55, late && x > TL - 2 ? '#f08a7e' : b.col); });
+  }
+  { const tp = P(3.3, laneY(LATE) + LW, 0.9); tag('多绕一小段', tp[0] - 40, tp[1] + 90, 32, '#fff', INK, 0, 99); }
+  // 终点：门 + 时间窗口（慢的时候宽，快的时候窄）
+  const win = fastOn ? 0.12 : 0.5, ww = win * V * 0.6;
+  box(TL, BY + 0.05, 0, 0.18, 0.18, 1.6, '#ddd', '#999', '#bbb'); box(TL, BY + LANES * LG + 0.3, 0, 0.18, 0.18, 1.6, '#ddd', '#999', '#bbb');
+  const open = batches.some(b => (b.slow ? !fastOn : fastOn) && T >= b.t0 + TL / V - 0.05 && T <= b.t0 + TL / V + b.win);
+  poly([[TL + 0.2, BY + 0.2, 0.01], [TL + 0.2 + ww, BY + 0.2, 0.01], [TL + 0.2 + ww, BY + LANES * LG + 0.4, 0.01], [TL + 0.2, BY + LANES * LG + 0.4, 0.01]], open ? 'rgba(255,201,60,.55)' : 'rgba(255,201,60,.18)');
+  const wp = P(TL + 0.3, BY - 0.2, 1.9); txt('时间窗口', wp[0], wp[1], 32, INK, 'center', 'M');
+  // 收货：每一批拼出来的数据（平面面板，放在画面下方）
+  const WORD = [1, 0, 1, 1, 0], rows = fastOn ? [fastB[0], fastB[1]] : [slowB[0]], PX = 160, PY = 1150, CS = 74;
+  txt(fastOn ? '一批接一批拼出来的数据' : '这一批拼出来的数据', W / 2, PY - 70, 38, INK, 'center', 'M');
+  rows.forEach((b, r) => { const arr = b.t0 + TL / V, y = PY + r * (CS + 22), fast_ = !b.slow;
+    if (fast_) txt(`第 ${r + 1} 批`, PX - 20, y + CS / 2, 32, 'rgba(22,22,26,.7)', 'right', 'M');
+    for (let i = 0; i < LANES; i++) { const x = PX + i * (CS + 12), late = i === LATE, got = T >= arr + (late ? DL : 0) && !(late && fast_);
+      c.fillStyle = 'rgba(255,255,255,.65)'; c.beginPath(); c.roundRect(x, y, CS, CS, 12); c.fill(); c.strokeStyle = 'rgba(22,22,26,.35)'; c.lineWidth = 3; c.stroke();
+      if (got) txt(String(WORD[i]), x + CS / 2, y + CS / 2 + 2, 46, INK); else if (late && fast_ && T >= arr + b.win) txt('?', x + CS / 2, y + CS / 2 + 2, 52, RED); }
+    if (fast_ && r === 1 && T >= fastB[0].t0 + TL / V + DL) { const x = PX + LANES * (CS + 12); c.fillStyle = '#f08a7e'; c.beginPath(); c.roundRect(x, y, CS, CS, 12); c.fill(); txt('1', x + CS / 2, y + CS / 2 + 2, 46, '#fff'); txt('← 上一批晚到的', x + CS + 20, y + CS / 2, 30, RED, 'left', 'M'); }
+    const done = T >= arr + (fast_ ? b.win + 0.15 : DL + 0.2), mx = PX + LANES * (CS + 12) + (fast_ ? 370 : 30), my = y + CS / 2;
+    if (done && !fast_) { c.save(); c.strokeStyle = '#2f9e63'; c.lineWidth = 12; c.lineCap = 'round'; c.beginPath(); c.moveTo(mx, my); c.lineTo(mx + 20, my + 20); c.lineTo(mx + 56, my - 24); c.stroke(); c.restore(); }
+    if (done && fast_) { c.save(); c.strokeStyle = RED; c.lineWidth = 12; c.lineCap = 'round'; c.beginPath(); c.moveTo(mx - 22, my - 22); c.lineTo(mx + 22, my + 22); c.moveTo(mx + 22, my - 22); c.lineTo(mx - 22, my + 22); c.stroke(); c.restore(); } });
+    tag('慢：每一批都按时到齐', W / 2, 330, 46, CREAM, INK, 25.0 - OFF, t); if (T >= 28.0) tag('一快：长一点的那条，晚到一步', W / 2, 430, 46, RED, '#fff', 28.0 - OFF, t);
+}
+
+// —— 字幕（和正片同样的位置：抖音版 y = 1400） ——
+const SUBS = [["25 根线，跑不过 4 根线", [0.095, 2.48]], ["老打印机的并口线，每秒大约两兆字节", [2.48, 5.35]], ["只有 4 根线的 USB，每秒几十兆", [5.35, 8.07]], ["可速度一快，一批紧跟着一批", [25.92, 28.03]], ["哪条路长了一点点，那件货就晚到一步", [28.03, 30.82]], ["混进了下一批", [30.82, 32.0]]];
+function subs(t) { const T = t < B0 ? t : t + OFF; const s = SUBS.find(([_, [a, b]]) => T >= a && T < b); if (!s) return;
+  c.font = '50px H'; const w = c.measureText(s[0]).width + 60; c.fillStyle = 'rgba(22,22,26,.92)'; c.beginPath(); c.roundRect(W / 2 - w / 2, 1400 - 44, w, 88, 10); c.fill(); txt(s[0], W / 2, 1402, 50, CREAM); }
+
+window.seek = t => {
+  // 相机：开头看两根线（慢慢推近），8.25 秒起滑到车道，快的时候往终点靠
+  const camA = { x: 2.4, y: 2.7, z: 0, s: 84 + 4 * seg(t, 0, 8.25) }, camB0 = { x: 4.0, y: BY + 2.6, z: 0, s: 76 }, camB1 = { x: 4.6, y: BY + 2.6, z: 0, s: 82 };
+  const m = ease(seg(t, B0 - 0.1, B0 + 0.6)), f = ease(seg(t + OFF, 26.0, 27.0));
+  const cb = { x: lerp(camB0.x, camB1.x, f), y: lerp(camB0.y, camB1.y, f), s: lerp(camB0.s, camB1.s, f) + 2 * seg(t, B0, 17.2) };
+  CAM = { x: lerp(camA.x, cb.x, m), y: lerp(camA.y, cb.y, m), z: 0, s: lerp(camA.s, cb.s, m) }; SY = lerp(820, 640, m);
+  floor(t);
+  if (m < 1) sceneA(Math.min(t, 8.6)); if (m > 0) sceneB(t);
+  if (t < B0 + 0.3) { c.save(); c.globalAlpha = 1 - seg(t, B0 - 0.1, B0 + 0.3); tag('线越多，反而越慢？', W / 2, 300, 64, RED, '#fff', 0, 9); c.restore(); }
+  subs(t);
+};
+window.ready = async () => { await document.fonts.load('50px H'); await document.fonts.load('50px M'); return true; };
+</script></body></html>
