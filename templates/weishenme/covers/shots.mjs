@@ -17,9 +17,9 @@ const JOBS = [
   ["../../../episodes/weishenme/04-chupingshoutao", "ep04-hero-dy", 1.6, "key([0, 4], [460, 1150], 1.15)", "P"],
   ["../../../episodes/weishenme/04-chupingshoutao", "ep04-hero-xhs", 1.6, "key([0, 4], [470, 900], 0.98)", "P"],
   ["../../../episodes/weishenme/04-chupingshoutao", "ep04-inset", 26.9, null, null],  // the glove: the charges stop at the fabric
-  ["../../../episodes/weishenme/05-tizhicheng", "ep05-hero-dy", 2.4, "key([0, -20, 120], [540, 1230], 2.2, 50)", "[-FX - 46, 62, GS]"],
-  ["../../../episodes/weishenme/05-tizhicheng", "ep05-hero-xhs", 2.4, "key([0, -20, 120], [540, 930], 1.9, 50)", "[-FX - 46, 62, GS]"],
-  ["../../../episodes/weishenme/05-tizhicheng", "ep05-inset", 23.6, null, null],   // 脂肪少 / 脂肪多: the same current, two dials
+  ["../../../episodes/weishenme/05-tizhicheng", "ep05-hero-dy", 2.4, "key([0, -20, 120], [540, 1230], 2.2, 50)", "CALF"],
+  ["../../../episodes/weishenme/05-tizhicheng", "ep05-hero-xhs", 2.4, "key([0, -20, 120], [540, 930], 1.9, 50)", "CALF"],
+  ["../../../episodes/weishenme/05-tizhicheng", "ep05-inset", 17.6, null, null],   // the calf cut the anchor points at: fat ring outside, muscle inside
 ];
 const ONLY = process.argv[2];                                   // node shots.mjs ep04 → only the jobs whose name starts with ep04
 const browser = await chromium.launch();
