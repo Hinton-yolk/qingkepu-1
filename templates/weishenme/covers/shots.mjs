@@ -16,7 +16,10 @@ const JOBS = [
   ["../../../episodes/weishenme/03-jiangzaoerji", "ep03-inset", 28.6, null, null],
   ["../../../episodes/weishenme/04-chupingshoutao", "ep04-hero-dy", 1.6, "key([0, 4], [460, 1150], 1.15)", "P"],
   ["../../../episodes/weishenme/04-chupingshoutao", "ep04-hero-xhs", 1.6, "key([0, 4], [470, 900], 0.98)", "P"],
-  ["../../../episodes/weishenme/04-chupingshoutao", "ep04-inset", 26.9, null, null]   // the glove: the charges stop at the fabric,
+  ["../../../episodes/weishenme/04-chupingshoutao", "ep04-inset", 26.9, null, null],  // the glove: the charges stop at the fabric
+  ["../../../episodes/weishenme/05-tizhicheng", "ep05-hero-dy", 2.4, "key([0, -20, 120], [540, 1230], 2.2, 50)", "[-FX, 45, GS]"],
+  ["../../../episodes/weishenme/05-tizhicheng", "ep05-hero-xhs", 2.4, "key([0, -20, 120], [540, 930], 1.9, 50)", "[-FX, 45, GS]"],
+  ["../../../episodes/weishenme/05-tizhicheng", "ep05-inset", 23.6, null, null],   // 脂肪少 / 脂肪多: the same current, two dials
 ];
 const ONLY = process.argv[2];                                   // node shots.mjs ep04 → only the jobs whose name starts with ep04
 const browser = await chromium.launch();
@@ -30,6 +33,7 @@ for (const [dir, name, t, camExpr, anchor] of JOBS.filter((j) => !ONLY || j[1].s
     if (typeof window.hookOverlays === "function") window.hookOverlays = () => {};
     if (typeof window.darkOverlays === "function") window.darkOverlays = () => {};
     if (typeof window.microOverlays === "function") window.microOverlays = () => {};
+    for (const f of ["displayMag", "calfMag"]) if (typeof window[f] === "function") window[f] = () => {};   // EP.05: no in-film magnifiers on the cover art
     if (camExpr) { const K = eval(camExpr); window.cam = () => K; }
     if (camExpr && typeof window.sweeping === "function" && typeof window.drawPhone === "function") {
       // EP.01: the phone half seen through — the board above an orange scan line, the screen below it
