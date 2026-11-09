@@ -35,10 +35,10 @@ const COVERS = [
     hero: "ep04-hero-xhs", heroDy: 0, anchor: A["ep04-hero-xhs"], inset: { img: "ep04-inset", cx: 375, cy: 1125, src: 330, x: 875, y: 770, r: 165 },
     ser: 108, t1: 252, t2: 398, size: 120, wash: 480 },
   { out: "ep05-douyin", W: 1080, H: 1920, ep: "EP.05", title: ["体脂秤怎么知道，", "你有多少<b>脂肪</b>？"],
-    hero: "ep05-hero-dy", heroDy: 0, anchor: A["ep05-hero-dy"], inset: { img: "ep05-inset", cx: 480, cy: 1080, src: 360, x: 860, y: 1170, r: 200 },
+    hero: "ep05-hero-dy", heroDy: 0, anchor: A["ep05-hero-dy"], inset: { img: "ep05-inset", cx: 480, cy: 1080, src: 360, x: 860, y: 1170, r: 200 }, tag: "电穿过身体",
     ser: 300, t1: 452, t2: 602, size: 124, wash: 660 },
   { out: "ep05-xiaohongshu", W: 1080, H: 1440, ep: "EP.05", title: ["体脂秤怎么知道，", "你有多少<b>脂肪</b>？"],
-    hero: "ep05-hero-xhs", heroDy: 0, anchor: A["ep05-hero-xhs"], inset: { img: "ep05-inset", cx: 480, cy: 1080, src: 360, x: 870, y: 900, r: 170 },
+    hero: "ep05-hero-xhs", heroDy: 0, anchor: A["ep05-hero-xhs"], inset: { img: "ep05-inset", cx: 480, cy: 1080, src: 360, x: 870, y: 900, r: 170 }, tag: "电穿过身体",
     ser: 108, t1: 252, t2: 398, size: 120, wash: 480 },
 ];
 const ONLY = process.argv[2];                                   // node make.mjs ep04 → only those covers
@@ -71,6 +71,7 @@ function html(c) {
     background: #17191C url("art/${i.img}.png") no-repeat; background-size: ${1080 * k}px ${1920 * k}px; background-position: ${-(i.cx - i.src) * k}px ${-(i.cy - i.src) * k}px;
     box-shadow: 0 0 0 10px #141414, 0 24px 50px rgba(20,20,20,0.28); }
   svg { position: absolute; left: 0; top: 0; }
+  .itag { position: absolute; left: ${i.x}px; top: ${i.y + i.r + 22}px; transform: translateX(-50%); font: 700 40px "NotoSC"; color: #F1F0EC; background: #141414; padding: 6px 18px 8px; border-radius: 26px; white-space: nowrap; }
   </style></head><body><div id="cv">
   <div class="hero"></div>
   <svg width="${c.W}" height="${c.H}">${arc}
@@ -80,7 +81,7 @@ function html(c) {
   <div class="ser">${SERIES}<i>${c.ep}</i></div>
   <div class="t" style="top:${c.t1 - c.size * 0.86}px">${c.title[0]}</div>
   <div class="t" style="top:${c.t2 - c.size * 0.86}px">${c.title[1]}</div>
-  <div class="inset"></div>
+  <div class="inset"></div>${c.tag ? `<div class="itag">${c.tag}</div>` : ""}
   </div></body></html>`;
 }
 
