@@ -1,0 +1,93 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+@font-face{font-family:H;src:url(NotoSansSC-900.woff)}
+@font-face{font-family:M;src:url(NotoSansSC-700.woff)}
+@font-face{font-family:W;src:url(LXGWWenKai-500.woff)}
+body{margin:0;background:#000}
+</style></head><body><canvas id="c" width="1080" height="1920"></canvas><script>
+// 三种封面方向 × 上下集，1080×1920（抖音全屏）；3:4 主页格子裁中间 y 240–1680，主体和大字都放在这个范围
+const cv = document.getElementById('c'), c = cv.getContext('2d'), W = 1080, H = 1920;
+const RED = '#e5483f', YEL = '#ffd23f', INK = '#151514', CREAM = '#f4efe4', TEAL = '#48d6c0';
+function rr(x, y, w, h, r) { c.beginPath(); c.roundRect(x, y, w, h, r); }
+function text(s, x, y, size, col, { fam = 'H', align = 'center', stroke = 0, scol = INK, base = 'middle', rot = 0 } = {}) {
+  c.save(); c.translate(x, y); c.rotate(rot); c.font = `${size}px ${fam}`; c.textAlign = align; c.textBaseline = base;
+  if (stroke) { c.lineJoin = 'round'; c.lineWidth = stroke; c.strokeStyle = scol; c.strokeText(s, 0, 0); } c.fillStyle = col; c.fillText(s, 0, 0); c.restore(); }
+function tw(s, size, fam = 'H') { c.font = `${size}px ${fam}`; return c.measureText(s).width; }
+function hlBar(x, y, w, h, col, rot = -0.015) { c.save(); c.translate(x, y); c.rotate(rot); c.fillStyle = col; c.beginPath(); c.moveTo(-w / 2, -h / 2 + 4); c.lineTo(w / 2, -h / 2); c.lineTo(w / 2 - 6, h / 2); c.lineTo(-w / 2 + 4, h / 2 - 3); c.closePath(); c.fill(); c.restore(); }
+function grain(alpha = 0.05) { const id = c.getImageData(0, 0, W, H), d = id.data; let s = 7; for (let i = 0; i < d.length; i += 4) { s = (s * 16807) % 2147483647; const n = (s / 2147483647 - 0.5) * 255 * alpha; d[i] += n; d[i + 1] += n; d[i + 2] += n; } c.putImageData(id, 0, 0); }
+function vignette(a = 0.55) { const g = c.createRadialGradient(W / 2, H / 2, 300, W / 2, H / 2, 1250); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${a})`); c.fillStyle = g; c.fillRect(0, 0, W, H); }
+function glow(x, y, r, col, a) { const g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, col.replace('A', a)); g.addColorStop(1, col.replace('A', 0)); c.fillStyle = g; c.fillRect(x - r, y - r, 2 * r, 2 * r); }
+// —— 物件 ——
+function db25(x, y, s) { c.save(); c.translate(x, y); c.scale(s, s);
+  const g = c.createLinearGradient(0, -90, 0, 90); g.addColorStop(0, '#e9e6de'); g.addColorStop(0.5, '#b9b5ab'); g.addColorStop(1, '#8e8a81'); c.fillStyle = g; rr(-170, -95, 340, 190, 18); c.fill();
+  c.fillStyle = '#26262a'; c.beginPath(); c.moveTo(-140, -55); c.lineTo(140, -55); c.lineTo(120, 55); c.lineTo(-120, 55); c.closePath(); c.fill();
+  c.fillStyle = '#d9b45a'; for (let k = 0; k < 13; k++) { c.beginPath(); c.arc(-108 + k * 18, -22, 6, 0, 7); c.fill(); } for (let k = 0; k < 12; k++) { c.beginPath(); c.arc(-99 + k * 18, 22, 6, 0, 7); c.fill(); }
+  c.fillStyle = '#aaa59a'; c.beginPath(); c.arc(-195, 0, 22, 0, 7); c.arc(195, 0, 22, 0, 7); c.fill(); c.restore(); }
+function ribbon(x0, y, x1, h) { const g = c.createLinearGradient(0, y - h / 2, 0, y + h / 2); g.addColorStop(0, '#c9c4b8'); g.addColorStop(1, '#8f8a7f'); c.fillStyle = g; rr(x0, y - h / 2, x1 - x0, h, h / 3); c.fill();
+  c.strokeStyle = 'rgba(70,64,56,.35)'; c.lineWidth = 2; for (let k = 1; k < 13; k++) { c.beginPath(); c.moveTo(x0, y - h / 2 + k * h / 13); c.lineTo(x1, y - h / 2 + k * h / 13); c.stroke(); } }
+function usbc(x, y, s, dir = 1) { c.save(); c.translate(x, y); c.scale(s * dir, s);
+  c.fillStyle = '#1f1f22'; rr(-20, -46, 150, 92, 30); c.fill();
+  const g = c.createLinearGradient(0, -34, 0, 34); g.addColorStop(0, '#f2f0ea'); g.addColorStop(1, '#a5a29a'); c.fillStyle = g; rr(-150, -34, 140, 68, 30); c.fill();
+  c.fillStyle = '#2a2a2c'; rr(-138, -14, 116, 28, 14); c.fill(); c.restore(); }
+function thinCable(x0, y, x1, glowOn) { c.save(); c.lineCap = 'round'; c.strokeStyle = '#1b1b1d'; c.lineWidth = 26; c.beginPath(); c.moveTo(x0, y); c.lineTo(x1, y); c.stroke();
+  if (glowOn) { c.globalCompositeOperation = 'lighter'; for (let k = 0; k < 26; k++) { const x = x0 + 20 + k * (x1 - x0 - 40) / 25; c.fillStyle = 'rgba(255,210,63,.95)'; c.fillRect(x - 6, y - 5, 12, 10); glow(x, y, 26, 'rgba(255,190,40,A)', 0.35); } } c.restore(); }
+function bar(x, y, w, q, col, lbl, lcol = '#fff') { c.fillStyle = 'rgba(255,255,255,.12)'; rr(x, y, w, 58, 29); c.fill(); c.fillStyle = col; rr(x, y, Math.max(58, w * q), 58, 29); c.fill(); text(lbl, x + w + 24, y + 30, 46, lcol, { align: 'left' }); }
+function phone(x, y, w, h, light = true) { c.save(); c.shadowColor = 'rgba(0,0,0,.45)'; c.shadowBlur = 60; c.shadowOffsetY = 20; c.fillStyle = '#121212'; rr(x - w / 2, y - h / 2, w, h, 70); c.fill(); c.restore();
+  c.fillStyle = light ? '#eeeae1' : '#1e2124'; rr(x - w / 2 + 20, y - h / 2 + 26, w - 40, h - 52, 52); c.fill(); c.fillStyle = '#121212'; rr(x - 60, y - h / 2 + 40, 120, 30, 15); c.fill(); }
+function bubble(x, y, s, size, bg, fg, right) { c.font = `${size}px H`; const w = c.measureText(s).width + size * 1.2, h = size * 1.9, x0 = right ? x - w : x;
+  c.fillStyle = bg; rr(x0, y - h / 2, w, h, size * 0.45); c.fill(); text(s, x0 + size * 0.6, y + 2, size, fg, { align: 'left' }); return [x0, w]; }
+function bits(x, y, arr, s, miss, colA = '#f4efe4', colB = RED) { arr.forEach((b, i) => { const xx = x + i * (s + 10);
+  if (i === miss) { c.save(); c.setLineDash([12, 9]); c.strokeStyle = colB; c.lineWidth = 6; rr(xx, y, s, s, 12); c.stroke(); c.restore(); return; }
+  c.fillStyle = 'rgba(255,255,255,.06)'; rr(xx, y, s, s, 12); c.fill(); c.strokeStyle = i > miss && miss >= 0 ? colB : colA; c.lineWidth = 4; rr(xx, y, s, s, 12); c.stroke(); text(String(b), xx + s / 2, y + s / 2 + 3, s * 0.62, i > miss && miss >= 0 ? colB : colA); }); }
+function xm(x, y, r, col) { c.save(); c.strokeStyle = col; c.lineWidth = r * 0.28; c.lineCap = 'round'; c.beginPath(); c.moveTo(x - r, y - r); c.lineTo(x + r, y + r); c.moveTo(x + r, y - r); c.lineTo(x - r, y + r); c.stroke(); c.restore(); }
+function ok(x, y, r, col) { c.save(); c.strokeStyle = col; c.lineWidth = r * 0.28; c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath(); c.moveTo(x - r, y); c.lineTo(x - r * 0.3, y + r * 0.7); c.lineTo(x + r, y - r * 0.8); c.stroke(); c.restore(); }
+const tag = (s, dark) => { c.font = '40px M'; const w = c.measureText(s).width + 50; c.fillStyle = dark ? 'rgba(255,255,255,.12)' : INK; rr(W / 2 - w / 2, 262, w, 66, 33); c.fill(); text(s, W / 2, 297, 40, dark ? '#e9e4d8' : CREAM, { fam: 'M' }); };
+
+const D = {
+  // ——— A：暗底大数字（冲突一眼看懂） ———
+  Au() { c.fillStyle = '#0e0f12'; c.fillRect(0, 0, W, H); glow(W / 2, 1050, 900, 'rgba(255,190,60,A)', 0.10); tag('白话光互连 02 · 上', true);
+    text('25根线', W / 2, 470, 190, '#9a968c'); text('跑不过', W / 2, 650, 150, '#fff');
+    hlBar(W / 2, 850, 640, 200, YEL); text('4根线', W / 2, 852, 200, INK);
+    ribbon(80, 1180, 1000, 110); db25(250, 1180, 0.9); text('2 MB/s', 760, 1095, 52, '#bcb7ab', { fam: 'M' });
+    thinCable(380, 1440, 1000, true); usbc(250, 1440, 1.25); text('几十 MB/s', 780, 1365, 52, YEL, { fam: 'M' });
+    text('AI 芯片之间，最快的路只修几条', W / 2, 1600, 50, '#e9e4d8', { fam: 'M' }); vignette(0.5); grain(0.04); },
+  Ad() { c.fillStyle = '#0e0f12'; c.fillRect(0, 0, W, H); glow(W / 2, 1150, 900, 'rgba(229,72,63,A)', 0.12); tag('白话光互连 02 · 下', true);
+    text('少数', W / 2, 470, 150, '#fff'); hlBar(W / 2, 660, 760, 210, RED, 0.012); text('1个比特', W / 2, 662, 190, '#fff'); text('整句话全乱', W / 2, 860, 150, '#fff');
+    bits(95, 1020, [1, 0, 1, 1, 0, 1, 1, 0, 1], 88, 3);
+    bubble(140, 1260, '今晚七点，老地方见', 56, '#7fdc6a', INK, false); bubble(140, 1420, '今晚涓冪偣锛岃€佸', 56, '#2a2c30', RED, false);
+    ok(990, 1260, 32, '#7fdc6a'); xm(990, 1420, 30, RED);
+    text('芯片每秒数上千亿个 0 和 1，靠什么不数错？', W / 2, 1600, 46, '#e9e4d8', { fam: 'M' }); vignette(0.5); grain(0.04); },
+  // ——— B：亮底实物大特写 + 红圈批注（像测评博主） ———
+  Bu() { c.fillStyle = '#f2ede2'; c.fillRect(0, 0, W, H); tag('白话光互连 02 · 上', false);
+    hlBar(W / 2, 470, 920, 190, YEL, -0.02); text('线越多', W / 2, 470, 170, INK); text('反而越慢？', W / 2, 670, 170, INK);
+    ribbon(120, 1060, 1100, 150); db25(330, 1060, 1.25); thinCable(500, 1420, 1100, false); usbc(330, 1420, 1.7);
+    c.save(); c.strokeStyle = RED; c.lineWidth = 12; c.beginPath(); c.ellipse(340, 1420, 300, 130, -0.05, 0, Math.PI * 2); c.stroke(); c.restore();
+    text('25 根', 860, 920, 80, INK, { fam: 'H' }); text('就4根', 760, 1590, 96, RED, { fam: 'W', rot: -0.06 });
+    c.save(); c.strokeStyle = RED; c.lineWidth = 10; c.lineCap = 'round'; c.beginPath(); c.moveTo(640, 1560); c.quadraticCurveTo(560, 1520, 560, 1500); c.stroke(); c.restore();
+    text('却快约20倍', 800, 1685, 62, INK, { fam: 'W', rot: -0.04 }); grain(0.035); },
+  Bd() { c.fillStyle = '#f2ede2'; c.fillRect(0, 0, W, H); tag('白话光互连 02 · 下', false);
+    hlBar(W / 2, 470, 960, 190, YEL, -0.02); text('少数一个比特', W / 2, 470, 150, INK); text('整句话就乱了', W / 2, 660, 150, INK);
+    phone(W / 2, 1270, 860, 900, true); text('小林', W / 2, 935, 46, INK, { fam: 'M' });
+    bubble(W / 2 + 360, 1040, '今晚七点，老地方见', 58, '#9fe07a', INK, true);
+    bubble(W / 2 - 360, 1220, '今晚涓冪偣锛岃€佸', 58, '#fff', RED, false);
+    c.save(); c.strokeStyle = RED; c.lineWidth = 12; c.beginPath(); c.ellipse(W / 2 - 40, 1220, 400, 100, 0.02, 0, Math.PI * 2); c.stroke(); c.restore();
+    c.save(); c.fillStyle = '#25282c'; rr(170, 1380, 740, 130, 24); c.fill(); c.restore(); bits(205, 1405, [1, 0, 1, 1, 0, 1, 1, 0, 1], 70, 3);
+    text('就差这一位', 640, 1600, 70, RED, { fam: 'W', rot: -0.05 }); grain(0.035); },
+  // ——— C：上下对决（VS），一眼看出谁赢 ———
+  Cu() { c.fillStyle = '#16181c'; c.fillRect(0, 0, W, H / 2); c.fillStyle = '#f2ede2'; c.fillRect(0, H / 2, W, H / 2);
+    tag('白话光互连 02 · 上', true);
+    text('25 根线', 90, 470, 110, '#fff', { align: 'left' }); ribbon(80, 640, 1000, 120); db25(240, 640, 0.95); bar(80, 780, 640, 0.07, '#8a867c', '2 MB/s', '#cfcac0');
+    xm(960, 470, 40, RED);
+    text('4 根线', 90, 1170, 110, INK, { align: 'left' }); thinCable(380, 1320, 1000, true); usbc(240, 1320, 1.2); bar(80, 1440, 640, 1, RED, '几十 MB/s', INK);
+    ok(960, 1170, 48, '#2f9e63');
+    c.save(); c.translate(W / 2, H / 2); c.rotate(-0.04); c.fillStyle = YEL; rr(-420, -95, 840, 190, 18); c.fill(); text('线越多，反而越慢？', 0, 4, 92, INK); c.restore();
+    text('AI 芯片之间，也是这么选的', W / 2, 1620, 50, INK, { fam: 'M' }); },
+  Cd() { c.fillStyle = '#f2ede2'; c.fillRect(0, 0, W, H / 2); c.fillStyle = '#16181c'; c.fillRect(0, H / 2, W, H / 2);
+    tag('白话光互连 02 · 下', false);
+    text('一位不差', 90, 440, 90, INK, { align: 'left', fam: 'H' }); bubble(90, 600, '今晚七点，老地方见', 64, '#9fe07a', INK, false); ok(980, 600, 44, '#2f9e63');
+    bits(90, 720, [1, 0, 1, 1, 0, 1, 1, 0, 1], 80, -1, INK, INK);
+    text('少数一位', 90, 1180, 90, '#fff', { align: 'left' }); bubble(90, 1320, '今晚涓冪偣锛岃€佸', 64, '#2a2c30', RED, false); xm(980, 1320, 40, RED);
+    bits(90, 1440, [1, 0, 1, 1, 0, 1, 1, 0, 1], 80, 3);
+    c.save(); c.translate(W / 2, H / 2); c.rotate(-0.04); c.fillStyle = RED; rr(-450, -95, 900, 190, 18); c.fill(); text('芯片怎么数清 0 和 1？', 0, 4, 84, '#fff'); c.restore(); },
+};
+window.draw = async k => { await document.fonts.load('100px H'); await document.fonts.load('100px M'); await document.fonts.load('100px W'); c.clearRect(0, 0, W, H); D[k](); return cv.toDataURL('image/png').split(',')[1]; };
+</script></body></html>
