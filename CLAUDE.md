@@ -94,3 +94,8 @@
 - `.claude/skills/` 系列 skill 和周报 skill
 - `episodes/<系列>/<集号-短名>/` 每集的脚本、FACTS.md、封面文案、成片说明（大文件如 mp4 不进仓库）
 - `assets/` 「芯片与光」素材库 · `tools/` 检查脚本 · `data/<日期>/` 每周数据和截图 · `archive/` 暂停系列的资料
+
+## 看视频（参考视频、竞品、自己的成片）
+- 要整段理解（含声音）或给的是 YouTube 链接：`python3 tools/gemini_watch.py <链接或文件> -q "问题"`（流式，见 `tools/README.md`）。
+- 视频不能离开本机，或要逐帧看画面：用 watch skill 的本地模式（抽帧 + 字幕）。云端环境下载不了 YouTube，要用户上传文件。
+- Gemini 的回答转述时要说明是 Gemini 看的，数字和事实引用前对照原视频。
