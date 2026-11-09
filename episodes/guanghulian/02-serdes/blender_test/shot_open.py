@@ -1,13 +1,16 @@
 # 光互连 02 上集开头 · Blender 测试镜头（2026-11-09）
 # 俯看一张木桌：左边一根老打印机的 25 针并口线（DB-25 插头朝镜头，能数针），右边一根 USB-C 线；两根线往画面上方延伸。
 # 线上跑着发光的小环：并口线上稀、慢；USB 上密、快（运动模糊拖出光尾）。镜头 8.25 秒慢慢推近，浅景深。
-# 用法：blender -b --python shot_open.py -- <输出目录> <宽> <高> <采样> [帧号…]（不给帧号就渲全部 1–198 帧，24 fps）
+# 用法：blender -b --python shot_open.py -- <输出目录> <宽> <高> <采样> [--gpu] [--fps N] [--video] [帧号…]
+#   不给帧号就渲全部帧（8.25 秒）；--gpu 用显卡（OptiX，不行就 CUDA）；--video 直接出一个 MP4（opening.mp4），不出 PNG；--fps 默认 24
 # 同时导出每帧几个锚点的屏幕坐标（anchors.json），给 2D 标签叠加用。
 import bpy, bmesh, math, sys, json, os
 from mathutils import Vector
 from bpy_extras.object_utils import world_to_camera_view
-args = sys.argv[sys.argv.index('--') + 1:]; OUT, W, H, SAMP = args[0], int(args[1]), int(args[2]), int(args[3]); FRAMES = [int(a) for a in args[4:]]
-FPS, NF = 24, 198
+args = sys.argv[sys.argv.index('--') + 1:]; OUT, W, H, SAMP = args[0], int(args[1]), int(args[2]), int(args[3]); rest = args[4:]
+GPU = '--gpu' in rest; VIDEO = '--video' in rest; FPS = int(rest[rest.index('--fps') + 1]) if '--fps' in rest else 24
+FRAMES = [int(a) for i, a in enumerate(rest) if a.isdigit() and not (i > 0 and rest[i - 1] == '--fps')]
+NF = round(8.25 * FPS); SPD = 24 / FPS          # 光环速度按 24 fps 调的，换帧率时按比例换算
 bpy.ops.wm.read_factory_settings(use_empty=True); sc = bpy.context.scene; os.makedirs(OUT, exist_ok=True)
 
 # ---------- 材质 ----------
@@ -99,8 +102,8 @@ def pulses(path, n, r, minor, mat, speed_frac, phase0=0.0):
                 kps = fc.keyframe_points
                 for i in range(len(kps) - 1):
                     if kps[i + 1].co[1] < kps[i].co[1]: kps[i].interpolation = 'CONSTANT'
-pulses(cA, 4, 0.40, 0.035, M['glowS'], 0.0018)          # 并口线：稀、慢
-pulses(cB, 22, 0.175, 0.03, M['glowY'], 0.0085)         # USB：密、快
+pulses(cA, 4, 0.40, 0.035, M['glowS'], 0.0018 * SPD)          # 并口线：稀、慢
+pulses(cB, 22, 0.175, 0.03, M['glowY'], 0.0085 * SPD)         # USB：密、快
 
 # ---------- 灯光、世界 ----------
 def area(loc, rot, energy, size, col):
@@ -123,7 +126,19 @@ for o in (cam, tgt):
 
 # ---------- 渲染设置 ----------
 sc.unit_settings.scale_length = 0.01
-sc.render.engine = 'CYCLES'; sc.cycles.device = 'CPU'; sc.cycles.samples = SAMP; sc.cycles.use_denoising = True; sc.cycles.use_adaptive_sampling = True
+sc.render.engine = 'CYCLES'; sc.cycles.device = 'CPU'
+if GPU:
+    prefs = bpy.context.preferences.addons['cycles'].preferences; ok = None
+    for dt in ('OPTIX', 'CUDA'):
+        try:
+            prefs.compute_device_type = dt; prefs.get_devices(); devs = [d for d in prefs.devices if d.type == dt]
+            if devs:
+                for d in prefs.devices: d.use = d.type == dt
+                ok = dt; break
+        except Exception: pass
+    if ok: sc.cycles.device = 'GPU'; print('GPU_DEVICE', ok, [d.name for d in prefs.devices if d.use])
+    else: print('GPU_DEVICE none —— 没找到 NVIDIA 显卡，改用 CPU（会很慢）')
+sc.cycles.samples = SAMP; sc.cycles.use_denoising = True; sc.cycles.use_adaptive_sampling = True
 sc.cycles.max_bounces = 6; sc.render.use_motion_blur = True; sc.render.motion_blur_shutter = 0.5; sc.render.use_persistent_data = True
 sc.render.resolution_x, sc.render.resolution_y = W, H; sc.render.fps = FPS; sc.frame_start, sc.frame_end = 1, NF
 sc.view_settings.view_transform = 'AgX'; sc.view_settings.look = 'AgX - Medium High Contrast'; sc.render.image_settings.file_format = 'PNG'
@@ -133,7 +148,12 @@ ANCH = {'db25': Vector((DX, -0.6, ZC + 0.9)), 'usb': Vector((UX, -0.65, UZ + 0.3
 anchors = {}
 for f in range(1, NF + 1):
     sc.frame_set(f); anchors[f] = {k: [round(v.x * W, 1), round((1 - v.y) * H, 1)] for k, p in ANCH.items() for v in [world_to_camera_view(sc, cam, p)]}
-json.dump(anchors, open(os.path.join(OUT, 'anchors.json'), 'w'))
-for f in (FRAMES or range(1, NF + 1)):
-    sc.frame_set(f); sc.render.filepath = os.path.join(OUT, f'f{f:04d}.png'); bpy.ops.render.render(write_still=True)
+json.dump({'fps': FPS, 'nf': NF, 'w': W, 'frames': anchors}, open(os.path.join(OUT, 'anchors.json'), 'w'))
+if VIDEO and not FRAMES:      # 直接出一个 MP4（几乎无损），省得传一堆 PNG
+    sc.render.image_settings.file_format = 'FFMPEG'; sc.render.ffmpeg.format = 'MPEG4'; sc.render.ffmpeg.codec = 'H264'
+    sc.render.ffmpeg.constant_rate_factor = 'PERC_LOSSLESS'; sc.render.ffmpeg.ffmpeg_preset = 'GOOD'; sc.render.filepath = os.path.join(OUT, 'opening.mp4')
+    bpy.ops.render.render(animation=True)
+else:
+    for f in (FRAMES or range(1, NF + 1)):
+        sc.frame_set(f); sc.render.filepath = os.path.join(OUT, f'f{f:04d}.png'); bpy.ops.render.render(write_still=True)
 print('DONE', OUT)

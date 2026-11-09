@@ -1,11 +1,16 @@
 # 把 Blender 渲出的帧放大到 1080×1920，叠上 2D 字（大字问题、25 根 / 4 根、速度标签、字幕），配上正片开头那 8.25 秒的声音
-# 用法：python3 composite.py <帧目录（含 anchors.json）> <正片 mp4> <输出 mp4>
+# 用法：python3 composite.py <帧目录（含 anchors.json；或含显卡电脑渲出的 opening.mp4）> <正片 mp4> <输出 mp4>
 import sys, json, os, subprocess, math
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 SRC, FILM, OUT = sys.argv[1], sys.argv[2], sys.argv[3]
-FPS, NF, W, H = 24, 198, 1080, 1920
+W, H = 1080, 1920
 HERE = os.path.dirname(os.path.abspath(__file__)); FONT = os.path.join(HERE, '..', '风格样片_等距', 'NotoSansSC-900.woff')
-A = json.load(open(os.path.join(SRC, 'anchors.json'))); RW = Image.open(os.path.join(SRC, 'f0001.png')).size[0]; K = W / RW
+A = json.load(open(os.path.join(SRC, 'anchors.json')))
+if 'frames' in A: FPS, NF, RW, A = A['fps'], A['nf'], A['w'], A['frames']
+else: FPS, NF = 24, 198; RW = Image.open(os.path.join(SRC, 'f0001.png')).size[0]
+if os.path.exists(os.path.join(SRC, 'opening.mp4')) and not os.path.exists(os.path.join(SRC, 'f0001.png')):   # 显卡电脑出的视频：先拆成帧
+    subprocess.run(['ffmpeg', '-nostdin', '-y', '-loglevel', 'error', '-i', os.path.join(SRC, 'opening.mp4'), '-start_number', '1', os.path.join(SRC, 'f%04d.png')], check=True)
+K = W / RW
 RED, INK, CREAM = (229, 72, 63), (22, 22, 26), (246, 241, 230)
 def f(size): return ImageFont.truetype(FONT, size)
 def clamp(x): return max(0.0, min(1.0, x))
