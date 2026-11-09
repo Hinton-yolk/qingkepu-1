@@ -24,6 +24,7 @@ def tag(base, text, x, y, size, bg, fg, t, t0, anchor=None):
     lay = Image.alpha_composite(sh, lay); d = ImageDraw.Draw(lay); d.rounded_rectangle([20, 20, 20 + pw, 20 + ph], radius=size * 0.28, fill=bg)
     d.text((20 + size * 0.45, 20 + ph / 2 + 1), text[:n], font=ft, fill=fg, anchor='lm')
     if sc != 1: lay = lay.resize((max(1, int(lay.width * sc)), max(1, int(lay.height * sc))), Image.LANCZOS)
+    x = min(max(x, lay.width / 2 + 24), W - lay.width / 2 - 24)   # 标签不出画面
     if anchor:   # 引线：标签 → 实物上的点
         dl = ImageDraw.Draw(base); kk = clamp((t - t0) / 0.3); ax, ay = anchor; ex, ey = ax + (x - ax) * kk, ay + (y - ay) * kk
         dl.line([ax, ay, ex, ey], fill=bg, width=6); dl.ellipse([ax - 9, ay - 9, ax + 9, ay + 9], fill=bg)
@@ -40,7 +41,7 @@ for i in range(1, NF + 1):
     tag(im, '线越多，反而越慢？', W / 2, 300, 68, RED + (255,), (255, 255, 255), t, 0)
     db, us = a['db25'], a['usb']
     tag(im, '25 根线', db[0] - 40, db[1] - 230, 56, CREAM + (255,), INK, t, 0.45, anchor=db)
-    tag(im, '4 根线', us[0] + 10, us[1] + 230, 56, RED + (255,), (255, 255, 255), t, 1.35, anchor=us)
+    tag(im, '4 根线', us[0] - 60, us[1] - 400, 56, RED + (255,), (255, 255, 255), t, 1.35, anchor=us)
     ca, cb = a['cableA'], a['cableB']
     tag(im, '每秒约 2 MB', ca[0] - 120, ca[1] + 40, 44, CREAM + (255,), INK, t, 4.75, anchor=ca)
     tag(im, '每秒几十 MB', cb[0] + 60, cb[1] + 150, 44, RED + (255,), (255, 255, 255), t, 7.25, anchor=cb)

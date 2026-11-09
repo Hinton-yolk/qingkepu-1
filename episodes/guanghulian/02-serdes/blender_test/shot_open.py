@@ -1,5 +1,5 @@
 # 光互连 02 上集开头 · Blender 测试镜头（2026-11-09）
-# 俯看一张木桌：左边一根老打印机的 25 针并口线（DB-25 插头朝镜头，能数针），右边一根 USB-C 线；两根线往画面上方延伸。
+# 俯看一张木桌：左边一根老打印机的 25 针并口线（DB-25 插头朝镜头，能数针），右边一根 USB 2.0 线（A 型插头，舌片上 4 个金属触点 = 4 根线；不用 USB-C：C 型有 24 个触点、线里也不止 4 根）；两根线往画面上方延伸。
 # 线上跑着发光的小环：并口线上稀、慢；USB 上密、快（运动模糊拖出光尾）。镜头 8.25 秒慢慢推近，浅景深。
 # 用法：blender -b --python shot_open.py -- <输出目录> <宽> <高> <采样> [--gpu] [--fps N] [--video] [帧号…]
 #   不给帧号就渲全部帧（8.25 秒）；--gpu 用显卡（OptiX，不行就 CUDA）；--video 直接出一个 MP4（opening.mp4），不出 PNG；--fps 默认 24
@@ -70,11 +70,22 @@ for k in range(13): cyl(f'pinA{k}', (DX - 1.662 + k * 0.277, -0.44, ZC + 0.14), 
 for k in range(12): cyl(f'pinB{k}', (DX - 1.524 + k * 0.277, -0.44, ZC - 0.14), 0.05, 0.18, M['gold'])
 for s in (-1, 1): cyl(f'screw{s}', (DX + s * 2.35, -0.25, ZC), 0.17, 0.6, M['nickel'])
 
-# ---------- USB-C 插头 ----------
-UX = 1.9; UZ = 0.31
-rbox('overmold', (UX, 1.0, UZ), (1.2, 2.0, 0.62), M['black'], 0.22)
-rbox('cshell', (UX, -0.32, UZ), (0.84, 0.65, 0.26), M['nickel'], 0.12)
-rbox('ctongue', (UX, -0.62, UZ), (0.62, 0.06, 0.1), M['insert'], 0.04)
+# ---------- USB 2.0 A 型插头（外壳 12 × 4.5 mm，舌片上 4 个触点） ----------
+UX = 1.75; UZ = 0.42
+M['white'] = principled('white', (0.92, 0.91, 0.88), 0, 0.45)
+rbox('overmold', (UX, 1.25, UZ), (1.6, 2.5, 0.84), M['black'], 0.2)
+ash = prism('ashell', [(UX - 0.6, UZ + 0.225), (UX + 0.6, UZ + 0.225), (UX + 0.6, UZ - 0.225), (UX - 0.6, UZ - 0.225)], -1.2, 0.0, M['nickel'], 0.015)
+acut = prism('acut', [(UX - 0.56, UZ + 0.19), (UX + 0.56, UZ + 0.19), (UX + 0.56, UZ - 0.19), (UX - 0.56, UZ - 0.19)], -1.4, -0.05, M['nickel'])
+bo2 = ash.modifiers.new('hole', 'BOOLEAN'); bo2.object = acut; bo2.operation = 'DIFFERENCE'; acut.hide_render = True; acut.hide_viewport = True
+rbox('atongue', (UX, -0.6, UZ - 0.09), (1.1, 1.15, 0.18), M['white'], 0.02)
+for k, dx in enumerate((-0.375, -0.125, 0.125, 0.375)): rbox(f'acontact{k}', (UX + dx, -0.66, UZ + 0.005), (0.11, 0.85, 0.012), M['gold'], 0.004)
+for dx in (-0.3, 0.3): rbox(f'awin{dx}', (UX + dx, -0.75, UZ + 0.226), (0.22, 0.22, 0.006), M['insert'], 0.01)
+# 插头前端往上翘 25°（像搭在线上），让镜头看得见舌片上的 4 个触点
+bpy.ops.object.empty_add(location=(UX, -1.2, UZ + 0.1)); uanc = bpy.context.object; uanc.name = 'usb_anchor'
+bpy.ops.object.empty_add(location=(UX, 2.5, UZ)); piv = bpy.context.object; piv.name = 'usb_pivot'
+for o in [x for x in sc.objects if x.name.startswith(('overmold', 'ashell', 'acut', 'atongue', 'acontact', 'awin', 'usb_anchor'))]:
+    o.parent = piv; o.matrix_parent_inverse = piv.matrix_world.inverted()
+piv.rotation_euler.x = math.radians(-25); bpy.context.view_layer.update()
 
 # ---------- 线（贝塞尔曲线 + 圆截面） ----------
 def cable(name, pts, r, mat):
@@ -83,7 +94,7 @@ def cable(name, pts, r, mat):
     for bp, p in zip(sp.bezier_points, pts): bp.co = p; bp.handle_left_type = bp.handle_right_type = 'AUTO'
     o = bpy.data.objects.new(name, cu); sc.collection.objects.link(o); o.data.materials.append(mat); return o
 cA = cable('cableA', [(DX, 3.3, ZC), (DX - 0.2, 6.0, 0.42), (DX + 0.9, 12, 0.38), (DX - 0.6, 19, 0.38), (DX + 0.4, 28, 0.38), (DX - 0.3, 40, 0.38)], 0.38, M['grey'])
-cB = cable('cableB', [(UX, 2.0, UZ), (UX + 0.15, 4.5, 0.17), (UX - 0.6, 11, 0.16), (UX + 0.5, 18, 0.16), (UX - 0.3, 28, 0.16), (UX + 0.2, 40, 0.16)], 0.16, M['black'])
+cB = cable('cableB', [(UX, 2.5, UZ), (UX + 0.15, 5.0, 0.21), (UX - 0.6, 11, 0.2), (UX + 0.5, 18, 0.2), (UX - 0.3, 28, 0.2), (UX + 0.2, 40, 0.2)], 0.2, M['black'])
 
 # ---------- 沿线跑的光环（Follow Path，线性匀速，首尾循环） ----------
 def pulses(path, n, r, minor, mat, speed_frac, phase0=0.0):
@@ -103,7 +114,7 @@ def pulses(path, n, r, minor, mat, speed_frac, phase0=0.0):
                 for i in range(len(kps) - 1):
                     if kps[i + 1].co[1] < kps[i].co[1]: kps[i].interpolation = 'CONSTANT'
 pulses(cA, 4, 0.40, 0.035, M['glowS'], 0.0018 * SPD)          # 并口线：稀、慢
-pulses(cB, 22, 0.175, 0.03, M['glowY'], 0.0085 * SPD)         # USB：密、快
+pulses(cB, 22, 0.215, 0.03, M['glowY'], 0.0085 * SPD)         # USB：密、快
 
 # ---------- 灯光、世界 ----------
 def area(loc, rot, energy, size, col):
@@ -114,12 +125,12 @@ area((0, -20, 4), (85, 0, 0), 600, 10, (1.0, 0.95, 0.9))             # 补光：
 w = bpy.data.worlds.new('w'); sc.world = w; w.use_nodes = True; w.node_tree.nodes['Background'].inputs['Color'].default_value = (0.05, 0.045, 0.04, 1); w.node_tree.nodes['Background'].inputs['Strength'].default_value = 0.6
 
 # ---------- 相机：俯看、慢慢推近、浅景深 ----------
-bpy.ops.object.empty_add(location=(-1.3, 3.0, 0.4)); tgt = bpy.context.object; tgt.name = 'target'
-bpy.ops.object.camera_add(location=(-1.3, -10.5, 11.0)); cam = bpy.context.object; sc.camera = cam; cam.data.lens = 24; cam.data.sensor_fit = 'VERTICAL'; cam.data.sensor_height = 24
+bpy.ops.object.empty_add(location=(-1.15, 3.0, 0.4)); tgt = bpy.context.object; tgt.name = 'target'
+bpy.ops.object.camera_add(location=(-1.15, -11.2, 11.7)); cam = bpy.context.object; sc.camera = cam; cam.data.lens = 24; cam.data.sensor_fit = 'VERTICAL'; cam.data.sensor_height = 24
 tc_ = cam.constraints.new('TRACK_TO'); tc_.target = tgt; tc_.track_axis = 'TRACK_NEGATIVE_Z'; tc_.up_axis = 'UP_Y'
 cam.data.dof.use_dof = True; bpy.ops.object.empty_add(location=(-1.0, 0.0, 0.6)); foc = bpy.context.object; foc.name = 'focus'; cam.data.dof.focus_object = foc; cam.data.dof.aperture_fstop = 0.55
-cam.keyframe_insert('location', frame=1); cam.location = (-1.3, -9.4, 9.7); cam.keyframe_insert('location', frame=NF)
-tgt.keyframe_insert('location', frame=1); tgt.location = (-1.3, 2.2, 0.4); tgt.keyframe_insert('location', frame=NF)
+cam.keyframe_insert('location', frame=1); cam.location = (-1.15, -10.0, 10.4); cam.keyframe_insert('location', frame=NF)
+tgt.keyframe_insert('location', frame=1); tgt.location = (-1.15, 2.2, 0.4); tgt.keyframe_insert('location', frame=NF)
 for o in (cam, tgt):
     for fc in o.animation_data.action.fcurves:
         for kp in fc.keyframe_points: kp.interpolation = 'BEZIER'; kp.easing = 'EASE_IN_OUT'
@@ -144,10 +155,10 @@ sc.render.resolution_x, sc.render.resolution_y = W, H; sc.render.fps = FPS; sc.f
 sc.view_settings.view_transform = 'AgX'; sc.view_settings.look = 'AgX - Medium High Contrast'; sc.render.image_settings.file_format = 'PNG'
 
 # ---------- 每帧锚点（给 2D 标签） ----------
-ANCH = {'db25': Vector((DX, -0.6, ZC + 0.9)), 'usb': Vector((UX, -0.65, UZ + 0.35)), 'cableA': Vector((DX + 0.9, 12, 0.8)), 'cableB': Vector((UX - 0.6, 11, 0.4))}
+ANCH = {'db25': Vector((DX, -0.6, ZC + 0.9)), 'usb': None, 'cableA': Vector((DX + 0.9, 12, 0.8)), 'cableB': Vector((UX - 0.6, 11, 0.4))}
 anchors = {}
 for f in range(1, NF + 1):
-    sc.frame_set(f); anchors[f] = {k: [round(v.x * W, 1), round((1 - v.y) * H, 1)] for k, p in ANCH.items() for v in [world_to_camera_view(sc, cam, p)]}
+    sc.frame_set(f); ANCH['usb'] = uanc.matrix_world.translation.copy(); anchors[f] = {k: [round(v.x * W, 1), round((1 - v.y) * H, 1)] for k, p in ANCH.items() for v in [world_to_camera_view(sc, cam, p)]}
 json.dump({'fps': FPS, 'nf': NF, 'w': W, 'frames': anchors}, open(os.path.join(OUT, 'anchors.json'), 'w'))
 if VIDEO and not FRAMES:      # 直接出一个 MP4（几乎无损），省得传一堆 PNG
     sc.render.image_settings.file_format = 'FFMPEG'; sc.render.ffmpeg.format = 'MPEG4'; sc.render.ffmpeg.codec = 'H264'

@@ -1,4 +1,4 @@
-﻿光互连 02 上集开头 · Blender 渲染包（Windows + NVIDIA 显卡）
+﻿光互连 02 上集开头 · Blender 渲染包（Windows + NVIDIA 显卡）· 2026-11-09 第二版：右边换成 USB 2.0 A 型插头（4 个触点）
 
 【准备，只做一次】
 1. 安装 Blender 4.5 LTS（免费）：https://www.blender.org/download/lts/4-5/
