@@ -14,7 +14,7 @@
 //     on the falling line, a 16th "current" shimmer (it thins to 8ths and goes dull while the fat is talked about, and
 //     drops notes as the fat thickens); reveal = four on the floor, off-beat open hats, octave bass, the lead.
 //     Half-beat stop before the name and before the closing step.
-//   · v3: no wrong guess / ✕ any more. The three loudest hits: 2.75 通电, 22.5 the name 电阻 (after a half-beat stop), 45.75 the
+//   · v3.1: no wrong guess / ✕ any more. The three loudest hits: 2.75 通电, 22.0 the name 电阻 (after a half-beat stop), 45.0 the
 //     closing step (after a half-beat stop). Every question keeps its rising-fourth mark.
 import { createRequire } from "node:module";
 import { writeFileSync } from "node:fs";
@@ -109,11 +109,11 @@ const ROOT = { F: 29, CE: 28, Dm: 26, AmC: 24, Bb: 22, FA: 21, Gm: 19, C: 24, Gm
 const HAS_F = new Set(["F", "Dm", "Bb", "FA", "Gm7", "Csus"]);
 const PROG = [[0, "Gm7"], [2, "Csus"], [2.5, "C"], [T.a2, "Dm"], [4, "Bb"], [T.q3, "C"],
   [6, "F"], [7, "CE"], [8, "Dm"], [9, "AmC"], [10, "Bb"], [11, "FA"], [12, "Gm"], [13, "C"],            // the current, the ride, the principle
-  [14, "F"], [15, "CE"], [16, "Dm"], [17, "AmC"], [18, "Bb"], [19, "FA"], [20, "Gm"], [21, "Bb"], [21.75, "C"],   // the dive, the samples, the two calves
-  [T.name, "F"], [23.5, "Am"], [24.5, "Bb"], [T.q6, "C"],                                              // IV–V, stop, the name on I
-  [26, "Gm7"], [27, "C"], [28, "F"], [29, "Dm"], [30, "Gm7"], [31, "C"], [32, "Am"], [33, "Dm"], [34, "Bb"], [35, "C"], [36, "Am"], [37, "Dm"], [38, "Gm"], [39, "C"],
-  [40, "Gm7"], [41, "C"], [42, "F"], [43, "Dm"], [44, "Gm7"], [45, "C"],
-  [T.ka, "F"], [46.75, "Am"], [47.75, "Bb"], [48.25, "C"], [T.tip, "F"], [49.75, "Dm"], [50.75, "Gm7"], [T.pace, "C"], [52.5, "F"], [53.5, "Bb"], [T.end, "F"]];
+  [14, "F"], [15, "CE"], [16, "Dm"], [17, "AmC"], [18, "Bb"], [19, "FA"], [20, "Gm"], [21, "Bb"], [21.5, "C"],   // the dive, the samples, the two calves
+  [T.name, "F"], [23, "Am"], [24, "Bb"], [T.q6, "C"],                                                  // IV–V, stop, the name on I (22.0, a bar line)
+  [25, "Gm7"], [26, "C"], [27, "F"], [28, "Dm"], [29, "Gm7"], [30, "C"], [31, "Am"], [32, "Dm"], [33, "Bb"], [34, "C"], [35, "Am"], [36, "Dm"], [37, "Gm"], [38, "C"],
+  [39, "Gm7"], [40, "C"], [41, "F"], [42, "Dm"], [43, "Gm7"], [44, "C"],
+  [T.ka, "F"], [46, "Am"], [47, "Bb"], [47.5, "C"], [T.tip, "F"], [49, "Dm"], [50, "Gm7"], [51, "C"], [52, "F"], [53, "Bb"], [T.end, "F"]];
 const chordAt = (t) => { let c = PROG[0][1]; for (const [a, ch] of PROG) if (t >= a - 1e-6) c = ch; return c; };
 const SECS = [[0, "hook"], [T.a2, "ans"], [T.q3, "dig"], [T.a3, "path"], [T.dive, "dive"], [T.labels + 0.25, "mech"], [T.stop1, "stop"], [T.name, "name"],
   [T.q6, "out"], [T.a9, "water"], [T.a10, "jump"], [T.dive2, "dive"], [T.tilt2End, "mech"], [T.a7, "card"], [T.a8, "phone"], [T.q9, "build"], [T.stop2, "stop"], [T.ka, "payoff"], [T.tip, "tip"], [T.pace, "tip"], [T.end, "end"]];

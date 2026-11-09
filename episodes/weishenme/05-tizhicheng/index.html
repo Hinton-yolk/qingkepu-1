@@ -912,6 +912,12 @@ function chipBox(txt, x, y, k, o = {}) {
   if (o.icon) { ctx.restore(); meter(t0g, x - w / 2 * sc + 56 * sc, y + 16 * sc, 28 * sc, 0.8, o.a ?? 1, { col: INK, bg: "rgba(0,0,0,0)", sc: 1 }); return; }
   ctx.restore();
 }
+function darkTag(txt, x, y, a) {                                   // an orange tag on the dark scenes
+  if (a <= 0.01) return;
+  ID(); ctx.save(); ctx.globalAlpha = a; const f = `700 46px ${UI}`, w = mw(f, txt) + 40;
+  rr(x - w / 2, y - 33, w, 66, 33); ctx.fillStyle = C.dark; ctx.fill(); ctx.strokeStyle = C.acc; ctx.lineWidth = 3.5; ctx.stroke();
+  ctx.font = f; ctx.fillStyle = C.acc; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(txt, x, y + 2); ctx.restore();
+}
 function tagPill(txt, x, y, a, col = C.ink) {                      // a small tag (术语 / 注释 are small text)
   if (a <= 0.01) return;
   ID(); ctx.save(); ctx.globalAlpha = a; const f = `700 44px ${UI}`, w = mw(f, txt) + 40;
@@ -1022,13 +1028,13 @@ function drawInterior(t, K, a) {
   const show = E.p2io(prog(t, d.tilt + 0.3, d.tiltEnd));
   if (!d.second) { if (show > 0.01) drawFlow(t, K, CALF[0], CALF[1], ZC, sh, { aM: 0.55 * show, aF: 0.4 * show, speed: 1, r: 10 }); }   // (faint: not explained yet)
   else {
-    // the second dive: water as it should be; then less of it — the scale counts the difference as fat (an orange band inside the fat)
+    // the second dive: water as it should be; then less of it — the scale counts the difference as fat (a pale-yellow band, dashed ink outline: the extra fat)
     const wv = waterDry(t), dk = E.p2io(prog(t, T.dry + 0.15, T.dryEnd + 0.1));
     if (dk > 0.005) {
       const calc = secShape(1 + 1.1 * dk);
       planeT(K, ZC, [CALF[0], CALF[1]]); const band = new Path2D(); addPoly(band, sh.mus); addPoly(band, calc.mus.slice().reverse());
-      ctx.save(); ctx.globalAlpha *= 0.9; ctx.fillStyle = `rgba(${ACC},0.42)`; ctx.fill(band, "evenodd"); ctx.restore();
-      planeT(K, ZC, [CALF[0], CALF[1]]); ctx.beginPath(); addPoly(ctx, calc.mus); ctx.save(); ID(); ctx.setLineDash([12, 9]); ctx.lineWidth = 3.5; ctx.strokeStyle = C.acc; ctx.stroke(); ctx.restore();
+      ctx.save(); ctx.globalAlpha *= 0.92; ctx.fillStyle = C.fat; ctx.fill(band, "evenodd"); ctx.restore();
+      planeT(K, ZC, [CALF[0], CALF[1]]); ctx.beginPath(); addPoly(ctx, calc.mus); addPoly(ctx, sh.mus); ctx.save(); ID(); ctx.globalAlpha = A0 * secA * Math.min(1, dk * 3); ctx.setLineDash([12, 9]); ctx.lineWidth = 3.5; ctx.strokeStyle = C.ink; ctx.stroke(); ctx.restore();
     }
     if (show > 0.01) drawFlow(t, K, CALF[0], CALF[1], ZC, sh, { aM: show, aF: 0.8 * show, speed: 0.5 + 0.5 * wv / 4, r: 10 });
     drawDrops(t, K, CALF[0], CALF[1], ZC, wv, T.tilt2End - 0.2, 0, 22 * K.A / 5.4);
@@ -1257,6 +1263,10 @@ function overlays(t, K) {                               // labels in the picture
     const fo = 1 - prog(t, T.twin, T.twin + 0.4), aM = t < T.a5 ? 1 : 0.5, aF = t < T.a5 ? 0.5 : 1;
     label(COPY.muscle, BLK.xm, BLK.y - BLK.h / 2 - 58, 58, "rgba(241,240,236,0.95)", t, T.blocksEnd, T.twin + 0.4, { align: "center", alpha: fo * aM });
     label(COPY.fat, BLK.xf, BLK.y - BLK.h / 2 - 58, 58, "rgba(241,240,236,0.95)", t, T.blocksEnd, T.twin + 0.4, { align: "center", alpha: fo * aF });
+    // the verdict on each sample, beside its name, as it lights up (muscle: 好走, fat: 难走)
+    const yT = BLK.y - BLK.h / 2 - 76, tM = E.p3out(prog(t, T.a4, T.a4 + 0.25)), tF = E.p3out(prog(t, T.fatGo, T.fatGo + 0.25));
+    darkTag(COPY.easy, BLK.xm + 142, yT, fo * tM * aM);
+    darkTag(COPY.hard, BLK.xf + 142, yT, fo * tF * aF);
   }
 }
 function endCard(t) {
@@ -1313,7 +1323,7 @@ function frame(t) {
 }
 
 // ---------------------------------------------------------------- motion blur: temporal supersampling where things move fast
-const BLUR = [[0, 0.6], [2.75, 3.5], [5.0, 5.95], [6.75, 7.8], [9.25, 11.8], [13.75, 15.05], [15.25, 15.8], [20.0, 20.65], [22.45, 22.95], [25.25, 26.3], [32.25, 33.8], [39.0, 40.05], [41.75, 42.65], [44.5, 45.85], [48.75, 49.7], [51.5, 52.35], [54.25, 54.9]];
+const BLUR = [[0, 0.6], [2.75, 3.5], [5.0, 5.95], [6.75, 7.8], [9.25, 11.8], [13.75, 15.05], [15.25, 15.8], [19.75, 20.4], [21.95, 22.45], [24.5, 25.55], [31.5, 33.05], [38.25, 39.3], [41.0, 41.9], [43.75, 45.1], [48.0, 48.95], [50.75, 51.6], [53.5, 54.15]];
 const SUB = 14, SHUTTER = 0.5 / FPS;            // 14 sub-frames: no stair-stepped ghosts
 window.seek = function seek(t) {
   t = clamp(t, 0, DUR - 1e-6);
