@@ -2,13 +2,14 @@
 # 竖屏 14 秒。SOI 层块（硅衬底 / 埋氧层 / 顶层硅）→ 旋涂光刻胶 → 掩模滑入、紫外光照射（镜头跟着光往下推）→ 显影
 # → 等离子刻蚀，停在埋氧层 → 去胶 → 镜头绕到正面，光从刻好的硅波导端面射出来。
 # 全部程序化建模；兼容 Blender 4.5 与 5.x。层厚按对数压缩（片中角注「厚度示意」）。
-# 用法：blender -b --python-exit-code 1 --python shot_waveguide.py -- <输出目录> <宽> <高> <采样> [--gpu] [--fps N] [--video] [帧号…]
+# 用法：blender -b --python-exit-code 1 --python shot_waveguide.py -- <输出目录> <宽> <高> <采样> [--gpu] [--eevee] [--fps N] [--video] [帧号…]
+#       --eevee：用实时引擎 EEVEE 渲（快很多，画面略简化）；采样数即 EEVEE 的抗锯齿采样
 import bpy, bmesh, math, sys, json, os
 from mathutils import Vector
 from bpy_extras.object_utils import world_to_camera_view
 
 args = sys.argv[sys.argv.index('--') + 1:]; OUT, W, H, SAMP = args[0], int(args[1]), int(args[2]), int(args[3]); rest = args[4:]
-GPU = '--gpu' in rest; VIDEO = '--video' in rest; FPS = int(rest[rest.index('--fps') + 1]) if '--fps' in rest else 30
+GPU = '--gpu' in rest; EEVEE = '--eevee' in rest; VIDEO = '--video' in rest; FPS = int(rest[rest.index('--fps') + 1]) if '--fps' in rest else 30
 FRAMES = [int(a) for i, a in enumerate(rest) if a.isdigit() and not (i > 0 and rest[i - 1] == '--fps')]
 DUR = 14.0; NF = round(DUR * FPS)
 F = lambda sec: 1 + round(sec * FPS)                       # 秒 → 帧
@@ -253,6 +254,12 @@ for lk in ('AgX - Medium High Contrast', 'Medium High Contrast'):
     try: sc.view_settings.look = lk; break
     except Exception: pass
 set_fmt('PNG')
+if EEVEE:
+    ENG = [e.identifier for e in bpy.types.RenderSettings.bl_rna.properties['engine'].enum_items]
+    sc.render.engine = 'BLENDER_EEVEE' if 'BLENDER_EEVEE' in ENG else 'BLENDER_EEVEE_NEXT'; ee = sc.eevee
+    for k, v in (('taa_render_samples', SAMP), ('use_raytracing', True), ('use_shadows', True), ('use_fast_gi', True)):
+        try: setattr(ee, k, v)
+        except Exception as e: print('EEVEE 设置跳过', k, e)
 
 # ---------- 每帧锚点（给 2D 标签、工序条） ----------
 ANCH = {'top_si': Vector((X1 - 0.6, Y0, (zs + zt) / 2)), 'box': Vector((X1 - 0.6, Y0, (zb + zs) / 2)), 'sub': Vector((X1 - 0.6, Y0, zb / 2)),
@@ -268,6 +275,11 @@ if VIDEO and not FRAMES:
         except Exception as e: print('ffmpeg 设置跳过', k, e)
     sc.render.filepath = os.path.join(OUT, 'waveguide.mp4'); bpy.ops.render.render(animation=True)
 else:
+    import time
     for f in (FRAMES or range(1, NF + 1)):
-        sc.frame_set(f); sc.render.filepath = os.path.join(OUT, f'f{f:04d}.png'); bpy.ops.render.render(write_still=True)
+        sc.frame_set(f); sc.render.filepath = os.path.join(OUT, f'f{f:04d}.png'); t0 = time.time(); bpy.ops.render.render(write_still=True)
+        print(f'FRAME_TIME 第 {f} 帧：{time.time() - t0:.1f} 秒')
+        if EEVEE and f == (FRAMES or [1])[0]:
+            try: import gpu; print('EEVEE_GPU', gpu.platform.vendor_get(), '|', gpu.platform.renderer_get())
+            except Exception as e: print('EEVEE_GPU 未知', e)
 print('DONE', OUT)
