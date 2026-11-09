@@ -8,7 +8,7 @@
 | 还要知道你的身高、年龄、性别 | 估算公式一般用「身高² ÷ 电阻」加上体重、年龄、性别，先算去脂体重，体脂 = 体重 − 去脂体重；公式按人群拟合，所以是估算 | [Kyle 2004](https://pubmed.ncbi.nlm.nih.gov/15380917)；[Frontiers in Nutrition 2022（含身高²/电阻、体重、性别、年龄的公式示例）](https://www.frontiersin.org/journals/nutrition/articles/10.3389/fnut.2022.820736/pdf) |
 | 喝了水、出了汗，数字会变 | 读数受体内水分影响，脱水的影响最大；进食、运动的影响研究结论不一（2021 年一项研究发现影响很小）。片中只说「水变了，数就变」，不夸大 | [Kyle et al. 2004（ESPEN BIA 指南 I）](https://pubmed.ncbi.nlm.nih.gov/15380917)；[BMC Public Health 2021](https://doi.org/10.1186/s12889-021-10552-y)（反面证据：进食、运动影响很小）；[Live Science](https://www.livescience.com/health/how-do-smart-scales-measure-body-composition-and-how-accurate-are-they) |
 | 装心脏起搏器的人别用体脂功能 | Tanita、Omron、Philips、Withings、iHealth 的说明书 / 支持页都写明：装起搏器或其他植入式电子设备的人不要使用（部分品牌可只用称重模式） | [Tanita BC-G01 手册](https://www.manualslib.com/manual/1146253/Tanita-Bc-G01.html?page=4)；[Omron HBF-516](https://www.manualslib.com/manual/951905/Omron-Hbf-516.html?page=4)；[Philips](https://www.usa.philips.com/c-e/heart-health/devices/philips-body-analysis-scale/getting-started/when-can-i-not-use-the-scale-are-there-contraindications.html)；[Withings](https://support.withings.com/hc/en-us/articles/218438708-Body-Frequently-asked-questions-about-safety) |
-| （正文用，片中不讲）脚踩式秤的电主要走腿和下腹 | 脚对脚的电流只在两腿之间的回路里走，上半身的脂肪靠公式推 | [Acibadem: Smart scales and bioimpedance](https://acibademinternational.com/blog/smart-scales-and-bioimpedance-how-accurate-is-your-body-fat-reading/) |
+| （正文用，片中不讲）脚踩式秤的电主要在两条腿之间走（**仅单一来源**） | 脚对脚的电流只在两腿之间的回路里走，上半身的脂肪靠公式推 | [Acibadem: Smart scales and bioimpedance](https://acibademinternational.com/blog/smart-scales-and-bioimpedance-how-accurate-is-your-body-fat-reading/) |
 
 未核实、不使用：脚踩式秤「个人误差 4–8 个百分点」（只见于博客转述）。
 
