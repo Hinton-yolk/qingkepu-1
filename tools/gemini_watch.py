@@ -44,9 +44,14 @@ def api_key() -> str:
             m = re.match(r'\s*GEMINI_API_KEY\s*=\s*"?([^"\s]*)"?\s*$', line)
             if m and m.group(1):
                 key = m.group(1)
+    if not key and Path('/root/.ccr/ca-bundle.crt').exists():
+        # Claude Code cloud session: the real key is a network secret the proxy injects into
+        # x-goog-api-key, so the header only needs to be present.
+        print('[gemini_watch] no local key; using a placeholder, the cloud proxy injects the real one',
+              file=sys.stderr)
+        key = 'proxy-injected-placeholder'
     if not key:
-        sys.exit('No GEMINI_API_KEY found (environment or ~/.config/watch/.env). '
-                 'In the cloud environment any placeholder works because the proxy injects the real key.')
+        sys.exit('No GEMINI_API_KEY found (environment or ~/.config/watch/.env).')
     return key
 
 

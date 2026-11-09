@@ -32,6 +32,6 @@ python3 tools/gemini_watch.py "<YouTube 链接或本地视频文件>" -q "问题
 - **视频去哪了**：YouTube 链接直接交给 Google，这里不下载；本地文件上传到 Gemini Files API，用完立刻删除
   （删不掉的 48 小时内自动过期）。不要用它处理不想离开本机的视频，那种情况用 watch skill 的本地模式。
 - **Key**：读 `GEMINI_API_KEY` 环境变量，再读 `~/.config/watch/.env`。云端环境里真 Key 存在环境的 Network secrets 中，
-  由代理注入 `x-goog-api-key` 请求头，本地只需要一个占位值。
+  由代理注入 `x-goog-api-key` 请求头；本地找不到 Key 时脚本自动用占位值，新会话不用任何配置。
 - **只用标准库**，不用装依赖。
 - Gemini 的回答是它对视频的描述，**不是核实过的事实**；要引用进脚本或 FACTS.md 的数字，先对照原视频。
