@@ -77,11 +77,12 @@ def mat_beam(name, col):
     out = N.new('ShaderNodeOutputMaterial'); em = N.new('ShaderNodeEmission'); em.inputs['Color'].default_value = (*col, 1)
     tr = N.new('ShaderNodeBsdfTransparent'); mix = N.new('ShaderNodeMixShader')
     lw = N.new('ShaderNodeLayerWeight'); lw.inputs['Blend'].default_value = 0.5
-    inv = N.new('ShaderNodeMath'); inv.operation = 'SUBTRACT'; inv.inputs[0].default_value = 1.0; L.new(lw.outputs['Facing'], inv.inputs[1])
+    inv = N.new('ShaderNodeMath'); inv.operation = 'SUBTRACT'; inv.use_clamp = True; inv.inputs[0].default_value = 1.0; L.new(lw.outputs['Facing'], inv.inputs[1])
     tc = N.new('ShaderNodeTexCoord'); sep = N.new('ShaderNodeSeparateXYZ'); L.new(tc.outputs['Generated'], sep.inputs[0])
     along = N.new('ShaderNodeMath'); along.operation = 'SUBTRACT'; along.inputs[0].default_value = 1.0; L.new(sep.outputs['Z'], along.inputs[1])
     pw = N.new('ShaderNodeMath'); pw.operation = 'POWER'; pw.inputs[1].default_value = 1.6; L.new(along.outputs[0], pw.inputs[0])
-    fac = N.new('ShaderNodeMath'); fac.operation = 'MULTIPLY'; L.new(inv.outputs[0], fac.inputs[0]); L.new(pw.outputs[0], fac.inputs[1])
+    fac = N.new('ShaderNodeMath'); fac.operation = 'MULTIPLY'; fac.use_clamp = True;   # 必须夹到 0–1：背面朝向值越界会让透明权重变负，出现黑影
+    L.new(inv.outputs[0], fac.inputs[0]); L.new(pw.outputs[0], fac.inputs[1])
     L.new(fac.outputs[0], mix.inputs['Fac']); L.new(tr.outputs['BSDF'], mix.inputs[1]); L.new(em.outputs['Emission'], mix.inputs[2]); L.new(mix.outputs['Shader'], out.inputs['Surface'])
     return m, em.inputs['Strength']
 M['exit'], EXIT_STR = mat_beam('exit_beam', (0.45, 1.0, 0.92))
@@ -194,9 +195,9 @@ for fc in fcurves_of(core):
 key_socket(CORE_STR, F(T['light0']), 0.0); key_socket(CORE_STR, F(T['light0'] + 0.2), 5.0)
 key_socket(RIDGE_GLOW, 1, 0.0); key_socket(RIDGE_GLOW, F(T['light1'] - 0.2), 0.0); key_socket(RIDGE_GLOW, F(T['light1'] + 0.5), 1.8)
 BEAM = 1.4                                                                            # 出光锥：端面射出、略发散
-bpy.ops.mesh.primitive_cone_add(vertices=48, end_fill_type='NOTHING', radius1=WG * 0.75, radius2=0.55, depth=BEAM, location=(0, Y0 - BEAM / 2, (zs + zt) / 2), rotation=(math.radians(90), 0, 0))
+bpy.ops.mesh.primitive_cone_add(vertices=48, end_fill_type='NOTHING', radius1=WG * 0.75, radius2=0.55, depth=BEAM, location=(0, Y0 - 0.015 - BEAM / 2, (zs + zt) / 2), rotation=(math.radians(90), 0, 0))
 ex = bpy.context.object; ex.data.materials.append(M['exit']); bpy.ops.object.shade_smooth()
-ex.scale = (1, 0.6, 1)    # 竖向压扁一些（端面是扁的）
+ex.scale = (1, 0.45, 1)   # 竖向压扁：贴着端面那一圈不能低于埋氧层顶面，否则在正面投出一道黑弧
 key(ex, 'hide_render', 1, True); key(ex, 'hide_render', F(T['exit0']), False)
 key_socket(EXIT_STR, 1, 0.0); key_socket(EXIT_STR, F(T['exit0']), 0.0); key_socket(EXIT_STR, F(T['exit0'] + 0.5), 2.5)
 facet = box('facet_glow', -WG + 0.02, WG - 0.02, Y0 - 0.012, Y0 - 0.004, zs + 0.02, zt - 0.02, M['core'], bevel=0.0)   # 端面本身亮起来
@@ -253,6 +254,14 @@ sc.view_settings.view_transform = 'AgX'
 for lk in ('AgX - Medium High Contrast', 'Medium High Contrast'):
     try: sc.view_settings.look = lk; break
     except Exception: pass
+# 发光体、光柱、玻璃不投影（否则出光锥在端面下投出一块黑影）；掩模上的铬条照常投影 —— 那正是「挡光」
+LIGHTY = {M[k].name for k in ('uv', 'ray', 'ion', 'core', 'exit', 'glass')}
+for o in sc.objects:
+    if o.type == 'MESH' and o.data.materials and o.data.materials[0] and o.data.materials[0].name in LIGHTY:
+        if hasattr(o, 'visible_shadow'): o.visible_shadow = False
+# 半透明材质在 EEVEE 里用混合模式（默认的抖动模式在 64 采样下有颗粒）
+for k in ('uv', 'exit', 'glass'):
+    if hasattr(M[k], 'surface_render_method'): M[k].surface_render_method = 'BLENDED'
 set_fmt('PNG')
 if EEVEE:
     ENG = [e.identifier for e in bpy.types.RenderSettings.bl_rna.properties['engine'].enum_items]

@@ -86,8 +86,16 @@ def corners(im, t):
     note = '实际是看不见的红外光，青色为示意' if t >= T['light0'] else '层厚、颜色均为示意'
     d.text((W - 44, 282), note, font=font(26, heavy=False), fill=(255, 255, 255, 140), anchor='rm'); im.alpha_composite(ly)
 
+def bloom(im, thr=0.72, k1=0.55, k2=0.35):
+    """辉光：只取亮部，模糊两档后加回去（EEVEE 5.x 没有内置辉光，和引擎无关地在合成里做）"""
+    a = np.asarray(im.convert('RGB'), dtype=np.float32) / 255; lum = a.max(axis=2, keepdims=True)
+    br = Image.fromarray((np.clip(a * np.clip((lum - thr) / (1 - thr), 0, 1), 0, 1) * 255).astype(np.uint8))
+    b1 = np.asarray(br.filter(ImageFilter.GaussianBlur(im.width / 90)), dtype=np.float32) / 255
+    b2 = np.asarray(br.filter(ImageFilter.GaussianBlur(im.width / 25)), dtype=np.float32) / 255
+    return Image.fromarray((np.clip(1 - (1 - a) * (1 - k1 * b1) * (1 - k2 * b2), 0, 1) * 255).astype(np.uint8))   # 滤色叠加，不会过曝成死白
+
 def frame(i):
-    t = (i - 1) / FPS; im = Image.open(os.path.join(SRC, f'f{i:04d}.png')).convert('RGBA').resize((W, H), Image.LANCZOS)
+    t = (i - 1) / FPS; im = bloom(Image.open(os.path.join(SRC, f'f{i:04d}.png')).convert('RGB').resize((W, H), Image.LANCZOS)).convert('RGBA')
     a = {k: (v[0] * K, v[1] * K) for k, v in AF[str(i)].items()}
     g = Image.new('RGBA', (W, 640), (0, 0, 0, 0)); gd = ImageDraw.Draw(g)       # 顶部压暗，字更跳
     for y in range(640): gd.line([0, y, W, y], fill=(4, 5, 8, int(150 * (1 - y / 640) ** 1.5)))
