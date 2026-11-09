@@ -34,6 +34,12 @@ const COVERS = [
   { out: "ep04-xiaohongshu", W: 1080, H: 1440, ep: "EP.04", title: ["戴着手套，", "为什么点不动<b>屏幕</b>？"],
     hero: "ep04-hero-xhs", heroDy: 0, anchor: A["ep04-hero-xhs"], inset: { img: "ep04-inset", cx: 375, cy: 1125, src: 330, x: 875, y: 770, r: 165 },
     ser: 108, t1: 252, t2: 398, size: 120, wash: 480 },
+  { out: "ep05-douyin", W: 1080, H: 1920, ep: "EP.05", title: ["体脂秤怎么知道，", "你有多少<b>脂肪</b>？"],
+    hero: "ep05-hero-dy", heroDy: 0, anchor: A["ep05-hero-dy"], inset: { img: "ep05-inset", cx: 540, cy: 1070, src: 430, x: 830, y: 1010, r: 210 },
+    ser: 300, t1: 452, t2: 602, size: 124, wash: 760 },
+  { out: "ep05-xiaohongshu", W: 1080, H: 1440, ep: "EP.05", title: ["体脂秤怎么知道，", "你有多少<b>脂肪</b>？"],
+    hero: "ep05-hero-xhs", heroDy: 0, anchor: A["ep05-hero-xhs"], inset: { img: "ep05-inset", cx: 540, cy: 1070, src: 430, x: 860, y: 720, r: 175 },
+    ser: 108, t1: 252, t2: 398, size: 120, wash: 480 },
 ];
 const ONLY = process.argv[2];                                   // node make.mjs ep04 → only those covers
 
