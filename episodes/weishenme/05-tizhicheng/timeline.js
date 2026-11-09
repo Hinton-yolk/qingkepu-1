@@ -34,9 +34,9 @@
     // 11.75–16.25 · what is it measuring? the camera rides one pulse round the loop; then the principle: a big dial beside the body
     q4: 11.75, follow: 11.75, followEnd: 13.5, pr: 13.75, prWide: 13.5, prWideEnd: 14.25, dial: 13.75, swing: 14.25, swingEnd: 15.0,
     // 16.25–18.5 · and fat? one take into the calf: push in, a cut across, dark, tilt to look at the cut; 脂肪 / 肌肉
-    fq: 16.25, dive: 16.25, cut: 17.0, cutEnd: 17.35, flood: 17.25, floodEnd: 17.5, tilt: 17.35, tiltEnd: 18.25, labels: 17.75,
+    fq: 16.25, dive: 16.25, cut: 16.5, cutEnd: 16.85, flood: 16.75, floodEnd: 17.0, tilt: 16.85, tiltEnd: 17.5, labels: 17.25,
     // 18.5–25 · the comparison: two samples out of the cut — muscle (easy), fat (hard); then two calves, thin and thick fat → the name
-    a4: 18.5, blocks: 18.5, blocksEnd: 19.1, dropsM: 18.75, a5: 20.5, fatGo: 20.5, a6: 22.5, twin: 22.5, twinEnd: 23.1, thick: 23.25, thickEnd: 24.25,
+    a4: 18.5, blocks: 17.75, blocksEnd: 18.25, dropsM: 18.5, a5: 20.5, fatGo: 20.5, a6: 22.5, twin: 22.5, twinEnd: 23.1, thick: 23.25, thickEnd: 24.25,
     stop1: 24.75, name: 25.0,
     // 28–43.75 · 5 the missing step (everything from here on is the first cut, 4.0 s = 2 bars later)
     q5: 28.0, out: 28.0, outEnd: 29.25, unflood: 28.7,
@@ -77,7 +77,7 @@
     tipTag: "小提示：", tip: ["每天同一时间", "光脚测，看[趋势]"],
     pace: "装心脏起搏器的人，别用体脂功能",
     // labels in the picture
-    fat: "脂肪", muscle: "肌肉", ohm: "电阻",
+    fat: "脂肪", muscle: "肌肉", ohm: "电阻", fatLow: "脂肪少", fatHigh: "脂肪多",
     // the card (a7): what the estimate needs
     cR: "电阻", cH: "身高", cW: "体重", cA: "年龄", cS: "性别", cOut: "体脂率", cEst: "估算",
     // the display and the generic app (no brand)

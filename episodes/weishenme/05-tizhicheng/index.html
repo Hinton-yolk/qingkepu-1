@@ -1103,21 +1103,24 @@ function samples(t, K) {
   sampleBlock(t, "f", posF[0], posF[1], sc, bk * (0.35 + 0.65 * Math.max(em, 0.3)) * lerp(0.72, 1, litF > 0.5 ? 1 : 0), t >= T.a5 ? E.p2io(prog(t, T.a5, T.a5 + 0.3)) * (1 - prog(t, T.twin - 0.2, T.twin)) : 0);
 }
 // two calves side by side (22.5–28): the same current; thin fat on the left, thick on the right — the right dial reads higher
-const KTL = key([0, -6, 0], [302, 975], 3.9, 58), KTR = key([0, -6, 0], [780, 975], 3.9, 58);
+const KTL = key([0, -6, 0], [268, 955], 4.4, 58), KTR = key([0, -6, 0], [800, 955], 4.4, 58);
+const FK_THIN = 0.7, FK_THICK = 2.0;                              // the right ring ≈ 2.9 × the left one
 function twinK(t) { return t < T.twin ? 0 : E.p3out(prog(t, T.twin, T.twinEnd)) * (1 - E.p2io(prog(t, T.out, T.out + 0.35))); }
 function twins(t) {
   const a = twinK(t); if (a <= 0.01) return;
   const dim = t >= T.name ? lerp(1, 0.55, E.p2io(prog(t, T.name, T.name + 0.3))) : 1, z = lerp(0.55, 1, E.p3out(prog(t, T.twin, T.twinEnd)));
-  [[KTL, 1], [KTR, fatK(t)]].forEach(([K0, fk]) => {
+  [[KTL, FK_THIN, 1], [KTR, FK_THICK, 0.5]].forEach(([K0, fk, sp]) => {
     const K = { ...K0, A: K0.A * z, Z: K0.Z * z }; K.B = [K0.B[0] + (1 - z) * (K0.B[0] - K0.B[0]), K0.B[1]];
     ctx.save(); ctx.globalAlpha = a * dim;
     const sh = drawSection(t, K, 0, 0, 0, { fk, hiM: 0, hiF: 0, lineW: 2.5 });
-    drawFlow(t, K, 0, 0, 0, sh, { hgt: 66, aM: 1, aF: 0.9, speed: 1, r: 8 });
+    drawFlow(t, K, 0, 0, 0, sh, { hgt: 66, aM: sp < 1 ? 0.85 : 1, aF: 0.9, speed: sp, r: 8.5 });   // thick fat: fewer, slower charges
     ctx.restore();
   });
-  const vR = lerp(0.3, 0.86, (fatK(t) - 1) / 1.2), vL = 0.3;
-  dial(302, 1305, 100, vL * spring(t - T.twinEnd, 9, 0.6), a * dim);
-  dial(780, 1305, 100, vR * spring(t - T.twinEnd, 9, 0.6), a * dim);
+  ID(); ctx.save(); ctx.globalAlpha = a * dim * E.p3out(prog(t, T.twinEnd - 0.2, T.twinEnd + 0.2)); ctx.font = `700 54px ${UI}`; ctx.fillStyle = C.paper; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+  ctx.fillText(COPY.fatLow, 268, 1172); ctx.fillText(COPY.fatHigh, 800, 1172); ctx.restore();
+  const sw = spring(t - T.twinEnd, 7, 0.55) * (t >= T.twinEnd ? 1 : 0), br = 0.012 * Math.sin(TAU * 0.4 * t);   // the needles swing over as the current flows
+  dial(268, 1318, 100, 0.1 * sw + br, a * dim);
+  dial(800, 1318, 100, 0.9 * sw - br, a * dim);
 }
 // the name (25–28): the big dial comes back over the two calves, and now it has a name: 电阻
 function nameDial(t) {
