@@ -267,7 +267,7 @@ def skyline():
     if OPT.get('view') == 'close': bk.energy *= 0.3                              # 审核：close 背景下半张逆光反光太亮
     st_on = emit('status_led_amber', (1.0, 0.55, 0.15), 40)[0]; st_g = emit('status_led_green', (0.3, 1.0, 0.4), 40)[0]
     for i, bb in enumerate(boxes_done):                                         # 远处器件上的小状态灯：在雾里虚成光斑
-        if rs.random() < 0.6: sphere(f'stled{i}', 0.5, st_on if i % 3 else st_g, ((bb[0] + bb[2]) / 2, bb[1] + 1.0, 1.0))
+        if rs.random() < 0.6: sphere(f'stled{i}', 0.5, st_on if i % 3 else st_g, ((bb[0] + bb[2]) / 2, bb[1] - 1.5, 0.5))   # 贴在板面上（器件外框前面 1.5 mm）
 
 # ---------- 相机 ----------
 cam_d = bpy.data.cameras.new('cam'); cam = obj('cam', cam_d); sc.camera = cam
@@ -363,7 +363,8 @@ else:
     plane('signal_band', 0.32, TR_Y1 - 2 - TR_Y0, mat_signal(BTEX), (0, (TR_Y0 + TR_Y1 - 2) / 2, 0.004))   # 贴着板面（审核：原来悬空 0.045，画面上偏到线对旁边）
     POSE = OPT.get('pose', 'B')
     if OPT.get('host') == '1': standee(POSE, STAND_H if POSE == 'A' else STAND_H * 0.62, (-0.75, 5.5, 0.0), math.radians(-25))   # 用户 11-10：去掉人物（不协调、显得假）
-    sig_m, _ = emit('signal_B', (1.0, 0.45, 0.05), 14.0)   # 金色不过曝成白点，接 A 段结尾的金色光点; sig = sphere('signal', 0.25, sig_m, (0, 0, 0))
+    sig_m, _ = emit('signal_B', (1.0, 0.45, 0.05), 14.0)   # 金色不过曝成白点，接 A 段结尾的金色光点
+    sig = sphere('signal', 0.25, sig_m, (0, 0, 0))
     SIG_PATH = ((0.0, (0, -14, 9.0)), (0.45, (0, -6, 4.0)), (0.9, (0, 0.0, 0.02)), (1.5, (0, 14, 0.02)))
     for t, p in SIG_PATH: key(sig, 'location', F(t), p)
     for t, s in ((0.0, 1.0), (0.9, 1.0), (1.2, 0.35), (1.5, 0.0)): key(sig, 'scale', F(t), (s, s, s))
@@ -426,7 +427,7 @@ if CYCLES:
                     for d in prefs.devices: d.use = d.type == dt
                     sc.cycles.device = 'GPU'; print('CYCLES_DEVICE', dt); break
             except Exception as e: print('显卡设置跳过', dt, e)
-        if sc.cycles.device != 'GPU': print('CYCLES_DEVICE CPU（没找到显卡，会很慢）')
+        if sc.cycles.device != 'GPU': print('[!] 没找到显卡（OptiX / CUDA 都不可用），先停下：用 CPU 渲一整晚也渲不完'); raise SystemExit(1)
 else:
     ENG = [e.identifier for e in bpy.types.RenderSettings.bl_rna.properties['engine'].enum_items]
     sc.render.engine = 'BLENDER_EEVEE' if 'BLENDER_EEVEE' in ENG else 'BLENDER_EEVEE_NEXT'; sc.eevee.taa_render_samples = SAMP
@@ -514,7 +515,9 @@ if SEQ:      # 整段序列：已渲的帧跳过，每帧打印耗时
         fp = os.path.join(d_, fn)
         if fn.lower().endswith('.png') and os.path.getsize(fp) < 10000: os.remove(fp); print('删掉不完整的帧', fn)
     sc.render.filepath = os.path.join(d_, '####'); sc.render.use_overwrite = False; sc.render.use_placeholder = False
-    bpy.ops.render.render(animation=True); print('GPU', _gpu_name()); print('SEQ_DONE', SHOT, NF)
+    if OPT.get('dry') == '1': print('DRY 跳过序列渲染', SHOT, NF)
+    else: bpy.ops.render.render(animation=True); print('GPU', _gpu_name())
+    print('SEQ_DONE', SHOT, NF)
 else:
   for f in FRAMES or [1]:
     t_ = time.time(); sc.frame_set(f)
@@ -522,6 +525,8 @@ else:
     if 'garble' in OPT: name += f"_g{OPT['garble']}"
     fp_ = os.path.join(OUT, name + '.png')
     if 'view' in OPT and os.path.exists(fp_) and os.path.getsize(fp_) > 10000 and os.path.exists(os.path.join(OUT, name + '.json')): print('已渲过，跳过', name); continue
-    sc.render.filepath = fp_; bpy.ops.render.render(write_still=True); print('RENDERED', sc.render.filepath)
+    sc.render.filepath = fp_
+    if OPT.get('dry') == '1': print('DRY 跳过渲染', name)
+    else: bpy.ops.render.render(write_still=True); print('RENDERED', sc.render.filepath)
     print(f'FRAME_TIME {name}：{time.time() - t_:.1f} 秒', flush=True); print('GPU', _gpu_name())
     if 'view' in OPT: export_band(os.path.join(OUT, name + '.json'))

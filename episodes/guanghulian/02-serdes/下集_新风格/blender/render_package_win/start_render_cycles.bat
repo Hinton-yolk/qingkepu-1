@@ -7,6 +7,9 @@ echo.
 echo 渲正式版（r2 Epic 化 + Cycles 显卡，64 采样）：光互连 02 下集开头两段 + 5 张背景。
 echo   A 段 72 帧（手机）、B 段 120 帧（走线）、5 张背景（1188x2112）。预计 2–3 小时，可以放一整晚。
 echo   中途关掉窗口也没关系：再双击一次，已经渲好的会跳过，接着渲。
+echo.
+echo   放一整晚前请确认：1) 不要合上笔记本盖子；2) 设置 - 系统 - 电源：接通电源时「睡眠」设成「从不」；
+echo   3) 早上看到没渲完（或者 Windows 更新重启了），再双击一次就会接着渲。
 "%B%" -b --python-exit-code 1 --python "%~dp0shot_open.py" -- A "%~dp0output" 1080 1920 64 cycles gpu look=r2 seq
 if errorlevel 1 goto broke
 "%B%" -b --python-exit-code 1 --python "%~dp0shot_open.py" -- B "%~dp0output" 1080 1920 64 cycles gpu look=r2 seq
