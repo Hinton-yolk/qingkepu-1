@@ -271,7 +271,7 @@ else:
     obj('key', sun, None, (-80, -40, 120), (math.radians(35), math.radians(-30), 0))
     rim = bpy.data.lights.new('rim', 'AREA'); rim.energy = 6e4; rim.size = 150; rim.color = (0.6, 0.75, 1.0)
     obj('rim', rim, None, (40, 220, 60), (math.radians(-70), 0, math.radians(170)))
-    MIST = (18, 260, (0.16, 0.30, 0.30))
+    MIST = (18, 260, (0.08, 0.26, 0.28))
 
 VIEWS = {   # 中间讲解段的固定机位（2.5D 背景）：相机位置、看向哪里、焦距、光圈
     'side': ((-3.6, 2.6, 0.95), (0.3, 8.0, 0.35), 28, 2.8),     # 走线和信号斜着伸向远处的芯片（= B 段最后一帧的机位）
@@ -288,9 +288,7 @@ if SHOT == 'B' and 'view' in OPT:
     nt = bpy.data.materials['signal_band'].node_tree; nt.animation_data_clear(); nt.nodes['offset'].outputs[0].default_value = float(OPT.get('off', 0)) / NB
     if OPT.get('noband') == '1': bpy.data.objects['signal_band'].hide_render = True
     FRAMES = FRAMES or [60]
-if SHOT == 'B':
-    if 'view' not in OPT: dust_near_camera(3, 0.6, 1.6, 0.018)      # 静帧不放灰尘：2.5D 段由云端加会漂的 2D 灰尘层
-else: dust_near_camera(3, 14, 32, 0.55)
+# 前景灰尘不在 Blender 里放：EEVEE 试渲里半透明灰尘没被景深虚掉，成了清晰的圆片（用户 11-10 试渲）；整片统一由云端加会漂的 2D 虚化光斑
 
 # ---------- 世界、渲染、合成（空气透视 + 光的辉光） ----------
 wd = bpy.data.worlds.new('w'); sc.world = wd; wd.use_nodes = True; N = wd.node_tree.nodes; L = wd.node_tree.links
@@ -334,7 +332,7 @@ else:
         except Exception as e: print('辉光参数跳过', k, e)
     add = ng.nodes.new('ShaderNodeMix'); add.data_type = 'RGBA'; add.blend_type = 'ADD'; add.inputs['Factor'].default_value = 1.0
     ng.links.new(rl.outputs['Image'], add.inputs['A']); ng.links.new(gl.outputs['Glare'], add.inputs['B'])
-    hz = ng.nodes.new('ShaderNodeMath'); hz.operation = 'MULTIPLY'; hz.inputs[1].default_value = 0.75; ng.links.new(rl.outputs['Mist'], hz.inputs[0])
+    hz = ng.nodes.new('ShaderNodeMath'); hz.operation = 'MULTIPLY'; hz.inputs[1].default_value = 0.45 if SHOT == 'B' else 0.6   # EEVEE 试渲：背景被雾糊成一片平灰，减半; ng.links.new(rl.outputs['Mist'], hz.inputs[0])
     fog = ng.nodes.new('ShaderNodeMix'); fog.data_type = 'RGBA'; fog.blend_type = 'MIX'; ng.links.new(hz.outputs[0], fog.inputs['Factor'])
     ng.links.new(add.outputs['Result'], fog.inputs['A']); fog.inputs['B'].default_value = (*MIST[2], 1)
     go = ng.nodes.new('NodeGroupOutput'); ng.links.new(fog.outputs['Result'], go.inputs[0]); print('COMPOSITOR 辉光 + 空气透视已接上')

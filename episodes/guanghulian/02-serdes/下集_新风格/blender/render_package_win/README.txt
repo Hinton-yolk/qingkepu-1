@@ -7,7 +7,7 @@
 3. 先双击 preview_eevee.bat：试渲 4 张，看 B 段第 2 帧的 FRAME_TIME（第 1 帧含着色器编译，不准）。
    把窗口截图和 preview 里的 4 张图发给 Claude。B 段第 2 帧超过约 20 秒，先别跑正式版，告诉 Claude。
 4. 速度没问题就双击 start_render_eevee.bat：A 段 72 帧 + B 段 120 帧 + 5 张背景，共 197 张，
-   预计 45–60 分钟（以试渲第 2 帧的耗时为准）。中途停了可以再双击，已渲好的会跳过。
+   预计 10–15 分钟（11-10 试渲：B 段第 2 帧 1.6 秒；每次启动另有约半分钟编译）。中途停了可以再双击，已渲好的会跳过。
 5. 渲完会自动编码成 output\A.mp4 和 output\B.mp4。发回：A.mp4、B.mp4、stills 文件夹（压成 zip，约几十 MB）。
    output\A、output\B 里的 PNG 很大（几百 MB），不用发。
 
