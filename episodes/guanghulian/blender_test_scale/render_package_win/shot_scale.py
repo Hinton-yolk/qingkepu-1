@@ -132,7 +132,7 @@ def mat_chip_surface():
     return m
 M = dict(
     chip=mat_chip_surface(),
-    clad=mat('upper_cladding_glass', (0.6, 0.7, 0.9), 0.0, 0.22, alpha=0.14, coat=0.6),   # 顶面要看得出是一层玻璃面：红细胞放在它上面
+    clad=mat('upper_cladding_glass', (0.30, 0.50, 0.95), 0.0, 0.28, alpha=0.10, coat=0.2),   # 顶面看得出是一层玻璃（红细胞放在上面），但不发白   # 顶面要看得出是一层玻璃面：红细胞放在它上面
     si_wg=mat('si_waveguide_clear', (0.35, 0.45, 0.62), 0.0, 0.12, alpha=0.30),     # 硅在 1310 nm 透明：画成半透明，看得见芯区里的光
     si_side=mat('si_die_side', (0.10, 0.11, 0.14), 0.7, 0.35, bump=0.2),
     gold=mat('gold_electrode', (0.95, 0.66, 0.24), 1.0, 0.22, rough_tex=ROUGH, rough_scale=0.02),
@@ -618,7 +618,7 @@ def label(key, text, loc, t_in, t_out, arrow=None, arrow_z=None, frac=LABEL_FRAC
         vis(parts[1:], t_in if t_in > 0 else None, t_out, 0.6)
     labels[key] = o; return parts
 label('switch', '交换机', (0, FACE_Y - 30000, SW_ZC + 60000), 0.0, 2.2, frac=0.09)
-label('module', '光模块 约 9 cm\n（含拉环）', (45000, FACE_Y - 72000, SHELL_Z + 13000), 2.4, 4.8, frac=0.055)   # 往右挪：手机在左边
+label('module', '光模块 约 9 cm\n（含拉环）', (24000, FACE_Y - 72000, SHELL_Z + 13000), 2.4, 4.8, frac=0.055)   # 往右挪：手机在左边
 label('chip', '硅光芯片 约 5 mm（示例）', (0, -400, 900), 5.0, 7.6, arrow=DIE, arrow_z=300, frac=0.06)
 label('fiber', '光纤 125 µm', (-250, EDGE - 250, 200), 7.4, 8.6, arrow=125, arrow_z=75, frac=0.05, crumb=False)   # 和头发标签同一位置附近，不留
 label('hair', '头发 约 0.07–0.08 mm', (150, EDGE - 520, 230), 8.6, 9.6, frac=0.045, crumb=False)   # 和光纤标签错开时间，不叠在一起
