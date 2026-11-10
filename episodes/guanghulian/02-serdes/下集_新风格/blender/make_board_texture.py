@@ -63,7 +63,7 @@ for side in (-1, 1):
             if cy < Y1: (a, b), (c, e) = px(cx - 5.2, cy + 5.2), px(cx + 5.2, cy - 5.2); dB.rectangle([a, b, c, e], outline=255, width=3); dB.text(px(cx, cy - 6.2), f'L{10 + k * 3 + r}', font=F, fill=255, anchor='mm')
 (a, b), (c, e) = px(-31, 62.6), px(31, 61.4); dB.rectangle([a, b, c, e], outline=255, width=3)
 dB.text(px(-24, -46), 'AIX-SRV-MB  REV C', font=F, fill=255, anchor='lm'); dB.text(px(24, -46), '94V-0', font=F, fill=255, anchor='mm')
-dB.text(px(-8, 40), 'SERDES_TX0', font=FS, fill=255, anchor='mm')
+dB.text(px(-8, 40), 'SERDES_L0', font=FS, fill=255, anchor='mm')
 # 7) 过孔：电源区栅格 + 随机散布
 for x in range(-56, 57, 3):
     for y in range(-44, 50, 3):

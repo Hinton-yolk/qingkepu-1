@@ -139,7 +139,6 @@ def mat_brushed(name, col=(0.72, 0.73, 0.75)):
     tc = N.new('ShaderNodeTexCoord'); mp = N.new('ShaderNodeMapping'); mp.inputs['Scale'].default_value = (40.0, 0.4, 40.0); L.new(tc.outputs['Object'], mp.inputs[0])
     nz = N.new('ShaderNodeTexNoise'); nz.inputs['Scale'].default_value = 6.0; nz.inputs['Detail'].default_value = 12; L.new(mp.outputs[0], nz.inputs['Vector'])
     mr = N.new('ShaderNodeMapRange'); mr.inputs['To Min'].default_value = 0.22; mr.inputs['To Max'].default_value = 0.42; L.new(nz.outputs['Fac'], mr.inputs['Value']); L.new(mr.outputs[0], b.inputs['Roughness'])
-    if 'Anisotropic' in b.inputs: b.inputs['Anisotropic'].default_value = 0.7
     bp = N.new('ShaderNodeBump'); bp.inputs['Strength'].default_value = 0.15; bp.inputs['Distance'].default_value = 0.01; L.new(nz.outputs['Fac'], bp.inputs['Height']); L.new(bp.outputs[0], b.inputs['Normal'])
     return m
 
@@ -259,11 +258,11 @@ else:
     for side in (-1, 1):
         for row in range(3):
             for k in range(8):
-                x = side * (13.0 + k * 1.9); y = 53.5 + row * 2.4; caps.append((x, y, 0.27, 0.7, 0.5, 0.5))
-                for sg in (-1, 1): ends.append((x + sg * 0.42, y, 0.27, 0.16, 0.5, 0.51)); pads.append((x + sg * 0.42, y, 0.015, 0.34, 0.6, 0.03))
-        for k in range(14):
-            x = side * 33.5; y = 64 + k * 3.8; caps.append((x, y, 0.27, 0.5, 0.7, 0.5))
-            for sg in (-1, 1): ends.append((x, y + sg * 0.42, 0.27, 0.5, 0.16, 0.51)); pads.append((x, y + sg * 0.42, 0.015, 0.6, 0.34, 0.03))
+                x = side * (13.0 + k * 1.9); y = 53.5 + row * 2.4; caps.append((x, y, 0.25, 0.7, 0.5, 0.5))
+                for sg in (-1, 1): ends.append((x + sg * 0.42, y, 0.255, 0.16, 0.5, 0.51)); pads.append((x + sg * 0.42, y, 0.015, 0.34, 0.6, 0.03))
+        for k in range(2):                                   # 贴图只到 y = 70：外侧一列只放有焊盘的两颗
+            x = side * 33.5; y = 64 + k * 3.8; caps.append((x, y, 0.25, 0.5, 0.7, 0.5))
+            for sg in (-1, 1): ends.append((x, y + sg * 0.42, 0.255, 0.5, 0.16, 0.51)); pads.append((x, y + sg * 0.42, 0.015, 0.6, 0.34, 0.03))
     boxes('caps_body', caps, mat('mlcc', (0.30, 0.22, 0.14), 0, 0.45, coat=0.15, noise_bump=0.1, noise_scale=8)); boxes('caps_ends', ends, mat('tin', (0.8, 0.8, 0.82), 1.0, 0.3))
     # 电容焊盘在主板贴图里
     # 过孔：圆的，被阻焊盖住（只是微微鼓起、颜色深一点）
@@ -300,11 +299,11 @@ else:
     for i in range(30):
         sphere(f'led{i}', 1.6, LED[i % 2], (random.uniform(-160, 160), 192, random.uniform(5, 55)))
     BTEX = {'normal': 'bits.png', 'long': 'bits_long.png', 'blur': 'bits_blur.png'}[OPT.get('bits', 'normal')]
-    plane('signal_band', 0.32, TR_Y1 - 2 - TR_Y0, mat_signal(BTEX), (0, (TR_Y0 + TR_Y1 - 2) / 2, 0.045))
+    plane('signal_band', 0.32, TR_Y1 - 2 - TR_Y0, mat_signal(BTEX), (0, (TR_Y0 + TR_Y1 - 2) / 2, 0.004))   # 贴着板面（审核：原来悬空 0.045，画面上偏到线对旁边）
     POSE = OPT.get('pose', 'B')
     if OPT.get('host') == '1': standee(POSE, STAND_H if POSE == 'A' else STAND_H * 0.62, (-0.75, 5.5, 0.0), math.radians(-25))   # 用户 11-10：去掉人物（不协调、显得假）
     sig_m, _ = emit('signal_B', GOLD, 60.0); sig = sphere('signal', 0.25, sig_m, (0, 0, 0))
-    SIG_PATH = ((0.0, (0, -14, 9.0)), (0.45, (0, -6, 4.0)), (0.9, (0, 0.0, 0.06)), (1.5, (0, 14, 0.06)))
+    SIG_PATH = ((0.0, (0, -14, 9.0)), (0.45, (0, -6, 4.0)), (0.9, (0, 0.0, 0.02)), (1.5, (0, 14, 0.02)))
     for t, p in SIG_PATH: key(sig, 'location', F(t), p)
     for t, s in ((0.0, 1.0), (0.9, 1.0), (1.2, 0.35), (1.5, 0.0)): key(sig, 'scale', F(t), (s, s, s))
     SIDE_CAM, SIDE_TGT = (-3.6, 2.6, 0.95), (0.3, 8.0, 0.35)
@@ -354,14 +353,15 @@ if CYCLES:
                     for d in prefs.devices: d.use = d.type == dt
                     sc.cycles.device = 'GPU'; print('CYCLES_DEVICE', dt); break
             except Exception as e: print('显卡设置跳过', dt, e)
+        if sc.cycles.device != 'GPU': print('CYCLES_DEVICE CPU（没找到显卡，会很慢）')
 else:
     ENG = [e.identifier for e in bpy.types.RenderSettings.bl_rna.properties['engine'].enum_items]
     sc.render.engine = 'BLENDER_EEVEE' if 'BLENDER_EEVEE' in ENG else 'BLENDER_EEVEE_NEXT'; sc.eevee.taa_render_samples = SAMP
-    DOF_K = 0.025   # EEVEE 试渲：远处散热片都是清楚的，光圈没按毫米单位换算；按审核建议缩小到约 1/40
-    cam_d.dof.aperture_fstop *= DOF_K; print('EEVEE 景深光圈', round(cam_d.dof.aperture_fstop, 4))
     for k, v in (('use_raytracing', SHOT == 'B'), ('use_shadows', True), ('use_fast_gi', SHOT == 'B'), ('bokeh_max_size', 300.0), ('motion_blur_max', 120)):
         try: setattr(sc.eevee, k, v)
         except Exception as e: print('EEVEE 设置跳过', k, e)
+DOF_K = 0.025   # 光圈没按毫米单位换算（EEVEE 和 Cycles 都一样，远处散热片都是清楚的）；两个引擎都缩小到约 1/40
+cam_d.dof.aperture_fstop *= DOF_K; print('景深光圈', round(cam_d.dof.aperture_fstop, 4))
 sc.render.resolution_x, sc.render.resolution_y = W, H; sc.render.fps = FPS; sc.frame_start, sc.frame_end = 1, NF
 sc.render.use_motion_blur = True; sc.render.motion_blur_shutter = 1.0 if SHOT == 'A' else 0.5
 sc.view_settings.view_transform = 'AgX'; sc.view_settings.exposure = 0.9 if SHOT == 'B' else 0.2
@@ -402,7 +402,7 @@ def export_band(path):
     for j in range(int(TR_Y0 / BIT) - 2, int((TR_Y1 - 2) / BIT) + 2):
         y = (j - off) * BIT
         if not (TR_Y0 <= y <= TR_Y1 - 2): continue
-        c = world_to_camera_view(sc, cam, Vector((0, y, 0.05))); l = world_to_camera_view(sc, cam, Vector((-0.4, y, 0.05)))
+        c = world_to_camera_view(sc, cam, Vector((0, y, 0.004))); l = world_to_camera_view(sc, cam, Vector((-0.4, y, 0.004)))
         if c.z <= 0 or not (-0.2 <= c.x <= 1.2 and -0.2 <= c.y <= 1.2): continue
         pts.append(dict(j=j, y=round(y, 3), bit=bits[j % NB], x=round(c.x * W, 1), yy=round((1 - c.y) * H, 1), lx=round(l.x * W, 1), ly=round((1 - l.y) * H, 1)))
     json.dump(dict(W=W, H=H, bit_mm=BIT, pts=pts), open(path, 'w'))
@@ -414,6 +414,10 @@ if OPT.get('check') == '1':     # 自查：逐帧列出信号、灰尘在画面�
         sc.frame_set(f); c = world_to_camera_view(sc, cam, sg.matrix_world.translation) if sg else None
         n_in = sum(1 for o in dl if (lambda v: v.z > 0 and 0 <= v.x <= 1 and 0 <= v.y <= 1)(world_to_camera_view(sc, cam, o.matrix_world.translation)))
         print(f'CHECK {SHOT} f{f:03d} signal=({c.x * W:.0f},{(1 - c.y) * H:.0f},z{c.z:.1f}) scale={sg.scale.x:.2f} dust_in={n_in}/{len(dl)}' if c else f'CHECK f{f}')
+    sc.frame_set(NF)
+    for y_ in (8.0, 20.0, 40.0):
+        a_ = world_to_camera_view(sc, cam, Vector((0, y_, 0.004))); b_ = world_to_camera_view(sc, cam, Vector((0, y_, 0.0)))
+        print(f'BAND_VS_PAIR y={y_}: 光带 ({a_.x * W:.1f},{(1 - a_.y) * H:.1f})  线对 ({b_.x * W:.1f},{(1 - b_.y) * H:.1f})')
     raise SystemExit(0)
 import time
 def _gpu_name():
