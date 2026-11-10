@@ -96,4 +96,18 @@ rk = Image.new('L', (RW, RH), 0); d = ImageDraw.Draw(rk); s = RH / 44.45
 for c in (6.35, 22.225, 38.1):
     cy = RH - c * s; h = 9.5 * s / 2; d.rectangle([RW / 2 - h, cy - h, RW / 2 + h, cy + h], fill=255)
 rk.save(os.path.join(OUT, 'rack_holes.png'), optimize=True)
+# ---------- 4) 机房地板：600 mm 一块的架空地板，块缝暗；冷通道的通风地板带孔（一块 = 两格：左实心、右通风） ----------
+FT = 512; fl = Image.new('L', (FT * 2, FT), 200); d = ImageDraw.Draw(fl)
+for k in range(2): d.rectangle([k * FT, 0, k * FT + FT - 1, FT - 1], outline=60, width=6)
+for j in range(24):
+    for i in range(24):
+        cx, cy = FT + 22 + i * 20, 22 + j * 20; d.ellipse([cx - 6, cy - 6, cx + 6, cy + 6], fill=40)
+fl.save(os.path.join(OUT, 'floor_tile.png'), optimize=True)
+# ---------- 5) 机柜前门上的指示灯：黑底，零散小灯（R 绿、G 蓝、B 琥珀，A 白），一块 = 一个机柜正面 600 × 2000 mm ----------
+LW, LH = 300, 1000; led = Image.new('RGBA', (LW, LH), (0, 0, 0, 0)); d = ImageDraw.Draw(led)
+for k in range(140):
+    x, y = rnd.uniform(30, LW - 30), rnd.uniform(40, LH - 40); c = rnd.random(); r = rnd.choice((2, 2, 3))
+    col = (255, 0, 0, 0) if c < 0.55 else (0, 255, 0, 0) if c < 0.75 else (0, 0, 255, 0) if c < 0.9 else (0, 0, 0, 255)
+    d.ellipse([x - r, y - r, x + r, y + r], fill=col)
+led.save(os.path.join(OUT, 'rack_leds.png'), optimize=True)
 print('ok', (NX, NY), (Wp, Hp), (RW, RH))
