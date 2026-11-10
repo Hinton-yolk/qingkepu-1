@@ -515,7 +515,9 @@ if SEQ:      # 整段序列：已渲的帧跳过，每帧打印耗时
         fp = os.path.join(d_, fn)
         if fn.lower().endswith('.png') and os.path.getsize(fp) < 10000: os.remove(fp); print('删掉不完整的帧', fn)
     sc.render.filepath = os.path.join(d_, '####'); sc.render.use_overwrite = False; sc.render.use_placeholder = False
-    if OPT.get('dry') == '1': print('DRY 跳过序列渲染', SHOT, NF)
+    if 'fs' in OPT: sc.frame_start = int(OPT['fs'])     # 云端多卡分段：fs=起始帧 fe=结束帧
+    if 'fe' in OPT: sc.frame_end = int(OPT['fe'])
+    if OPT.get('dry') == '1': print('DRY 跳过序列渲染', SHOT, sc.frame_start, sc.frame_end)
     else: bpy.ops.render.render(animation=True); print('GPU', _gpu_name())
     print('SEQ_DONE', SHOT, NF)
 else:

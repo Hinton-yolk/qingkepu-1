@@ -47,3 +47,10 @@ python3 tools/frame_stats.py <图片或视频> [秒 ...] [--crop 宽:高:x:y]
 - 不用 HSV 饱和度：它在暗像素上会被放大，近黑的深蓝也会显得「很饱和」。
 - 测录屏时用 `--crop` 裁掉浏览器界面。
 - 同时输出平均亮度：「微观世界的样子」还有一个亮度门槛（平均亮度 ≥ 0.25，建议值，待用户定）。
+
+## runpod_render.py：租云显卡渲 Blender（2026-11-10）
+- 从云端会话直接驱动 RunPod，全程 HTTPS：REST API 建 pod → pod 上起一个带口令的小 HTTP 服务（经 `https://<pod>-8000.proxy.runpod.net`）→ 上传场景包（约 7 MB）→ 装 Blender 5.2.3 Linux 版 → 按任务表渲染 → 渲好一张拉回一张 → 删 pod。
+- 不用网络卷和 S3：S3 要用密钥本地签名，代理注入不了；不用网络卷还能租便宜的 Community Cloud。
+- 防扣钱：脚本退出（包括出错）时删掉自己建的 pod；每个 pod 到 `--max-hours` 自删（未在真机验证）；`kill-all` 兜底。
+- 先 `plan` 看分配和估价，`run ... --yes` 才真的租。02 下集的任务表：`episodes/guanghulian/02-serdes/下集_新风格/blender/runpod_jobs.json`（和 Windows 渲染包同一套参数）。
+- API key 不进仓库：云端会话由代理注入 `rest.runpod.io` 的 Authorization 头；自己电脑上用环境变量 `RUNPOD_API_KEY`。
