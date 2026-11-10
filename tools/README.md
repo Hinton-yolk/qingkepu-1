@@ -35,3 +35,14 @@ python3 tools/gemini_watch.py "<YouTube 链接或本地视频文件>" -q "问题
   由代理注入 `x-goog-api-key` 请求头；本地找不到 Key 时脚本自动用占位值，新会话不用任何配置。
 - **只用标准库**，不用装依赖。
 - Gemini 的回答是它对视频的描述，**不是核实过的事实**；要引用进脚本或 FACTS.md 的数字，先对照原视频。
+
+## frame_stats.py：画面亮度和色度
+「3D 镜头语法」第 9、10 条的色度阈值用它测。
+
+```bash
+python3 tools/frame_stats.py <图片或视频> [秒 ...] [--crop 宽:高:x:y]
+```
+
+- 色度 C = max(R,G,B) − min(R,G,B)，取全帧平均。
+- 不用 HSV 饱和度：它在暗像素上会被放大，近黑的深蓝也会显得「很饱和」。
+- 测录屏时用 `--crop` 裁掉浏览器界面。

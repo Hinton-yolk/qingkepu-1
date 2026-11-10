@@ -71,7 +71,7 @@
 
 - 2026-11-09：**Blender 镜头全部在用户那台带显卡的电脑上渲**（Windows + NVIDIA RTX），云端不再渲 Blender（4 核 CPU 一帧约 20–60 秒，太慢）。分工：云端写 bpy 场景脚本、出渲染包（`episodes/guanghulian/02-serdes/blender_test/render_package_win/`，双击 .bat）；用户渲完把 `opening.mp4` + `anchors.json` 发回；云端叠字、字幕、配音（`composite.py`）。第一个 Blender 镜头是 02 上集开头（8.25 秒，并口线 vs USB 2.0 A 型）。
 - 2026-11-09：**Blender 3D 镜头默认用 EEVEE**，Cycles 只留给需要「光打在表面上」或玻璃透射的少数特写。用户的 RTX 2060 实测第 385 帧（1080×1920）：EEVEE 约 2 秒 / 帧，Cycles（128 采样）约 30 秒 / 帧；画质对比后结构、材质基本一致，辉光在云端合成里统一加。用户：「可以的」。详见 `episodes/guanghulian/blender_test_waveguide/README.md`。
-- 2026-11-10：**参考片学到的镜头规则写进 `CLAUDE.md`「镜头语法」**（适用于光互连和所有 Blender / 3D 镜头；「为什么」系列不适用）。来源：用户上传的四段录屏（MKBHD《I shrunk down into an M5 chip》、Branch 芯片制造、Ordinary Folk Reel II、Zack D 卷笔刀），这次是逐帧看并测量（`research/参考片实测_录屏四部.md`），合并了之前基于 Gemini 分析的 14 条（清单附在报告末尾）。关键修正：讲工序时相机不动（Branch 实测）；光画成体积光柱而不是细棒；尺度旅行用对数匀速的连续镜头。用户：「加进规则」。光互连 skill 里「镜头要在空间里穿行」一句相应补了例外。 审核第一轮「不通过」（范围太宽、证据来源没区分、Ordinary Folk 录屏其实是 1 倍速、光的画法有科学问题等 21 条），按意见改了第二版。
+- 2026-11-10：**参考片学到的镜头规则写进 `CLAUDE.md`「3D 镜头语法」**（适用于光互连和所有 Blender / 3D 镜头；「为什么」系列不适用）。来源：用户上传的四段录屏（MKBHD《I shrunk down into an M5 chip》、Branch 芯片制造、Ordinary Folk Reel II、Zack D 卷笔刀），这次是逐帧看并测量（`research/参考片实测_录屏四部.md`），合并了之前基于 Gemini 分析的 14 条（清单附在报告末尾）。关键修正：讲工序时相机不动（Branch 实测）；光画成体积光柱而不是细棒；尺度旅行用对数匀速的连续镜头。用户：「加进规则」。光互连 skill 里「镜头要在空间里穿行」一句相应补了例外。审核两轮「不通过」后改了第三版：第一轮 22 条（范围太宽、证据来源没区分、Ordinary Folk 录屏其实是 1 倍速、光的画法有科学问题等）；第二轮指出 HSV 饱和度会把近黑的深蓝判成「很饱和」，改用平均色度（`tools/frame_stats.py`），并修了曝光光颜色、圈选颜色、多模光纤角度等。底色和视场的写法和 Style Bible 现稿不一致，标为待用户定。
 
 ## 待定事项
 - 第 5 条：主阵地选抖音还是小红书（等小红书单条数据，由第一份周报回答）。
