@@ -387,6 +387,18 @@ if SHOT == 'B' and 'view' in OPT:
     nt = bpy.data.materials['signal_band'].node_tree; nt.animation_data_clear(); nt.nodes['offset'].outputs[0].default_value = float(OPT.get('off', 0)) / NB
     if OPT.get('noband') == '1': bpy.data.objects['signal_band'].hide_render = True
     FRAMES = FRAMES or [60]
+def level_camera():
+    """B 段：相机始终水平，用镜头平移（shift）往下取景，竖直的东西（散热器鳍片、内存条）在画面里保持竖直，
+       不会因为相机低头而上宽下窄、看起来是歪的（用户 11-10：「散热板的立柱都是歪的」）。对焦点仍是 target。"""
+    aim = bpy.data.objects.new('aim', None); sc.collection.objects.link(aim); tc_.target = aim
+    frames = list(range(1, NF + 1)) if 'view' not in OPT else [sc.frame_current]
+    for f in frames:
+        sc.frame_set(f); p_, g_ = Vector(cam.location), Vector(tgt.location)
+        aim.location = (g_.x, g_.y, p_.z); flat = math.hypot(g_.x - p_.x, g_.y - p_.y)
+        cam_d.shift_y = -((p_.z - g_.z) / max(flat, 1e-6)) * cam_d.lens / cam_d.sensor_width
+        if len(frames) > 1: aim.keyframe_insert('location', frame=f); cam_d.keyframe_insert('shift_y', frame=f)
+    print('LEVEL_CAMERA shift_y', round(cam_d.shift_y, 3))
+if SHOT == 'B': level_camera()
 # 前景灰尘不在 Blender 里放：EEVEE 试渲里半透明灰尘没被景深虚掉，成了清晰的圆片（用户 11-10 试渲）；整片统一由云端加会漂的 2D 虚化光斑
 
 # ---------- 世界、渲染、合成（空气透视 + 光的辉光） ----------
