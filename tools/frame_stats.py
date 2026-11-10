@@ -33,8 +33,11 @@ def main():
         i = args.index('--crop')
         try: w, h, x, y = map(int, args[i + 1].split(':'))
         except (IndexError, ValueError): sys.exit('--crop 要写成 宽:高:x:y，例如 --crop 640:360:0:20')
+        if w <= 0 or h <= 0 or x < 0 or y < 0: sys.exit('--crop 的宽高要大于 0，x、y 不能为负')
         crop = (x, y, x + w, y + h); del args[i:i + 2]
+        if not args: sys.exit('缺少图片或视频路径')
     src, ts = args[0], args[1:]
+    if not os.path.exists(src): sys.exit(f'找不到文件：{src}')
     items = []
     if src.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
         items.append((src, Image.open(src)))
@@ -43,7 +46,8 @@ def main():
         try:
             for t in ts or ['0']:
                 p = os.path.join(tmp, f'{t}.png')
-                subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-y', '-ss', t, '-i', src, '-frames:v', '1', p], check=True)
+                r = subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-y', '-ss', t, '-i', src, '-frames:v', '1', p])
+                if r.returncode != 0 or not os.path.exists(p): sys.exit(f'抽帧失败：{src} 第 {t} 秒')
                 items.append((f'{src}@{t}s', Image.open(p).copy()))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
