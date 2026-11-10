@@ -156,7 +156,12 @@ def key(o, path, fr, val):
 def dust_near_camera(n, dmin, dmax, size):
     """前景灰尘：挂在相机上（相机本地坐标），离镜头很近、虚成光斑，慢慢漂；画面左右两侧，不压画面中间的关键内容
        （渲染包审核：原来按片尾机位摆，前 1.8 秒全在画外；横向偏移超出视野）"""
-    dm, _ = emit('dust', (1.0, 0.86, 0.66), 0.3)
+    dm = bpy.data.materials.new('dust'); dm.use_nodes = True; Nd = dm.node_tree.nodes; Ld = dm.node_tree.links
+    for x_ in list(Nd): Nd.remove(x_)
+    od = Nd.new('ShaderNodeOutputMaterial'); ed = Nd.new('ShaderNodeEmission'); ed.inputs['Color'].default_value = (1.0, 0.86, 0.66, 1); ed.inputs['Strength'].default_value = 1.2
+    td = Nd.new('ShaderNodeBsdfTransparent'); md = Nd.new('ShaderNodeMixShader'); md.inputs['Fac'].default_value = 0.18     # 半透明的暖色小光斑（复核：像水渍）
+    Ld.new(td.outputs[0], md.inputs[1]); Ld.new(ed.outputs[0], md.inputs[2]); Ld.new(md.outputs[0], od.inputs[0])
+    if hasattr(dm, 'surface_render_method'): dm.surface_render_method = 'BLENDED'
     for i in range(n):
         d = random.uniform(dmin, dmax); x = (-1 if i % 2 else 1) * random.uniform(0.12, 0.22) * d; y = random.uniform(-0.6, 0.6) * d
         s = sphere(f'dust{i}', size * random.uniform(0.6, 1.3), dm, (x, y, -d)); s.parent = cam; s.visible_glossy = False
@@ -187,7 +192,8 @@ if SHOT == 'A':
     bokeh_lights(18, (0, 1060, 820), (1500, 20, 120), 10, [(1.0, 0.78, 0.5), (1.0, 0.88, 0.65)], strength=(2, 5))
     sig_m, _ = emit('signal_A', GOLD, 160.0); sig = sphere('signal', 5.0, sig_m, (0, 0, 0))
     halo_m, _ = emit('signal_halo', GOLD, 6.0); halo = sphere('signal_halo', 14.0, halo_m, (0, 0, 0)); halo.parent = sig
-    sl = bpy.data.lights.new('signal_light', 'POINT'); sl.energy = 3e4; sl.color = GOLD; sl.shadow_soft_size = 5; obj('signal_light', sl).parent = sig
+    sl = bpy.data.lights.new('signal_light', 'POINT'); sl.color = GOLD; sl.shadow_soft_size = 5; obj('signal_light', sl).parent = sig
+    for t, v in ((0.0, 0.0), (1.5, 0.0), (1.6, 3e4)): sl.energy = v; sl.keyframe_insert('energy', frame=F(t))   # 信号出现之前不亮（复核：手机顶上提前多一个亮点）
     top = Vector((math.sin(-ph_rot) * 70, math.cos(-ph_rot) * 70, 9))
     for t, p in ((0.0, top), (1.55, top), (2.0, top + Vector((60, 120, 140))), (2.4, top + Vector((220, 420, 520)))): key(sig, 'location', F(t), p)
     for t, s in ((0.0, 0.0), (1.5, 0.0), (1.6, 1.0)): key(sig, 'scale', F(t), (s, s, s))
@@ -255,8 +261,6 @@ else:
     SIG_PATH = ((0.0, (0, -14, 9.0)), (0.45, (0, -6, 4.0)), (0.9, (0, 0.0, 0.06)), (1.5, (0, 14, 0.06)))
     for t, p in SIG_PATH: key(sig, 'location', F(t), p)
     for t, s in ((0.0, 1.0), (0.9, 1.0), (1.2, 0.35), (1.5, 0.0)): key(sig, 'scale', F(t), (s, s, s))
-    bl = bpy.data.lights.new('band_light', 'AREA'); bl.shape = 'RECTANGLE'; bl.size = 0.6; bl.size_y = 60; bl.energy = 0.0; bl.color = GOLD
-    blo = obj('band_light', bl, None, (0, 30, 0.8)); bl.keyframe_insert('energy', frame=F(0.9)); bl.energy = 250; bl.keyframe_insert('energy', frame=F(1.8))
     SIDE_CAM, SIDE_TGT = (-3.6, 2.6, 0.95), (0.3, 8.0, 0.35)
     # 0–1.0 秒：镜头在信号后上方追着它，信号一直在画面中间；1.0–4.0 秒：降到板面，落到 side 机位（和 y3 的背景是同一个机位）
     for t, p, g in ((0.0, (0, -26, 15.0), (0, -14, 9.0)), (0.45, (-0.3, -18, 8.5), (0, -6, 4.0)), (1.0, (-1.2, -11, 4.0), (0, 1.5, 0.1)),
@@ -285,8 +289,8 @@ if SHOT == 'B' and 'view' in OPT:
     if OPT.get('noband') == '1': bpy.data.objects['signal_band'].hide_render = True
     FRAMES = FRAMES or [60]
 if SHOT == 'B':
-    if 'view' not in OPT: dust_near_camera(3, 0.6, 1.6, 0.03)      # 静帧不放灰尘：2.5D 段由云端加会漂的 2D 灰尘层
-else: dust_near_camera(3, 14, 32, 0.9)
+    if 'view' not in OPT: dust_near_camera(3, 0.6, 1.6, 0.018)      # 静帧不放灰尘：2.5D 段由云端加会漂的 2D 灰尘层
+else: dust_near_camera(3, 14, 32, 0.55)
 
 # ---------- 世界、渲染、合成（空气透视 + 光的辉光） ----------
 wd = bpy.data.worlds.new('w'); sc.world = wd; wd.use_nodes = True; N = wd.node_tree.nodes; L = wd.node_tree.links
@@ -325,7 +329,7 @@ else:
     ng.interface.new_socket('Image', in_out='OUTPUT', socket_type='NodeSocketColor')
     rl = ng.nodes.new('CompositorNodeRLayers'); rl.scene = sc
     gl = ng.nodes.new('CompositorNodeGlare'); ng.links.new(rl.outputs.get('Emit') or rl.outputs.get('Emission'), gl.inputs['Image'])
-    for k, v in (('Type', 'Bloom'), ('Threshold', 0.2), ('Strength', 0.8), ('Size', 0.6), ('Quality', 'High')):
+    for k, v in (('Type', 'Bloom'), ('Threshold', 0.2 if SHOT == 'B' else 1.5), ('Strength', 0.8), ('Size', 0.6), ('Quality', 'High')):   # A 段阈值高：手机屏幕也是自发光，别把字糊掉
         try: gl.inputs[k].default_value = v
         except Exception as e: print('辉光参数跳过', k, e)
     add = ng.nodes.new('ShaderNodeMix'); add.data_type = 'RGBA'; add.blend_type = 'ADD'; add.inputs['Factor'].default_value = 1.0
