@@ -59,7 +59,11 @@ def subtitle_frames(k, im, draw, bgs=None):
     for n, seg in enumerate(SC[k]['sub']):
         fr = (bgs[n] if bgs else im).copy(); d = ImageDraw.Draw(fr); draw(d) if not callable(getattr(draw, 'per', None)) else draw.per(d, n)
         if k != 'y13': route(d)
-        lines = [seg] if d.textlength(seg, font=f(24)) <= W * 0.78 else [seg[:(len(seg) + 1) // 2], seg[(len(seg) + 1) // 2:]]
+        if d.textlength(seg, font=f(24)) <= W * 0.78: lines = [seg]
+        else:
+            cuts = [i + 1 for i, ch in enumerate(seg[:-1]) if ch in '，：；、']
+            c = min(cuts, key=lambda i: abs(i - len(seg) / 2)) if cuts else (len(seg) + 1) // 2
+            lines = [seg[:c], seg[c:]]
         for i, ln in enumerate(lines): text(d, (W // 2, int(H * 0.73) + i * 32), ln, 24, stroke=3)
         text(d, (W - 30, 22), k, 16, fill=(255, 220, 120), stroke=2); outs.append((seg, fr))
     return outs
@@ -112,13 +116,13 @@ im, band7 = bg('B_count_B_long')
 def y7(d):
     tag(d, '姿势 D：惊讶（待生成）')
     ticks(d, band7, col=(40, 40, 40), width=3)                                # 真实的节拍（深色）
-    ticks(d, band7, col=RED, width=3, shift=lambda i: (0.35 * i * i ** 0.5, 0.0))     # 没有鼓点校准：拍子越走越偏
+    ticks(d, band7, col=RED, width=3, shift=lambda i: (1.6 * i * i ** 0.5, 0.0))     # 没有鼓点校准：拍子越走越偏
     text(d, (W // 2, 190), '没有鼓点，拍子跑偏', 26, fill=RED); text(d, (W // 2, 225), '黑 = 真实节拍  红 = 芯片数的拍', 16, stroke=2)
 beat('y7', im, y7)
-im, band8 = bg('B_count_B_normal')
+im, band8 = bg('B_count_B_scr')        # 打乱后：亮暗交替、跳变很密的一段（审核：不能和 y6 同一张）
 def y8(d):
     for p in transitions(band8): d.ellipse([p['x'] - 9, p['yy'] - 9, p['x'] + 9, p['yy'] + 9], outline=GOLD, width=3)
-    text(d, (W // 2, 190), '打乱以后：鼓点一直都在', 24, fill=GOLD); text(d, (W // 2, 225), '到对面：按同样的规则还原 ↺', 20)
+    text(d, (W // 2, 190), '打乱以后：鼓点一直都在', 24, fill=GOLD); text(d, (W // 2, 225), '到对面：按同样的规则还原', 20)
 beat('y8', im, y8)
 im, band9 = bg('B_close_B_normal')
 def y9(d):
