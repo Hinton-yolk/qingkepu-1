@@ -131,8 +131,8 @@ M = dict(
     gold=mat('gold_electrode', (0.95, 0.66, 0.24), 1.0, 0.22, rough_tex=ROUGH, rough_scale=0.02),
     light=mat_light_band(),
     tail=mat_emit('evanescent_tail', CYAN, 0.7, alpha=0.10, aov=True)[0],
-    glass=mat('fiber_glass', (0.55, 0.65, 0.78), 0.0, 0.06, alpha=0.22, coat=0.3),
-    vgroove=mat('v_groove_block', (0.62, 0.64, 0.68), 0.0, 0.25, coat=0.4),         # V 形槽块：浅灰
+    glass=mat('fiber_glass', (0.70, 0.78, 0.88), 0.0, 0.05, alpha=0.18, coat=0.6),
+    vgroove=mat('v_groove_block', (0.16, 0.17, 0.20), 0.5, 0.3, bump=0.05),         # 硅 V 形槽块：深灰金属光泽
     ssc=mat('ssc_block', (0.45, 0.55, 0.75), 0.0, 0.2, alpha=0.35),
     rbc=mat('red_blood_cell', (0.26, 0.05, 0.06), 0.0, 0.5, sss=0.1),
     hair=mat('hair', (0.08, 0.055, 0.045), 0.0, 0.35, coat=0.6, bump=0.3),
@@ -354,8 +354,8 @@ def label(key, text, loc, t_in, t_out, arrow=None, arrow_z=None, frac=LABEL_FRAC
 label('switch', '交换机', (0, FACE_Y - 30000, SW_ZC + 60000), 0.0, 2.2, frac=0.09)
 label('module', '光模块 约 9 cm（含拉环）', (0, MOD_FRONT - 4000, SHELL_Z + 16000), 2.4, 4.8, frac=0.055)
 label('chip', '硅光芯片 约 5 mm（示例）', (0, -400, 900), 5.0, 7.6, arrow=DIE, arrow_z=300, frac=0.06)
-label('fiber', '光纤 125 µm', (-250, EDGE - 250, 260), 7.4, 9.2, arrow=125, arrow_z=90, frac=0.055)
-label('hair', '头发 约 0.07–0.08 mm', (420, EDGE - 700, 120), 7.8, 9.4, frac=0.045)
+label('fiber', '光纤 125 µm', (-250, EDGE - 250, 200), 7.4, 8.6, arrow=125, arrow_z=75, frac=0.05)
+label('hair', '头发 约 0.07–0.08 mm', (150, EDGE - 520, 230), 8.6, 9.6, frac=0.045)   # 和光纤标签错开时间，不叠在一起
 label('rbc', '红细胞 约 7.5 µm', (6.0, FOCUS.y + 5.0, 9.0), 11.8, 14.0, arrow=7.5, arrow_z=5.6, frac=0.055)
 label('wg', '不到 0.5 µm', (0.0, FOCUS.y, 0.55), 16.0, None, arrow=WG_W, arrow_z=WG_H + 0.05, frac=0.07)   # 放在焦平面上，不被景深虚掉
 for name, (o, t_in, t_out, fade) in VIS.items():
