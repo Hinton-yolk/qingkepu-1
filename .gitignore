@@ -16,3 +16,7 @@ episodes/guanghulian/blender_test_scale/assets/perf_hex.png
 episodes/guanghulian/blender_test_scale/assets/rack_holes.png
 episodes/guanghulian/blender_test_scale/assets/floor_tile.png
 episodes/guanghulian/blender_test_scale/assets/rack_leds.png
+episodes/guanghulian/blender_test_scale/render_package_win/assets/*.png
+episodes/guanghulian/blender_test_scale/render_package_win/assets_dl/
+episodes/guanghulian/blender_test_scale/render_package_win/preview/
+episodes/guanghulian/blender_test_scale/render_package_win/output/
