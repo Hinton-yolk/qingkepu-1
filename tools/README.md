@@ -55,3 +55,16 @@ python3 tools/frame_stats.py <图片或视频> [秒 ...] [--crop 宽:高:x:y]
 - 先 `plan` 看分配和估价，`run ... --yes` 才真的租。02 下集的任务表：`episodes/guanghulian/02-serdes/下集_新风格/blender/runpod_jobs.json`（和 Windows 渲染包同一套参数）。
 - API key 不进仓库：云端会话由代理注入 `rest.runpod.io` 的 Authorization 头；自己电脑上用环境变量 `RUNPOD_API_KEY`。
 - 冒烟测试（11-10）：Secure Cloud 上的 RTX 3090（当时 Community Cloud、Secure Cloud 都没有空闲的 4090），每小时 0.5 美元。从建机器到删机器共 1.4 分钟：装环境和 Blender 约 1 分钟，B 段第 60 帧（1080×1920，Cycles 64 采样，含合成节点的辉光和雾）渲了 12.6 秒，花费约 1–2 美分。OptiX、EGL、合成节点在云上都正常。
+
+## flicker_check.py：降噪闪烁检查（2026-11-10）
+Cycles 低采样 + 降噪的序列，在雾、散景、暗部容易出现成团蠕动的低频闪烁。收到渲染后先跑它，再亲眼看放大图。
+
+```bash
+python3 tools/flicker_check.py <视频或 PNG 目录> <输出目录> [--step 1] [--amp 12]
+```
+
+- 做法：相邻三帧用光流对齐到中间帧（相机在动也能比），只看低频（先模糊掉 2 px 以下的细节），量中间帧和前后帧平均值的差；光流对不上的地方（遮挡、运动模糊的亮信号）挡掉不算。
+- 输出：`flicker.json`（整帧中位数、95 分位、暗部、3×6 分区、逐帧）、`heat_mean.jpg`（哪里最闪）、最闪 3 帧的「原帧 | 差 × 放大倍数」对比图。
+- 合成样本试过：干净序列 0.23，加了成团逐帧噪声的 1.58（单位：亮度的 1/255）。
+- 判读门槛（< 0.6 基本看不出，> 1.2 手机上也看得到）是〔建议〕值，没用真实渲染校准过，以亲眼看放大图为准。
+- mp4 压缩会抹掉一部分闪烁，有 PNG 序列时优先测 PNG。依赖：`numpy`、`opencv-python-headless`、`ffmpeg`。
