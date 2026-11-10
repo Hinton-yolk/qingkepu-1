@@ -9,3 +9,5 @@ out/
 node_modules/
 __pycache__/
 .DS_Store
+episodes/guanghulian/blender_test_scale/assets_dl/
+episodes/guanghulian/blender_test_scale/assets/chip_layout.png
