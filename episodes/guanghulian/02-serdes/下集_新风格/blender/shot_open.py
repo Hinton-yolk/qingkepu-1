@@ -3,7 +3,8 @@
 # B 段（y2，约 4 秒）：信号从左下飞进画面（同一运动方向），落进 AI 服务器电路板上的一对差分走线（盖在阻焊下），
 #      镜头贴着板面滑过去，停在纸片立牌主持人（蹲着看）身边。
 # 单位：毫米（scale_length = 0.001，景深按真实光圈算）。
-# 用法：blender -b --python shot_open.py -- <A|B> <输出目录> <宽> <高> <采样> [cycles] [帧号…]
+# 用法：blender -b --python shot_open.py -- <A|B> <输出目录> <宽> <高> <采样> [cycles] [view=… pose=… bits=…] [帧号…]
+#   view=…：B 场景的固定机位静帧，给中间讲解段（2.5D）当背景
 #   云端草稿用 cycles（云端没有 EEVEE 要的 libEGL）；用户电脑上用 EEVEE。
 import bpy, bmesh, math, os, sys, random
 from mathutils import Vector
@@ -11,6 +12,7 @@ from mathutils import Vector
 args = sys.argv[sys.argv.index('--') + 1:]
 SHOT, OUT, W, H, SAMP = args[0], args[1], int(args[2]), int(args[3]), int(args[4]); rest = args[5:]
 CYCLES = 'cycles' in rest; FRAMES = [int(a) for a in rest if a.isdigit()]
+OPT = dict(a.split('=', 1) for a in rest if '=' in a)   # 2.5D 静帧：view=side|rx|wide|close  pose=A|B  bits=偏移
 FPS = 30; DUR = {'A': 2.4, 'B': 4.0}[SHOT]; NF = round(DUR * FPS); F = lambda s: 1 + round(s * FPS)
 HERE = os.path.dirname(os.path.abspath(__file__)); AS = os.path.join(HERE, 'assets'); HDRI = os.path.join(HERE, 'assets_dl', 'studio_small_09_2k.hdr')
 bpy.ops.wm.read_factory_settings(use_empty=True); sc = bpy.context.scene; os.makedirs(OUT, exist_ok=True)
@@ -35,8 +37,8 @@ def img(N, path, cs='sRGB'):
     t = N.new('ShaderNodeTexImage'); t.image = bpy.data.images.load(path, check_existing=True); t.image.colorspace_settings.name = cs; return t
 def mat_wood():
     m = mat('desk_wood', (0.3, 0.17, 0.08), 0.0, 0.42, coat=0.25); N = m.node_tree.nodes; L = m.node_tree.links; b = N['Principled BSDF']
-    tc = N.new('ShaderNodeTexCoord'); mp = N.new('ShaderNodeMapping'); mp.inputs['Scale'].default_value = (0.03, 0.0035, 0.03); L.new(tc.outputs['Object'], mp.inputs[0])
-    wv = N.new('ShaderNodeTexWave'); wv.inputs['Scale'].default_value = 2.5; wv.inputs['Distortion'].default_value = 3; wv.inputs['Detail'].default_value = 4; L.new(mp.outputs[0], wv.inputs[0])
+    tc = N.new('ShaderNodeTexCoord'); mp = N.new('ShaderNodeMapping'); mp.inputs['Scale'].default_value = (0.02, 0.0025, 0.02); L.new(tc.outputs['Object'], mp.inputs[0])
+    wv = N.new('ShaderNodeTexWave'); wv.inputs['Scale'].default_value = 1.6; wv.inputs['Distortion'].default_value = 11; wv.inputs['Detail'].default_value = 6; wv.inputs['Detail Scale'].default_value = 2.0; L.new(mp.outputs[0], wv.inputs[0])
     cr = N.new('ShaderNodeValToRGB'); cr.color_ramp.elements[0].color = (0.26, 0.14, 0.065, 1); cr.color_ramp.elements[1].color = (0.38, 0.22, 0.11, 1)
     L.new(wv.outputs['Fac'], cr.inputs[0]); L.new(cr.outputs[0], b.inputs['Base Color']); return m
 def mat_screen():
@@ -56,13 +58,13 @@ def mat_standee(k):
     return m, t.image.size[:]
 def mat_signal():
     """走线上的信号：按电平画（高 = 亮、低 = 暗），相邻同电平连成一片；比特串贴图沿 y 往芯片方向走"""
-    m, e = emit('signal_band', (1.0, 0.70, 0.25), 1.0); N = m.node_tree.nodes; L = m.node_tree.links
+    m, e = emit('signal_band', (1.0, 0.58, 0.12), 1.0); N = m.node_tree.nodes; L = m.node_tree.links
     tc = N.new('ShaderNodeTexCoord'); sp = N.new('ShaderNodeSeparateXYZ'); L.new(tc.outputs['Object'], sp.inputs[0])
     off = N.new('ShaderNodeValue'); off.name = 'offset'
     u = N.new('ShaderNodeMath'); u.operation = 'MULTIPLY_ADD'; u.inputs[1].default_value = 1 / 80.0; L.new(sp.outputs['Y'], u.inputs[0]); L.new(off.outputs[0], u.inputs[2])
     cm = N.new('ShaderNodeCombineXYZ'); L.new(u.outputs[0], cm.inputs['X']); cm.inputs['Y'].default_value = 0.5
     t = img(N, os.path.join(AS, 'bits.png'), 'Non-Color'); t.interpolation = 'Linear'; L.new(cm.outputs[0], t.inputs[0])
-    st = N.new('ShaderNodeMath'); st.operation = 'MULTIPLY'; st.inputs[1].default_value = 3.2; L.new(t.outputs['Color'], st.inputs[0]); L.new(st.outputs[0], e.inputs['Strength'])
+    st = N.new('ShaderNodeMath'); st.operation = 'MULTIPLY'; st.inputs[1].default_value = 2.4; L.new(t.outputs['Color'], st.inputs[0]); L.new(st.outputs[0], e.inputs['Strength'])
     for fr, v in ((1, 0.0), (NF, -DUR * 0.10)): off.outputs[0].default_value = v; off.outputs[0].keyframe_insert('default_value', frame=fr)
     for fc in (m.node_tree.animation_data.action.fcurves if hasattr(m.node_tree.animation_data.action, 'fcurves') else []):
         for kp in fc.keyframe_points: kp.interpolation = 'LINEAR'
@@ -136,13 +138,14 @@ if SHOT == 'A':
     for i in range(9): box(f'book{i}', 28 + random.uniform(0, 20), 180, random.uniform(150, 230), mat(f'book{i}', random.choice([(0.35, 0.12, 0.08), (0.1, 0.2, 0.3), (0.5, 0.45, 0.35), (0.15, 0.25, 0.15)]), 0, 0.6), (-650 + i * 75, 1000, 480))
     bokeh_lights(18, (0, 1060, 820), (1500, 20, 120), 10, [(1.0, 0.78, 0.5), (1.0, 0.88, 0.65)])
     # 信号：1.6 秒从手机顶端飞出，往右上；2.1 秒起镜头往上甩
-    sig_m, _ = emit('signal_A', (1.0, 0.72, 0.28), 120.0); sig = sphere('signal', 3.5, sig_m, (0, 0, 0))
+    sig_m, _ = emit('signal_A', (1.0, 0.66, 0.2), 160.0); sig = sphere('signal', 5.0, sig_m, (0, 0, 0))
+    halo_m, _ = emit('signal_halo', (1.0, 0.6, 0.15), 6.0); halo = sphere('signal_halo', 14.0, halo_m, (0, 0, 0)); halo.parent = sig
     top = Vector((math.sin(-ph_rot) * 70, math.cos(-ph_rot) * 70, 9))
     for t, p in ((0.0, top), (1.55, top), (2.0, top + Vector((60, 120, 140))), (2.4, top + Vector((220, 420, 520)))): key(sig, 'location', F(t), p)
     for t, s in ((0.0, 0.0), (1.5, 0.0), (1.6, 1.0)): key(sig, 'scale', F(t), (s, s, s))
-    for t, p, g in ((0.0, (8, -215, 105), (0, 8, 6)), (1.7, (5, -180, 90), (0, 14, 6)), (2.05, (12, -170, 100), top + Vector((60, 120, 140))), (2.4, (40, -150, 150), top + Vector((220, 420, 520)))):
+    for t, p, g in ((0.0, (-10, -205, 120), (-6, 4, 6)), (1.6, (-8, -175, 105), (-4, 10, 6)), (2.0, (0, -165, 110), top + Vector((60, 120, 140))), (2.4, (30, -140, 160), top + Vector((220, 420, 520)))):
         key(cam, 'location', F(t), p); key(tgt, 'location', F(t), g)
-    cam_d.lens = 50; cam_d.dof.aperture_fstop = 2.0
+    cam_d.lens = 35; cam_d.dof.aperture_fstop = 2.0; sc.render.motion_blur_shutter = 1.0
     sun = bpy.data.lights.new('key', 'AREA'); sun.energy = 2.5e6; sun.size = 600; sun.color = (1.0, 0.82, 0.62)
     obj('key', sun, None, (-500, -200, 700), (math.radians(40), math.radians(-35), 0))
 else:
@@ -158,7 +161,7 @@ else:
     for i in range(70):
         x = random.choice([-1, 1]) * random.uniform(0.9, 22); y = random.uniform(-25, 55); along = random.random() < 0.5
         caps.append((x, y, 0.25, 1.0 if along else 0.5, 0.5 if along else 1.0, 0.5))
-    boxes('caps_body', [(x, y, z, sx * 0.7 if sx > sy else sx, sy * 0.7 if sy > sx else sy, sz) for x, y, z, sx, sy, sz in caps], mat('mlcc', (0.30, 0.22, 0.13), 0, 0.45))
+    boxes('caps_body', [(x, y, z, sx * 0.7 if sx > sy else sx, sy * 0.7 if sy > sx else sy, sz) for x, y, z, sx, sy, sz in caps], mat('mlcc', (0.20, 0.15, 0.10), 0, 0.35, coat=0.3))
     ends = []
     for x, y, z, sx, sy, sz in caps:
         for sg in (-1, 1): ends.append((x + sg * sx * 0.42, y, z, sx * 0.16, sy, sz * 1.02) if sx > sy else (x, y + sg * sy * 0.42, z, sx, sy * 0.16, sz * 1.02))
@@ -180,7 +183,7 @@ else:
     for i in range(30):
         c = random.choice([(0.3, 1.0, 0.45), (0.45, 0.7, 1.0)]); m_, _ = emit(f'led{i}', c, 25); sphere(f'led{i}', 0.6, m_, (random.uniform(-160, 160), 183, random.uniform(5, 55)))
     plane('signal_band', 0.30, 80, mat_signal(), (0, 20, 0.045))
-    standee('B', 1.8, (-0.75, 5.5, 0.0), math.radians(-25))
+    POSE = OPT.get('pose', 'B'); standee(POSE, 2.2 if POSE == 'A' else 1.8, (-0.75, 5.5, 0.0), math.radians(-25))
     # 信号从左下飞进画面（和 A 段同一运动方向），落进走线
     sig_m, _ = emit('signal_B', (1.0, 0.72, 0.28), 60.0); sig = sphere('signal', 0.25, sig_m, (0, 0, 0))
     for t, p in ((0.0, (-14, -26, 14)), (0.5, (-5, -16, 5)), (0.9, (0, -8, 0.06)), (1.6, (0, 30, 0.06))): key(sig, 'location', F(t), p)
@@ -192,6 +195,21 @@ else:
     obj('key', sun, None, (-80, -40, 120), (math.radians(35), math.radians(-30), 0))
     rim = bpy.data.lights.new('rim', 'AREA'); rim.energy = 6e4; rim.size = 150; rim.color = (0.6, 0.75, 1.0)
     obj('rim', rim, None, (40, 220, 60), (math.radians(-70), 0, math.radians(170)))
+
+VIEWS = {   # 中间讲解段的固定机位（2.5D 背景）：相机位置、看向哪里、焦距、光圈
+    'side': ((-3.6, 2.6, 0.95), (0.3, 8.0, 0.35), 28, 4.0),     # 主持人在左，走线和信号斜着伸向远处的芯片
+    'close': ((-0.55, 10.0, 0.55), (0.05, 16.0, 0.03), 35, 5.6),  # 主持人前方，贴着信号看：跳变、鼓点、打乱
+    'rx': ((-5.0, 47.0, 2.6), (0.0, 61.5, 0.8), 28, 4.0),       # 收货端：走线钻进芯片封装
+    'wide': ((-22.0, -28.0, 22.0), (0.0, 40.0, 2.0), 30, 8.0),  # 拉开：芯片、散热器、很多对走线（讲速度和耗电）
+}
+if SHOT == 'B' and 'view' in OPT:
+    for o in (cam, tgt): o.animation_data_clear()
+    cp, tp, lens, fs = VIEWS[OPT['view']]; cam.location = cp; tgt.location = tp; cam_d.lens = lens; cam_d.dof.aperture_fstop = fs
+    sig.hide_render = True
+    if 'bits' in OPT:
+        n_ = bpy.data.materials['signal_band'].node_tree.nodes['offset']; n_.outputs[0].animation_data_clear() if hasattr(n_.outputs[0], 'animation_data_clear') else None
+        bpy.data.materials['signal_band'].node_tree.animation_data_clear(); n_.outputs[0].default_value = float(OPT['bits'])
+    FRAMES = FRAMES or [60]
 
 # ---------- 世界、渲染 ----------
 wd = bpy.data.worlds.new('w'); sc.world = wd; wd.use_nodes = True; N = wd.node_tree.nodes; L = wd.node_tree.links
@@ -212,4 +230,4 @@ try: sc.view_settings.look = 'AgX - Medium High Contrast'
 except Exception: pass
 sc.render.image_settings.file_format = 'PNG'
 for f in FRAMES or [1]:
-    sc.frame_set(f); sc.render.filepath = os.path.join(OUT, f'{SHOT}_f{f:04d}.png'); bpy.ops.render.render(write_still=True); print('RENDERED', sc.render.filepath)
+    sc.frame_set(f); sc.render.filepath = os.path.join(OUT, (f"{SHOT}_{OPT['view']}_{OPT.get('pose', 'B')}.png" if 'view' in OPT else f'{SHOT}_f{f:04d}.png')); bpy.ops.render.render(write_still=True); print('RENDERED', sc.render.filepath)
