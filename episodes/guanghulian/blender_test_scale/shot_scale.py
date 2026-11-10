@@ -15,7 +15,7 @@ from bpy_extras.object_utils import world_to_camera_view
 args = sys.argv[sys.argv.index('--') + 1:]; OUT, W, H, SAMP = args[0], int(args[1]), int(args[2]), int(args[3]); rest = args[4:]
 GPU = '--gpu' in rest; CYCLES = '--cycles' in rest; VIDEO = '--video' in rest
 FPS = int(rest[rest.index('--fps') + 1]) if '--fps' in rest else 30
-LOOK = rest[rest.index('--look') + 1] if '--look' in rest else 'warm'      # 画面风格：warm（暖金逆光）/ cool（冷调机房）
+LOOK = rest[rest.index('--look') + 1] if '--look' in rest else 'warm2cool'  # 画面风格：warm2cool（用户 11-10 定：机房暖金 → 芯片里冷调）/ warm / cool
 FRAMES = [int(a) for i, a in enumerate(rest) if a.isdigit() and not (i > 0 and rest[i - 1] == '--fps')]
 DUR = 18.0; NF = round(DUR * FPS); F = lambda sec: 1 + round(sec * FPS)
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -157,6 +157,9 @@ M = dict(
     patch=mat('patch_cord_os2_yellow', (0.78, 0.52, 0.03), 0.0, 0.45, coat=0.3),   # 单模跳线常用黄色护套
     phone=mat('phone_body', (0.16, 0.16, 0.18), 0.9, 0.25),
     phone_screen=mat('phone_screen_off', (0.008, 0.008, 0.01), 0.0, 0.06, coat=1.0),
+    phone_back=mat('phone_back_glass', (0.04, 0.08, 0.20), 0.0, 0.32, coat=1.0),
+    lens=mat('camera_lens', (0.004, 0.004, 0.006), 0.0, 0.04, coat=1.0),
+    flash=mat('camera_flash', (0.85, 0.80, 0.62), 0.0, 0.3),
     shelf=mat('shelf', (0.12, 0.13, 0.15), 0.7, 0.45),
     label=mat_emit('label_white', (1.0, 1.0, 1.0), 3.0)[0],
 )
@@ -285,7 +288,7 @@ def rbc_mesh(name, D, m, loc):
     o = bpy.data.objects.new(name, me); o.location = loc; o.data.materials.append(m); return link(o)
 
 # ---------- 尺度时间线（先定义：可见性、标签都要用） ----------
-KEYS = [(0.0, 600000.0), (2.0, 400000.0), (4.5, 120000.0), (7.0, 12000.0), (9.0, 1000.0), (11.5, 100.0), (13.5, 25.0), (16.0, 4.0), (18.0, 3.0)]
+KEYS = [(0.0, 500000.0), (2.0, 400000.0), (4.5, 120000.0), (7.0, 12000.0), (9.0, 1000.0), (11.5, 100.0), (13.5, 25.0), (16.0, 4.0), (18.0, 3.0)]
 def log_width(t):
     for (t0, w0), (t1, w1) in zip(KEYS, KEYS[1:]):
         if t0 <= t <= t1:
@@ -497,8 +500,14 @@ SHELF_X0, SHELF_X1 = -200000.0, -14000.0
 shelf = box('shelf_empty_u', (SHELF_X0 + SHELF_X1) / 2, FACE_Y + 40000, SW_ZC + U / 2 + 1500, SHELF_X1 - SHELF_X0, 80000, 2000, M['shelf'], bev=0.05)
 PHONE = Vector((SHELF_X1 - 4000 - 75000, FACE_Y + 40000, SW_ZC + U / 2 + 2500 + 4000))
 phone = rounded_slab('phone', PHONE.x, PHONE.y, PHONE.z, 150000, 71000, 7600, 9500, M['phone_frame'], edge_bev=1200)
-phone_scr = rounded_slab('phone_screen', PHONE.x, PHONE.y, PHONE.z + 3600, 149000, 70000, 600, 9000, M['phone_screen'])
-phone_cam = cyl('phone_front_camera', 1600, 200, M['rj45'], (PHONE.x + 75000 - 9000, PHONE.y, PHONE.z + 3950), verts=24)
+# 背面朝上：深蓝背板 + 角上一个凸起的摄像头模组（两颗镜头 + 闪光灯），斜着看也认得出是手机
+phone_scr = rounded_slab('phone_back', PHONE.x, PHONE.y, PHONE.z + 3600, 149000, 70000, 600, 9000, M['phone_back'])
+CI = Vector((PHONE.x + 75000 - 24000, PHONE.y - 35500 + 21000, PHONE.z + 3900 + 750))
+phone_cam = [rounded_slab('phone_camera_island', CI.x, CI.y, CI.z, 34000, 34000, 1500, 7000, M['phone_back'], edge_bev=500)]
+for k, (dx, dy) in enumerate(((-7500, 7500), (-7500, -7500))):
+    phone_cam.append(cyl(f'phone_lens_ring_{k}', 6400, 1600, M['phone_frame'], (CI.x + dx, CI.y + dy, CI.z + 700), verts=40))
+    phone_cam.append(cyl(f'phone_lens_{k}', 4800, 400, M['lens'], (CI.x + dx, CI.y + dy, CI.z + 1400), verts=40))
+phone_cam.append(cyl('phone_flash', 2200, 300, M['flash'], (CI.x + 8000, CI.y + 7500, CI.z + 800), verts=24))
 phone_btn = boxes('phone_buttons', [(PHONE.x + 30000 + k * 16000, PHONE.y + 35500 + 500, PHONE.z, 12000 if k else 7000, 1000, 2600, 0) for k in range(2)], [M['phone_frame']], bev=300)
 
 # ---------- 机房环境：交换机在一台开放式机架的顶部，左右是闭合机柜，身后一排排机柜伸向远处 ----------
@@ -519,7 +528,7 @@ def mat_floor():
     m.node_tree.nodes['Principled BSDF'].inputs['Coat Weight'].default_value = 0.4; return m
 M.update(rack_front=mat_rack_front('rack_front_door'), floor=mat_floor(),
          tray=mat('fiber_tray_yellow', (0.80, 0.55, 0.04), 0.0, 0.45),
-         ceil_light=mat_emit('ceiling_light', (1.0, 0.92, 0.80) if LOOK == 'warm' else (0.85, 0.93, 1.0), 12.0)[0])
+         ceil_light=mat_emit('ceiling_light', (0.85, 0.93, 1.0) if LOOK == 'cool' else (1.0, 0.92, 0.80), 12.0)[0])
 for k in ('ceil_light', 'led'):                       # 环境里的灯也进「环境辉光」遮罩（和光带的辉光分开）
     nt = M[k].node_tree; ao = nt.nodes.new('ShaderNodeOutputAOV'); ao.aov_name = 'envglow'; ao.inputs['Value'].default_value = 1.0
 MM = 1000.0
@@ -561,7 +570,7 @@ appear(wgs + bands + tails, WG_W * 3, 1.0)           # 单根波导太细时，�
 appear(sscs + ssc_bands, 8.0, 1.5); appear(electrodes, 10.0, 1.5)
 vis(fibers + cores, None, 11.0, 0.5); vis([hair], 7.0, 9.8, 0.4); vis([vg], None, 10.6, 0.5)
 vis([clad], 8.0, None, 1.0); vis([rbc], 11.2, 14.8, 0.4)
-vis([phone, phone_scr, phone_cam, phone_btn, shelf], None, 4.6, 0.4)
+vis([phone, phone_scr, phone_btn, shelf] + phone_cam, None, 4.6, 0.4)
 # 面板、上盖、跳线、机柜、机箱里远处的东西：相机穿过面板前淡出
 vis(sw + inside + leds + [mgmt, rings, plugs] + others + cords, None, 4.3, 0.6)
 vis([our_cage], None, 3.9, 0.6)                      # 我们这一格的笼子先透明化，露出模块
@@ -595,7 +604,7 @@ def label(key, text, loc, t_in, t_out, arrow=None, arrow_z=None, frac=LABEL_FRAC
         vis(parts[1:], t_in if t_in > 0 else None, t_out, 0.6)
     labels[key] = o; return parts
 label('switch', '交换机', (0, FACE_Y - 30000, SW_ZC + 60000), 0.0, 2.2, frac=0.09)
-label('module', '光模块 约 9 cm（含拉环）', (0, MOD_FRONT - 4000, SHELL_Z + 16000), 2.4, 4.8, frac=0.055)
+label('module', '光模块 约 9 cm（含拉环）', (16000, MOD_FRONT - 4000, SHELL_Z + 16000), 2.4, 4.8, frac=0.055)   # 往右挪：手机在左边
 label('chip', '硅光芯片 约 5 mm（示例）', (0, -400, 900), 5.0, 7.6, arrow=DIE, arrow_z=300, frac=0.06)
 label('fiber', '光纤 125 µm', (-250, EDGE - 250, 200), 7.4, 8.6, arrow=125, arrow_z=75, frac=0.05, crumb=False)   # 和头发标签同一位置附近，不留
 label('hair', '头发 约 0.07–0.08 mm', (150, EDGE - 520, 230), 8.6, 9.6, frac=0.045, crumb=False)   # 和光纤标签错开时间，不叠在一起
@@ -656,13 +665,21 @@ k2 = DIST ** 2
 LOOKS = dict(
     warm=dict(back=(1.0, 0.62, 0.30), fill=(0.55, 0.66, 0.90), top=(1.0, 0.85, 0.65), haze=(0.36, 0.19, 0.07), dust=(1.0, 0.82, 0.55)),
     cool=dict(back=(0.75, 0.88, 1.0), fill=(0.40, 0.65, 1.00), top=(0.80, 0.90, 1.00), haze=(0.03, 0.12, 0.20), dust=(0.80, 0.92, 1.0)))
-LK = LOOKS[LOOK]
-area('back', (DIST * 1.3, DIST * 1.1, DIST * 2.1), 140 * k2, DIST * 1.2, LK['back'])
-area('fill', (-DIST * 1.1, -DIST * 1.0, DIST * 0.5), 22 * k2, DIST * 1.6, LK['fill'])
-area('top', (-DIST * 0.3, DIST * 0.2, DIST * 2.2), 18 * k2, DIST * 2.0, LK['top'])
+LK = LOOKS['cool' if LOOK == 'cool' else 'warm']
+# 从暖到冷：机房、交换机段（0–4.5 秒）暖金，推进模块到芯片边缘（4.5–8 秒）过渡，芯片里（8 秒起）冷调
+LOOK_KEYS = [(0.0, 0.0), (4.5, 0.0), (8.0, 1.0)] if LOOK == 'warm2cool' else [(0.0, 1.0 if LOOK == 'cool' else 0.0)]
+def look_val(key, w): return tuple(a + (b - a) * w for a, b in zip(LOOKS['warm'][key], LOOKS['cool'][key]))
+def look_anim(owner, prop, key, rgba=False):
+    for t, w in LOOK_KEYS:
+        v = look_val(key, w); setattr(owner, prop, (*v, 1) if rgba else v); owner.keyframe_insert(prop, frame=F(t))
+lights = {n: area(n, loc, e * k2, sz * DIST, LK[n]) for n, loc, e, sz in (('back', (DIST * 1.3, DIST * 1.1, DIST * 2.1), 140, 1.2),
+          ('fill', (-DIST * 1.1, -DIST * 1.0, DIST * 0.5), 22, 1.6), ('top', (-DIST * 0.3, DIST * 0.2, DIST * 2.2), 18, 2.0))}
+for n, o in lights.items(): look_anim(o.data, 'color', n)
+for t, e in ((0.0, 40), (4.5, 40), (8.0, 22)):        # 硬件段补光亮一些（交换机原来偏暗）
+    lights['fill'].data.energy = e * k2; lights['fill'].data.keyframe_insert('energy', frame=F(t))
 # 前景灰尘（用户 2026-11-10：「这种前景灰尘是很有必要的」）：挂在相机上，离镜头很近、虚成光斑，慢慢漂；
 # 在相机空间里，所以每个尺度看起来都一样。数量少，不做粒子特效
-vfov = 2 * math.atan(12 / 35); rd = random.Random(5); dust_m = mat_emit('dust', LK['dust'], 0.5, alpha=0.18)[0]; dust = []
+vfov = 2 * math.atan(12 / 35); rd = random.Random(5); dust_m, dust_e = mat_emit('dust', LK['dust'], 0.5, alpha=0.18); look_anim(dust_e.inputs['Color'], 'default_value', 'dust', rgba=True); dust = []
 for k in range(28):
     d = DIST * rd.uniform(0.18, 0.7); x = rd.uniform(-1, 1) * d * math.tan(hfov / 2) * 1.1; y = rd.uniform(-1, 1) * d * math.tan(vfov / 2) * 1.1
     bm = bmesh.new(); bmesh.ops.create_icosphere(bm, subdivisions=2, radius=DIST * rd.uniform(0.0006, 0.0022)); me = bpy.data.meshes.new('dust'); bm.to_mesh(me); bm.free()
@@ -674,7 +691,7 @@ for k in range(28):
 wd = bpy.data.worlds.new('w'); sc.world = wd; wd.use_nodes = True; N = wd.node_tree.nodes; L = wd.node_tree.links
 for n in list(N): N.remove(n)
 out = N.new('ShaderNodeOutputWorld'); bg_hdr = N.new('ShaderNodeBackground'); bg_col = N.new('ShaderNodeBackground'); mx = N.new('ShaderNodeMixShader'); lp = N.new('ShaderNodeLightPath')
-bg_col.inputs['Color'].default_value = (*LK['haze'], 1); bg_hdr.inputs['Strength'].default_value = 0.35
+look_anim(bg_col.inputs['Color'], 'default_value', 'haze', rgba=True); bg_hdr.inputs['Strength'].default_value = 0.35
 if os.path.exists(HDRI):
     env = N.new('ShaderNodeTexEnvironment'); env.image = bpy.data.images.load(HDRI, check_existing=True); L.new(env.outputs['Color'], bg_hdr.inputs['Color'])
 else:
@@ -735,7 +752,7 @@ try:
     # 空气透视：按雾层把远处混成雾的颜色（每个尺度都一样，参考片 A 越远越亮越淡）
     hz = ng.nodes.new('ShaderNodeMath'); hz.operation = 'MULTIPLY'; hz.inputs[1].default_value = 0.7; ng.links.new(rl.outputs['Mist'], hz.inputs[0])
     fog = ng.nodes.new('ShaderNodeMix'); fog.data_type = 'RGBA'; fog.blend_type = 'MIX'; ng.links.new(hz.outputs[0], fog.inputs['Factor'])
-    ng.links.new(add2.outputs['Result'], fog.inputs['A']); fog.inputs['B'].default_value = (*LK['haze'], 1)
+    ng.links.new(add2.outputs['Result'], fog.inputs['A']); look_anim(fog.inputs['B'], 'default_value', 'haze', rgba=True)
     go = ng.nodes.new('NodeGroupOutput'); ng.links.new(fog.outputs['Result'], go.inputs[0])
     print('COMPOSITOR 辉光 + 空气透视已接上')
 except Exception as e: print('COMPOSITOR 跳过：', e)
