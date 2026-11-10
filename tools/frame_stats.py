@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""测画面亮度和色度（「3D 镜头语法」第 9、10 条用）。
+"""测画面亮度和色度（「3D 镜头语法」里「微观世界的样子」「工序台的样子」两条用）。
 
 用法：
   python3 tools/frame_stats.py <图片或视频> [秒 ...] [--crop 宽:高:x:y]
@@ -9,7 +9,7 @@
   - 平均亮度（Rec.709，0–1）、5% / 95% 分位亮度；
   - 平均色度 C = max(R,G,B) − min(R,G,B)（0–1）。规则里的阈值用这个；
     它不会像 HSV 的 S 那样在暗像素上被放大（近黑的深蓝 S 很高，C 很低）；
-  - 参考：亮部（V > 0.2）的 HSV 饱和度；
+  - 仅作参考：V > 0.2 的像素的 HSV 饱和度（V 不是亮度，深蓝也可能算进去）；
   - 5 个主色。
 """
 import sys, os, subprocess, tempfile, shutil
@@ -30,7 +30,10 @@ def main():
         print(__doc__); sys.exit(0 if args else 1)
     crop = None
     if '--crop' in args:
-        i = args.index('--crop'); w, h, x, y = map(int, args[i + 1].split(':')); crop = (x, y, x + w, y + h); del args[i:i + 2]
+        i = args.index('--crop')
+        try: w, h, x, y = map(int, args[i + 1].split(':'))
+        except (IndexError, ValueError): sys.exit('--crop 要写成 宽:高:x:y，例如 --crop 640:360:0:20')
+        crop = (x, y, x + w, y + h); del args[i:i + 2]
     src, ts = args[0], args[1:]
     items = []
     if src.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
@@ -45,9 +48,12 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     for name, im in items:
-        if crop: im = im.crop(crop)
+        if crop:
+            if crop[0] < 0 or crop[1] < 0 or crop[2] > im.width or crop[3] > im.height:
+                sys.exit(f'裁剪框 {crop} 超出画面 {im.width}×{im.height}')
+            im = im.crop(crop)
         m, lo, hi, c, sb, cols = stats(im)
-        print(f'{name}  平均亮度 {m:.2f}  暗部5% {lo:.2f}  亮部95% {hi:.2f}  平均色度 {c:.2f}  亮部饱和度 {sb:.2f}  主色 {cols}')
+        print(f'{name}  平均亮度 {m:.2f}  暗部5% {lo:.2f}  亮部95% {hi:.2f}  平均色度 {c:.2f}  V>0.2 像素的饱和度（仅参考） {sb:.2f}  主色 {cols}')
 
 if __name__ == '__main__':
     main()

@@ -37,7 +37,7 @@ python3 tools/gemini_watch.py "<YouTube 链接或本地视频文件>" -q "问题
 - Gemini 的回答是它对视频的描述，**不是核实过的事实**；要引用进脚本或 FACTS.md 的数字，先对照原视频。
 
 ## frame_stats.py：画面亮度和色度
-「3D 镜头语法」第 9、10 条的色度阈值用它测。
+「3D 镜头语法」里「微观世界的样子」「工序台的样子」两条的色度阈值用它测。
 
 ```bash
 python3 tools/frame_stats.py <图片或视频> [秒 ...] [--crop 宽:高:x:y]
