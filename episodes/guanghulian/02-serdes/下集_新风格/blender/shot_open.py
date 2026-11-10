@@ -78,7 +78,7 @@ def mat_signal(tex):
     for n in list(N): N.remove(n)
     o = N.new('ShaderNodeOutputMaterial'); e = N.new('ShaderNodeEmission'); e.inputs['Color'].default_value = (*GOLD, 1)
     tr = N.new('ShaderNodeBsdfTransparent'); mx = N.new('ShaderNodeMixShader')
-    tc = N.new('ShaderNodeTexCoord'); sp = N.new('ShaderNodeSeparateXYZ'); L.new(tc.outputs['Object'], sp.inputs[0])
+    geo = N.new('ShaderNodeNewGeometry'); sp = N.new('ShaderNodeSeparateXYZ'); L.new(geo.outputs['Position'], sp.inputs[0])   # 世界坐标（审核：和导出的位边界对齐）
     off = N.new('ShaderNodeValue'); off.name = 'offset'
     u = N.new('ShaderNodeMath'); u.operation = 'MULTIPLY_ADD'; u.inputs[1].default_value = 1 / (NB * BIT); L.new(sp.outputs['Y'], u.inputs[0]); L.new(off.outputs[0], u.inputs[2])
     cm = N.new('ShaderNodeCombineXYZ'); L.new(u.outputs[0], cm.inputs['X']); cm.inputs['Y'].default_value = 0.5
@@ -137,16 +137,18 @@ def standee(k, height, loc, yaw):
 def bokeh_lights(n, center, spread, size, cols, strength=(4, 12)):
     for i in range(n):
         c = random.choice(cols); m, _ = emit(f'bk{i}', c, random.uniform(*strength))
-        sphere(f'bk{i}', size * random.uniform(0.6, 1.4), m, (center[0] + random.uniform(-spread[0], spread[0]), center[1] + random.uniform(-spread[1], spread[1]), center[2] + random.uniform(-spread[2], spread[2])))
+        o_ = sphere(f'bk{i}', size * random.uniform(0.6, 1.4), m, (center[0] + random.uniform(-spread[0], spread[0]), center[1] + random.uniform(-spread[1], spread[1]), center[2] + random.uniform(-spread[2], spread[2])))
+        o_.visible_glossy = False          # 背景灯只当虚化背景，不在手机玻璃上反光（审核：白点压字）
 def key(o, path, fr, val):
     setattr(o, path, val); o.keyframe_insert(path, frame=fr)
 def dust_near_camera(n, dmin, dmax, size):
     """前景灰尘：离镜头很近、虚成光斑，慢慢漂（审核：前景灰尘是必要的；数量少、很虚）"""
-    dm, _ = emit('dust', (1.0, 0.9, 0.75), 0.3)
+    dm, _ = emit('dust', (1.0, 0.9, 0.75), 0.12)  # 灰尘不进反射
+    _dust_objs = []
     cam_mat = cam.matrix_world.copy()
     for i in range(n):
-        d = random.uniform(dmin, dmax); x = random.uniform(-0.55, 0.55) * d; y = random.uniform(-0.9, 0.9) * d
-        p = cam_mat @ Vector((x, y, -d)); s = sphere(f'dust{i}', size * random.uniform(0.5, 1.3), dm, p)
+        d = random.uniform(dmin, dmax); x = random.choice([-1, 1]) * random.uniform(0.30, 0.5) * d; y = random.uniform(-0.85, 0.85) * d
+        p = cam_mat @ Vector((x, y, -d)); s = sphere(f'dust{i}', size * random.uniform(0.5, 1.3), dm, p); s.visible_glossy = False
         drift = Vector((random.uniform(-1, 1), random.uniform(-1, 1), random.uniform(-0.5, 1))) * d * 0.04
         key(s, 'location', 1, p); key(s, 'location', NF, p + drift); lin(s)
 
@@ -210,7 +212,7 @@ else:
     box('lid', 46, 46, 2.6, lid_m, (0, 92, 2.9), bev=0.6)
     if XR:      # y10：顶盖半透明，露出裸片和靠走线那一边的收发电路（示意）
         box('die', 26, 26, 0.8, mat('die', (0.12, 0.13, 0.16), 0.3, 0.3), (0, 92, 2.0))
-        sd_m, _ = emit('serdes_blocks', GOLD, 4.0)
+        sd_m, _ = emit('serdes_blocks', (0.55, 0.85, 1.0), 4.0)
         boxes('serdes', [(-10.5 + k * 3.0, 80.2, 2.45, 2.4, 1.6, 0.06) for k in range(8)], sd_m)
     else:
         box('hs_base', 46, 46, 3.0, mat('fin', (0.8, 0.8, 0.82), 1.0, 0.28), (0, 92, 5.7))
@@ -261,8 +263,8 @@ if SHOT == 'B' and 'view' in OPT:
     nt = bpy.data.materials['signal_band'].node_tree; nt.animation_data_clear(); nt.nodes['offset'].outputs[0].default_value = float(OPT.get('off', 0)) / NB
     FRAMES = FRAMES or [60]
 bpy.context.view_layer.update()
-if SHOT == 'B': dust_near_camera(14, 0.25, 1.4, 0.006) if 'view' in OPT else None
-else: dust_near_camera(14, 15, 60, 0.35)
+if SHOT == 'B': dust_near_camera(3, 0.3, 0.9, 0.02) if 'view' in OPT else None
+else: dust_near_camera(3, 12, 30, 0.9)
 
 # ---------- 世界、渲染、合成（空气透视 + 光的辉光） ----------
 wd = bpy.data.worlds.new('w'); sc.world = wd; wd.use_nodes = True; N = wd.node_tree.nodes; L = wd.node_tree.links

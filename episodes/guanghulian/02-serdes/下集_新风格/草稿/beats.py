@@ -37,7 +37,9 @@ def ticks(d, band, col=WHITE, every=1, scale=1.0, shift=None, width=3):
         if i % every: continue
         q = pts[min(i + 1, len(pts) - 1)] if i + 1 < len(pts) else pts[max(i - 1, 0)]
         sp = ((q['x'] - p['x']) ** 2 + (q['yy'] - p['yy']) ** 2) ** 0.5   # 相邻两位在画面上的距离：越远越短（跟着透视）
-        nx, ny = norm(p); L = max(3, min(22, sp * 0.9)) * scale
+        tx, ty = (q['x'] - p['x']), (q['yy'] - p['yy']); tl = max(1e-6, (tx * tx + ty * ty) ** 0.5)
+        nx, ny = -ty / tl, tx / tl                                       # 垂直于光带在画面上的走向（审核：刻度要垂直于光带）
+        L = max(3, min(22, sp * 0.9)) * scale
         x, y = p['x'], p['yy']
         if shift: x, y = x + shift(i)[0], y + shift(i)[1]
         d.line([(x - nx * L, y - ny * L), (x + nx * L, y + ny * L)], fill=col, width=width)
@@ -51,21 +53,23 @@ def runs(band, n=5):
         if pts[i]['bit'] == 1 and j - i + 1 == n: out.append(pts[i:j + 2] if j + 1 < len(pts) else pts[i:j + 1])
         i = j + 1
     return out
-def subtitle_frames(k, im, draw):
-    """一句拆成原稿的字幕分段，每段一帧（一次一行，y ≈ 1400/1920）"""
+def subtitle_frames(k, im, draw, bgs=None):
+    """一句拆成原稿的字幕分段，每段一帧（一次一段，y ≈ 1400/1920；放不下就折两行，不越过 0.84W）；bgs：每段单独的背景"""
     outs = []
-    for seg in SC[k]['sub']:
-        fr = im.copy(); d = ImageDraw.Draw(fr); draw(d); route(d)
-        text(d, (W // 2, int(H * 0.73)), seg, 25 if len(seg) <= 18 else 22, stroke=3); text(d, (W - 30, 22), k, 16, fill=(255, 220, 120), stroke=2)
-        outs.append((seg, fr))
+    for n, seg in enumerate(SC[k]['sub']):
+        fr = (bgs[n] if bgs else im).copy(); d = ImageDraw.Draw(fr); draw(d) if not callable(getattr(draw, 'per', None)) else draw.per(d, n)
+        if k != 'y13': route(d)
+        lines = [seg] if d.textlength(seg, font=f(24)) <= W * 0.78 else [seg[:(len(seg) + 1) // 2], seg[(len(seg) + 1) // 2:]]
+        for i, ln in enumerate(lines): text(d, (W // 2, int(H * 0.73) + i * 32), ln, 24, stroke=3)
+        text(d, (W - 30, 22), k, 16, fill=(255, 220, 120), stroke=2); outs.append((seg, fr))
     return outs
 BEATS = []
-def beat(k, im, draw): BEATS.append((k, subtitle_frames(k, im, draw)))
+def beat(k, im, draw, bgs=None): BEATS.append((k, subtitle_frames(k, im, draw, bgs)))
 
 im, _ = bg('A_f0040')
 beat('y1', im, lambda d: (text(d, (W // 2, 205), '芯片是怎么数清', 44), text(d, (W // 2, 258), '0 和 1 的？', 44, fill=GOLD)))
 im, _ = bg('B_f0110')
-beat('y2', im, lambda d: (text(d, (W // 2, 190), '机房 · AI 服务器主板', 22), text(d, (W // 2, 640), '示意：金色光带 = 两根线之间的电压差，亮 = 1、暗 = 0', 14, fill=GOLD, stroke=2)))
+beat('y2', im, lambda d: (text(d, (W // 2, 190), '机房 · AI 服务器主板', 22), text(d, (W // 2, 630), '示意：金色光带 = 两线间电压差（亮 1 暗 0）', 19, fill=GOLD, stroke=3)))
 im, band3 = bg('B_side_A_normal')
 def y3(d):
     hx, hy = band3['host_head']; hx *= W / band3['W']; hy *= H / band3['H']
@@ -79,14 +83,14 @@ im, band4 = bg('B_side_B_normal')
 def y4(d):
     ticks(d, band4, col=WHITE); pts = [p for p in band4['pts'] if on_screen(p)]
     if pts:                                          # 「时钟线」：走线旁边虚线画一对，被划掉
-        a, b = pts[0], pts[-1]; nx, ny = norm(a); o = 36
+        a, b = pts[0], pts[-1]; nx, ny = norm(a); o = 70
         for t in range(0, 20, 2):
             x0 = a['x'] + (b['x'] - a['x']) * t / 20 + nx * o; y0 = a['yy'] + (b['yy'] - a['yy']) * t / 20 + ny * o
             x1 = a['x'] + (b['x'] - a['x']) * (t + 1) / 20 + nx * o; y1 = a['yy'] + (b['yy'] - a['yy']) * (t + 1) / 20 + ny * o
-            d.line([(x0, y0), (x1, y1)], fill=GREY, width=3)
+            for dd in (-5, 5): d.line([(x0, y0 + dd), (x1, y1 + dd)], fill=(230, 230, 230), width=3)
         mx_, my_ = (a['x'] + b['x']) / 2 + nx * o, (a['yy'] + b['yy']) / 2 + ny * o
         d.line([(mx_ - 18, my_ - 18), (mx_ + 18, my_ + 18)], fill=RED, width=5); d.line([(mx_ - 18, my_ + 18), (mx_ + 18, my_ - 18)], fill=RED, width=5)
-        text(d, (W // 2, 560), '不另外送节拍器（时钟线）', 20)
+        text(d, (mx_ - 10, my_ + 40), '时钟线：不另外送', 20)
     text(d, (W // 2, 190), '每一位占的时间 = 一拍', 22)
 beat('y4', im, y4)
 im, band5 = bg('B_side_B_normal')
@@ -107,9 +111,9 @@ beat('y6', im, y6)
 im, band7 = bg('B_count_B_long')
 def y7(d):
     tag(d, '姿势 D：惊讶（待生成）')
-    ticks(d, band7, col=GREY, width=2)                                       # 真实的节拍
+    ticks(d, band7, col=(40, 40, 40), width=3)                                # 真实的节拍（深色）
     ticks(d, band7, col=RED, width=3, shift=lambda i: (0.35 * i * i ** 0.5, 0.0))     # 没有鼓点校准：拍子越走越偏
-    text(d, (W // 2, 190), '没有鼓点，拍子跑偏', 26, fill=RED); text(d, (W // 2, 225), '灰 = 真实节拍  红 = 芯片数的拍', 16, stroke=2)
+    text(d, (W // 2, 190), '没有鼓点，拍子跑偏', 26, fill=RED); text(d, (W // 2, 225), '黑 = 真实节拍  红 = 芯片数的拍', 16, stroke=2)
 beat('y7', im, y7)
 im, band8 = bg('B_count_B_normal')
 def y8(d):
@@ -119,20 +123,20 @@ beat('y8', im, y8)
 im, band9 = bg('B_close_B_normal')
 def y9(d):
     pts = [p for p in band9['pts'] if on_screen(p)]
-    if len(pts) > 6:                                  # 同一段走线上，每一代一拍的长度减半（1 : 2 : 4）
-        a, b = pts[0], pts[4]
-        for row, (lab, sub) in enumerate((('1×', 1), ('2×', 2), ('4×', 4))):
-            o = -30 + row * 30; nx, ny = norm(a)
-            for t in range(4 * sub + 1):
-                x = a['x'] + (b['x'] - a['x']) * t / (4 * sub) + nx * o * 2.2; y = a['yy'] + (b['yy'] - a['yy']) * t / (4 * sub) + ny * o * 2.2
-                d.line([(x - 6, y - 6), (x + 6, y + 6)], fill=GOLD, width=2)
-            text(d, (a['x'] + nx * o * 2.2 - 30, a['yy'] + ny * o * 2.2), lab, 18, fill=GOLD, stroke=2)
+    for row, (lab, n) in enumerate((('1×', 4), ('2×', 8), ('4×', 16))):   # 同样长的一段线上，一拍的格子依次减半（1 : 2 : 4）
+        y0 = 250 + row * 52; x0, x1 = 110, 430
+        d.rectangle([x0, y0, x1, y0 + 26], outline=WHITE, width=2)
+        for t in range(n):
+            if t % 2 == 0: d.rectangle([x0 + (x1 - x0) * t / n, y0 + 2, x0 + (x1 - x0) * (t + 1) / n, y0 + 24], fill=GOLD)
+        text(d, (x0 - 34, y0 + 13), lab, 20, fill=GOLD, stroke=3)
     text(d, (W // 2, 190), '速度翻倍：一拍的时间减半', 22)
 beat('y9', im, y9)
-im, _ = bg('B_rx_B_normal_xray')
-def y10(d):
-    text(d, (W // 2, 190), '修信号的电路（示意）', 24, fill=GOLD); text(d, (W // 2, 225), '要耗电、占面积', 20)
-beat('y10', im, y10)
+im, _ = bg('B_rx_B_normal_xray'); imb, _ = bg('B_close_B_blur')
+class Y10:
+    def per(self, d, n):
+        if n == 0: text(d, (W // 2, 190), '越快，越糊', 28, fill=GOLD)
+        else: text(d, (W // 2, 190), '修信号的电路（示意）', 24, fill=(140, 210, 255)); text(d, (W // 2, 225), '要耗电、占面积 · 散热器已移开（示意）', 18)
+beat('y10', im, Y10(), bgs=[imb] + [im] * (len(SC['y10']['sub']) - 1))
 im, _ = bg('B_wide_B_normal')
 def y11(d):
     for x0, lab, lvl, col in ((300, '速度', 0.85, WHITE), (400, '每个比特的耗电', 0.35, GOLD)):
