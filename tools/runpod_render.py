@@ -29,6 +29,7 @@ KEY = os.environ.get('RUNPOD_API_KEY', 'proxy-injected')
 BLENDER_URL = 'https://download.blender.org/release/Blender5.2/blender-5.2.3-linux-x64.tar.xz'
 IMAGE = 'python:3.11-slim-bookworm'
 PREFIX = 'kepu-'
+UA = 'render-client/1.0'          # Cloudflare 会拦 Python 默认的 User-Agent（error code 1010）
 STATE = os.path.join(REPO, 'out', 'runpod_state.json')
 
 # ---------- pod 上跑的东西 ----------
@@ -103,7 +104,7 @@ sleep infinity
 # ---------- 本地 ----------
 def api(method, path, body=None):
     req = urllib.request.Request(API + path, method=method, data=json.dumps(body).encode() if body is not None else None,
-                                 headers={'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json'})
+                                 headers={'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json', 'User-Agent': UA})
     try:
         with urllib.request.urlopen(req, timeout=60) as r:
             t = r.read(); return json.loads(t) if t else {}
@@ -111,7 +112,7 @@ def api(method, path, body=None):
         raise SystemExit(f'RunPod API {method} {path} → {e.code}: {e.read().decode()[:500]}')
 
 def pod_http(pid, token, method, path, data=None, timeout=90):
-    req = urllib.request.Request(f'https://{pid}-8000.proxy.runpod.net{path}', method=method, data=data, headers={'X-Token': token})
+    req = urllib.request.Request(f'https://{pid}-8000.proxy.runpod.net{path}', method=method, data=data, headers={'X-Token': token, 'User-Agent': UA})
     with urllib.request.urlopen(req, timeout=timeout) as r: return r.read()
 
 def split(tasks, n):
@@ -152,7 +153,7 @@ def main():
         for p in api('GET', '/pods'):
             if str(p.get('name', '')).startswith(PREFIX): api('DELETE', f"/pods/{p['id']}"); print('已删', p['id'], p.get('name'))
         return
-    J = load_jobs(a[1]); n = int(opt('--pods', 4)); gpu = opt('--gpu', 'NVIDIA GeForce RTX 4090')
+    J = load_jobs(a[1]); n = int(opt('--pods', 4)); gpu = opt('--gpu', 'NVIDIA GeForce RTX 4090,NVIDIA GeForce RTX 5090,NVIDIA GeForce RTX 3090,NVIDIA L40S,NVIDIA RTX 6000 Ada Generation')
     cloud = opt('--cloud', 'COMMUNITY'); max_h = float(opt('--max-hours', 2)); price = float(opt('--price', 0.40))
     bins = plan(J, n, price)
     if cmd == 'plan': return
@@ -164,14 +165,17 @@ def main():
         for i, (_, ts) in enumerate(bins):
             token = secrets.token_urlsafe(24)
             lines = '\n'.join(' '.join(x.replace('{out}', '/w/out') for x in t['args']) for t in ts) + '\n'
-            body = dict(name=f'{PREFIX}{i}', imageName=IMAGE, gpuTypeIds=[gpu], gpuCount=1, cloudType=cloud,
+            body = dict(name=f'{PREFIX}{i}', imageName=IMAGE, gpuTypeIds=gpu.split(','), gpuTypePriority='custom', gpuCount=1, cloudType=cloud,
                         containerDiskInGb=30, ports=['8000/http'], dockerEntrypoint=['bash', '-c'], dockerStartCmd=[POD_SH],
                         env=dict(TOKEN=token, SRV_PY_B64=srv_b64, TASKS_B64=base64.b64encode(lines.encode()).decode(),
                                  SCRIPT=J.get('script', 'shot_open.py'), BLENDER_URL=BLENDER_URL, MAX_SEC=str(int(max_h * 3600)),
                                  NVIDIA_DRIVER_CAPABILITIES='all'))
-            p = api('POST', '/pods', body)
+            try: p = api('POST', '/pods', body)
+            except SystemExit as e:                     # Community 没空卡时换 Secure（贵一些）
+                if 'no instances' not in str(e) or cloud == 'SECURE' or '--no-secure' in a: raise
+                print('Community Cloud 没空卡，改用 Secure Cloud'); body['cloudType'] = 'SECURE'; p = api('POST', '/pods', body)
             pods.append(dict(id=p['id'], token=token, cost=p.get('costPerHr'), done=False, uploaded=False, got=set()))
-            print(f"建好 pod {i}: {p['id']}  每小时 ${p.get('costPerHr')}  {p.get('machine', {}).get('gpuTypeId', gpu) if isinstance(p.get('machine'), dict) else gpu}")
+            print(f"建好 pod {i}: {p['id']}  每小时 ${p.get('costPerHr')}  {(p.get('machine') or {}).get('gpuTypeId') or p.get('gpuTypeId') or '?'}  {body['cloudType']}")
             json.dump([dict(id=q['id'], token=q['token']) for q in pods], open(STATE, 'w'))
         t0 = time.time(); last = {}
         while not all(q['done'] for q in pods):
