@@ -15,6 +15,7 @@ args = sys.argv[sys.argv.index('--') + 1:]
 SHOT, OUT, W, H, SAMP = args[0], args[1], int(args[2]), int(args[3]), int(args[4]); rest = args[5:]
 CYCLES = 'cycles' in rest; CLOUD = 'cloud' in rest; GPU = 'gpu' in rest; SEQ = 'seq' in rest; FRAMES = [int(a) for a in rest if a.isdigit()]
 OPT = dict(a.split('=', 1) for a in rest if '=' in a)
+R2 = OPT.get('look', 'r2') == 'r2'   # r1 = 去塑料感那版；r2 = Epic 化（主板铺到远处长满器件、低角度暖色逆光 + 体积光）
 FPS = 30; DUR = {'A': 2.4, 'B': 4.0}[SHOT]; NF = round(DUR * FPS); F = lambda s: 1 + round(s * FPS)
 HERE = os.path.dirname(os.path.abspath(__file__)); AS = os.path.join(HERE, 'assets'); HDRI = os.path.join(HERE, 'assets_dl', 'studio_small_09_2k.hdr')
 bpy.ops.wm.read_factory_settings(use_empty=True); sc = bpy.context.scene; os.makedirs(OUT, exist_ok=True)
@@ -211,9 +212,52 @@ def dust_near_camera(n, dmin, dmax, size):
         drift = Vector((random.uniform(-1, 1), random.uniform(-1, 1), 0)) * d * 0.05
         key(s, 'location', 1, Vector((x, y, -d))); key(s, 'location', NF, Vector((x, y, -d)) + drift); lin(s)
 
+def skyline():
+    """Epic 化：主板铺到远处，上面长满器件（芯片、散热器、电感排、电容群、内存插槽），远处没入雾里，像一片城市天际线。
+       避开主走线通道和主芯片；同类器件合成一个网格、共用材质（EEVEE 少编译着色器）"""
+    rs = random.Random(7)
+    MOLD = mat('mold', (0.035, 0.035, 0.04), 0.0, 0.42, noise_bump=0.05, noise_scale=4); SUB = mat('sub2', (0.08, 0.075, 0.05), 0, 0.4, coat=0.3)
+    LID = mat_brushed('lid2', (0.30, 0.31, 0.33)); IND = mat('ind2', (0.07, 0.07, 0.075), 0.2, 0.55, noise_bump=0.1, noise_scale=3)
+    CAP = mat('cap2', (0.30, 0.22, 0.14), 0, 0.45, coat=0.15); DIMM = mat('dimm', (0.02, 0.16, 0.06), 0, 0.4, coat=0.3); SLOT = mat('slot', (0.02, 0.02, 0.025), 0, 0.5)
+    FIN2 = mat_brushed('fin_far', (0.7, 0.71, 0.73))
+    def free(x, y, r):
+        if abs(x) < 16 + r and y < 70: return False                     # 主走线通道
+        if abs(x) < 40 + r and 55 - r < y < 130 + r: return False       # 主芯片和散热器
+        if 38 - r < abs(x) < 75 + r and 60 - r < y < 100 + r: return False   # 原来那排电感
+        return True
+    subs, lids, molds, inds, caps_, fins, rails, boards = [], [], [], [], [], [], [], []
+    placed = 0
+    while placed < 70:
+        x, y = rs.uniform(-320, 320), rs.uniform(-120, 400); sz = rs.uniform(10, 34)
+        if not free(x, y, sz * 0.75) or abs(x) < 22 and y < 0: continue
+        placed += 1; k = rs.random()
+        if k < 0.45:                                                     # BGA 芯片：基板 + 金属顶盖或黑色塑封；部分带散热器
+            subs.append((x, y, 0.6, sz, sz, 1.2)); h = rs.uniform(1.2, 2.6)
+            (lids if rs.random() < 0.5 else molds).append((x, y, 1.2 + h / 2, sz * 0.82, sz * 0.82, h))
+            if rs.random() < 0.35:
+                fh = rs.uniform(15, 35)
+                for f in range(int(sz * 0.8 / 1.6)): fins.append((x - sz * 0.4 + f * 1.6, y, 1.2 + h + fh / 2, 0.5, sz * 0.82, fh))
+            for c in range(rs.randint(6, 16)):                           # 芯片旁的电容群
+                cx, cy = x + rs.choice([-1, 1]) * (sz * 0.6 + rs.uniform(0.5, 4)), y + rs.uniform(-sz / 2, sz / 2)
+                caps_.append((cx, cy, 0.25, 1.0, 0.5, 0.5, rs.choice([0, math.pi / 2])))
+        elif k < 0.75:                                                   # 电感排（电源）
+            n = rs.randint(3, 7); s_ = rs.uniform(6, 10)
+            for i in range(n): inds.append((x + i * (s_ + 1.2), y, s_ * 0.3, s_, s_, s_ * 0.6))
+        else:                                                            # 内存插槽 + 竖着的内存条
+            n = rs.randint(4, 8)
+            for i in range(n):
+                rails.append((x + i * 9, y, 3.5, 6, 130, 7)); boards.append((x + i * 9, y, 7 + 15, 1.3, 128, 30))
+    for name, specs, m in (('sky_sub', subs, SUB), ('sky_lid', lids, LID), ('sky_mold', molds, MOLD), ('sky_ind', inds, IND), ('sky_cap', caps_, CAP),
+                           ('sky_fin', fins, FIN2), ('sky_rail', rails, SLOT), ('sky_dimm', boards, DIMM)):
+        if specs: boxes(name, specs, m)
+    # 低角度暖色逆光：从主芯片散热器后面打向镜头，穿过鳍片和空气留下光柱（体积光）
+    # 光藏在主芯片散热器后面低处，从鳍片缝隙之间漏出来，形成一道道光柱（光锥窄，只照过散热器）
+    bk = bpy.data.lights.new('backlight', 'SPOT'); bk.energy = 8.0e6; bk.color = (1.0, 0.70, 0.40); bk.spot_size = math.radians(24); bk.spot_blend = 0.4; bk.shadow_soft_size = 1.5
+    bko = obj('backlight', bk, None, (2, 175, 22)); d_ = Vector((-6, 20, 4)) - Vector((2, 175, 22)); bko.rotation_euler = d_.to_track_quat('-Z', 'Y').to_euler()
+
 # ---------- 相机 ----------
 cam_d = bpy.data.cameras.new('cam'); cam = obj('cam', cam_d); sc.camera = cam
-cam_d.sensor_width = 36; cam_d.clip_start = 0.05; cam_d.clip_end = 20000; cam_d.dof.use_dof = True
+cam_d.sensor_width = 36; cam_d.clip_start = 0.2; cam_d.clip_end = 20000; cam_d.dof.use_dof = True
 tgt = bpy.data.objects.new('target', None); sc.collection.objects.link(tgt)
 tc_ = cam.constraints.new('TRACK_TO'); tc_.target = tgt; tc_.track_axis = 'TRACK_NEGATIVE_Z'; tc_.up_axis = 'UP_Y'
 cam_d.dof.focus_object = tgt
@@ -249,7 +293,7 @@ if SHOT == 'A':
     MIST = (250, 1400, (0.32, 0.24, 0.17))
 else:
     BOARD_M = mat_board()
-    plane('board', 400, 400, BOARD_M, (0, 60, 0))
+    plane('board', 1400 if R2 else 400, 1400 if R2 else 400, BOARD_M, (0, 60, 0))
     mask_cu = mat('mask_over_copper', (0.10, 0.42, 0.13), 0.15, 0.28, coat=0.5)
     PAIR_X = [0.0] + [s * d for d in (1.3, 2.6, 3.9, 5.2, 7.5, 9.8) for s in (-1, 1)]
     # 走线、焊盘、过孔、丝印都在主板贴图里（阻焊下几乎是平的，只有很浅的起伏；原来凸起的方块像塑料条）
@@ -285,19 +329,22 @@ else:
     boxes('inductors', [(sx * (45 + k * 11), 70 + r * 13, 2.5, 9, 9, 5) for sx in (-1, 1) for k in range(3) for r in range(3)], ind)
     # 机箱：两侧壁、后面一排风扇（轮毂 + 扇叶）、天花板上数据中心的灯带；再远处是雾（合成里的空气透视）
     chassis = mat('chassis', (0.16, 0.17, 0.19), 0.8, 0.45, noise_bump=0.02, noise_scale=0.05)
-    box('fan_wall', 400, 6, 60, chassis, (0, 196, 30)); box('wall_L', 6, 400, 60, chassis, (-110, 60, 30)); box('wall_R', 6, 400, 60, chassis, (110, 60, 30))
+    FAN_Y = 420 if R2 else 196
+    box('fan_wall', 800 if R2 else 400, 6, 60, chassis, (0, FAN_Y, 30))
+    if not R2: box('wall_L', 6, 400, 60, chassis, (-110, 60, 30)); box('wall_R', 6, 400, 60, chassis, (110, 60, 30))
     blade = mat('fan_blade', (0.04, 0.04, 0.045), 0.1, 0.45); FAN_RING = mat('fan_ring', (0.02, 0.02, 0.022), 0.1, 0.5)
     for k in range(6):
         cx = -150 + k * 60
-        cyl(f'fan_ring{k}', 27, 3, FAN_RING, (cx, 190, 30), (math.radians(90), 0, 0))
-        cyl(f'fan_hub{k}', 9, 6, blade, (cx, 187, 30), (math.radians(90), 0, 0))
+        cyl(f'fan_ring{k}', 27, 3, FAN_RING, (cx, FAN_Y - 6, 30), (math.radians(90), 0, 0))
+        cyl(f'fan_hub{k}', 9, 6, blade, (cx, FAN_Y - 9, 30), (math.radians(90), 0, 0))
         for i in range(7):
-            a = i * 2 * math.pi / 7; box(f'fan_blade{k}_{i}', 13, 1.0, 7, blade, (cx + math.cos(a) * 15, 186.5, 30 + math.sin(a) * 15), (0, -a, 0))
+            a = i * 2 * math.pi / 7; box(f'fan_blade{k}_{i}', 13, 1.0, 7, blade, (cx + math.cos(a) * 15, FAN_Y - 9.5, 30 + math.sin(a) * 15), (0, -a, 0))
     ceil_m, _ = emit('ceiling_light', (0.85, 0.95, 1.0), 2.5)
     for r in range(6): box(f'ceil{r}', 900, 30, 4, ceil_m, (0, 150 + r * 260, 900))
     LED = [emit('led_g', (0.3, 1.0, 0.45), 80)[0], emit('led_b', (0.45, 0.7, 1.0), 80)[0]]
     for i in range(30):
-        sphere(f'led{i}', 1.6, LED[i % 2], (random.uniform(-160, 160), 192, random.uniform(5, 55)))
+        sphere(f'led{i}', 1.6, LED[i % 2], (random.uniform(-160, 160), FAN_Y - 4, random.uniform(5, 55)))
+    if R2: skyline()
     BTEX = {'normal': 'bits.png', 'long': 'bits_long.png', 'blur': 'bits_blur.png'}[OPT.get('bits', 'normal')]
     plane('signal_band', 0.32, TR_Y1 - 2 - TR_Y0, mat_signal(BTEX), (0, (TR_Y0 + TR_Y1 - 2) / 2, 0.004))   # 贴着板面（审核：原来悬空 0.045，画面上偏到线对旁边）
     POSE = OPT.get('pose', 'B')
@@ -337,10 +384,10 @@ if SHOT == 'B' and 'view' in OPT:
 
 # ---------- 世界、渲染、合成（空气透视 + 光的辉光） ----------
 wd = bpy.data.worlds.new('w'); sc.world = wd; wd.use_nodes = True; N = wd.node_tree.nodes; L = wd.node_tree.links
-bg = N['Background']; bg.inputs['Strength'].default_value = 0.35 if SHOT == 'A' else 0.15
+bg = N['Background']; bg.inputs['Strength'].default_value = 0.35 if SHOT == 'A' else (0.06 if R2 else 0.15)
 if os.path.exists(HDRI):
     env = N.new('ShaderNodeTexEnvironment'); env.image = bpy.data.images.load(HDRI); L.new(env.outputs['Color'], bg.inputs['Color'])
-lp = N.new('ShaderNodeLightPath'); mx = N.new('ShaderNodeMixShader'); dark = N.new('ShaderNodeBackground'); dark.inputs['Color'].default_value = (*MIST[2], 1)
+lp = N.new('ShaderNodeLightPath'); mx = N.new('ShaderNodeMixShader'); dark = N.new('ShaderNodeBackground'); dark.inputs['Color'].default_value = ((0.010, 0.012, 0.016, 1) if (R2 and SHOT == 'B') else (*MIST[2], 1))   # Epic 化：背景暗下来，让逆光照亮雾
 out = N['World Output']; L.new(lp.outputs['Is Camera Ray'], mx.inputs['Fac']); L.new(bg.outputs[0], mx.inputs[1]); L.new(dark.outputs[0], mx.inputs[2]); L.new(mx.outputs[0], out.inputs[0])
 if CYCLES:
     sc.render.engine = 'CYCLES'; sc.cycles.samples = SAMP; sc.cycles.use_denoising = True; sc.cycles.max_bounces = 6; sc.cycles.device = 'CPU'
@@ -357,17 +404,21 @@ if CYCLES:
 else:
     ENG = [e.identifier for e in bpy.types.RenderSettings.bl_rna.properties['engine'].enum_items]
     sc.render.engine = 'BLENDER_EEVEE' if 'BLENDER_EEVEE' in ENG else 'BLENDER_EEVEE_NEXT'; sc.eevee.taa_render_samples = SAMP
+    for k, v in (('volumetric_start', 0.2), ('volumetric_end', 800.0), ('volumetric_tile_size', '4'), ('volumetric_samples', 64),
+                 ('volumetric_shadow_samples', 32), ('use_volumetric_shadows', True), ('volumetric_light_clamp', 0.0)):   # 体积光：单位是毫米，默认只算到 100（10 厘米）
+        try: setattr(sc.eevee, k, v)
+        except Exception as e: print('EEVEE 体积设置跳过', k, e)
     for k, v in (('use_raytracing', SHOT == 'B'), ('use_shadows', True), ('use_fast_gi', SHOT == 'B'), ('bokeh_max_size', 300.0), ('motion_blur_max', 120)):
         try: setattr(sc.eevee, k, v)
         except Exception as e: print('EEVEE 设置跳过', k, e)
-DOF_K = 0.025   # 光圈没按毫米单位换算（EEVEE 和 Cycles 都一样，远处散热片都是清楚的）；两个引擎都缩小到约 1/40
+DOF_K = 0.1     # 光圈没按毫米单位换算（复核：0.025 太虚，板面质感看不清，调到 0.1）（EEVEE 和 Cycles 都一样，远处散热片都是清楚的）；两个引擎都缩小到约 1/40
 cam_d.dof.aperture_fstop *= DOF_K; print('景深光圈', round(cam_d.dof.aperture_fstop, 4))
 sc.render.resolution_x, sc.render.resolution_y = W, H; sc.render.fps = FPS; sc.frame_start, sc.frame_end = 1, NF
 sc.render.use_motion_blur = True; sc.render.motion_blur_shutter = 1.0 if SHOT == 'A' else 0.5
 sc.view_settings.view_transform = 'AgX'; sc.view_settings.exposure = 0.9 if SHOT == 'B' else 0.2
 try: sc.view_settings.look = 'AgX - Medium High Contrast'
 except Exception: pass
-if CLOUD:   # 云端草稿：没有 libEGL，合成节点会让 Blender 直接退出；改用很淡的体积雾做空气透视
+if CLOUD or (R2 and SHOT == 'B'):   # 体积雾：云端草稿（没有 libEGL）；Epic 化的 B 段所有引擎都用（逆光光柱要靠它）。原注释：云端草稿：没有 libEGL，合成节点会让 Blender 直接退出；改用很淡的体积雾做空气透视
     vm = bpy.data.materials.new('haze'); vm.use_nodes = True; Nn = vm.node_tree.nodes; Ln = vm.node_tree.links
     for n in list(Nn): Nn.remove(n)
     vo = Nn.new('ShaderNodeOutputMaterial'); vs = Nn.new('ShaderNodeVolumeScatter'); vs.inputs['Density'].default_value = 0.6 / MIST[1]
@@ -375,6 +426,7 @@ if CLOUD:   # 云端草稿：没有 libEGL，合成节点会让 Blender 直接�
     hb = box('haze_box', 1, 1, 1, vm, (0, 0, 0)); c0 = cam.location
     hb.scale = (MIST[1] * 6, MIST[1] * 6, MIST[1] * 6); hb.location = (c0.x, c0.y + MIST[1] * 2.5, c0.z)
     if SHOT == 'B' and 'view' not in OPT: hb.location = (0, 60, 0)
+    if R2 and SHOT == 'B': vs.inputs['Density'].default_value = 0.0007; vs.inputs['Color'].default_value = (0.95, 0.88, 0.80, 1); vs.inputs['Anisotropy'].default_value = 0.65; hb.location = (0, 150, 0); hb.scale = (1600, 1600, 400)   # 近乎无色、略暖的淡雾：只让逆光显出光柱
 else:
   try:
     if bpy.app.version < (5, 0, 0): raise SystemExit('需要 Blender 5.0 或更新版本（现在是 ' + bpy.app.version_string + '）')
