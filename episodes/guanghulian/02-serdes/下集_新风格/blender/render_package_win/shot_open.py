@@ -13,7 +13,7 @@ from bpy_extras.object_utils import world_to_camera_view
 
 args = sys.argv[sys.argv.index('--') + 1:]
 SHOT, OUT, W, H, SAMP = args[0], args[1], int(args[2]), int(args[3]), int(args[4]); rest = args[5:]
-CYCLES = 'cycles' in rest; SEQ = 'seq' in rest; FRAMES = [int(a) for a in rest if a.isdigit()]
+CYCLES = 'cycles' in rest; CLOUD = 'cloud' in rest; GPU = 'gpu' in rest; SEQ = 'seq' in rest; FRAMES = [int(a) for a in rest if a.isdigit()]
 OPT = dict(a.split('=', 1) for a in rest if '=' in a)
 FPS = 30; DUR = {'A': 2.4, 'B': 4.0}[SHOT]; NF = round(DUR * FPS); F = lambda s: 1 + round(s * FPS)
 HERE = os.path.dirname(os.path.abspath(__file__)); AS = os.path.join(HERE, 'assets'); HDRI = os.path.join(HERE, 'assets_dl', 'studio_small_09_2k.hdr')
@@ -98,6 +98,50 @@ def mat_signal(tex):
     if hasattr(m, 'surface_render_method'): m.surface_render_method = 'BLENDED'
     for fr, v in ((1, 0.0), (NF, -DUR * 0.12)): off.outputs[0].default_value = v; off.outputs[0].keyframe_insert('default_value', frame=fr)
     lin(m.node_tree); return m
+
+BOARD_TEX = os.path.join(AS, 'board_rgba.png')
+def mat_board():
+    """主板（去塑料感，11-10 用户「很塑料，没有质感」）：暗墨绿哑光阻焊 + 一层清漆；阻焊下的铜略亮、偏橄榄色；
+       裸露的金焊盘（ENIG）、白色丝印、过孔微凸；表面细微起伏和粗糙度变化。贴图由 make_board_texture.py 生成"""
+    m = bpy.data.materials.new('board'); m.use_nodes = True; N = m.node_tree.nodes; L = m.node_tree.links; b = N['Principled BSDF']
+    geo = N.new('ShaderNodeNewGeometry'); sp = N.new('ShaderNodeSeparateXYZ'); L.new(geo.outputs['Position'], sp.inputs[0])
+    u = N.new('ShaderNodeMath'); u.operation = 'MULTIPLY_ADD'; u.inputs[1].default_value = 1 / 120.0; u.inputs[2].default_value = 0.5; L.new(sp.outputs['X'], u.inputs[0])
+    v = N.new('ShaderNodeMath'); v.operation = 'MULTIPLY_ADD'; v.inputs[1].default_value = 1 / 120.0; v.inputs[2].default_value = 50 / 120.0; L.new(sp.outputs['Y'], v.inputs[0])
+    cm = N.new('ShaderNodeCombineXYZ'); L.new(u.outputs[0], cm.inputs['X']); L.new(v.outputs[0], cm.inputs['Y'])
+    t = img(N, BOARD_TEX, 'Non-Color'); t.extension = 'EXTEND'; L.new(cm.outputs[0], t.inputs[0])
+    sc_ = N.new('ShaderNodeSeparateColor'); L.new(t.outputs['Color'], sc_.inputs[0])
+    nz = N.new('ShaderNodeTexNoise'); nz.inputs['Scale'].default_value = 1.5; nz.inputs['Detail'].default_value = 10; L.new(geo.outputs['Position'], nz.inputs['Vector'])
+    def mix(fac, a, bcol):
+        mx = N.new('ShaderNodeMix'); mx.data_type = 'RGBA'; L.new(fac, mx.inputs['Factor'])
+        if isinstance(a, tuple): mx.inputs['A'].default_value = (*a, 1)
+        else: L.new(a, mx.inputs['A'])
+        mx.inputs['B'].default_value = (*bcol, 1); return mx.outputs['Result']
+    c = mix(nz.outputs['Fac'], (0.018, 0.105, 0.040), (0.026, 0.135, 0.050))          # 阻焊本身有一点不均匀
+    c = mix(sc_.outputs['Red'], c, (0.07, 0.22, 0.075))                               # 阻焊下的铜：略亮、偏橄榄
+    c = mix(sc_.outputs['Green'], c, (0.95, 0.68, 0.32))                               # 金焊盘
+    c = mix(sc_.outputs['Blue'], c, (0.82, 0.83, 0.80))                                # 丝印
+    L.new(c, b.inputs['Base Color']); L.new(sc_.outputs['Green'], b.inputs['Metallic'])
+    rr = N.new('ShaderNodeMapRange'); rr.inputs['To Min'].default_value = 0.30; rr.inputs['To Max'].default_value = 0.46; L.new(nz.outputs['Fac'], rr.inputs['Value'])
+    rm = N.new('ShaderNodeMix'); rm.data_type = 'FLOAT'; L.new(sc_.outputs['Green'], rm.inputs['Factor']); L.new(rr.outputs[0], rm.inputs['A']); rm.inputs['B'].default_value = 0.22
+    rs = N.new('ShaderNodeMix'); rs.data_type = 'FLOAT'; L.new(sc_.outputs['Blue'], rs.inputs['Factor']); L.new(rm.outputs['Result'], rs.inputs['A']); rs.inputs['B'].default_value = 0.75
+    L.new(rs.outputs['Result'], b.inputs['Roughness'])
+    cw = N.new('ShaderNodeMath'); cw.operation = 'MULTIPLY'; cw.inputs[1].default_value = 0.55; L.new(sc_.outputs['Red'], cw.inputs[0])   # 清漆：铜上更亮一点
+    ca = N.new('ShaderNodeMath'); ca.operation = 'ADD'; ca.inputs[1].default_value = 0.35; L.new(cw.outputs[0], ca.inputs[0]); L.new(ca.outputs[0], b.inputs['Coat Weight'])
+    b.inputs['Coat Roughness'].default_value = 0.12
+    h = N.new('ShaderNodeMath'); h.operation = 'MULTIPLY_ADD'; h.inputs[1].default_value = 0.6; L.new(sc_.outputs['Red'], h.inputs[0])
+    h2 = N.new('ShaderNodeMath'); h2.operation = 'MULTIPLY_ADD'; h2.inputs[1].default_value = 0.08; L.new(nz.outputs['Fac'], h2.inputs[0]); L.new(h.outputs[0], h2.inputs[2])
+    L.new(t.outputs['Alpha'], h.inputs[2])
+    bp = N.new('ShaderNodeBump'); bp.inputs['Strength'].default_value = 0.35; bp.inputs['Distance'].default_value = 0.02; L.new(h2.outputs[0], bp.inputs['Height']); L.new(bp.outputs[0], b.inputs['Normal'])
+    return m
+def mat_brushed(name, col=(0.72, 0.73, 0.75)):
+    """拉丝铝（散热片）：沿鳍片长度方向的细拉丝纹，粗糙度有变化，各向异性高光"""
+    m = mat(name, col, 1.0, 0.3); N = m.node_tree.nodes; L = m.node_tree.links; b = N['Principled BSDF']
+    tc = N.new('ShaderNodeTexCoord'); mp = N.new('ShaderNodeMapping'); mp.inputs['Scale'].default_value = (40.0, 0.4, 40.0); L.new(tc.outputs['Object'], mp.inputs[0])
+    nz = N.new('ShaderNodeTexNoise'); nz.inputs['Scale'].default_value = 6.0; nz.inputs['Detail'].default_value = 12; L.new(mp.outputs[0], nz.inputs['Vector'])
+    mr = N.new('ShaderNodeMapRange'); mr.inputs['To Min'].default_value = 0.22; mr.inputs['To Max'].default_value = 0.42; L.new(nz.outputs['Fac'], mr.inputs['Value']); L.new(mr.outputs[0], b.inputs['Roughness'])
+    if 'Anisotropic' in b.inputs: b.inputs['Anisotropic'].default_value = 0.7
+    bp = N.new('ShaderNodeBump'); bp.inputs['Strength'].default_value = 0.15; bp.inputs['Distance'].default_value = 0.01; L.new(nz.outputs['Fac'], bp.inputs['Height']); L.new(bp.outputs[0], b.inputs['Normal'])
+    return m
 
 # ---------- 几何 ----------
 def obj(name, me, m=None, loc=(0, 0, 0), rot=(0, 0, 0)):
@@ -205,10 +249,11 @@ if SHOT == 'A':
     obj('key', sun, None, (-500, -200, 700), (math.radians(40), math.radians(-35), 0))
     MIST = (250, 1400, (0.32, 0.24, 0.17))
 else:
-    plane('board', 400, 400, mat('solder_mask', (0.02, 0.24, 0.07), 0.0, 0.40, coat=0.25, noise_bump=0.05, noise_scale=8), (0, 60, 0))
+    BOARD_M = mat_board()
+    plane('board', 400, 400, BOARD_M, (0, 60, 0))
     mask_cu = mat('mask_over_copper', (0.10, 0.42, 0.13), 0.15, 0.28, coat=0.5)
     PAIR_X = [0.0] + [s * d for d in (1.3, 2.6, 3.9, 5.2, 7.5, 9.8) for s in (-1, 1)]
-    boxes('traces', [(px + dx, (TR_Y0 + TR_Y1) / 2, 0.0175, 0.09, TR_Y1 - TR_Y0, 0.035) for px in PAIR_X for dx in (-0.105, 0.105)], mask_cu)
+    # 走线、焊盘、过孔、丝印都在主板贴图里（阻焊下几乎是平的，只有很浅的起伏；原来凸起的方块像塑料条）
     # 去耦电容：成排排在芯片封装周围，带焊盘，避开走线通道（审核：不能随机撒、不能压在走线上）
     caps, ends, pads = [], [], []
     for side in (-1, 1):
@@ -219,11 +264,11 @@ else:
         for k in range(14):
             x = side * 33.5; y = 64 + k * 3.8; caps.append((x, y, 0.27, 0.5, 0.7, 0.5))
             for sg in (-1, 1): ends.append((x, y + sg * 0.42, 0.27, 0.5, 0.16, 0.51)); pads.append((x, y + sg * 0.42, 0.015, 0.6, 0.34, 0.03))
-    boxes('caps_body', caps, mat('mlcc', (0.20, 0.15, 0.10), 0, 0.35, coat=0.3)); boxes('caps_ends', ends, mat('tin', (0.8, 0.8, 0.82), 1.0, 0.3))
-    boxes('cap_pads', pads, mat('pad', (0.75, 0.75, 0.72), 1.0, 0.35))
+    boxes('caps_body', caps, mat('mlcc', (0.30, 0.22, 0.14), 0, 0.45, coat=0.15, noise_bump=0.1, noise_scale=8)); boxes('caps_ends', ends, mat('tin', (0.8, 0.8, 0.82), 1.0, 0.3))
+    # 电容焊盘在主板贴图里
     # 过孔：圆的，被阻焊盖住（只是微微鼓起、颜色深一点）
     tent = mat('tented_via', (0.03, 0.18, 0.06), 0.0, 0.3, coat=0.5)
-    for i, (x, y) in enumerate([(x, y) for x in (-11.5, 11.5) for y in range(-30, 58, 4)]): cyl(f'via{i}', 0.18, 0.02, tent, (x, y, 0.01), seg=16)
+    # 过孔在主板贴图里
     # AI 芯片封装：基板 + 顶盖 + 散热器（底座 + 鳍片）；主持人眼里是一堵墙
     box('substrate', 60, 60, 1.6, mat('substrate', (0.09, 0.08, 0.05), 0, 0.4, coat=0.3), (0, 92, 0.8), bev=0.3)
     XR = OPT.get('xray') == '1'
@@ -234,8 +279,9 @@ else:
         sd_m, _ = emit('serdes_blocks', (0.55, 0.85, 1.0), 4.0)
         boxes('serdes', [(-10.5 + k * 3.0, 80.2, 2.45, 2.4, 1.6, 0.06) for k in range(8)], sd_m)
     else:
-        box('hs_base', 46, 46, 3.0, mat('fin', (0.8, 0.8, 0.82), 1.0, 0.28), (0, 92, 5.7))
-        boxes('fins', [(-21 + k * 1.6, 92, 7.2 + 20, 0.5, 46, 40) for k in range(27)], mat('fin2', (0.8, 0.8, 0.82), 1.0, 0.28))
+        box('hs_base', 46, 46, 3.0, mat_brushed('fin'), (0, 92, 5.7), bev=0.3)
+        FIN = mat_brushed('fin2', (0.76, 0.77, 0.79))
+        for k in range(27): box(f'fin{k}', 0.5, 46, 40 * (1 - 0.02 * (k % 3)), FIN, (-21 + k * 1.6, 92, 7.2 + 20), bev=0.12)
     ind = mat('inductor', (0.06, 0.06, 0.065), 0.2, 0.5)
     boxes('inductors', [(sx * (45 + k * 11), 70 + r * 13, 2.5, 9, 9, 5) for sx in (-1, 1) for k in range(3) for r in range(3)], ind)
     # 机箱：两侧壁、后面一排风扇（轮毂 + 扇叶）、天花板上数据中心的灯带；再远处是雾（合成里的空气透视）
@@ -267,9 +313,9 @@ else:
                     (2.4, (-3.0, -2.5, 1.6), (0.2, 6.0, 0.25)), (4.0, SIDE_CAM, SIDE_TGT)):
         key(cam, 'location', F(t), p); key(tgt, 'location', F(t), g)
     cam_d.lens = 28; cam_d.dof.aperture_fstop = 2.8
-    sun = bpy.data.lights.new('key', 'AREA'); sun.energy = 9e4; sun.size = 120; sun.color = (1.0, 0.9, 0.8)
+    sun = bpy.data.lights.new('key', 'AREA'); sun.energy = 1.4e5; sun.size = 120; sun.color = (1.0, 0.88, 0.75)
     obj('key', sun, None, (-80, -40, 120), (math.radians(35), math.radians(-30), 0))
-    rim = bpy.data.lights.new('rim', 'AREA'); rim.energy = 6e4; rim.size = 150; rim.color = (0.6, 0.75, 1.0)
+    rim = bpy.data.lights.new('rim', 'AREA'); rim.energy = 1.6e5; rim.size = 90; rim.color = (0.65, 0.8, 1.0)
     obj('rim', rim, None, (40, 220, 60), (math.radians(-70), 0, math.radians(170)))
     MIST = (18, 260, (0.08, 0.26, 0.28))
 
@@ -292,13 +338,22 @@ if SHOT == 'B' and 'view' in OPT:
 
 # ---------- 世界、渲染、合成（空气透视 + 光的辉光） ----------
 wd = bpy.data.worlds.new('w'); sc.world = wd; wd.use_nodes = True; N = wd.node_tree.nodes; L = wd.node_tree.links
-bg = N['Background']; bg.inputs['Strength'].default_value = 0.35
+bg = N['Background']; bg.inputs['Strength'].default_value = 0.35 if SHOT == 'A' else 0.15
 if os.path.exists(HDRI):
     env = N.new('ShaderNodeTexEnvironment'); env.image = bpy.data.images.load(HDRI); L.new(env.outputs['Color'], bg.inputs['Color'])
 lp = N.new('ShaderNodeLightPath'); mx = N.new('ShaderNodeMixShader'); dark = N.new('ShaderNodeBackground'); dark.inputs['Color'].default_value = (*MIST[2], 1)
 out = N['World Output']; L.new(lp.outputs['Is Camera Ray'], mx.inputs['Fac']); L.new(bg.outputs[0], mx.inputs[1]); L.new(dark.outputs[0], mx.inputs[2]); L.new(mx.outputs[0], out.inputs[0])
 if CYCLES:
-    sc.render.engine = 'CYCLES'; sc.cycles.samples = SAMP; sc.cycles.use_denoising = True; sc.cycles.max_bounces = 4; sc.cycles.device = 'CPU'
+    sc.render.engine = 'CYCLES'; sc.cycles.samples = SAMP; sc.cycles.use_denoising = True; sc.cycles.max_bounces = 6; sc.cycles.device = 'CPU'
+    if GPU:
+        prefs = bpy.context.preferences.addons['cycles'].preferences
+        for dt in ('OPTIX', 'CUDA'):
+            try:
+                prefs.compute_device_type = dt; prefs.refresh_devices()
+                if [d for d in prefs.devices if d.type == dt]:
+                    for d in prefs.devices: d.use = d.type == dt
+                    sc.cycles.device = 'GPU'; print('CYCLES_DEVICE', dt); break
+            except Exception as e: print('显卡设置跳过', dt, e)
 else:
     ENG = [e.identifier for e in bpy.types.RenderSettings.bl_rna.properties['engine'].enum_items]
     sc.render.engine = 'BLENDER_EEVEE' if 'BLENDER_EEVEE' in ENG else 'BLENDER_EEVEE_NEXT'; sc.eevee.taa_render_samples = SAMP
@@ -312,7 +367,7 @@ sc.render.use_motion_blur = True; sc.render.motion_blur_shutter = 1.0 if SHOT ==
 sc.view_settings.view_transform = 'AgX'; sc.view_settings.exposure = 0.9 if SHOT == 'B' else 0.2
 try: sc.view_settings.look = 'AgX - Medium High Contrast'
 except Exception: pass
-if CYCLES:   # 云端草稿：没有 libEGL，合成节点会让 Blender 直接退出；改用很淡的体积雾做空气透视
+if CLOUD:   # 云端草稿：没有 libEGL，合成节点会让 Blender 直接退出；改用很淡的体积雾做空气透视
     vm = bpy.data.materials.new('haze'); vm.use_nodes = True; Nn = vm.node_tree.nodes; Ln = vm.node_tree.links
     for n in list(Nn): Nn.remove(n)
     vo = Nn.new('ShaderNodeOutputMaterial'); vs = Nn.new('ShaderNodeVolumeScatter'); vs.inputs['Density'].default_value = 0.6 / MIST[1]
@@ -334,7 +389,7 @@ else:
         except Exception as e: print('辉光参数跳过', k, e)
     add = ng.nodes.new('ShaderNodeMix'); add.data_type = 'RGBA'; add.blend_type = 'ADD'; add.inputs['Factor'].default_value = 1.0
     ng.links.new(rl.outputs['Image'], add.inputs['A']); ng.links.new(gl.outputs['Glare'], add.inputs['B'])
-    hz = ng.nodes.new('ShaderNodeMath'); hz.operation = 'MULTIPLY'; hz.inputs[1].default_value = 0.45 if SHOT == 'B' else 0.6; ng.links.new(rl.outputs['Mist'], hz.inputs[0])   # EEVEE 试渲：背景被雾糊成一片平灰，减半
+    hz = ng.nodes.new('ShaderNodeMath'); hz.operation = 'MULTIPLY'; hz.inputs[1].default_value = 0.35 if SHOT == 'B' else 0.6; ng.links.new(rl.outputs['Mist'], hz.inputs[0])   # EEVEE 试渲：背景被雾糊成一片平灰，减半
     fog = ng.nodes.new('ShaderNodeMix'); fog.data_type = 'RGBA'; fog.blend_type = 'MIX'; ng.links.new(hz.outputs[0], fog.inputs['Factor'])
     ng.links.new(add.outputs['Result'], fog.inputs['A']); fog.inputs['B'].default_value = (*MIST[2], 1)
     go = ng.nodes.new('NodeGroupOutput'); ng.links.new(fog.outputs['Result'], go.inputs[0]); print('COMPOSITOR 辉光 + 空气透视已接上')
