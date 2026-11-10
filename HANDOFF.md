@@ -22,28 +22,30 @@
   5. 离边缘 150 µm 的波导，旁边一个红细胞；
   6. 停在「不到 0.5 µm」的波导上。
 - **方向是用户定的**：「反过来推进」，模块那一级的比例物用「一部手机」。
-- **现状**：真实感改造做了第一版。
-  - 已做：Poly Haven HDRI 打光、倒角、程序生成的芯片版图贴图（`make_layout_texture.py`）、金属粗糙度、浅景深、淡入淡出、按屏幕字号算的 3D 标签、只在光上加辉光（AOV 遮罩）。
-  - 进度图：`progress_realism_v1.jpg`。
-  - 微观段（13–17.5 秒）效果不错。
+- **现状（11-10 晚）**：第二版渲染包已发给用户，审核「通过（附带建议）」，**等用户在 RTX 2060 上试渲 6 帧**（preview_eevee.bat），再渲整段。
+  - 第二版（用户 11-10 定）：「环境最重要」→ 交换机放进机房（开放式机架、左右机柜、身后 7 排机柜指示灯、雾）；前景少量虚化灰尘；全程浅景深；相机滚转；颜色「从暖到冷」（0–4.5 秒暖金、4.5–8 过渡、8 秒起冷调）；跳线黄色护套 + APC 绿色 MPO；手机背面朝上；标签加深色描边。
+  - 进度图：`progress_realism_v2_审核后.jpg`（最新）、`progress_realism_v2_暖冷对比.jpg`、`progress_realism_v2_暖到冷.jpg`。参考片学习：`research/参考片实测_录屏两部_1110.md`。
+  - 渲染包：`render_package_win/`（脚本在仓库里；assets、assets_dl 在 gitignore，打包前从上级目录拷）。整段先出 PNG 序列（可续渲），再用 Blender 自带编码成 `scale.mp4`（`encode_mp4.py`，编码前核对 540 帧齐全）。
+  - 审核留下的建议（等用户 1080 试渲图回来一起看）：17.5 秒双箭头在画面上偏到光带左边（箭头比波导顶面高 0.16 µm，可沿视线往相机挪约 0.33 µm，带一点 x 分量）；光带左侧有一条很淡的平行带，要确认不读成第二条光路；红细胞在 1080 图上再确认不像悬空。
+  - 简化（已写进 FACTS 和角注，交付时要告诉用户）：调制器画成直波导两侧电极，没画 MZM 的分束和两臂；模块里激光器耦合和键合线省略；机房没画冷热通道。
 - **下一步**：
-  - 交换机和模块段「模型感」还重：补端口笼子开口、模块散热纹、电路板走线和焊盘，整体再调一次光；
-  - 改完给用户看几张对比静帧，用户认可后再出 EEVEE 渲染包；
-  - 渲染包发出前是一个审核节点。
+  - 用户发回 6 张试渲图和每帧时间：看图、按上面的建议改，确认整段时间；
+  - 用户发回 `scale.mp4` + `anchors.json`：云端合成（大字问题、角注、结尾一句、角标、配乐），见 SHOTPLAN「合成」；成片交付前是审核 + 监督 + 观众（Codex，要先装、请用户登录）节点。
 - **素材**：
   - Poly Haven 的 HDRI 和贴图放在 `blender_test_scale/assets_dl/`（gitignore，新对话要重新下载）：
     - `studio_small_09_2k.hdr`
     - `metal_plate_rough_2k.jpg`
   - 下载地址：`https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/studio_small_09_2k.hdr`、`https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/metal_plate/metal_plate_rough_2k.jpg`。
-  - 版图贴图用 `python3 make_layout_texture.py assets/chip_layout.png` 重新生成（也在 gitignore 里）。
+  - 版图贴图用 `python3 make_layout_texture.py assets/chip_layout.png` 重新生成；硬件贴图用 `python3 make_hw_textures.py`（都在 gitignore 里）。
+  - 云端 EEVEE 要先装 `libegl1 libgl1-mesa-dri`（apt），否则报 libEGL 找不到。
   - 用户说过：「过程中你需要哪些素材，只管问我来要，我要的是出片质量！」已经向用户要了两张参考图：交换机 / 光模块的实拍、硅光芯片显微照，还没收到。
 - **云端测试**：Blender 5.2.3 在 `/tmp/blender/blender-5.2.3-linux-x64/`，容器重启会丢，要从 download.blender.org 重新下载。云端只渲低清静帧看构图（270×480，16 采样）。
-- **旧的 `render_package_win/`（v1）已作废**：审核查出端口悬空、标签太小等问题，不要再发。
 
 ## 渲染的路
 - 用户的 Windows + RTX 2060：EEVEE 每帧约 2 秒，Cycles 约 30 秒。默认用 EEVEE。
   - 渲染包形式：双击 `.bat`，通过 `find_blender.cmd` 找 Blender。
-- 用户准备试 **AutoDL 租卡**（RTX 4090）。
+- **审核用的模型**（用户 11-10）：渲染包 / 草稿节点的审核也用最强的模型；监督和日常小检查用 Sonnet。
+- 用户准备试 **AutoDL 租卡**（RTX 4090）。11-10 已给用户方案（待确认）：EEVEE 为主（草稿和大部分终版在 2060 上），Cycles 只给 A/B 对比后确实更好的少数镜头（候选：开头 0–2 秒、结尾 13.5–18 秒）；默认「渲染包 + 一条命令」，直连 Jupyter 只用于首次配置和排错。镜像选基础镜像 Miniconda、Ubuntu 22.04。AutoDL 当时没有空闲 GPU。
   - **云端连不出 SSH**（实测 22 端口超时），只能走 HTTPS。打算通过实例的 JupyterLab 连：用户把实例域名发过来，token 用 `request_credential` 安全表单收，header 用 `Authorization`，前缀 `Token`。
   - 还没实际连过，第一次只做三件事：装 Blender、确认 GPU、试渲 5 帧。
   - 不要用网上第三方的 AutoDL MCP。
