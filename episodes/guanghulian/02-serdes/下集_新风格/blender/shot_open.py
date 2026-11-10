@@ -4,7 +4,8 @@
 #      镜头贴着板面滑过去，停在纸片立牌主持人（蹲着看）身边。
 # view=…：B 场景的固定机位静帧，给中间讲解段（2.5D）当背景；同时导出走线在画面上的位置和每一位的边界（叠加层沿走线画刻度、鼓点）。
 # 单位：毫米（scale_length = 0.001，景深按真实光圈算）。
-# 用法：blender -b --python shot_open.py -- <A|B> <输出目录> <宽> <高> <采样> [cycles] [view=side|close|rx|wide] [pose=A|B] [bits=normal|long|blur] [off=位偏移] [xray=1] [帧号…]
+# 用法：blender -b --python shot_open.py -- <A|B> <输出目录> <宽> <高> <采样> [cycles] [seq] [view=side|close|count|rx|wide] [bits=normal|long|blur] [off=位偏移] [xray=1] [noband=1] [帧号…]
+#   seq：渲整段 PNG 序列（已渲的帧跳过，可续渲）；noband=1：静帧不渲光带（正式版光带在云端画成动画）
 #   云端草稿用 cycles（云端没有 EEVEE 要的 libEGL）；用户电脑上用 EEVEE。
 import bpy, bmesh, math, os, sys, random, json
 from mathutils import Vector
@@ -12,7 +13,7 @@ from bpy_extras.object_utils import world_to_camera_view
 
 args = sys.argv[sys.argv.index('--') + 1:]
 SHOT, OUT, W, H, SAMP = args[0], args[1], int(args[2]), int(args[3]), int(args[4]); rest = args[5:]
-CYCLES = 'cycles' in rest; FRAMES = [int(a) for a in rest if a.isdigit()]
+CYCLES = 'cycles' in rest; SEQ = 'seq' in rest; FRAMES = [int(a) for a in rest if a.isdigit()]
 OPT = dict(a.split('=', 1) for a in rest if '=' in a)
 FPS = 30; DUR = {'A': 2.4, 'B': 4.0}[SHOT]; NF = round(DUR * FPS); F = lambda s: 1 + round(s * FPS)
 HERE = os.path.dirname(os.path.abspath(__file__)); AS = os.path.join(HERE, 'assets'); HDRI = os.path.join(HERE, 'assets_dl', 'studio_small_09_2k.hdr')
@@ -235,7 +236,8 @@ else:
         c = random.choice([(0.3, 1.0, 0.45), (0.45, 0.7, 1.0)]); m_, _ = emit(f'led{i}', c, 25); sphere(f'led{i}', 0.6, m_, (random.uniform(-160, 160), 192, random.uniform(5, 55)))
     BTEX = {'normal': 'bits.png', 'long': 'bits_long.png', 'blur': 'bits_blur.png'}[OPT.get('bits', 'normal')]
     plane('signal_band', 0.32, TR_Y1 - 2 - TR_Y0, mat_signal(BTEX), (0, (TR_Y0 + TR_Y1 - 2) / 2, 0.045))
-    POSE = OPT.get('pose', 'B'); standee(POSE, STAND_H if POSE == 'A' else STAND_H * 0.62, (-0.75, 5.5, 0.0), math.radians(-25))
+    POSE = OPT.get('pose', 'B')
+    if OPT.get('host') == '1': standee(POSE, STAND_H if POSE == 'A' else STAND_H * 0.62, (-0.75, 5.5, 0.0), math.radians(-25))   # 用户 11-10：去掉人物（不协调、显得假）
     sig_m, _ = emit('signal_B', GOLD, 60.0); sig = sphere('signal', 0.25, sig_m, (0, 0, 0))
     for t, p in ((0.0, (-14, -26, 14)), (0.5, (-5, -16, 5)), (0.9, (0, -8, 0.06)), (1.6, (0, 30, 0.06))): key(sig, 'location', F(t), p)
     for t, s in ((0.0, 1.0), (0.9, 1.0), (1.1, 0.25), (1.6, 0.0)): key(sig, 'scale', F(t), (s, s, s))
@@ -261,6 +263,7 @@ if SHOT == 'B' and 'view' in OPT:
     cp, tp, lens, fs = VIEWS['rxx' if OPT['view'] == 'rx' and OPT.get('xray') == '1' else OPT['view']]; cam.location = cp; tgt.location = tp; cam_d.lens = lens; cam_d.dof.aperture_fstop = fs
     sig.hide_render = True
     nt = bpy.data.materials['signal_band'].node_tree; nt.animation_data_clear(); nt.nodes['offset'].outputs[0].default_value = float(OPT.get('off', 0)) / NB
+    if OPT.get('noband') == '1': bpy.data.objects['signal_band'].hide_render = True
     FRAMES = FRAMES or [60]
 bpy.context.view_layer.update()
 if SHOT == 'B': dust_near_camera(3, 0.3, 0.9, 0.02) if 'view' in OPT else None
@@ -322,9 +325,23 @@ def export_band(path):
         pts.append(dict(j=j, y=round(y, 3), bit=bits[j % NB], x=round(c.x * W, 1), yy=round((1 - c.y) * H, 1), lx=round(l.x * W, 1), ly=round((1 - l.y) * H, 1)))
     hp = world_to_camera_view(sc, cam, Vector((-0.75, 5.5, STAND_H * 1.05)))
     json.dump(dict(W=W, H=H, bit_mm=BIT, pts=pts, host_head=(round(hp.x * W, 1), round((1 - hp.y) * H, 1))), open(path, 'w'))
-for f in FRAMES or [1]:
-    sc.frame_set(f)
-    name = (f"{SHOT}_{OPT['view']}_{OPT.get('pose', 'B')}_{OPT.get('bits', 'normal')}" + ('_xray' if OPT.get('xray') == '1' else '')) if 'view' in OPT else f'{SHOT}_f{f:04d}'
+import time
+def _gpu_name():
+    try:
+        import gpu; return gpu.platform.renderer_get()
+    except Exception as e: return f'（查不到：{e}）'
+if SEQ:      # 整段序列：已渲的帧跳过，每帧打印耗时
+    d_ = os.path.join(OUT, SHOT); os.makedirs(d_, exist_ok=True); t0 = [time.time()]
+    def _pre(scene, *a): t0[0] = time.time()
+    def _post(scene, *a): print(f'FRAME_TIME 第 {scene.frame_current} 帧：{time.time() - t0[0]:.1f} 秒', flush=True)
+    bpy.app.handlers.render_pre.append(_pre); bpy.app.handlers.render_post.append(_post)
+    sc.render.filepath = os.path.join(d_, '####'); sc.render.use_overwrite = False; sc.render.use_placeholder = True
+    bpy.ops.render.render(animation=True); print('GPU', _gpu_name()); print('SEQ_DONE', SHOT, NF)
+else:
+  for f in FRAMES or [1]:
+    t_ = time.time(); sc.frame_set(f)
+    name = (f"{SHOT}_{OPT['view']}_{OPT.get('bits', 'normal')}" + ('_xray' if OPT.get('xray') == '1' else '') + ('_noband' if OPT.get('noband') == '1' else '')) if 'view' in OPT else f'{SHOT}_f{f:04d}'
     if 'garble' in OPT: name += f"_g{OPT['garble']}"
     sc.render.filepath = os.path.join(OUT, name + '.png'); bpy.ops.render.render(write_still=True); print('RENDERED', sc.render.filepath)
+    print(f'FRAME_TIME {name}：{time.time() - t_:.1f} 秒', flush=True); print('GPU', _gpu_name())
     if 'view' in OPT: export_band(os.path.join(OUT, name + '.json'))
