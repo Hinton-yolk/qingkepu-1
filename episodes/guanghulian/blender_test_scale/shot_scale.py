@@ -2,7 +2,7 @@
 # 竖屏 18 秒，一个连续镜头对数匀速推进：交换机 → 光模块（手机）→ 硅光芯片（米粒）→ 芯片边缘的光纤阵列（头发）
 #   → 离边缘约 150 µm 的波导（红细胞）→ 停在「不到 0.5 µm」的波导上。
 # 做法：相机不动，整个世界围绕焦点逐帧缩放（单位 µm，网格按真实尺寸）。
-# 真实感：Poly Haven HDRI 环境光（只用于打光和反射，相机看到的背景仍是深蓝）、倒角、程序生成的芯片版图贴图、
+# 真实感：Poly Haven HDRI 环境光（只用于打光和反射；第二版起背景是机房和雾，颜色从暖到冷）、倒角、程序生成的芯片版图贴图、
 #         金属粗糙度贴图、浅景深、合成里只给光加辉光（AOV 遮罩）。
 # 物体进出用淡入淡出（物体颜色的 alpha），淡完再关渲染；标签保持屏幕上的字号（反向缩放）。
 # 默认 EEVEE。用法：
@@ -23,6 +23,8 @@ FONT = os.path.join(HERE, 'assets', 'label_font.otf'); LAYOUT = os.path.join(HER
 HDRI = os.path.join(HERE, 'assets_dl', 'studio_small_09_2k.hdr'); ROUGH = os.path.join(HERE, 'assets_dl', 'metal_plate_rough_2k.jpg')
 bpy.ops.wm.read_factory_settings(use_empty=True); sc = bpy.context.scene; os.makedirs(OUT, exist_ok=True)
 print('BLENDER_VERSION', bpy.app.version_string)
+if bpy.app.version < (5, 0, 0):                     # 合成节点用的是 5.x 的接口；4.x 会静默丢掉辉光和空气透视
+    raise SystemExit('需要 Blender 5.0 或更新版本（现在是 ' + bpy.app.version_string + '）')
 
 # ---------- 版本兼容 ----------
 def fcurves_of(idb):
@@ -116,17 +118,21 @@ def mat_chip_surface():
         if isinstance(a, tuple): mx.inputs['A'].default_value = (*a, 1)
         else: L.new(a, mx.inputs['A'])
         mx.inputs['B'].default_value = (*bcol, 1); return mx.outputs['Result']
-    c1 = mix(sp.outputs['Red'], (0.015, 0.05, 0.20), (0.20, 0.27, 0.40)); c2 = mix(sp.outputs['Green'], c1, (0.95, 0.66, 0.24))
-    L.new(c2, b.inputs['Base Color']); L.new(sp.outputs['Green'], b.inputs['Metallic'])
-    rg = N.new('ShaderNodeMapRange'); rg.inputs['To Min'].default_value = 0.32; rg.inputs['To Max'].default_value = 0.2; L.new(sp.outputs['Green'], rg.inputs['Value']); L.new(rg.outputs[0], b.inputs['Roughness'])
+    def fade(src, name):                             # 贴图通道 × 可做关键帧的系数（近景由 3D 几何接手后淡成 0）
+        v = N.new('ShaderNodeValue'); v.name = name; v.outputs[0].default_value = 1.0
+        mm = N.new('ShaderNodeMath'); mm.operation = 'MULTIPLY'; L.new(src, mm.inputs[0]); L.new(v.outputs[0], mm.inputs[1]); return mm.outputs[0]
+    R_, G_, A_ = fade(sp.outputs['Red'], 'fade_si'), fade(sp.outputs['Green'], 'fade_metal'), fade(it.outputs['Alpha'], 'fade_light')
+    c1 = mix(R_, (0.015, 0.05, 0.20), (0.20, 0.27, 0.40)); c2 = mix(G_, c1, (0.95, 0.66, 0.24))
+    L.new(c2, b.inputs['Base Color']); L.new(G_, b.inputs['Metallic'])
+    rg = N.new('ShaderNodeMapRange'); rg.inputs['To Min'].default_value = 0.32; rg.inputs['To Max'].default_value = 0.2; L.new(G_, rg.inputs['Value']); L.new(rg.outputs[0], b.inputs['Roughness'])
     b.inputs['Coat Weight'].default_value = 0.5; b.inputs['Emission Color'].default_value = (*CYAN, 1)
-    em = N.new('ShaderNodeMath'); em.operation = 'MULTIPLY'; em.inputs[1].default_value = 1.4; L.new(it.outputs['Alpha'], em.inputs[0]); L.new(em.outputs[0], b.inputs['Emission Strength'])
+    em = N.new('ShaderNodeMath'); em.operation = 'MULTIPLY'; em.inputs[1].default_value = 1.4; L.new(A_, em.inputs[0]); L.new(em.outputs[0], b.inputs['Emission Strength'])
     _fade_alpha(m, 1.0, b.inputs['Alpha'])
     if hasattr(m, 'surface_render_method'): m.surface_render_method = 'DITHERED'
     return m
 M = dict(
     chip=mat_chip_surface(),
-    clad=mat('upper_cladding_glass', (0.6, 0.7, 0.9), 0.0, 0.12, alpha=0.05),
+    clad=mat('upper_cladding_glass', (0.6, 0.7, 0.9), 0.0, 0.22, alpha=0.14, coat=0.6),   # 顶面要看得出是一层玻璃面：红细胞放在它上面
     si_wg=mat('si_waveguide_clear', (0.35, 0.45, 0.62), 0.0, 0.12, alpha=0.30),     # 硅在 1310 nm 透明：画成半透明，看得见芯区里的光
     si_side=mat('si_die_side', (0.10, 0.11, 0.14), 0.7, 0.35, bump=0.2),
     gold=mat('gold_electrode', (0.95, 0.66, 0.24), 1.0, 0.22, rough_tex=ROUGH, rough_scale=0.02),
@@ -458,7 +464,7 @@ for col in range(16):
         cage_specs.append((x, CAGE_Y, (BOARD_TOP + ROW_Z[0] + 5500) / 2, CAGE_W, CAGE_D, ROW_Z[0] + 5500 - BOARD_TOP, 0, 1))
 cages = boxes('cages', cage_specs, [M['cage_body'], M['mouth']], bev=120)
 our_cage = boxes('our_cage', [(port_x(OUR_COL), CAGE_Y, ROW_Z[0], CAGE_W, CAGE_D, 11000, 0, 1)], [M['cage_body'], M['mouth']], bev=120)
-host_conn = box('host_connector', 0, MOD_BACK + 3000, (BOARD_TOP + ROW_Z[0] + 5000) / 2, 20000, 10000, ROW_Z[0] + 5000 - BOARD_TOP, M['plastic'], bev=0.03)
+host_conn = box('host_connector', 0, MOD_BACK - 500, (BOARD_TOP + ROW_Z[0] + 5000) / 2, 20000, 10000, ROW_Z[0] + 5000 - BOARD_TOP, M['plastic'], bev=0.03)
 # 面板上的东西：端口指示灯（导光柱）、左侧系统指示灯、右侧两个管理口（RJ45）
 leds = [boxes('port_leds', [(port_x(c) + 8000, FACE_Y - 1700, z + (6300 if z > SW_ZC else -6300), 1500, 400, 900, 0) for c in range(16) for z in ROW_Z], [M['led']])]
 leds.append(boxes('sys_leds', [(sw_xc - SW_W / 2 + 14000 + k * 4500, FACE_Y - 1500, SW_ZC + 12000, 1600, 400, 1000, 0) for k in range(3)], [M['led']]))
@@ -482,7 +488,9 @@ for col in range(16):
         x = port_x(col); side = -1 if col < 8 else 1; j = rng.uniform(-1, 1)
         p0 = Vector((x, FACE_Y - 42000, z + 300))
         pts = [p0, p0 + Vector((0, -14000, -2500 + 1500 * j)), Vector((x + side * 6000, FACE_Y - 66000 - 5000 * j, z - 45000)),
-               Vector((x * 0.75 + side * 60000, FACE_Y - 72000 - 6000 * j, z - 150000))]
+               Vector((x * 0.75 + side * 60000, FACE_Y - 72000 - 6000 * j, z - 220000)),
+               Vector((x * 0.5 + side * (SW_W / 2 - 20000), FACE_Y - 78000 - 6000 * j, z - 700000)),
+               Vector((side * (SW_W / 2 - 10000), FACE_Y - 80000, z - 1400000))]   # 一直垂到画框底边以外、引向两侧理线
         c = tube(f'cord_{col}_{"t" if z > SW_ZC else "b"}', pts, 1500, M['patch'])
         if col == OUR_COL and z == ROW_Z[0]: our_cord = c
         else: cords.append(c)
@@ -496,9 +504,9 @@ for sgn in (-1, 1):
     for zc in (6350.0, 38100.0):                                                 # 挂耳螺丝：在这一 U 的第 1、3 个孔
         rack.append(cyl(f'screw_{sgn}_{int(zc)}', 5500, 2000, M['cage'], (sw_xc + sgn * (SW_W / 2 + 15000), FACE_Y - 4500 - 1000, SW_ZC - U / 2 + zc), (math.radians(90), 0, 0), verts=24))
 # 上方空 U 位：一条浅托板，从左边伸到我们的模块左侧为止；手机横放（长边沿 x），完全在托板上
-SHELF_X0, SHELF_X1 = -200000.0, -14000.0
-shelf = box('shelf_empty_u', (SHELF_X0 + SHELF_X1) / 2, FACE_Y + 40000, SW_ZC + U / 2 + 1500, SHELF_X1 - SHELF_X0, 80000, 2000, M['shelf'], bev=0.05)
-PHONE = Vector((SHELF_X1 - 4000 - 75000, FACE_Y + 40000, SW_ZC + U / 2 + 2500 + 4000))
+SHELF_X0, SHELF_X1 = sw_xc - SW_W / 2 - 15000, -14000.0     # 托板左端搭在左立柱上
+shelf = box('shelf_empty_u', (SHELF_X0 + SHELF_X1) / 2, FACE_Y + 40000, SW_ZC + U / 2 + 4500, SHELF_X1 - SHELF_X0, 80000, 2000, M['shelf'], bev=0.05)
+PHONE = Vector((SHELF_X1 - 4000 - 75000, FACE_Y + 40000, SW_ZC + U / 2 + 5500 + 4000))
 phone = rounded_slab('phone', PHONE.x, PHONE.y, PHONE.z, 150000, 71000, 7600, 9500, M['phone_frame'], edge_bev=1200)
 # 背面朝上：深蓝背板 + 角上一个凸起的摄像头模组（两颗镜头 + 闪光灯），斜着看也认得出是手机
 phone_scr = rounded_slab('phone_back', PHONE.x, PHONE.y, PHONE.z + 3600, 149000, 70000, 600, 9000, M['phone_back'])
@@ -568,11 +576,17 @@ def appear(objs, size, px=1.0, fade=0.5):           # 物体约 px 像素大时�
     t = t_at_width(size * W / px); vis(objs, t if t > 0.01 else None, None, fade)
 appear(wgs + bands + tails, WG_W * 3, 1.0)           # 单根波导太细时，由芯片贴图里的光路代替
 appear(sscs + ssc_bands, 8.0, 1.5); appear(electrodes, 10.0, 1.5)
+# 近景交给 3D 几何：电极出现后贴图里的金属淡掉，波导出现后贴图里的硅器件和光路淡掉（审核 11-10 第 1 条）
+_nt = M['chip'].node_tree
+for name, size, px in (('fade_metal', 10.0, 1.5), ('fade_si', WG_W * 3, 1.0), ('fade_light', WG_W * 3, 1.0)):
+    t0 = t_at_width(size * W / px) + 0.6; sock = _nt.nodes[name].outputs[0]
+    for t, v in ((t0, 1.0), (t0 + 0.8, 0.0)): sock.default_value = v; sock.keyframe_insert('default_value', frame=F(t))
 vis(fibers + cores, None, 11.0, 0.5); vis([hair], 7.0, 9.8, 0.4); vis([vg], None, 10.6, 0.5)
 vis([clad], 8.0, None, 1.0); vis([rbc], 11.2, 14.8, 0.4)
 vis([phone, phone_scr, phone_btn, shelf] + phone_cam, None, 4.6, 0.4)
 # 面板、上盖、跳线、机柜、机箱里远处的东西：相机穿过面板前淡出
-vis(sw + inside + leds + [mgmt, rings, plugs] + others + cords, None, 4.3, 0.6)
+vis(sw + inside + leds + [mgmt, rings], None, 4.3, 0.6)
+vis([plugs] + others + cords, None, 6.6, 0.6)            # 邻居端口的模块头、插头、跳线跟笼子一起走，不留空口
 vis([our_cage], None, 3.9, 0.6)                      # 我们这一格的笼子先透明化，露出模块
 vis([cages, host_conn, host_board], None, 6.6, 0.6)
 vis(hall + rack, None, 6.6, 0.8)                      # 机房环境、机架：一直留到推进模块里面  # 穿过面板以后，旁边的笼子、主板、后面的连接器还在（不在虚空里）
@@ -604,7 +618,7 @@ def label(key, text, loc, t_in, t_out, arrow=None, arrow_z=None, frac=LABEL_FRAC
         vis(parts[1:], t_in if t_in > 0 else None, t_out, 0.6)
     labels[key] = o; return parts
 label('switch', '交换机', (0, FACE_Y - 30000, SW_ZC + 60000), 0.0, 2.2, frac=0.09)
-label('module', '光模块 约 9 cm\n（含拉环）', (45000, MOD_FRONT - 4000, SHELL_Z + 13000), 2.4, 4.8, frac=0.055)   # 往右挪：手机在左边
+label('module', '光模块 约 9 cm\n（含拉环）', (45000, FACE_Y - 72000, SHELL_Z + 13000), 2.4, 4.8, frac=0.055)   # 往右挪：手机在左边
 label('chip', '硅光芯片 约 5 mm（示例）', (0, -400, 900), 5.0, 7.6, arrow=DIE, arrow_z=300, frac=0.06)
 label('fiber', '光纤 125 µm', (-250, EDGE - 250, 200), 7.4, 8.6, arrow=125, arrow_z=75, frac=0.05, crumb=False)   # 和头发标签同一位置附近，不留
 label('hair', '头发 约 0.07–0.08 mm', (150, EDGE - 520, 230), 8.6, 9.6, frac=0.045, crumb=False)   # 和光纤标签错开时间，不叠在一起
@@ -739,7 +753,9 @@ try:
         try: gl.inputs[k].default_value = v
         except Exception as e: print('辉光参数跳过', k, e)
     add = ng.nodes.new('ShaderNodeMix'); add.data_type = 'RGBA'; add.blend_type = 'ADD'; add.inputs['Factor'].default_value = 1.0
-    ng.links.new(rl.outputs['Image'], add.inputs['A']); ng.links.new(gl.outputs['Glare'], add.inputs['B'])
+    clip = ng.nodes.new('ShaderNodeMix'); clip.data_type = 'RGBA'; clip.blend_type = 'MULTIPLY'; clip.inputs['Factor'].default_value = 1.0
+    ng.links.new(gl.outputs['Glare'], clip.inputs['A']); ng.links.new(mask, clip.inputs['B'])     # 辉光只留在芯区和倏逝尾的遮罩里（用户：辉光不要漏光）
+    ng.links.new(rl.outputs['Image'], add.inputs['A']); ng.links.new(clip.outputs['Result'], add.inputs['B'])
     # 环境里的灯（指示灯、天花板灯带）单独一层辉光，和光带分开
     mul2 = ng.nodes.new('ShaderNodeMix'); mul2.data_type = 'RGBA'; mul2.blend_type = 'MULTIPLY'; mul2.inputs['Factor'].default_value = 1.0
     ng.links.new(emit, mul2.inputs['A']); ng.links.new(rl.outputs.get('envglow'), mul2.inputs['B'])
@@ -756,7 +772,7 @@ try:
     go = ng.nodes.new('NodeGroupOutput'); ng.links.new(fog.outputs['Result'], go.inputs[0])
     print('COMPOSITOR 辉光 + 空气透视已接上')
 except Exception as e: print('COMPOSITOR 跳过：', e)
-set_fmt('PNG'); sc.render.use_overwrite = False; sc.render.use_placeholder = True
+set_fmt('PNG'); sc.render.use_overwrite = False; sc.render.use_placeholder = False   # 不写占位空文件：中途关窗口不会留下 0 字节的「已完成」帧
 
 # ---------- 每帧锚点（给 2D 合成） ----------
 anchors = {}
@@ -767,7 +783,11 @@ for f in range(1, NF + 1):
     fr['view_um'] = round(view_w((f - 1) / FPS), 3); anchors[f] = fr
 json.dump({'fps': FPS, 'nf': NF, 'w': W, 'frames': anchors}, open(os.path.join(OUT, 'anchors.json'), 'w'))
 if VIDEO and not FRAMES:                              # PNG 序列：中途停了可以续渲
-    sc.render.filepath = os.path.join(OUT, 'frames', 'f'); bpy.ops.render.render(animation=True)
+    fd = os.path.join(OUT, 'frames'); os.makedirs(fd, exist_ok=True)
+    for fn in os.listdir(fd):                         # 上次被打断时写了一半的帧：太小就删掉重渲
+        fp = os.path.join(fd, fn)
+        if fn.endswith('.png') and os.path.getsize(fp) < 10000: os.remove(fp); print('删掉不完整的帧', fn)
+    sc.render.filepath = os.path.join(fd, 'f'); bpy.ops.render.render(animation=True)
 else:
     sc.render.use_overwrite = True
     for i, f in enumerate(FRAMES or range(1, NF + 1)):

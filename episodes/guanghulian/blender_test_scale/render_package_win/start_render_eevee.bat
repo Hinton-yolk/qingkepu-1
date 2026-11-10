@@ -12,7 +12,7 @@ if errorlevel 1 goto broke
 if not exist "%~dp0output\frames\f0540.png" goto broke
 echo.
 echo 帧渲完了，正在编码成 scale.mp4 ……
-"%B%" -b --python-exit-code 1 --python "%~dp0encode_mp4.py" -- "%~dp0output\frames" "%~dp0output\scale.mp4" 30
+"%B%" -b --factory-startup --python-exit-code 1 --python "%~dp0encode_mp4.py" -- "%~dp0output\frames" "%~dp0output\scale.mp4" 30 540
 if errorlevel 1 goto broke
 if not exist "%~dp0output\scale.mp4" goto broke
 echo.
