@@ -13,6 +13,10 @@
 | 它先按正常含水量来算；水一少，就会被算成脂肪多 | BIA 公式的前提是去脂组织含水约 73% 这一「常数」；含水异常（脱水、水肿）时结果不可靠。脱水时阻抗升高，体脂被高估（2021 年研究：脱水是误差最大的因素）。多频秤能单独估一部分水，但同样假设含水正常，所以片中不说「分不清」，只说「默认正常」 | [Wang et al. 1999, AJCN 69(5):833–841](https://pubmed.ncbi.nlm.nih.gov/10232629)；[Kyle et al. 2004, ESPEN BIA 指南 II, Clin Nutr 23:1430–1453](https://pubmed.ncbi.nlm.nih.gov/15556267)；[BMC Public Health 2021](https://doi.org/10.1186/s12889-021-10552-y) |
 | 所以电越难走，脂肪一般就越多 | 「一般」：电阻还跟身高、腿长、腿粗有关，同样体型、含水正常时，电阻大才对应脂肪多；公式里用「身高² ÷ 电阻」正是为此 | [Kyle et al. 2004, ESPEN BIA 指南 I](https://pubmed.ncbi.nlm.nih.gov/15380917) |
 
+| （评论回复）八电极把上半身也测进去，有研究里和 DEXA 稍微更一致 | Tanita 研究：八电极与 DEXA 相关 r = 0.87，四电极 r = 0.82；**仅一项研究、仅读到摘要、专业分析仪**，所以只说「稍微」 | [Pietrobelli et al., EJCN 2004](https://www.nature.com/articles/1601993.pdf) |
+| （评论回复）两台秤的公式不一样，绝对值对不上；同一台看趋势 | 不同设备的公式不能互换，个体误差大；同一人的相对排序 / 变化较稳定 | [J Transl Med 2024](https://translational-medicine.biomedcentral.com/counter/pdf/10.1186/s12967-024-05272-x.pdf)；[J Electr Bioimpedance 2018](https://doaj.org/article/99e9cfd1dacc41d9ac891ea50f382c76)；[Measurement Toolkit](https://measurement-toolkit.org/anthropometry/objective-methods/bioelectric-impedence-analysis) |
+| （评论回复）要光脚，穿袜子体脂测不准 | 说明书要求光脚站在电极上；有品牌说明书写明穿袜子 / 丝袜会产生测量误差 | [Tanita BC-418](https://www.notice-facile.com/en/manual/1271279/tanita+bc-418)；[Omron](https://omronhealthcare.com/scales)；[示例说明书](https://manualedistruzioni.it/aws/scale/msl-180/user-manual/2c75j) |
+
 未核实、不使用：脚踩式秤「个人误差 4–8 个百分点」（只见于博客转述）。
 
 ## 画面上的简化（片中不写字，2026-11-09 制作时补）
