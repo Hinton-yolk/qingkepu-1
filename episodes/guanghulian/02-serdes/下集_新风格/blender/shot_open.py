@@ -260,7 +260,14 @@ def skyline():
     # 低角度暖色逆光：从主芯片散热器后面打向镜头，穿过鳍片和空气留下光柱（体积光）
     # 光藏在主芯片散热器后面低处，从鳍片缝隙之间漏出来，形成一道道光柱（光锥窄，只照过散热器）
     bk = bpy.data.lights.new('backlight', 'SPOT'); bk.energy = 5.0e6; bk.color = (1.0, 0.70, 0.40); bk.spot_size = math.radians(24); bk.spot_blend = 0.4; bk.shadow_soft_size = 1.5
-    bko = obj('backlight', bk, None, (2, 175, 22)); d_ = Vector((-6, 20, 4)) - Vector((2, 175, 22)); bko.rotation_euler = d_.to_track_quat('-Z', 'Y').to_euler()
+    bko = obj('backlight', bk, None, (12, 175, 22)); d_ = Vector((-4, 20, 4)) - Vector((12, 175, 22)); bko.rotation_euler = d_.to_track_quat('-Z', 'Y').to_euler()   # 偏右一点：反光条不压在 B 第 1 帧的信号上
+    bk2 = bpy.data.lights.new('backlight_far', 'SPOT'); bk2.energy = 6.0e6; bk2.color = (1.0, 0.62, 0.32); bk2.spot_size = math.radians(40); bk2.spot_blend = 0.7; bk2.shadow_soft_size = 4
+    b2o = obj('backlight_far', bk2, None, (190, 230, 30)); d2 = Vector((0, 8, 2)) - Vector((190, 230, 30)); b2o.rotation_euler = d2.to_track_quat('-Z', 'Y').to_euler()   # side 机位方向远处的暖光（雾里有光）
+    if OPT.get('xray') == '1': bk.energy = 0; bk2.energy = 0                       # 审核：xray 背景被逆光整张打白
+    if OPT.get('view') == 'close': bk.energy *= 0.3                              # 审核：close 背景下半张逆光反光太亮
+    st_on = emit('status_led_amber', (1.0, 0.55, 0.15), 40)[0]; st_g = emit('status_led_green', (0.3, 1.0, 0.4), 40)[0]
+    for i, bb in enumerate(boxes_done):                                         # 远处器件上的小状态灯：在雾里虚成光斑
+        if rs.random() < 0.6: sphere(f'stled{i}', 0.5, st_on if i % 3 else st_g, ((bb[0] + bb[2]) / 2, bb[1] + 1.0, 1.0))
 
 # ---------- 相机 ----------
 cam_d = bpy.data.cameras.new('cam'); cam = obj('cam', cam_d); sc.camera = cam
@@ -356,7 +363,7 @@ else:
     plane('signal_band', 0.32, TR_Y1 - 2 - TR_Y0, mat_signal(BTEX), (0, (TR_Y0 + TR_Y1 - 2) / 2, 0.004))   # 贴着板面（审核：原来悬空 0.045，画面上偏到线对旁边）
     POSE = OPT.get('pose', 'B')
     if OPT.get('host') == '1': standee(POSE, STAND_H if POSE == 'A' else STAND_H * 0.62, (-0.75, 5.5, 0.0), math.radians(-25))   # 用户 11-10：去掉人物（不协调、显得假）
-    sig_m, _ = emit('signal_B', GOLD, 60.0); sig = sphere('signal', 0.25, sig_m, (0, 0, 0))
+    sig_m, _ = emit('signal_B', (1.0, 0.45, 0.05), 14.0)   # 金色不过曝成白点，接 A 段结尾的金色光点; sig = sphere('signal', 0.25, sig_m, (0, 0, 0))
     SIG_PATH = ((0.0, (0, -14, 9.0)), (0.45, (0, -6, 4.0)), (0.9, (0, 0.0, 0.02)), (1.5, (0, 14, 0.02)))
     for t, p in SIG_PATH: key(sig, 'location', F(t), p)
     for t, s in ((0.0, 1.0), (0.9, 1.0), (1.2, 0.35), (1.5, 0.0)): key(sig, 'scale', F(t), (s, s, s))
