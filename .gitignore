@@ -11,3 +11,6 @@ __pycache__/
 .DS_Store
 episodes/guanghulian/blender_test_scale/assets_dl/
 episodes/guanghulian/blender_test_scale/assets/chip_layout.png
+episodes/guanghulian/blender_test_scale/assets/pcb_module.png
+episodes/guanghulian/blender_test_scale/assets/perf_hex.png
+episodes/guanghulian/blender_test_scale/assets/rack_holes.png

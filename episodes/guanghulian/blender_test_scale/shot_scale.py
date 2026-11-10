@@ -160,6 +160,71 @@ M = dict(
     label=mat_emit('label_white', (1.0, 1.0, 1.0), 3.0)[0],
 )
 
+# ---------- 硬件段的贴图材质（贴图由 make_hw_textures.py 生成） ----------
+PCB_TEX = os.path.join(HERE, 'assets', 'pcb_module.png'); PERF_TEX = os.path.join(HERE, 'assets', 'perf_hex.png'); RACK_TEX = os.path.join(HERE, 'assets', 'rack_holes.png')
+def _obj_uv(N, L, ax_u, ax_v, su, sv, ou=0.0, ov=0.0):
+    """物体坐标的两个轴 → 贴图 UV：u = 轴_u·su + ou，v = 轴_v·sv + ov"""
+    tc = N.new('ShaderNodeTexCoord'); sp = N.new('ShaderNodeSeparateXYZ'); L.new(tc.outputs['Object'], sp.inputs[0]); cm = N.new('ShaderNodeCombineXYZ')
+    for ax, s, o, sock in ((ax_u, su, ou, 'X'), (ax_v, sv, ov, 'Y')):
+        m1 = N.new('ShaderNodeMath'); m1.operation = 'MULTIPLY_ADD'; L.new(sp.outputs[ax], m1.inputs[0]); m1.inputs[1].default_value = s; m1.inputs[2].default_value = o
+        L.new(m1.outputs[0], cm.inputs[sock])
+    return cm.outputs[0]
+def _img(N, L, path, vec, ext='REPEAT'):
+    it = N.new('ShaderNodeTexImage'); it.image = bpy.data.images.load(path, check_existing=True); it.image.colorspace_settings.name = 'Non-Color'
+    it.extension = ext; L.new(vec, it.inputs[0]); return it
+def _mix(N, L, fac, a, bcol):
+    mx = N.new('ShaderNodeMix'); mx.data_type = 'RGBA'; L.new(fac, mx.inputs['Factor'])
+    if isinstance(a, tuple): mx.inputs['A'].default_value = (*a, 1)
+    else: L.new(a, mx.inputs['A'])
+    mx.inputs['B'].default_value = (*bcol, 1); return mx.outputs['Result']
+def _range(N, L, src, lo, hi, dst):
+    mr = N.new('ShaderNodeMapRange'); mr.inputs['To Min'].default_value = lo; mr.inputs['To Max'].default_value = hi; L.new(src, mr.inputs['Value']); L.new(mr.outputs[0], dst)
+def mat_holes(name, col, metal, rough, tex, ax_u, ax_v, per_u, per_v, ou=0.0, ov=0.0, hole=(0.004, 0.004, 0.005), bump=0.5):
+    """冲孔板 / 立柱方孔：贴图白 = 孔（孔里暗、不反光，孔边有凹陷）"""
+    m = bpy.data.materials.new(name); m.use_nodes = True; N = m.node_tree.nodes; L = m.node_tree.links; b = N['Principled BSDF']
+    it = _img(N, L, tex, _obj_uv(N, L, ax_u, ax_v, 1 / per_u, 1 / per_v, ou, ov)); k = it.outputs['Color']
+    L.new(_mix(N, L, k, col, hole), b.inputs['Base Color']); _range(N, L, k, metal, 0.0, b.inputs['Metallic']); _range(N, L, k, rough, 0.95, b.inputs['Roughness'])
+    bp = N.new('ShaderNodeBump'); bp.invert = True; bp.inputs['Strength'].default_value = bump; L.new(k, bp.inputs['Height']); L.new(bp.outputs[0], b.inputs['Normal'])
+    _fade_alpha(m, 1.0, b.inputs['Alpha'])
+    if hasattr(m, 'surface_render_method'): m.surface_render_method = 'DITHERED'
+    return m
+def mat_pcb(name, tile_u=17150.0, tile_v=76000.0, dim=1.0):
+    """电路板顶面：绿色阻焊；阻焊下的铜（走线、铺铜）稍亮；金焊盘；白色丝印；过孔微凸"""
+    m = bpy.data.materials.new(name); m.use_nodes = True; N = m.node_tree.nodes; L = m.node_tree.links; b = N['Principled BSDF']
+    it = _img(N, L, PCB_TEX, _obj_uv(N, L, 'X', 'Y', 1 / tile_u, 1 / tile_v, 0.5, 0.5)); sp = N.new('ShaderNodeSeparateColor'); L.new(it.outputs['Color'], sp.inputs[0])
+    d = lambda c: tuple(v * dim for v in c)
+    c = _mix(N, L, sp.outputs['Red'], d((0.018, 0.085, 0.03)), d((0.05, 0.20, 0.07)))
+    c = _mix(N, L, sp.outputs['Green'], c, (0.95, 0.66, 0.24)); c = _mix(N, L, sp.outputs['Blue'], c, d((0.78, 0.80, 0.76)))
+    L.new(c, b.inputs['Base Color']); L.new(sp.outputs['Green'], b.inputs['Metallic']); _range(N, L, sp.outputs['Green'], 0.32, 0.22, b.inputs['Roughness'])
+    h = N.new('ShaderNodeMath'); h.operation = 'MULTIPLY_ADD'; L.new(sp.outputs['Red'], h.inputs[0]); h.inputs[1].default_value = 0.35; L.new(it.outputs['Alpha'], h.inputs[2])
+    bp = N.new('ShaderNodeBump'); bp.inputs['Strength'].default_value = 0.25; L.new(h.outputs[0], bp.inputs['Height']); L.new(bp.outputs[0], b.inputs['Normal'])
+    b.inputs['Coat Weight'].default_value = 0.45; _fade_alpha(m, 1.0, b.inputs['Alpha'])
+    if hasattr(m, 'surface_render_method'): m.surface_render_method = 'DITHERED'
+    return m
+def mat_ribbon():
+    """光纤带：8 根 250 µm 涂覆光纤并排（中性浅灰，起伏按光纤位置）"""
+    m = mat('fiber_ribbon', (0.62, 0.63, 0.65), 0.0, 0.45); N = m.node_tree.nodes; L = m.node_tree.links; b = N['Principled BSDF']
+    tc = N.new('ShaderNodeTexCoord'); sp = N.new('ShaderNodeSeparateXYZ'); L.new(tc.outputs['Object'], sp.inputs[0])
+    mu = N.new('ShaderNodeMath'); mu.operation = 'MULTIPLY'; mu.inputs[1].default_value = 2 * math.pi / 250.0; L.new(sp.outputs['X'], mu.inputs[0])
+    cs = N.new('ShaderNodeMath'); cs.operation = 'COSINE'; L.new(mu.outputs[0], cs.inputs[0])
+    bp = N.new('ShaderNodeBump'); bp.inputs['Strength'].default_value = 0.6; L.new(cs.outputs[0], bp.inputs['Height']); L.new(bp.outputs[0], b.inputs['Normal'])
+    return m
+M.update(
+    pcb=mat_pcb('module_pcb'), host_pcb=mat_pcb('host_pcb', 34300.0, 152000.0, dim=0.55),
+    ribbon=mat_ribbon(),
+    face=mat_holes('switch_faceplate', (0.075, 0.08, 0.09), 0.85, 0.42, PERF_TEX, 'X', 'Z', 40000.0, 41560.0, bump=0.6),
+    cage_body=mat_holes('cage_body', (0.50, 0.52, 0.55), 1.0, 0.32, PERF_TEX, 'X', 'Y', 16000.0, 16620.0, bump=0.3),
+    rack=mat_holes('rack_rail', (0.10, 0.11, 0.12), 0.8, 0.4, RACK_TEX, 'X', 'Z', 25000.0, 44450.0, ou=0.5, ov=-0.5),
+    other=mat_holes('other_device', (0.05, 0.055, 0.065), 0.6, 0.45, PERF_TEX, 'X', 'Z', 40000.0, 41560.0),
+    mouth=mat('cage_mouth_dark', (0.012, 0.012, 0.014), 0.3, 0.6),
+    plastic=mat('black_plastic', (0.025, 0.025, 0.028), 0.0, 0.5, bump=0.05),
+    heatsink=mat('heatsink_dim', (0.28, 0.29, 0.31), 1.0, 0.35),
+    substrate=mat('bga_substrate', (0.10, 0.085, 0.055), 0.0, 0.4, coat=0.3),
+    mlcc=mat('mlcc_body', (0.42, 0.34, 0.24), 0.0, 0.55), tin=mat('mlcc_terminal', (0.78, 0.78, 0.80), 1.0, 0.3),
+    phone_frame=mat('phone_frame', (0.55, 0.56, 0.60), 1.0, 0.22, aniso=0.4),
+    rj45=mat('rj45_dark', (0.02, 0.02, 0.022), 0.2, 0.6),
+)
+
 # ---------- 几何工具（单位 µm，网格按真实尺寸） ----------
 WORLD = bpy.data.objects.new('WORLD', None); sc.collection.objects.link(WORLD)
 def link(o, parent=WORLD): sc.collection.objects.link(o); o.parent = parent; return o
@@ -252,8 +317,9 @@ for i, x in enumerate(FX):
     ssc_bands.append(box(f'ssc_band_{i}', x, EDGE + SSC_L / 2, 1.5, 3.0, SSC_L, 1.2, M['light'], bev=0))   # 模斑转换器里也有光（示意）
     for sgn in (-1, 1): electrodes.append(box(f'mzm_{i}_{sgn}', x + sgn * 9.0, EDGE + 665, 1.0, 10.0, 1000, 2.0, M['gold'], bev=0.15))
 # 光纤阵列（端面耦合）：V 形槽块抵着芯片边缘，光纤躺在槽里，纤芯和波导同高；盖板省略
+# 块底面落在模块电路板上（芯片也是直接贴在板上：芯片底面 z = −750 = 板顶面）
 VG_L = 4000.0
-vg = box('v_groove_block', 375.0, EDGE - VG_L / 2 - 5, -500.0, 2600, VG_L, 1000, M['vgroove'], bev=0.02)
+vg = box('v_groove_block', 375.0, EDGE - VG_L / 2 - 5, -375.0, 2600, VG_L, 750, M['vgroove'], bev=0.02)
 fibers, cores = [], []
 for i, x in enumerate(FX):
     fibers.append(cyl(f'fiber_{i}', 62.5, VG_L, M['glass'], (x, EDGE - VG_L / 2 - 5, 0.0), (math.radians(90), 0, 0)))
@@ -261,58 +327,179 @@ for i, x in enumerate(FX):
 hair = cyl('human_hair', 37.5, 3000.0, M['hair'], (300.0, EDGE - 450, 62.5 + 37.5), (0, math.radians(90), math.radians(8)), verts=24)
 rbc = rbc_mesh('red_blood_cell', 7.5, M['rbc'], (6.0, FOCUS.y + 4.0, 2.5 + 1.1))
 
+# ---------- 合并网格工具（很多小方块合成一个物体：省物体数，渲染快） ----------
+def boxes(name, specs, mats, bev=0.0):
+    """specs：(cx, cy, cz, sx, sy, sz, 材质序号[, 前脸材质序号])；前脸 = 朝 −y 的面"""
+    bm = bmesh.new()
+    for sp in specs:
+        cx, cy, cz, sx, sy, sz, mi = sp[:7]; fi = sp[7] if len(sp) > 7 else mi
+        r = bmesh.ops.create_cube(bm, size=1.0); vs = r['verts']
+        for v in vs: v.co = Vector((cx + v.co.x * sx, cy + v.co.y * sy, cz + v.co.z * sz))
+        for f in {f for v in vs for f in v.link_faces}:
+            f.normal_update(); f.material_index = fi if f.normal.y < -0.9 else mi
+    me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free()
+    for m in mats: me.materials.append(m)
+    o = bpy.data.objects.new(name, me); link(o)
+    if bev: bevel(o, bev, seg=2)
+    return o
+def rounded_slab(name, cx, cy, cz, sx, sy, sz, r, m, edge_bev=0.0, seg=10):
+    """圆角矩形板（手机）：四条竖边倒成半径 r 的圆角，上下棱再倒一点"""
+    bm = bmesh.new(); bmesh.ops.create_cube(bm, size=1.0)
+    for v in bm.verts: v.co = Vector((v.co.x * sx, v.co.y * sy, v.co.z * sz))
+    ve = [e for e in bm.edges if abs(e.verts[0].co.z - e.verts[1].co.z) > 1e-6]
+    bmesh.ops.bevel(bm, geom=ve, offset=r, segments=seg, profile=0.5, affect='EDGES')
+    me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free()
+    o = bpy.data.objects.new(name, me); o.location = (cx, cy, cz); o.data.materials.append(m); link(o)
+    if edge_bev: bevel(o, edge_bev, seg=3)
+    else:
+        for p in o.data.polygons: p.use_smooth = True
+    return o
+def strip(name, pts, width, thick, m):
+    """扁平带：沿 (x, y, z) 点列，x 方向宽 width、厚 thick（光纤带）"""
+    bm = bmesh.new(); prev = None
+    for (x, y, z) in pts:
+        a = bm.verts.new((x - width / 2, y, z)); b = bm.verts.new((x + width / 2, y, z))
+        if prev: bm.faces.new((prev[0], prev[1], b, a))
+        prev = (a, b)
+    me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free()
+    for p in me.polygons: p.use_smooth = True
+    o = bpy.data.objects.new(name, me); o.data.materials.append(m); link(o)
+    sol = o.modifiers.new('sol', 'SOLIDIFY'); sol.thickness = thick; sol.offset = 0.0
+    return o
+def smooth_path(way, n=60):
+    """经过各控制点的平滑路径（段内余弦插值，各段相接处切线水平）"""
+    out = []
+    for (p0, p1) in zip(way, way[1:]):
+        for k in range(n):
+            u = k / n; s = 0.5 - 0.5 * math.cos(math.pi * u); out.append(tuple(a + (b - a) * (u if i == 1 else s) for i, (a, b) in enumerate(zip(p0, p1))))
+    out.append(way[-1]); return out
+
 # ---------- 光模块（QSFP-DD）----------
 MOD_W, MOD_H = 18350.0, 8500.0
 MOD_FRONT, MOD_BACK = -40000.0, 38000.0
 PCB_Z = -750.0 - 500.0; PCB_TOP = PCB_Z + 500
 pcb = box('module_pcb', 0, (MOD_FRONT + MOD_BACK) / 2, PCB_Z, MOD_W - 1200, MOD_BACK - MOD_FRONT - 2000, 1000, M['pcb'], bev=0.05)
-fingers = [box(f'gold_finger_{k}', -7000 + k * 760, MOD_BACK - 3000, PCB_TOP + 15, 500, 3000, 30, M['copper'], bev=0) for k in range(19)]
-dsp = box('dsp', 0, 18000, PCB_TOP + 600, 12000, 12000, 1200, M['ic'], bev=0.05)
-dsp_lid = box('dsp_lid', 0, 18000, PCB_TOP + 1300, 9000, 9000, 200, M['shell_end'], bev=0.2)
+# 金手指：QSFP-DD 每面两排（双密度），每排 19 个；靠板边一排短、往里一排长（示意）
+fingers = [boxes('gold_fingers', [(-7000 + k * 760 + 250, 36000 - 650, PCB_TOP + 15, 500, 1300, 30, 0) for k in range(19)] +
+                 [(-7000 + k * 760 + 250, 33250, PCB_TOP + 15, 500, 2300, 30, 0) for k in range(19)], [M['copper']])]
+# DSP：BGA 焊球层（暗）+ 有机基板 + 金属盖
+dsp = boxes('dsp', [(0, 18000, PCB_TOP + 175, 11600, 11600, 350, 0), (0, 18000, PCB_TOP + 350 + 450, 12000, 12000, 900, 1)], [M['plastic'], M['substrate']], bev=60)
+dsp_lid = box('dsp_lid', 0, 18000, PCB_TOP + 1250 + 600, 9600, 9600, 1200, M['shell_end'], bev=0.12)
 driver = box('driver_tia', -5200, 2000, PCB_TOP + 400, 3000, 3000, 800, M['ic'], bev=0.05)
 laser = box('laser', 4200, 1200, PCB_TOP + 300, 1000, 2000, 600, M['laser'], bev=0.05)
-ribbon = box('fiber_ribbon', 375.0, (EDGE - VG_L + MOD_FRONT + 4500) / 2, 0.0, 2400, (EDGE - VG_L) - (MOD_FRONT + 4500), 250, M['ribbon'], bev=0.1)
-mpo = box('mpo', 0, MOD_FRONT + 3500, PCB_TOP + 2300, 9000, 5000, 4000, M['mpo'], bev=0.05)
+# 0402 贴片电容（1.0 × 0.5 × 0.5 mm）：陶瓷本体 + 两端镀锡
+def mlcc(x, y, along_x=True):
+    L0, Wd, H = 1000.0, 500.0, 500.0; z = PCB_TOP + H / 2; out = []
+    for off, ln, mi in ((-400, 200, 1), (0, 600, 0), (400, 200, 1)):
+        out.append((x + off, y, z, ln, Wd, H, mi) if along_x else (x, y + off, z, Wd, ln, H, mi))
+    return out
+CAP_XY = [(-7000 + k * 1150, 25200, True) for k in range(12)] + [(-7000, 12500 + k * 1200, False) for k in range(9)] + \
+         [(7000, 12500 + k * 1200, False) for k in range(9)] + [(-6300 + k * 1300, 10800, True) for k in range(4)] + \
+         [(-6250, -8650, True), (-6250, -15650, True), (6250, -10650, True), (6250, -20650, True), (-6200, 4600, True), (-4200, 4600, True)]
+caps = boxes('mlcc_caps', [b for (x, y, ax) in CAP_XY for b in mlcc(x, y, ax)], [M['mlcc'], M['tin']])
+# 光纤带：从 V 形槽块后端出来，弯下去贴着电路板走，再抬起来进 MPO 插座（不悬空）
+MPO_Y, MPO_Z = MOD_FRONT + 3500, PCB_TOP + 2300
+rib_way = [(125.0, EDGE - VG_L - 5, 0.0), (125.0, EDGE - VG_L - 4500, PCB_TOP + 130), (125.0, MPO_Y + 6500, PCB_TOP + 130), (125.0, MPO_Y + 2500, MPO_Z)]
+ribbon = strip('fiber_ribbon', smooth_path(rib_way, 40), 2100.0, 250.0, M['ribbon'])
+mpo = box('mpo', 0, MPO_Y, MPO_Z, 9000, 5000, 4000, M['mpo'], bev=0.05)
 rice = ellipsoid('rice_grain', 1300, 3200, 950, M['rice'], (6000, -6000, PCB_TOP + 950), (0, 0, math.radians(15)))
 SHELL_Z = PCB_Z - 1500 + MOD_H / 2
 shell = box('module_shell', 0, (MOD_FRONT + MOD_BACK) / 2, SHELL_Z, MOD_W, MOD_BACK - MOD_FRONT, MOD_H, M['shell'], bev=0.04)
 shell_front = box('module_front', 0, MOD_FRONT + 1000, SHELL_Z, MOD_W, 2000, MOD_H, M['shell_end'], bev=0.04)
-tab = box('pull_tab', 0, MOD_FRONT - 7500, SHELL_Z - 2500, 9000, 15000, 1200, M['tab'], bev=0.2)
+TAB_DZ = -3900.0                                                                 # 拉环贴着模块底面往前伸
+tab = box('pull_tab', 0, MOD_FRONT - 7500, SHELL_Z + TAB_DZ, 9000, 15000, 1200, M['tab'], bev=0.2)
 
-# ---------- 交换机（1U，2 排 × 16 个 QSFP-DD）+ 机柜 + 托板 + 手机 ----------
+# ---------- 交换机（1U，2 排 × 16 个 QSFP-DD，上下对齐的 2×1 叠层笼子）+ 机柜 + 托板 + 手机 ----------
 U = 44450.0
-FACE_Y = MOD_FRONT + 6000
+FACE_Y = MOD_FRONT + 6000                                                        # 面板前表面附近；模块前端伸出面板约 5 mm
 SW_ZC = SHELL_Z - 9000
 SW_W, SW_D = 440000.0, 420000.0
 PITCH = 23000.0
-OUR_COL = 7                                                                     # 我们的模块在上排中间（第 7 列），画面居中
-port_x = lambda col, row: (col - OUR_COL) * PITCH + (PITCH / 2 if row else 0.0)
-sw_xc = port_x(7.5, 0)                                                         # 机箱中心：32 个端口都在面板里
-sw = [box('sw_face', sw_xc, FACE_Y, SW_ZC, SW_W, 2500, U, M['sw'], bev=0.03),
+OUR_COL = 7                                                                      # 我们的模块在上排第 7 列，画面居中
+port_x = lambda col, row=0: (col - OUR_COL) * PITCH
+sw_xc = port_x(7.5)                                                              # 机箱中心
+ROW_Z = (SW_ZC + 9000, SW_ZC - 9000)
+BOARD_TOP = SW_ZC - U / 2 + 4200                                                 # 主板顶面
+sw = [box('sw_face', sw_xc, FACE_Y, SW_ZC, SW_W, 2500, U, M['face'], bev=0.03),
       box('sw_bottom', sw_xc, FACE_Y + SW_D / 2, SW_ZC - U / 2 + 1000, SW_W, SW_D, 2000, M['sw'], bev=0.1),
       box('sw_cover', sw_xc, FACE_Y + SW_D / 2, SW_ZC + U / 2 - 600, SW_W, SW_D, 1200, M['sw_top'], bev=0),
-      box('sw_asic', sw_xc, FACE_Y + 200000, SW_ZC - U / 2 + 4000, 70000, 70000, 4000, M['asic'], bev=0.05)]
-leds, others = [], []
-for row in range(2):
-    for col in range(16):
-        x = port_x(col, row); z = SW_ZC + (9000 if row == 0 else -9000)
-        sw.append(box(f'cage_{row}_{col}', x, FACE_Y - 1500, z, 21000, 1500, 11000, M['cage'], bev=0.06))
-        leds.append(box(f'led_{row}_{col}', x + 8000, FACE_Y - 2400, z + (6200 if row == 0 else -6200), 1500, 400, 900, M['led'], bev=0.1))
-        if row == 0 and col == OUR_COL: continue
-        others += [box(f'mod_{row}_{col}', x, FACE_Y - 3000, z, MOD_W, 6000, MOD_H, M['shell_end'], bev=0.04),
-                   box(f'tab_{row}_{col}', x, FACE_Y - 6000 - 7500, z - 2500, 9000, 15000, 1200, M['tab'], bev=0.2)]
-        p0 = Vector((x, FACE_Y - 6000, z))             # 跳线：从模块前端的 MPO 头出来，向下弯进理线
-        others.append(tube(f'cord_{row}_{col}', [p0, p0 + Vector((0, -25000, -2000)), p0 + Vector((0, -45000, -30000)), p0 + Vector((0, -50000, -120000))], 1500, M['patch']))
-rack = [box('rail_l', sw_xc - SW_W / 2 - 15000, FACE_Y + 5000, SW_ZC, 25000, 30000, 6 * U, M['rack'], bev=0.02),
-        box('rail_r', sw_xc + SW_W / 2 + 15000, FACE_Y + 5000, SW_ZC, 25000, 30000, 6 * U, M['rack'], bev=0.02),
+      boxes('sw_walls', [(sw_xc - SW_W / 2 + 750, FACE_Y + SW_D / 2, SW_ZC, 1500, SW_D, U - 1200, 0), (sw_xc + SW_W / 2 - 750, FACE_Y + SW_D / 2, SW_ZC, 1500, SW_D, U - 1200, 0),
+                         (sw_xc, FACE_Y + SW_D - 750, SW_ZC, SW_W, 1500, U - 1200, 0)], [M['sw']])]
+# 机箱里面（透过透明上盖看得到，压暗）：交换芯片 + 散热片（鳍片顺着前后风道）、后部风扇和两个电源
+ASIC_Y = FACE_Y + 200000
+inside = [box('sw_asic', sw_xc, ASIC_Y, BOARD_TOP + 2000, 75000, 75000, 4000, M['asic'], bev=0.05),
+          boxes('asic_heatsink', [(sw_xc, ASIC_Y, BOARD_TOP + 4000 + 2000, 100000, 100000, 4000, 0)] +
+                [(sw_xc - 48750 + k * 2500, ASIC_Y, BOARD_TOP + 8000 + 14000, 800, 100000, 28000, 0) for k in range(40)], [M['heatsink']]),
+          boxes('fans', [(sw_xc + (k - 2.5) * 44000, FACE_Y + SW_D - 30000, BOARD_TOP + 19000, 40000, 52000, 38000, 0) for k in range(6)] +
+                [(sw_xc + (k - 2.5) * 44000, FACE_Y + SW_D - 4000, BOARD_TOP + 19000, 20000, 3000, 6000, 0) for k in range(6)], [M['plastic']], bev=400),
+          boxes('psus', [(sw_xc + sgn * (SW_W / 2 - 32000), FACE_Y + SW_D - 95000, BOARD_TOP + 19000, 54000, 180000, 38000, 0) for sgn in (-1, 1)], [M['sw']], bev=400)]
+host_board = box('host_board', sw_xc, FACE_Y + SW_D / 2, BOARD_TOP - 800, SW_W - 4000, SW_D - 4000, 1600, M['host_pcb'], bev=0)
+# 端口笼子：面板前面一圈笼口（4 条边），面板后面是笼子主体（顶上有冲孔）；笼口里面是暗的
+CAGE_W, CAGE_D = 21000.0, 70000.0
+CAGE_Y = FACE_Y + 1250 + CAGE_D / 2
+rings = []
+for col in range(16):
+    for z in ROW_Z:
+        x = port_x(col); y = FACE_Y - 1250 - 450
+        rings += [(x, y, z + 5000, CAGE_W, 900, 1000, 0), (x, y, z - 5000, CAGE_W, 900, 1000, 0),
+                  (x - 10000, y, z, 1000, 900, 9000, 0), (x + 10000, y, z, 1000, 900, 9000, 0)]
+rings = boxes('cage_rings', rings, [M['cage']], bev=150)
+cage_specs = []
+for col in range(16):
+    x = port_x(col)
+    if col == OUR_COL:                                                           # 我们这一列：下面的笼子单独一块，上面那格（我们的）另做
+        cage_specs.append((x, CAGE_Y, (BOARD_TOP + ROW_Z[0] - 5500) / 2, CAGE_W, CAGE_D, ROW_Z[0] - 5500 - BOARD_TOP, 0, 1))
+    else:
+        cage_specs.append((x, CAGE_Y, (BOARD_TOP + ROW_Z[0] + 5500) / 2, CAGE_W, CAGE_D, ROW_Z[0] + 5500 - BOARD_TOP, 0, 1))
+cages = boxes('cages', cage_specs, [M['cage_body'], M['mouth']], bev=120)
+our_cage = boxes('our_cage', [(port_x(OUR_COL), CAGE_Y, ROW_Z[0], CAGE_W, CAGE_D, 11000, 0, 1)], [M['cage_body'], M['mouth']], bev=120)
+host_conn = box('host_connector', 0, MOD_BACK + 3000, (BOARD_TOP + ROW_Z[0] + 5000) / 2, 20000, 10000, ROW_Z[0] + 5000 - BOARD_TOP, M['plastic'], bev=0.03)
+# 面板上的东西：端口指示灯（导光柱）、左侧系统指示灯、右侧两个管理口（RJ45）
+leds = [boxes('port_leds', [(port_x(c) + 8000, FACE_Y - 1700, z + (6300 if z > SW_ZC else -6300), 1500, 400, 900, 0) for c in range(16) for z in ROW_Z], [M['led']])]
+leds.append(boxes('sys_leds', [(sw_xc - SW_W / 2 + 14000 + k * 4500, FACE_Y - 1500, SW_ZC + 12000, 1600, 400, 1000, 0) for k in range(3)], [M['led']]))
+mgmt = boxes('mgmt_ports', [(sw_xc + SW_W / 2 - 19000, FACE_Y - 1300, SW_ZC + sgn * 9000, 16000, 600, 13500, 0) for sgn in (-1, 1)], [M['rj45']], bev=200)
+# 其它端口上的模块（只露出面板外的一段）+ 拉环；所有模块（包括我们的）都插着 MPO 跳线
+others, plug_specs, our_plug_specs = [], [], []
+for col in range(16):
+    for z in ROW_Z:
+        x = port_x(col); ours = (col == OUR_COL and z == ROW_Z[0])
+        dst = our_plug_specs if ours else plug_specs
+        dst += [(x, FACE_Y - 6000 - 5500, z + 300, 12400, 11000, 6400, 0), (x, FACE_Y - 17000 - 12500, z + 300, 6500, 25000, 4800, 1)]   # MPO 插头外壳 + 尾套
+        if ours: continue
+        others += [(x, FACE_Y - 3000, z, MOD_W, 6000, MOD_H, 0), (x, FACE_Y - 6000 - 7500, z + TAB_DZ, 9000, 15000, 1200, 1)]
+others = [boxes('other_modules', others, [M['shell_end'], M['tab']], bev=150)]
+plugs = boxes('mpo_plugs', plug_specs, [M['plastic'], M['patch']], bev=250)
+our_plug = boxes('our_mpo_plug', our_plug_specs, [M['plastic'], M['patch']], bev=250)
+# 跳线：从尾套出来先往前，再垂下去分到两侧理线（每根略有不同）
+rng = random.Random(7); cords = []
+for col in range(16):
+    for z in ROW_Z:
+        x = port_x(col); side = -1 if col < 8 else 1; j = rng.uniform(-1, 1)
+        p0 = Vector((x, FACE_Y - 42000, z + 300))
+        pts = [p0, p0 + Vector((0, -14000, -2500 + 1500 * j)), Vector((x + side * 6000, FACE_Y - 66000 - 5000 * j, z - 45000)),
+               Vector((x * 0.75 + side * 60000, FACE_Y - 72000 - 6000 * j, z - 150000))]
+        c = tube(f'cord_{col}_{"t" if z > SW_ZC else "b"}', pts, 1500, M['patch'])
+        if col == OUR_COL and z == ROW_Z[0]: our_cord = c
+        else: cords.append(c)
+# 机柜：两根立柱（EIA-310 方孔）、交换机挂耳和螺丝、下面两台设备（前面板冲孔 + 指示灯）
+RAIL_Y = FACE_Y + 12500
+rack = [box('rail_l', sw_xc - SW_W / 2 - 15000, RAIL_Y, SW_ZC, 25000, 30000, 6 * U, M['rack'], bev=0.02),
+        box('rail_r', sw_xc + SW_W / 2 + 15000, RAIL_Y, SW_ZC, 25000, 30000, 6 * U, M['rack'], bev=0.02),
         box('device_below', sw_xc, FACE_Y + SW_D / 2, SW_ZC - U, SW_W, SW_D, U - 800, M['other'], bev=0.02),
-        box('device_below2', sw_xc, FACE_Y + SW_D / 2, SW_ZC - 2 * U, SW_W, SW_D, U - 800, M['other'], bev=0.02)]
-# 上方空 U 位：一条浅托板只在模块左边（不盖住我们的模块），手机横放（长边沿 x），完全在托板上
-SHELF_X0, SHELF_X1 = -210000.0, -45000.0
+        box('device_below2', sw_xc, FACE_Y + SW_D / 2, SW_ZC - 2 * U, SW_W, SW_D, U - 800, M['other'], bev=0.02),
+        boxes('ears', [(sw_xc + sgn * (SW_W / 2 + 12000), FACE_Y - 2750 - 750, SW_ZC, 26000, 1500, U - 1000, 0) for sgn in (-1, 1)], [M['sw']], bev=300),
+        boxes('below_leds', [(sw_xc - SW_W / 2 + 14000 + k * 4500, FACE_Y - 400, SW_ZC - U * (1 + d) + 12000, 1600, 400, 1000, 0) for k in range(3) for d in range(2)], [M['led']])]
+for sgn in (-1, 1):
+    for zc in (6350.0, 38100.0):                                                 # 挂耳螺丝：在这一 U 的第 1、3 个孔
+        rack.append(cyl(f'screw_{sgn}_{int(zc)}', 5500, 2000, M['cage'], (sw_xc + sgn * (SW_W / 2 + 15000), FACE_Y - 4500 - 1000, SW_ZC - U / 2 + zc), (math.radians(90), 0, 0), verts=24))
+# 上方空 U 位：一条浅托板，从左边伸到我们的模块左侧为止；手机横放（长边沿 x），完全在托板上
+SHELF_X0, SHELF_X1 = -200000.0, -14000.0
 shelf = box('shelf_empty_u', (SHELF_X0 + SHELF_X1) / 2, FACE_Y + 40000, SW_ZC + U / 2 + 1500, SHELF_X1 - SHELF_X0, 80000, 2000, M['shelf'], bev=0.05)
-PHONE = Vector((-120000.0, FACE_Y + 40000, SW_ZC + U / 2 + 2500 + 4000))
-phone = box('phone', PHONE.x, PHONE.y, PHONE.z, 150000, 71000, 8000, M['phone'], bev=0.12)
-phone_scr = box('phone_screen', PHONE.x, PHONE.y, PHONE.z + 4005, 144000, 66000, 20, M['phone_screen'], bev=0)
+PHONE = Vector((SHELF_X1 - 4000 - 75000, FACE_Y + 40000, SW_ZC + U / 2 + 2500 + 4000))
+phone = rounded_slab('phone', PHONE.x, PHONE.y, PHONE.z, 150000, 71000, 7600, 9500, M['phone_frame'], edge_bev=1200)
+phone_scr = rounded_slab('phone_screen', PHONE.x, PHONE.y, PHONE.z + 3600, 149000, 70000, 600, 9000, M['phone_screen'])
+phone_cam = cyl('phone_front_camera', 1600, 200, M['rj45'], (PHONE.x + 75000 - 9000, PHONE.y, PHONE.z + 3950), verts=24)
+phone_btn = boxes('phone_buttons', [(PHONE.x + 30000 + k * 16000, PHONE.y + 35500 + 500, PHONE.z, 12000 if k else 7000, 1000, 2600, 0) for k in range(2)], [M['phone_frame']], bev=300)
 
 # ---------- 可见性：每个物体只登记一个区间；淡入淡出用物体颜色 alpha，淡完关渲染 ----------
 VIS = {}
@@ -325,10 +512,13 @@ appear(wgs + bands + tails, WG_W * 3, 1.0)           # 单根波导太细时，�
 appear(sscs + ssc_bands, 8.0, 1.5); appear(electrodes, 10.0, 1.5)
 vis(fibers + cores, None, 11.0, 0.5); vis([hair], 7.0, 9.8, 0.4); vis([vg], None, 10.6, 0.5)
 vis([clad], 8.0, None, 1.0); vis([rbc], 11.2, 14.8, 0.4)
-vis([phone, phone_scr, shelf], None, 4.6, 0.4)
-vis(sw + leds + others + rack, None, 4.3, 0.6)
-vis([shell, shell_front, tab], None, 5.4, 0.6)
-vis([dsp, dsp_lid, driver, laser, mpo, pcb, ribbon] + fingers, None, 9.4, 0.6)
+vis([phone, phone_scr, phone_cam, phone_btn, shelf], None, 4.6, 0.4)
+# 面板、上盖、跳线、机柜、机箱里远处的东西：相机穿过面板前淡出
+vis(sw + inside + leds + [mgmt, rings, plugs] + others + cords + rack, None, 4.3, 0.6)
+vis([our_cage], None, 3.9, 0.6)                      # 我们这一格的笼子先透明化，露出模块
+vis([cages, host_conn, host_board], None, 6.6, 0.6)  # 穿过面板以后，旁边的笼子、主板、后面的连接器还在（不在虚空里）
+vis([shell, shell_front, tab, our_plug, our_cord], None, 5.4, 0.6)
+vis([dsp, dsp_lid, driver, laser, mpo, pcb, ribbon, caps] + fingers, None, 9.4, 0.6)
 vis([rice], 4.4, 8.0, 0.4)
 
 # ---------- 3D 标签：字保持屏幕大小（反向缩放），尺寸箭头跟着物体真实大小 ----------
