@@ -20,7 +20,7 @@ HERE = os.path.dirname(os.path.abspath(__file__)); AS = os.path.join(HERE, 'asse
 bpy.ops.wm.read_factory_settings(use_empty=True); sc = bpy.context.scene; os.makedirs(OUT, exist_ok=True)
 sc.unit_settings.scale_length = 0.001; sc.unit_settings.length_unit = 'MILLIMETERS'
 random.seed(11)
-GOLD = (1.0, 0.58, 0.12)
+GOLD = (1.0, 0.52, 0.08)
 STAND_H = 2.2                                # 主持人站立身高（mm）；蹲姿按 0.62 倍（审核：前后大小要一致）
 BIT = 0.7; NB = 120                          # 走线上每一位画多长（mm，示意）；比特贴图一圈 120 位
 BITS = json.load(open(os.path.join(AS, 'bits.json')))
@@ -84,7 +84,7 @@ def mat_signal(tex):
     u = N.new('ShaderNodeMath'); u.operation = 'MULTIPLY_ADD'; u.inputs[1].default_value = 1 / (NB * BIT); L.new(sp.outputs['Y'], u.inputs[0]); L.new(off.outputs[0], u.inputs[2])
     cm = N.new('ShaderNodeCombineXYZ'); L.new(u.outputs[0], cm.inputs['X']); cm.inputs['Y'].default_value = 0.5
     t = img(N, os.path.join(AS, tex), 'Non-Color'); t.interpolation = 'Closest' if 'blur' not in tex else 'Linear'; L.new(cm.outputs[0], t.inputs[0])
-    st = N.new('ShaderNodeMath'); st.operation = 'MULTIPLY_ADD'; st.inputs[1].default_value = 2.0; st.inputs[2].default_value = 0.25; L.new(t.outputs['Color'], st.inputs[0]); L.new(st.outputs[0], e.inputs['Strength'])
+    st = N.new('ShaderNodeMath'); st.operation = 'MULTIPLY_ADD'; st.inputs[1].default_value = 1.1; st.inputs[2].default_value = 0.2; L.new(t.outputs['Color'], st.inputs[0]); L.new(st.outputs[0], e.inputs['Strength'])
     fa = N.new('ShaderNodeMath'); fa.operation = 'MULTIPLY_ADD'; fa.inputs[1].default_value = 0.45; fa.inputs[2].default_value = 0.35; L.new(t.outputs['Color'], fa.inputs[0])
     rv = N.new('ShaderNodeValue'); rv.name = 'reveal'; lt = N.new('ShaderNodeMath'); lt.operation = 'LESS_THAN'; L.new(sp.outputs['Y'], lt.inputs[0]); L.new(rv.outputs[0], lt.inputs[1])
     lo = N.new('ShaderNodeValue'); lo.name = 'reveal_lo'; gt = N.new('ShaderNodeMath'); gt.operation = 'GREATER_THAN'; L.new(sp.outputs['Y'], gt.inputs[0]); L.new(lo.outputs[0], gt.inputs[1])
@@ -250,9 +250,9 @@ else:
             a = i * 2 * math.pi / 7; box(f'fan_blade{k}_{i}', 13, 1.0, 7, blade, (cx + math.cos(a) * 15, 186.5, 30 + math.sin(a) * 15), (0, -a, 0))
     ceil_m, _ = emit('ceiling_light', (0.85, 0.95, 1.0), 2.5)
     for r in range(6): box(f'ceil{r}', 900, 30, 4, ceil_m, (0, 150 + r * 260, 900))
-    LED = [emit('led_g', (0.3, 1.0, 0.45), 25)[0], emit('led_b', (0.45, 0.7, 1.0), 25)[0]]
+    LED = [emit('led_g', (0.3, 1.0, 0.45), 80)[0], emit('led_b', (0.45, 0.7, 1.0), 80)[0]]
     for i in range(30):
-        sphere(f'led{i}', 0.6, LED[i % 2], (random.uniform(-160, 160), 192, random.uniform(5, 55)))
+        sphere(f'led{i}', 1.6, LED[i % 2], (random.uniform(-160, 160), 192, random.uniform(5, 55)))
     BTEX = {'normal': 'bits.png', 'long': 'bits_long.png', 'blur': 'bits_blur.png'}[OPT.get('bits', 'normal')]
     plane('signal_band', 0.32, TR_Y1 - 2 - TR_Y0, mat_signal(BTEX), (0, (TR_Y0 + TR_Y1 - 2) / 2, 0.045))
     POSE = OPT.get('pose', 'B')
@@ -302,6 +302,8 @@ if CYCLES:
 else:
     ENG = [e.identifier for e in bpy.types.RenderSettings.bl_rna.properties['engine'].enum_items]
     sc.render.engine = 'BLENDER_EEVEE' if 'BLENDER_EEVEE' in ENG else 'BLENDER_EEVEE_NEXT'; sc.eevee.taa_render_samples = SAMP
+    DOF_K = 0.025   # EEVEE 试渲：远处散热片都是清楚的，光圈没按毫米单位换算；按审核建议缩小到约 1/40
+    cam_d.dof.aperture_fstop *= DOF_K; print('EEVEE 景深光圈', round(cam_d.dof.aperture_fstop, 4))
     for k, v in (('use_raytracing', SHOT == 'B'), ('use_shadows', True), ('use_fast_gi', SHOT == 'B'), ('bokeh_max_size', 300.0), ('motion_blur_max', 120)):
         try: setattr(sc.eevee, k, v)
         except Exception as e: print('EEVEE 设置跳过', k, e)
@@ -332,7 +334,7 @@ else:
         except Exception as e: print('辉光参数跳过', k, e)
     add = ng.nodes.new('ShaderNodeMix'); add.data_type = 'RGBA'; add.blend_type = 'ADD'; add.inputs['Factor'].default_value = 1.0
     ng.links.new(rl.outputs['Image'], add.inputs['A']); ng.links.new(gl.outputs['Glare'], add.inputs['B'])
-    hz = ng.nodes.new('ShaderNodeMath'); hz.operation = 'MULTIPLY'; hz.inputs[1].default_value = 0.45 if SHOT == 'B' else 0.6   # EEVEE 试渲：背景被雾糊成一片平灰，减半; ng.links.new(rl.outputs['Mist'], hz.inputs[0])
+    hz = ng.nodes.new('ShaderNodeMath'); hz.operation = 'MULTIPLY'; hz.inputs[1].default_value = 0.45 if SHOT == 'B' else 0.6; ng.links.new(rl.outputs['Mist'], hz.inputs[0])   # EEVEE 试渲：背景被雾糊成一片平灰，减半
     fog = ng.nodes.new('ShaderNodeMix'); fog.data_type = 'RGBA'; fog.blend_type = 'MIX'; ng.links.new(hz.outputs[0], fog.inputs['Factor'])
     ng.links.new(add.outputs['Result'], fog.inputs['A']); fog.inputs['B'].default_value = (*MIST[2], 1)
     go = ng.nodes.new('NodeGroupOutput'); ng.links.new(fog.outputs['Result'], go.inputs[0]); print('COMPOSITOR 辉光 + 空气透视已接上')
@@ -349,7 +351,9 @@ def export_band(path):
         if c.z <= 0 or not (-0.2 <= c.x <= 1.2 and -0.2 <= c.y <= 1.2): continue
         pts.append(dict(j=j, y=round(y, 3), bit=bits[j % NB], x=round(c.x * W, 1), yy=round((1 - c.y) * H, 1), lx=round(l.x * W, 1), ly=round((1 - l.y) * H, 1)))
     json.dump(dict(W=W, H=H, bit_mm=BIT, pts=pts), open(path, 'w'))
-if OPT.get('check') == '1':     # 自查：逐帧列出信号、灰尘在画面上的位置（不渲染）
+if OPT.get('check') == '1':     # 自查：逐帧列出信号、灰尘在画面上的位置（不渲染）；EEVEE 分支下也打印合成节点的连线
+    if sc.compositing_node_group:
+        for lk in sc.compositing_node_group.links: print('LINK', lk.from_node.bl_idname, lk.from_socket.name, '→', lk.to_node.bl_idname, lk.to_socket.name)
     dl = [o for o in bpy.data.objects if o.name.startswith('dust')]; sg = bpy.data.objects.get('signal')
     for f in range(1, NF + 1):
         sc.frame_set(f); c = world_to_camera_view(sc, cam, sg.matrix_world.translation) if sg else None
