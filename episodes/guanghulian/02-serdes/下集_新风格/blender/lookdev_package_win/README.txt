@@ -1,4 +1,4 @@
-﻿光互连 02 下集 · 质感样张（去塑料感）· 2026-11-10
+﻿光互连 02 下集 · 质感样张（r1 去塑料感 + r2 Epic 化）· 2026-11-10
 
 1. 解压到不含中文的路径（例如 D:\Render\lookdev\）。可以把上一个包里的 blender_path.txt 复制过来，省得再拖 blender.exe。
 2. 双击 lookdev.bat。两轮（r1 去塑料感、r2 Epic 化）× 两个引擎（EEVEE、Cycles 用显卡），共 10 张。

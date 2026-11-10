@@ -218,41 +218,48 @@ def skyline():
     rs = random.Random(7)
     MOLD = mat('mold', (0.035, 0.035, 0.04), 0.0, 0.42, noise_bump=0.05, noise_scale=4); SUB = mat('sub2', (0.08, 0.075, 0.05), 0, 0.4, coat=0.3)
     LID = mat_brushed('lid2', (0.30, 0.31, 0.33)); IND = mat('ind2', (0.07, 0.07, 0.075), 0.2, 0.55, noise_bump=0.1, noise_scale=3)
-    CAP = mat('cap2', (0.30, 0.22, 0.14), 0, 0.45, coat=0.15); DIMM = mat('dimm', (0.02, 0.16, 0.06), 0, 0.4, coat=0.3); SLOT = mat('slot', (0.02, 0.02, 0.025), 0, 0.5)
+    CAP = mat('cap2', (0.30, 0.22, 0.14), 0, 0.45, coat=0.15); DIMM = mat('dimm', (0.012, 0.075, 0.03), 0, 0.45, coat=0.25); SLOT = mat('slot', (0.02, 0.02, 0.025), 0, 0.5)
     FIN2 = mat_brushed('fin_far', (0.7, 0.71, 0.73))
-    def free(x, y, r):
-        if abs(x) < 16 + r and y < 70: return False                     # 主走线通道
-        if abs(x) < 40 + r and 55 - r < y < 130 + r: return False       # 主芯片和散热器
-        if 38 - r < abs(x) < 75 + r and 60 - r < y < 100 + r: return False   # 原来那排电感
-        return True
-    subs, lids, molds, inds, caps_, fins, rails, boards = [], [], [], [], [], [], [], []
-    placed = 0
-    while placed < 70:
-        x, y = rs.uniform(-320, 320), rs.uniform(-120, 400); sz = rs.uniform(10, 34)
-        if not free(x, y, sz * 0.75) or abs(x) < 22 and y < 0: continue
-        placed += 1; k = rs.random()
-        if k < 0.45:                                                     # BGA 芯片：基板 + 金属顶盖或黑色塑封；部分带散热器
+    KEEP_OUT = [(-16, -1e9, 16, 72), (-50, 50, 50, 140), (-80, 55, -35, 105), (35, 55, 80, 105), (-1e9, 370, 1e9, 1e9)]   # 主走线通道、主芯片四周 10 mm、原来那排电感、风扇墙
+    boxes_done = []
+    def hit(bb):
+        x0, y0, x1, y1 = bb
+        for a0, b0, a1, b1 in KEEP_OUT + boxes_done:
+            if x0 < a1 and x1 > a0 and y0 < b1 and y1 > b0: return True
+        return False
+    subs, lids, molds, inds, caps_, fins, rails, boards, chips_on_dimm = [], [], [], [], [], [], [], [], []
+    placed = tries = 0
+    while placed < 60 and tries < 4000:      # 每一组先算整组外框（含电容群、整排电感、整排内存条），和禁区、和已放下的器件都不碰才放（审核：原来只查起点，互相穿插）
+        tries += 1; x, y = rs.uniform(-320, 320), rs.uniform(-120, 360); k = rs.random()
+        if k < 0.45:
+            sz = rs.uniform(10, 30); m_ = sz * 0.6 + 4.5; bb = (x - m_, y - sz / 2 - 1, x + m_, y + sz / 2 + 1)
+            if hit(bb): continue
             subs.append((x, y, 0.6, sz, sz, 1.2)); h = rs.uniform(1.2, 2.6)
             (lids if rs.random() < 0.5 else molds).append((x, y, 1.2 + h / 2, sz * 0.82, sz * 0.82, h))
             if rs.random() < 0.35:
                 fh = rs.uniform(15, 35)
-                for f in range(int(sz * 0.8 / 1.6)): fins.append((x - sz * 0.4 + f * 1.6, y, 1.2 + h + fh / 2, 0.5, sz * 0.82, fh))
-            for c in range(rs.randint(6, 16)):                           # 芯片旁的电容群
-                cx, cy = x + rs.choice([-1, 1]) * (sz * 0.6 + rs.uniform(0.5, 4)), y + rs.uniform(-sz / 2, sz / 2)
-                caps_.append((cx, cy, 0.25, 1.0, 0.5, 0.5, rs.choice([0, math.pi / 2])))
-        elif k < 0.75:                                                   # 电感排（电源）
-            n = rs.randint(3, 7); s_ = rs.uniform(6, 10)
+                for f in range(int(sz * 0.8 / 1.6)): fins.append((x - sz * 0.4 + 0.25 + f * 1.6, y, 1.2 + h + fh / 2, 0.5, sz * 0.82, fh))
+            side = rs.choice([-1, 1]); n = rs.randint(5, 12)
+            for c in range(n):                                           # 芯片一侧的一排去耦电容（整齐排列，不重叠）
+                caps_.append((x + side * (sz * 0.6 + 1.5 + (c // 6) * 1.6), y - sz / 2 + 1.5 + (c % 6) * 1.6, 0.25, 1.0, 0.5, 0.5))
+        elif k < 0.75:
+            n = rs.randint(3, 7); s_ = rs.uniform(6, 10); bb = (x - s_ / 2 - 1, y - s_ / 2 - 1, x + n * (s_ + 1.2) + 1, y + s_ / 2 + 1)
+            if hit(bb): continue
             for i in range(n): inds.append((x + i * (s_ + 1.2), y, s_ * 0.3, s_, s_, s_ * 0.6))
-        else:                                                            # 内存插槽 + 竖着的内存条
-            n = rs.randint(4, 8)
+        else:
+            n = rs.randint(4, 8); bb = (x - 4, y - 66, x + (n - 1) * 9 + 4, y + 66)
+            if hit(bb): continue
             for i in range(n):
                 rails.append((x + i * 9, y, 3.5, 6, 130, 7)); boards.append((x + i * 9, y, 7 + 15, 1.3, 128, 30))
+                for j in range(8): chips_on_dimm.append((x + i * 9 + 0.9, y - 52 + j * 14.5, 7 + 18, 0.6, 10, 12))   # 内存颗粒
+        boxes_done.append(bb); placed += 1
+    print('SKYLINE 组数', placed, '尝试', tries)
     for name, specs, m in (('sky_sub', subs, SUB), ('sky_lid', lids, LID), ('sky_mold', molds, MOLD), ('sky_ind', inds, IND), ('sky_cap', caps_, CAP),
-                           ('sky_fin', fins, FIN2), ('sky_rail', rails, SLOT), ('sky_dimm', boards, DIMM)):
+                           ('sky_fin', fins, FIN2), ('sky_rail', rails, SLOT), ('sky_dimm', boards, DIMM), ('sky_dram', chips_on_dimm, MOLD)):
         if specs: boxes(name, specs, m)
     # 低角度暖色逆光：从主芯片散热器后面打向镜头，穿过鳍片和空气留下光柱（体积光）
     # 光藏在主芯片散热器后面低处，从鳍片缝隙之间漏出来，形成一道道光柱（光锥窄，只照过散热器）
-    bk = bpy.data.lights.new('backlight', 'SPOT'); bk.energy = 8.0e6; bk.color = (1.0, 0.70, 0.40); bk.spot_size = math.radians(24); bk.spot_blend = 0.4; bk.shadow_soft_size = 1.5
+    bk = bpy.data.lights.new('backlight', 'SPOT'); bk.energy = 5.0e6; bk.color = (1.0, 0.70, 0.40); bk.spot_size = math.radians(24); bk.spot_blend = 0.4; bk.shadow_soft_size = 1.5
     bko = obj('backlight', bk, None, (2, 175, 22)); d_ = Vector((-6, 20, 4)) - Vector((2, 175, 22)); bko.rotation_euler = d_.to_track_quat('-Z', 'Y').to_euler()
 
 # ---------- 相机 ----------
@@ -411,14 +418,14 @@ else:
     for k, v in (('use_raytracing', SHOT == 'B'), ('use_shadows', True), ('use_fast_gi', SHOT == 'B'), ('bokeh_max_size', 300.0), ('motion_blur_max', 120)):
         try: setattr(sc.eevee, k, v)
         except Exception as e: print('EEVEE 设置跳过', k, e)
-DOF_K = 0.1     # 光圈没按毫米单位换算（复核：0.025 太虚，板面质感看不清，调到 0.1）（EEVEE 和 Cycles 都一样，远处散热片都是清楚的）；两个引擎都缩小到约 1/40
+DOF_K = 0.1     # 光圈没按毫米单位换算（EEVEE 和 Cycles 都一样）；缩小到 1/10（复核：1/40 太虚，板面质感看不清）
 cam_d.dof.aperture_fstop *= DOF_K; print('景深光圈', round(cam_d.dof.aperture_fstop, 4))
 sc.render.resolution_x, sc.render.resolution_y = W, H; sc.render.fps = FPS; sc.frame_start, sc.frame_end = 1, NF
 sc.render.use_motion_blur = True; sc.render.motion_blur_shutter = 1.0 if SHOT == 'A' else 0.5
 sc.view_settings.view_transform = 'AgX'; sc.view_settings.exposure = 0.9 if SHOT == 'B' else 0.2
 try: sc.view_settings.look = 'AgX - Medium High Contrast'
 except Exception: pass
-if CLOUD or (R2 and SHOT == 'B'):   # 体积雾：云端草稿（没有 libEGL）；Epic 化的 B 段所有引擎都用（逆光光柱要靠它）。原注释：云端草稿：没有 libEGL，合成节点会让 Blender 直接退出；改用很淡的体积雾做空气透视
+if CLOUD or (R2 and SHOT == 'B' and CYCLES):   # 体积雾：云端草稿（没有 libEGL）；Epic 化的 B 段所有引擎都用（逆光光柱要靠它）。原注释：云端草稿：没有 libEGL，合成节点会让 Blender 直接退出；改用很淡的体积雾做空气透视
     vm = bpy.data.materials.new('haze'); vm.use_nodes = True; Nn = vm.node_tree.nodes; Ln = vm.node_tree.links
     for n in list(Nn): Nn.remove(n)
     vo = Nn.new('ShaderNodeOutputMaterial'); vs = Nn.new('ShaderNodeVolumeScatter'); vs.inputs['Density'].default_value = 0.6 / MIST[1]
@@ -427,7 +434,10 @@ if CLOUD or (R2 and SHOT == 'B'):   # 体积雾：云端草稿（没有 libEGL�
     hb.scale = (MIST[1] * 6, MIST[1] * 6, MIST[1] * 6); hb.location = (c0.x, c0.y + MIST[1] * 2.5, c0.z)
     if SHOT == 'B' and 'view' not in OPT: hb.location = (0, 60, 0)
     if R2 and SHOT == 'B': vs.inputs['Density'].default_value = 0.0007; vs.inputs['Color'].default_value = (0.95, 0.88, 0.80, 1); vs.inputs['Anisotropy'].default_value = 0.65; hb.location = (0, 150, 0); hb.scale = (1600, 1600, 400)   # 近乎无色、略暖的淡雾：只让逆光显出光柱
-else:
+if R2 and SHOT == 'B' and not CYCLES:   # EEVEE：世界体积（不依赖网格，相机在雾里也算得对；审核建议）
+    wvs = N.new('ShaderNodeVolumeScatter'); wvs.inputs['Density'].default_value = 0.0007; wvs.inputs['Anisotropy'].default_value = 0.65
+    wvs.inputs['Color'].default_value = (0.95, 0.88, 0.80, 1); L.new(wvs.outputs[0], out.inputs['Volume'])
+if not CLOUD:
   try:
     if bpy.app.version < (5, 0, 0): raise SystemExit('需要 Blender 5.0 或更新版本（现在是 ' + bpy.app.version_string + '）')
     vl = sc.view_layers[0]; vl.use_pass_mist = True; vl.use_pass_emit = True
@@ -441,7 +451,7 @@ else:
         except Exception as e: print('辉光参数跳过', k, e)
     add = ng.nodes.new('ShaderNodeMix'); add.data_type = 'RGBA'; add.blend_type = 'ADD'; add.inputs['Factor'].default_value = 1.0
     ng.links.new(rl.outputs['Image'], add.inputs['A']); ng.links.new(gl.outputs['Glare'], add.inputs['B'])
-    hz = ng.nodes.new('ShaderNodeMath'); hz.operation = 'MULTIPLY'; hz.inputs[1].default_value = 0.35 if SHOT == 'B' else 0.6; ng.links.new(rl.outputs['Mist'], hz.inputs[0])   # EEVEE 试渲：背景被雾糊成一片平灰，减半
+    hz = ng.nodes.new('ShaderNodeMath'); hz.operation = 'MULTIPLY'; hz.inputs[1].default_value = (0.0 if R2 else 0.35) if SHOT == 'B' else 0.6; ng.links.new(rl.outputs['Mist'], hz.inputs[0])   # EEVEE 试渲：背景被雾糊成一片平灰，减半
     fog = ng.nodes.new('ShaderNodeMix'); fog.data_type = 'RGBA'; fog.blend_type = 'MIX'; ng.links.new(hz.outputs[0], fog.inputs['Factor'])
     ng.links.new(add.outputs['Result'], fog.inputs['A']); fog.inputs['B'].default_value = (*MIST[2], 1)
     go = ng.nodes.new('NodeGroupOutput'); ng.links.new(fog.outputs['Result'], go.inputs[0]); print('COMPOSITOR 辉光 + 空气透视已接上')
