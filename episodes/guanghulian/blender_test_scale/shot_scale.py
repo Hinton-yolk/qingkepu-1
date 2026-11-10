@@ -599,7 +599,8 @@ FNT = bpy.data.fonts.load(FONT)
 LABEL_FRAC = 0.05                                    # 字高约占画面宽的比例（默认 5%，短标签可以更大）
 labels = {}
 CRUMB = 2.5                                          # 旧标签留在原地缩小的时长（参考片 A：旧标签不消失，跟着场景缩小）
-def label(key, text, loc, t_in, t_out, arrow=None, arrow_z=None, frac=LABEL_FRAC, crumb=False):   # 面包屑只适合拉远；推进时旧标签会冲向镜头变成一大团虚影，所以默认关
+M['label_outline'] = mat_emit('label_outline', (0.0, 0.0, 0.0), 0.0, alpha=0.6)[0]   # 标签的深色描边：白字压在亮处也读得出
+def label(key, text, loc, t_in, t_out, arrow=None, arrow_z=None, frac=LABEL_FRAC, crumb=False, arrow_x=None, arrow_th=None):   # 面包屑只适合拉远；推进时旧标签会冲向镜头变成一大团虚影，所以默认关
     t_mid = t_in + 0.3; h0 = frac * view_w(t_mid); t_hold = t_out
     if t_out and crumb: t_out = min(DUR, t_out + CRUMB)
     cu = bpy.data.curves.new('lbl_' + key, 'FONT'); cu.body = text; cu.font = FNT; cu.size = 1.0; cu.align_x = 'CENTER'; cu.extrude = 0.04   # 字号放在物体缩放里（Blender 文字字号上限 10000）
@@ -607,14 +608,17 @@ def label(key, text, loc, t_in, t_out, arrow=None, arrow_z=None, frac=LABEL_FRAC
     for f in range(max(1, F(t_in) - 1), min(NF, F(t_out if t_out else DUR) + 1) + 1):
         tt = (f - 1) / FPS if not t_hold else min((f - 1) / FPS, t_hold)   # 过了 t_hold 不再反向缩放：字跟着世界一起变小
         k = h0 * view_w(tt) / view_w(t_mid); o.scale = (k, k, k); o.keyframe_insert('scale', frame=f)
-    vis([o], t_in if t_in > 0 else None, t_out, 0.6 if crumb else 0.25); parts = [o]
+    cs = cu.copy(); cs.offset = 0.07; cs.extrude = 0.0; cs.materials.clear(); cs.materials.append(M['label_outline'])
+    sh = bpy.data.objects.new('lbl_' + key + '_outline', cs); sc.collection.objects.link(sh); sh.parent = o; sh.location = (0, 0, -0.06)   # 跟着字（朝向相机）放在字后面
+    vis([o, sh], t_in if t_in > 0 else None, t_out, 0.6 if crumb else 0.25); parts = [o]
     if arrow:                                        # 双箭头横跨被量的东西（真实尺寸）
-        az = arrow_z if arrow_z is not None else loc[2] - h0 * 0.6; th = arrow * 0.02
-        parts.append(box('lbl_' + key + '_shaft', loc[0], loc[1], az, arrow * 0.84, th, th, M['label'], bev=0))
+        az = arrow_z if arrow_z is not None else loc[2] - h0 * 0.6; th = arrow_th or arrow * 0.02; ax = loc[0] if arrow_x is None else arrow_x
+        tr = max(arrow * 0.05, th * 1.8)
+        parts.append(box('lbl_' + key + '_shaft', ax, loc[1], az, arrow * 0.84, th, th, M['label'], bev=0))
         for sgn in (-1, 1):
-            bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=True, segments=16, radius1=arrow * 0.05, radius2=0, depth=arrow * 0.08); me = bpy.data.meshes.new('tip'); bm.to_mesh(me); bm.free()
+            bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=True, segments=16, radius1=tr, radius2=0, depth=tr * 1.6); me = bpy.data.meshes.new('tip'); bm.to_mesh(me); bm.free()
             tip = bpy.data.objects.new('lbl_' + key + f'_tip{sgn}', me); tip.data.materials.append(M['label']); link(tip)
-            tip.location = (loc[0] + sgn * arrow * 0.46, loc[1], az); tip.rotation_euler = (0, sgn * math.radians(90), 0); parts.append(tip)
+            tip.location = (ax + sgn * (arrow / 2 - tr * 0.8), loc[1], az); tip.rotation_euler = (0, sgn * math.radians(90), 0); parts.append(tip)
         vis(parts[1:], t_in if t_in > 0 else None, t_out, 0.6)
     labels[key] = o; return parts
 label('switch', '交换机', (0, FACE_Y - 30000, SW_ZC + 60000), 0.0, 2.2, frac=0.09)
@@ -623,7 +627,7 @@ label('chip', '硅光芯片 约 5 mm（示例）', (0, -400, 900), 5.0, 7.6, arr
 label('fiber', '光纤 125 µm', (-250, EDGE - 250, 200), 7.4, 8.6, arrow=125, arrow_z=75, frac=0.05, crumb=False)   # 和头发标签同一位置附近，不留
 label('hair', '头发 约 0.07–0.08 mm', (150, EDGE - 520, 230), 8.6, 9.6, frac=0.045, crumb=False)   # 和光纤标签错开时间，不叠在一起
 label('rbc', '红细胞 约 7.5 µm', (6.0, FOCUS.y + 5.0, 9.0), 11.8, 14.0, arrow=7.5, arrow_z=5.6, frac=0.055)
-label('wg', '不到 0.5 µm', (0.0, FOCUS.y, 0.55), 16.0, None, arrow=WG_W, arrow_z=WG_H + 0.05, frac=0.07)   # 放在焦平面上，不被景深虚掉
+label('wg', '不到 0.5 µm', (-1.15, FOCUS.y, 0.62), 16.0, None, arrow=WG_W, arrow_z=0.38, arrow_x=0.0, arrow_th=0.025, frac=0.055)   # 字放在光带左边、不压光带；箭头抬到倏逝尾上方、加粗，两端对准波导两侧（审核 11-10）
 for name, (o, t_in, t_out, fade) in VIS.items():
     def key(t, a, hide):
         fr = max(1, F(t)); o.color[3] = a; o.keyframe_insert('color', index=3, frame=fr); o.hide_render = hide; o.keyframe_insert('hide_render', frame=fr)
