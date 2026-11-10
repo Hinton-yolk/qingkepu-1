@@ -604,7 +604,7 @@ def label(key, text, loc, t_in, t_out, arrow=None, arrow_z=None, frac=LABEL_FRAC
         vis(parts[1:], t_in if t_in > 0 else None, t_out, 0.6)
     labels[key] = o; return parts
 label('switch', '交换机', (0, FACE_Y - 30000, SW_ZC + 60000), 0.0, 2.2, frac=0.09)
-label('module', '光模块 约 9 cm（含拉环）', (16000, MOD_FRONT - 4000, SHELL_Z + 16000), 2.4, 4.8, frac=0.055)   # 往右挪：手机在左边
+label('module', '光模块 约 9 cm\n（含拉环）', (45000, MOD_FRONT - 4000, SHELL_Z + 13000), 2.4, 4.8, frac=0.055)   # 往右挪：手机在左边
 label('chip', '硅光芯片 约 5 mm（示例）', (0, -400, 900), 5.0, 7.6, arrow=DIE, arrow_z=300, frac=0.06)
 label('fiber', '光纤 125 µm', (-250, EDGE - 250, 200), 7.4, 8.6, arrow=125, arrow_z=75, frac=0.05, crumb=False)   # 和头发标签同一位置附近，不留
 label('hair', '头发 约 0.07–0.08 mm', (150, EDGE - 520, 230), 8.6, 9.6, frac=0.045, crumb=False)   # 和光纤标签错开时间，不叠在一起
