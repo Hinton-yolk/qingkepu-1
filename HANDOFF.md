@@ -10,6 +10,7 @@
   - `blender/shot_open.py`：场景脚本（A 段手机、B 段服务器主板走线、5 个背景机位；`check=1` 逐帧自查信号和灰尘位置；云端只能用 Cycles 渲草稿，缺 libEGL）。
   - `草稿/`：内容关卡 2 的接触表和带配音样片（关卡 2 已通过）。
   - `交付/ep02x_render_package_v1.zip`：正式版 EEVEE 渲染包（审核已通过），**已发给用户，等用户先跑 preview_eevee.bat 回报速度和 4 张图**，再跑正式渲染，发回 A.mp4、B.mp4、stills（5 张背景 + json）。
+- **11-10 深夜**：用户选 r2 + Cycles（显卡）。正式渲染包 v4（`交付/ep02x_render_package_v4.zip`，审核通过）已发，用户整晚跑 `start_render_cycles.bat`（64 采样，预计 2–3 小时），等发回 A.mp4、B.mp4、stills（5 张 + json）。收到后：看降噪闪烁（雾和散景里）；云端合成整片（中间段光带动画、2D 灰尘、字幕、五站条、配乐、调色提色度、相机滚转漂移）；成片前审核 + 监督 + 观众（Codex 要先装、请用户登录）。
 - **11-10 晚更新**：用户看了 v1 正式渲染「很塑料」；质量目标定为 Epic Spaceman（CLAUDE.md 3D 一节）。已做「去塑料感」r1 和「Epic 化」r2（逆光光柱、主板铺到远处长满器件、B 段相机水平 + 镜头平移），样张包 `交付/ep02x_lookdev_r1r2.zip` 已发给用户（两轮 × EEVEE / Cycles 显卡，10 张），等回图和每帧耗时，定引擎和风格。
   - 正式包之前要改（审核记的）：r2 的 xray 背景被逆光打白（xray 时关逆光）；close 背景下半张逆光反光太亮；B 第 1 帧信号压在反光上；A 段相机要不要也放平；render_package_win 的 bat 要写死 look=…；以后可以考虑整集真 3D（用户说等样张出来再定）。
 - **下一步**：
