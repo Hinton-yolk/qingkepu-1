@@ -576,7 +576,7 @@ FNT = bpy.data.fonts.load(FONT)
 LABEL_FRAC = 0.05                                    # 字高约占画面宽的比例（默认 5%，短标签可以更大）
 labels = {}
 CRUMB = 2.5                                          # 旧标签留在原地缩小的时长（参考片 A：旧标签不消失，跟着场景缩小）
-def label(key, text, loc, t_in, t_out, arrow=None, arrow_z=None, frac=LABEL_FRAC, crumb=True):
+def label(key, text, loc, t_in, t_out, arrow=None, arrow_z=None, frac=LABEL_FRAC, crumb=False):   # 面包屑只适合拉远；推进时旧标签会冲向镜头变成一大团虚影，所以默认关
     t_mid = t_in + 0.3; h0 = frac * view_w(t_mid); t_hold = t_out
     if t_out and crumb: t_out = min(DUR, t_out + CRUMB)
     cu = bpy.data.curves.new('lbl_' + key, 'FONT'); cu.body = text; cu.font = FNT; cu.size = 1.0; cu.align_x = 'CENTER'; cu.extrude = 0.04   # 字号放在物体缩放里（Blender 文字字号上限 10000）
@@ -657,7 +657,7 @@ LOOKS = dict(
     warm=dict(back=(1.0, 0.62, 0.30), fill=(0.55, 0.66, 0.90), top=(1.0, 0.85, 0.65), haze=(0.36, 0.19, 0.07), dust=(1.0, 0.82, 0.55)),
     cool=dict(back=(0.75, 0.88, 1.0), fill=(0.40, 0.65, 1.00), top=(0.80, 0.90, 1.00), haze=(0.03, 0.12, 0.20), dust=(0.80, 0.92, 1.0)))
 LK = LOOKS[LOOK]
-area('back', (DIST * 0.25, DIST * 1.9, DIST * 1.1), 120 * k2, DIST * 1.2, LK['back'])
+area('back', (DIST * 1.3, DIST * 1.1, DIST * 2.1), 140 * k2, DIST * 1.2, LK['back'])
 area('fill', (-DIST * 1.1, -DIST * 1.0, DIST * 0.5), 22 * k2, DIST * 1.6, LK['fill'])
 area('top', (-DIST * 0.3, DIST * 0.2, DIST * 2.2), 18 * k2, DIST * 2.0, LK['top'])
 # 前景灰尘（用户 2026-11-10：「这种前景灰尘是很有必要的」）：挂在相机上，离镜头很近、虚成光斑，慢慢漂；
@@ -709,7 +709,7 @@ for lk in ('AgX - Medium High Contrast', 'Medium High Contrast'):
 try:
     vl = sc.view_layers[0]; vl.use_pass_emit = True; vl.use_pass_mist = True
     for an in ('lightmask', 'envglow'): aov = vl.aovs.add(); aov.name = an; aov.type = 'VALUE'
-    wd.mist_settings.start = DIST * 1.05; wd.mist_settings.depth = DIST * 5.0; wd.mist_settings.falloff = 'QUADRATIC'
+    wd.mist_settings.start = DIST * 1.05; wd.mist_settings.depth = DIST * 7.0; wd.mist_settings.falloff = 'QUADRATIC'
     ng = bpy.data.node_groups.new('comp', 'CompositorNodeTree'); sc.compositing_node_group = ng
     ng.interface.new_socket('Image', in_out='OUTPUT', socket_type='NodeSocketColor')
     rl = ng.nodes.new('CompositorNodeRLayers'); rl.scene = sc
@@ -733,7 +733,7 @@ try:
     add2 = ng.nodes.new('ShaderNodeMix'); add2.data_type = 'RGBA'; add2.blend_type = 'ADD'; add2.inputs['Factor'].default_value = 1.0
     ng.links.new(add.outputs['Result'], add2.inputs['A']); ng.links.new(gl2.outputs['Glare'], add2.inputs['B'])
     # 空气透视：按雾层把远处混成雾的颜色（每个尺度都一样，参考片 A 越远越亮越淡）
-    hz = ng.nodes.new('ShaderNodeMath'); hz.operation = 'MULTIPLY'; hz.inputs[1].default_value = 0.88; ng.links.new(rl.outputs['Mist'], hz.inputs[0])
+    hz = ng.nodes.new('ShaderNodeMath'); hz.operation = 'MULTIPLY'; hz.inputs[1].default_value = 0.7; ng.links.new(rl.outputs['Mist'], hz.inputs[0])
     fog = ng.nodes.new('ShaderNodeMix'); fog.data_type = 'RGBA'; fog.blend_type = 'MIX'; ng.links.new(hz.outputs[0], fog.inputs['Factor'])
     ng.links.new(add2.outputs['Result'], fog.inputs['A']); fog.inputs['B'].default_value = (*LK['haze'], 1)
     go = ng.nodes.new('NodeGroupOutput'); ng.links.new(fog.outputs['Result'], go.inputs[0])
