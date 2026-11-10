@@ -134,12 +134,12 @@ def load_jobs(path):
     J = json.load(open(path)); J['scene_dir'] = os.path.join(REPO, J['scene_dir']); J['out_dir'] = os.path.join(REPO, J['out_dir']); return J
 
 def plan(J, n, price):
-    bins = split(J['tasks'], n); spu = J.get('sec_per_unit', 8); setup = 6 * 60
+    bins = split(J['tasks'], n); spu = J.get('sec_per_unit', 8); setup = 2 * 60      # 冒烟测试实测：装环境 + 下载 Blender 约 1 分钟
     worst = max(b[0] for b in bins) * spu + len(max(bins, key=lambda b: b[0])[1]) * 40 + setup
     total_gpu_s = sum(b[0] * spu + len(b[1]) * 40 + setup for b in bins)
     for i, (u, ts) in enumerate(bins): print(f'  pod {i}: {len(ts)} 个任务，{u} 单位')
     print(f'预计墙钟 {worst / 60:.0f} 分钟；GPU 总时长 {total_gpu_s / 3600:.2f} 小时；'
-          f'按每卡每小时 ${price} 估约 ${total_gpu_s / 3600 * price:.2f}（含每台约 6 分钟装环境；按秒计费）')
+          f'按每卡每小时 ${price} 估约 ${total_gpu_s / 3600 * price:.2f}（含每台约 2 分钟装环境；按秒计费）')
     return bins
 
 def main():
