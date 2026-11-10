@@ -1,7 +1,7 @@
-# 光互连 02 下集 · 新画面版 · 场景（草稿 v2，按审核 11-10 必改 12 条改）
-# A 段（y1，约 2.4 秒）：桌上的手机，消息 1 秒内从「少了一位」那个字起整串变成乱码；一个金色信号从手机飞出去（往右上），镜头追着它甩上去。
-# B 段（y2，约 4 秒）：信号从左下飞进画面（同一运动方向），落进 AI 服务器主板上的一对差分走线（盖在阻焊下，一直接到芯片封装底下），
-#      镜头贴着板面滑过去，停在纸片立牌主持人（蹲着看）身边。
+# 光互连 02 下集 · 新画面版 · 场景（正式版渲染包，按渲染包审核 11-10 必改 8 条改；用户 11-10 定：去掉主持人）
+# A 段（y1，约 2.4 秒）：桌上的手机，消息 1 秒内从「少了一位」那个字起整串变成乱码；一个金色信号从手机飞出去，镜头追着它往远处飞。
+# B 段（y2，约 4 秒）：第 1 帧信号就在画面中间、小而远（接住 A 段结尾），镜头在后面追着它，它落进 AI 服务器主板上的一对差分走线
+#      （盖在阻焊下，一直接到芯片封装底下），光带从落点往前铺开；镜头降到板面，最后一帧和 side 背景是同一个机位（y3 接上不跳）。
 # view=…：B 场景的固定机位静帧，给中间讲解段（2.5D）当背景；同时导出走线在画面上的位置和每一位的边界（叠加层沿走线画刻度、鼓点）。
 # 单位：毫米（scale_length = 0.001，景深按真实光圈算）。
 # 用法：blender -b --python shot_open.py -- <A|B> <输出目录> <宽> <高> <采样> [cycles] [seq] [view=side|close|count|rx|wide] [bits=normal|long|blur] [off=位偏移] [xray=1] [noband=1] [帧号…]
@@ -86,7 +86,15 @@ def mat_signal(tex):
     t = img(N, os.path.join(AS, tex), 'Non-Color'); t.interpolation = 'Closest' if 'blur' not in tex else 'Linear'; L.new(cm.outputs[0], t.inputs[0])
     st = N.new('ShaderNodeMath'); st.operation = 'MULTIPLY_ADD'; st.inputs[1].default_value = 2.0; st.inputs[2].default_value = 0.25; L.new(t.outputs['Color'], st.inputs[0]); L.new(st.outputs[0], e.inputs['Strength'])
     fa = N.new('ShaderNodeMath'); fa.operation = 'MULTIPLY_ADD'; fa.inputs[1].default_value = 0.45; fa.inputs[2].default_value = 0.35; L.new(t.outputs['Color'], fa.inputs[0])
-    L.new(fa.outputs[0], mx.inputs['Fac']); L.new(tr.outputs[0], mx.inputs[1]); L.new(e.outputs[0], mx.inputs[2]); L.new(mx.outputs[0], o.inputs[0])
+    rv = N.new('ShaderNodeValue'); rv.name = 'reveal'; lt = N.new('ShaderNodeMath'); lt.operation = 'LESS_THAN'; L.new(sp.outputs['Y'], lt.inputs[0]); L.new(rv.outputs[0], lt.inputs[1])
+    lo = N.new('ShaderNodeValue'); lo.name = 'reveal_lo'; gt = N.new('ShaderNodeMath'); gt.operation = 'GREATER_THAN'; L.new(sp.outputs['Y'], gt.inputs[0]); L.new(lo.outputs[0], gt.inputs[1])
+    mk = N.new('ShaderNodeMath'); mk.operation = 'MULTIPLY'; L.new(lt.outputs[0], mk.inputs[0]); L.new(gt.outputs[0], mk.inputs[1])
+    fm = N.new('ShaderNodeMath'); fm.operation = 'MULTIPLY'; L.new(fa.outputs[0], fm.inputs[0]); L.new(mk.outputs[0], fm.inputs[1])
+    L.new(fm.outputs[0], mx.inputs['Fac']); L.new(tr.outputs[0], mx.inputs[1]); L.new(e.outputs[0], mx.inputs[2]); L.new(mx.outputs[0], o.inputs[0])
+    if SHOT == 'B' and 'view' not in OPT:      # B 段：光带从信号落点（y = 0，0.9 秒）往芯片方向铺开（审核建议：跟着一个东西走）
+        for t, v in ((0.0, -0.01), (0.9, 0.0), (1.5, 14.0), (2.6, 70.0)): rv.outputs[0].default_value = v; rv.outputs[0].keyframe_insert('default_value', frame=F(t))
+        for t, v in ((0.0, 0.0), (1.8, 0.0), (2.8, -60.0)): lo.outputs[0].default_value = v; lo.outputs[0].keyframe_insert('default_value', frame=F(t))   # 落点后面那段晚一点再亮（信号是从那边来的）
+    else: rv.outputs[0].default_value = 999.0; lo.outputs[0].default_value = -999.0
     if hasattr(m, 'surface_render_method'): m.surface_render_method = 'BLENDED'
     for fr, v in ((1, 0.0), (NF, -DUR * 0.12)): off.outputs[0].default_value = v; off.outputs[0].keyframe_insert('default_value', frame=fr)
     lin(m.node_tree); return m
@@ -135,23 +143,25 @@ def standee(k, height, loc, yaw):
     box('standee_foot_' + k, w * 0.5, height * 0.12, height * 0.006, mat('paper', (0.92, 0.9, 0.85), 0, 0.8),
         (loc[0] - math.sin(yaw) * height * 0.04, loc[1] + math.cos(yaw) * height * 0.04, loc[2] + height * 0.003), (0, 0, yaw))
     return p
+_BK = {}
 def bokeh_lights(n, center, spread, size, cols, strength=(4, 12)):
     for i in range(n):
-        c = random.choice(cols); m, _ = emit(f'bk{i}', c, random.uniform(*strength))
+        c = random.choice(cols)
+        if c not in _BK: _BK[c] = emit(f'bk{len(_BK)}', c, sum(strength) / 2)[0]
+        m = _BK[c]
         o_ = sphere(f'bk{i}', size * random.uniform(0.6, 1.4), m, (center[0] + random.uniform(-spread[0], spread[0]), center[1] + random.uniform(-spread[1], spread[1]), center[2] + random.uniform(-spread[2], spread[2])))
         o_.visible_glossy = False          # 背景灯只当虚化背景，不在手机玻璃上反光（审核：白点压字）
 def key(o, path, fr, val):
     setattr(o, path, val); o.keyframe_insert(path, frame=fr)
 def dust_near_camera(n, dmin, dmax, size):
-    """前景灰尘：离镜头很近、虚成光斑，慢慢漂（审核：前景灰尘是必要的；数量少、很虚）"""
-    dm, _ = emit('dust', (1.0, 0.9, 0.75), 0.12)  # 灰尘不进反射
-    _dust_objs = []
-    cam_mat = cam.matrix_world.copy()
+    """前景灰尘：挂在相机上（相机本地坐标），离镜头很近、虚成光斑，慢慢漂；画面左右两侧，不压画面中间的关键内容
+       （渲染包审核：原来按片尾机位摆，前 1.8 秒全在画外；横向偏移超出视野）"""
+    dm, _ = emit('dust', (1.0, 0.86, 0.66), 0.3)
     for i in range(n):
-        d = random.uniform(dmin, dmax); x = random.choice([-1, 1]) * random.uniform(0.30, 0.5) * d; y = random.uniform(-0.85, 0.85) * d
-        p = cam_mat @ Vector((x, y, -d)); s = sphere(f'dust{i}', size * random.uniform(0.5, 1.3), dm, p); s.visible_glossy = False
-        drift = Vector((random.uniform(-1, 1), random.uniform(-1, 1), random.uniform(-0.5, 1))) * d * 0.04
-        key(s, 'location', 1, p); key(s, 'location', NF, p + drift); lin(s)
+        d = random.uniform(dmin, dmax); x = (-1 if i % 2 else 1) * random.uniform(0.12, 0.22) * d; y = random.uniform(-0.6, 0.6) * d
+        s = sphere(f'dust{i}', size * random.uniform(0.6, 1.3), dm, (x, y, -d)); s.parent = cam; s.visible_glossy = False
+        drift = Vector((random.uniform(-1, 1), random.uniform(-1, 1), 0)) * d * 0.05
+        key(s, 'location', 1, Vector((x, y, -d))); key(s, 'location', NF, Vector((x, y, -d)) + drift); lin(s)
 
 # ---------- 相机 ----------
 cam_d = bpy.data.cameras.new('cam'); cam = obj('cam', cam_d); sc.camera = cam
@@ -172,10 +182,12 @@ if SHOT == 'A':
     plane('wall', 4000, 2000, mat('wall', (0.30, 0.24, 0.19), 0, 0.85, noise_bump=0.03, noise_scale=0.01), (0, 1100, 1000), (math.radians(90), 0, 0))
     glow_m, _ = emit('lamp_glow', (1.0, 0.72, 0.42), 3.0); sphere('lamp', 60, glow_m, (650, 1000, 420)); sphere('lamp2', 45, glow_m, (-900, 1050, 600))
     box('shelf', 900, 250, 25, mat('shelf', (0.18, 0.11, 0.06), 0, 0.5), (-300, 1000, 380))
-    for i in range(9): box(f'book{i}', 28 + random.uniform(0, 20), 180, random.uniform(150, 230), mat(f'book{i}', random.choice([(0.35, 0.12, 0.08), (0.1, 0.2, 0.3), (0.5, 0.45, 0.35), (0.15, 0.25, 0.15)]), 0, 0.6), (-650 + i * 75, 1000, 480))
+    BOOK = [mat(f'book{k}', c, 0, 0.6) for k, c in enumerate([(0.35, 0.12, 0.08), (0.1, 0.2, 0.3), (0.5, 0.45, 0.35), (0.15, 0.25, 0.15)])]
+    for i in range(9): box(f'book{i}', 28 + random.uniform(0, 20), 180, random.uniform(150, 230), random.choice(BOOK), (-650 + i * 75, 1000, 480))
     bokeh_lights(18, (0, 1060, 820), (1500, 20, 120), 10, [(1.0, 0.78, 0.5), (1.0, 0.88, 0.65)], strength=(2, 5))
     sig_m, _ = emit('signal_A', GOLD, 160.0); sig = sphere('signal', 5.0, sig_m, (0, 0, 0))
     halo_m, _ = emit('signal_halo', GOLD, 6.0); halo = sphere('signal_halo', 14.0, halo_m, (0, 0, 0)); halo.parent = sig
+    sl = bpy.data.lights.new('signal_light', 'POINT'); sl.energy = 3e4; sl.color = GOLD; sl.shadow_soft_size = 5; obj('signal_light', sl).parent = sig
     top = Vector((math.sin(-ph_rot) * 70, math.cos(-ph_rot) * 70, 9))
     for t, p in ((0.0, top), (1.55, top), (2.0, top + Vector((60, 120, 140))), (2.4, top + Vector((220, 420, 520)))): key(sig, 'location', F(t), p)
     for t, s in ((0.0, 0.0), (1.5, 0.0), (1.6, 1.0)): key(sig, 'scale', F(t), (s, s, s))
@@ -187,7 +199,7 @@ if SHOT == 'A':
     obj('key', sun, None, (-500, -200, 700), (math.radians(40), math.radians(-35), 0))
     MIST = (250, 1400, (0.32, 0.24, 0.17))
 else:
-    plane('board', 400, 400, mat('solder_mask', (0.02, 0.24, 0.07), 0.0, 0.34, coat=0.5, noise_bump=0.05, noise_scale=8), (0, 60, 0))
+    plane('board', 400, 400, mat('solder_mask', (0.02, 0.24, 0.07), 0.0, 0.40, coat=0.25, noise_bump=0.05, noise_scale=8), (0, 60, 0))
     mask_cu = mat('mask_over_copper', (0.10, 0.42, 0.13), 0.15, 0.28, coat=0.5)
     PAIR_X = [0.0] + [s * d for d in (1.3, 2.6, 3.9, 5.2, 7.5, 9.8) for s in (-1, 1)]
     boxes('traces', [(px + dx, (TR_Y0 + TR_Y1) / 2, 0.0175, 0.09, TR_Y1 - TR_Y0, 0.035) for px in PAIR_X for dx in (-0.105, 0.105)], mask_cu)
@@ -223,25 +235,32 @@ else:
     # 机箱：两侧壁、后面一排风扇（轮毂 + 扇叶）、天花板上数据中心的灯带；再远处是雾（合成里的空气透视）
     chassis = mat('chassis', (0.16, 0.17, 0.19), 0.8, 0.45, noise_bump=0.02, noise_scale=0.05)
     box('fan_wall', 400, 6, 60, chassis, (0, 196, 30)); box('wall_L', 6, 400, 60, chassis, (-110, 60, 30)); box('wall_R', 6, 400, 60, chassis, (110, 60, 30))
-    blade = mat('fan_blade', (0.04, 0.04, 0.045), 0.1, 0.45)
+    blade = mat('fan_blade', (0.04, 0.04, 0.045), 0.1, 0.45); FAN_RING = mat('fan_ring', (0.02, 0.02, 0.022), 0.1, 0.5)
     for k in range(6):
         cx = -150 + k * 60
-        cyl(f'fan_ring{k}', 27, 3, mat(f'fan_ring{k}', (0.02, 0.02, 0.022), 0.1, 0.5), (cx, 190, 30), (math.radians(90), 0, 0))
+        cyl(f'fan_ring{k}', 27, 3, FAN_RING, (cx, 190, 30), (math.radians(90), 0, 0))
         cyl(f'fan_hub{k}', 9, 6, blade, (cx, 187, 30), (math.radians(90), 0, 0))
-        boxes(f'fan_blades{k}', [(cx + math.cos(a) * 15, 186.5, 30 + math.sin(a) * 15, 13, 1.0, 7, a) for a in [i * 2 * math.pi / 7 for i in range(7)]], blade)
-        bpy.data.objects[f'fan_blades{k}'].rotation_euler = (math.radians(90), 0, 0); bpy.data.objects[f'fan_blades{k}'].location = (0, 0, 0)
-    ceil_m, _ = emit('ceiling_light', (0.85, 0.95, 1.0), 6.0)
+        for i in range(7):
+            a = i * 2 * math.pi / 7; box(f'fan_blade{k}_{i}', 13, 1.0, 7, blade, (cx + math.cos(a) * 15, 186.5, 30 + math.sin(a) * 15), (0, -a, 0))
+    ceil_m, _ = emit('ceiling_light', (0.85, 0.95, 1.0), 2.5)
     for r in range(6): box(f'ceil{r}', 900, 30, 4, ceil_m, (0, 150 + r * 260, 900))
+    LED = [emit('led_g', (0.3, 1.0, 0.45), 25)[0], emit('led_b', (0.45, 0.7, 1.0), 25)[0]]
     for i in range(30):
-        c = random.choice([(0.3, 1.0, 0.45), (0.45, 0.7, 1.0)]); m_, _ = emit(f'led{i}', c, 25); sphere(f'led{i}', 0.6, m_, (random.uniform(-160, 160), 192, random.uniform(5, 55)))
+        sphere(f'led{i}', 0.6, LED[i % 2], (random.uniform(-160, 160), 192, random.uniform(5, 55)))
     BTEX = {'normal': 'bits.png', 'long': 'bits_long.png', 'blur': 'bits_blur.png'}[OPT.get('bits', 'normal')]
     plane('signal_band', 0.32, TR_Y1 - 2 - TR_Y0, mat_signal(BTEX), (0, (TR_Y0 + TR_Y1 - 2) / 2, 0.045))
     POSE = OPT.get('pose', 'B')
     if OPT.get('host') == '1': standee(POSE, STAND_H if POSE == 'A' else STAND_H * 0.62, (-0.75, 5.5, 0.0), math.radians(-25))   # 用户 11-10：去掉人物（不协调、显得假）
     sig_m, _ = emit('signal_B', GOLD, 60.0); sig = sphere('signal', 0.25, sig_m, (0, 0, 0))
-    for t, p in ((0.0, (-14, -26, 14)), (0.5, (-5, -16, 5)), (0.9, (0, -8, 0.06)), (1.6, (0, 30, 0.06))): key(sig, 'location', F(t), p)
-    for t, s in ((0.0, 1.0), (0.9, 1.0), (1.1, 0.25), (1.6, 0.0)): key(sig, 'scale', F(t), (s, s, s))
-    for t, p, g in ((0.0, (-4.0, -24, 7.0), (0, -6, 0)), (1.0, (-2.6, -10, 3.0), (0, 2, 0.3)), (2.8, (-2.4, 0.4, 1.2), (-0.4, 6.0, 0.7)), (4.0, (-2.3, 0.9, 1.15), (-0.45, 6.0, 0.7))):
+    SIG_PATH = ((0.0, (0, -14, 9.0)), (0.45, (0, -6, 4.0)), (0.9, (0, 0.0, 0.06)), (1.5, (0, 14, 0.06)))
+    for t, p in SIG_PATH: key(sig, 'location', F(t), p)
+    for t, s in ((0.0, 1.0), (0.9, 1.0), (1.2, 0.35), (1.5, 0.0)): key(sig, 'scale', F(t), (s, s, s))
+    bl = bpy.data.lights.new('band_light', 'AREA'); bl.shape = 'RECTANGLE'; bl.size = 0.6; bl.size_y = 60; bl.energy = 0.0; bl.color = GOLD
+    blo = obj('band_light', bl, None, (0, 30, 0.8)); bl.keyframe_insert('energy', frame=F(0.9)); bl.energy = 250; bl.keyframe_insert('energy', frame=F(1.8))
+    SIDE_CAM, SIDE_TGT = (-3.6, 2.6, 0.95), (0.3, 8.0, 0.35)
+    # 0–1.0 秒：镜头在信号后上方追着它，信号一直在画面中间；1.0–4.0 秒：降到板面，落到 side 机位（和 y3 的背景是同一个机位）
+    for t, p, g in ((0.0, (0, -26, 15.0), (0, -14, 9.0)), (0.45, (-0.3, -18, 8.5), (0, -6, 4.0)), (1.0, (-1.2, -11, 4.0), (0, 1.5, 0.1)),
+                    (2.4, (-3.0, -2.5, 1.6), (0.2, 6.0, 0.25)), (4.0, SIDE_CAM, SIDE_TGT)):
         key(cam, 'location', F(t), p); key(tgt, 'location', F(t), g)
     cam_d.lens = 28; cam_d.dof.aperture_fstop = 2.8
     sun = bpy.data.lights.new('key', 'AREA'); sun.energy = 9e4; sun.size = 120; sun.color = (1.0, 0.9, 0.8)
@@ -251,8 +270,8 @@ else:
     MIST = (18, 260, (0.16, 0.30, 0.30))
 
 VIEWS = {   # 中间讲解段的固定机位（2.5D 背景）：相机位置、看向哪里、焦距、光圈
-    'side': ((-3.6, 2.6, 0.95), (0.3, 8.0, 0.35), 28, 2.8),     # 主持人在左，走线和信号斜着伸向远处的芯片
-    'close': ((-0.55, 10.0, 0.55), (0.05, 16.0, 0.03), 35, 2.8), # 主持人前方，贴着信号看：跳变、鼓点、打乱
+    'side': ((-3.6, 2.6, 0.95), (0.3, 8.0, 0.35), 28, 2.8),     # 走线和信号斜着伸向远处的芯片（= B 段最后一帧的机位）
+    'close': ((-0.55, 10.0, 0.55), (0.05, 16.0, 0.03), 35, 2.8), # 贴着信号往前看：越快越糊（y10 第一段、y14）
     'rx': ((-5.0, 47.0, 2.6), (0.0, 61.5, 0.8), 28, 2.8),       # 收货端：走线钻进芯片封装底下
     'wide': ((-22.0, -28.0, 22.0), (0.0, 40.0, 2.0), 30, 4.0),  # 拉开：芯片、散热器、很多对走线
     'rxx': ((-9.0, 50.0, 14.0), (0.0, 78.0, 2.0), 28, 4.0),     # y10：从斜上方看半透明顶盖下的裸片和收发电路
@@ -265,9 +284,9 @@ if SHOT == 'B' and 'view' in OPT:
     nt = bpy.data.materials['signal_band'].node_tree; nt.animation_data_clear(); nt.nodes['offset'].outputs[0].default_value = float(OPT.get('off', 0)) / NB
     if OPT.get('noband') == '1': bpy.data.objects['signal_band'].hide_render = True
     FRAMES = FRAMES or [60]
-bpy.context.view_layer.update()
-if SHOT == 'B': dust_near_camera(3, 0.3, 0.9, 0.02) if 'view' in OPT else None
-else: dust_near_camera(3, 12, 30, 0.9)
+if SHOT == 'B':
+    if 'view' not in OPT: dust_near_camera(3, 0.6, 1.6, 0.03)      # 静帧不放灰尘：2.5D 段由云端加会漂的 2D 灰尘层
+else: dust_near_camera(3, 14, 32, 0.9)
 
 # ---------- 世界、渲染、合成（空气透视 + 光的辉光） ----------
 wd = bpy.data.worlds.new('w'); sc.world = wd; wd.use_nodes = True; N = wd.node_tree.nodes; L = wd.node_tree.links
@@ -281,6 +300,9 @@ if CYCLES:
 else:
     ENG = [e.identifier for e in bpy.types.RenderSettings.bl_rna.properties['engine'].enum_items]
     sc.render.engine = 'BLENDER_EEVEE' if 'BLENDER_EEVEE' in ENG else 'BLENDER_EEVEE_NEXT'; sc.eevee.taa_render_samples = SAMP
+    for k, v in (('use_raytracing', SHOT == 'B'), ('use_shadows', True), ('use_fast_gi', SHOT == 'B'), ('bokeh_max_size', 300.0), ('motion_blur_max', 120)):
+        try: setattr(sc.eevee, k, v)
+        except Exception as e: print('EEVEE 设置跳过', k, e)
 sc.render.resolution_x, sc.render.resolution_y = W, H; sc.render.fps = FPS; sc.frame_start, sc.frame_end = 1, NF
 sc.render.use_motion_blur = True; sc.render.motion_blur_shutter = 1.0 if SHOT == 'A' else 0.5
 sc.view_settings.view_transform = 'AgX'; sc.view_settings.exposure = 0.9 if SHOT == 'B' else 0.2
@@ -296,13 +318,14 @@ if CYCLES:   # 云端草稿：没有 libEGL，合成节点会让 Blender 直接�
     if SHOT == 'B' and 'view' not in OPT: hb.location = (0, 60, 0)
 else:
   try:
-    vl = sc.view_layers[0]; vl.use_pass_mist = True
+    if bpy.app.version < (5, 0, 0): raise SystemExit('需要 Blender 5.0 或更新版本（现在是 ' + bpy.app.version_string + '）')
+    vl = sc.view_layers[0]; vl.use_pass_mist = True; vl.use_pass_emit = True
     wd.mist_settings.start = MIST[0]; wd.mist_settings.depth = MIST[1]; wd.mist_settings.falloff = 'QUADRATIC'
     ng = bpy.data.node_groups.new('comp', 'CompositorNodeTree'); sc.compositing_node_group = ng
     ng.interface.new_socket('Image', in_out='OUTPUT', socket_type='NodeSocketColor')
     rl = ng.nodes.new('CompositorNodeRLayers'); rl.scene = sc
-    gl = ng.nodes.new('CompositorNodeGlare'); ng.links.new(rl.outputs['Image'], gl.inputs['Image'])
-    for k, v in (('Type', 'Bloom'), ('Threshold', 1.0), ('Strength', 0.6), ('Size', 0.6), ('Quality', 'High')):
+    gl = ng.nodes.new('CompositorNodeGlare'); ng.links.new(rl.outputs.get('Emit') or rl.outputs.get('Emission'), gl.inputs['Image'])
+    for k, v in (('Type', 'Bloom'), ('Threshold', 0.2), ('Strength', 0.8), ('Size', 0.6), ('Quality', 'High')):
         try: gl.inputs[k].default_value = v
         except Exception as e: print('辉光参数跳过', k, e)
     add = ng.nodes.new('ShaderNodeMix'); add.data_type = 'RGBA'; add.blend_type = 'ADD'; add.inputs['Factor'].default_value = 1.0
@@ -311,7 +334,7 @@ else:
     fog = ng.nodes.new('ShaderNodeMix'); fog.data_type = 'RGBA'; fog.blend_type = 'MIX'; ng.links.new(hz.outputs[0], fog.inputs['Factor'])
     ng.links.new(add.outputs['Result'], fog.inputs['A']); fog.inputs['B'].default_value = (*MIST[2], 1)
     go = ng.nodes.new('NodeGroupOutput'); ng.links.new(fog.outputs['Result'], go.inputs[0]); print('COMPOSITOR 辉光 + 空气透视已接上')
-  except Exception as e: print('COMPOSITOR 跳过：', e)
+  except Exception as e: print('[!] 合成节点出错（雾和辉光接不上），先停下：', e); raise SystemExit(1)
 sc.render.image_settings.file_format = 'PNG'
 
 def export_band(path):
@@ -323,8 +346,14 @@ def export_band(path):
         c = world_to_camera_view(sc, cam, Vector((0, y, 0.05))); l = world_to_camera_view(sc, cam, Vector((-0.4, y, 0.05)))
         if c.z <= 0 or not (-0.2 <= c.x <= 1.2 and -0.2 <= c.y <= 1.2): continue
         pts.append(dict(j=j, y=round(y, 3), bit=bits[j % NB], x=round(c.x * W, 1), yy=round((1 - c.y) * H, 1), lx=round(l.x * W, 1), ly=round((1 - l.y) * H, 1)))
-    hp = world_to_camera_view(sc, cam, Vector((-0.75, 5.5, STAND_H * 1.05)))
-    json.dump(dict(W=W, H=H, bit_mm=BIT, pts=pts, host_head=(round(hp.x * W, 1), round((1 - hp.y) * H, 1))), open(path, 'w'))
+    json.dump(dict(W=W, H=H, bit_mm=BIT, pts=pts), open(path, 'w'))
+if OPT.get('check') == '1':     # 自查：逐帧列出信号、灰尘在画面上的位置（不渲染）
+    dl = [o for o in bpy.data.objects if o.name.startswith('dust')]; sg = bpy.data.objects.get('signal')
+    for f in range(1, NF + 1):
+        sc.frame_set(f); c = world_to_camera_view(sc, cam, sg.matrix_world.translation) if sg else None
+        n_in = sum(1 for o in dl if (lambda v: v.z > 0 and 0 <= v.x <= 1 and 0 <= v.y <= 1)(world_to_camera_view(sc, cam, o.matrix_world.translation)))
+        print(f'CHECK {SHOT} f{f:03d} signal=({c.x * W:.0f},{(1 - c.y) * H:.0f},z{c.z:.1f}) scale={sg.scale.x:.2f} dust_in={n_in}/{len(dl)}' if c else f'CHECK f{f}')
+    raise SystemExit(0)
 import time
 def _gpu_name():
     try:
@@ -335,13 +364,18 @@ if SEQ:      # 整段序列：已渲的帧跳过，每帧打印耗时
     def _pre(scene, *a): t0[0] = time.time()
     def _post(scene, *a): print(f'FRAME_TIME 第 {scene.frame_current} 帧：{time.time() - t0[0]:.1f} 秒', flush=True)
     bpy.app.handlers.render_pre.append(_pre); bpy.app.handlers.render_post.append(_post)
-    sc.render.filepath = os.path.join(d_, '####'); sc.render.use_overwrite = False; sc.render.use_placeholder = True
+    for fn in os.listdir(d_):
+        fp = os.path.join(d_, fn)
+        if fn.lower().endswith('.png') and os.path.getsize(fp) < 10000: os.remove(fp); print('删掉不完整的帧', fn)
+    sc.render.filepath = os.path.join(d_, '####'); sc.render.use_overwrite = False; sc.render.use_placeholder = False
     bpy.ops.render.render(animation=True); print('GPU', _gpu_name()); print('SEQ_DONE', SHOT, NF)
 else:
   for f in FRAMES or [1]:
     t_ = time.time(); sc.frame_set(f)
     name = (f"{SHOT}_{OPT['view']}_{OPT.get('bits', 'normal')}" + ('_xray' if OPT.get('xray') == '1' else '') + ('_noband' if OPT.get('noband') == '1' else '')) if 'view' in OPT else f'{SHOT}_f{f:04d}'
     if 'garble' in OPT: name += f"_g{OPT['garble']}"
-    sc.render.filepath = os.path.join(OUT, name + '.png'); bpy.ops.render.render(write_still=True); print('RENDERED', sc.render.filepath)
+    fp_ = os.path.join(OUT, name + '.png')
+    if 'view' in OPT and os.path.exists(fp_) and os.path.getsize(fp_) > 10000 and os.path.exists(os.path.join(OUT, name + '.json')): print('已渲过，跳过', name); continue
+    sc.render.filepath = fp_; bpy.ops.render.render(write_still=True); print('RENDERED', sc.render.filepath)
     print(f'FRAME_TIME {name}：{time.time() - t_:.1f} 秒', flush=True); print('GPU', _gpu_name())
     if 'view' in OPT: export_band(os.path.join(OUT, name + '.json'))
