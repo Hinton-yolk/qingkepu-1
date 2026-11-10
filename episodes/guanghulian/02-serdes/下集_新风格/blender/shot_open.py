@@ -149,8 +149,8 @@ if SHOT == 'A':
     sun = bpy.data.lights.new('key', 'AREA'); sun.energy = 2.5e6; sun.size = 600; sun.color = (1.0, 0.82, 0.62)
     obj('key', sun, None, (-500, -200, 700), (math.radians(40), math.radians(-35), 0))
 else:
-    plane('board', 400, 400, mat('solder_mask', (0.025, 0.14, 0.06), 0.0, 0.32, coat=0.5, noise_bump=0.05, noise_scale=8), (0, 60, 0))
-    mask_cu = mat('mask_over_copper', (0.07, 0.27, 0.11), 0.15, 0.28, coat=0.5)
+    plane('board', 400, 400, mat('solder_mask', (0.02, 0.24, 0.07), 0.0, 0.34, coat=0.5, noise_bump=0.05, noise_scale=8), (0, 60, 0))
+    mask_cu = mat('mask_over_copper', (0.10, 0.42, 0.13), 0.15, 0.28, coat=0.5)
     pairs = []
     for px in [0.0] + [s * d for d in (1.3, 2.6, 3.9, 5.2, 7.5, 9.8) for s in (-1, 1)]:
         for dx in (-0.105, 0.105): pairs.append((px + dx, 20, 0.0175, 0.09, 80, 0.035))
@@ -216,7 +216,7 @@ wd = bpy.data.worlds.new('w'); sc.world = wd; wd.use_nodes = True; N = wd.node_t
 bg = N['Background']; bg.inputs['Strength'].default_value = 0.35
 if os.path.exists(HDRI):
     env = N.new('ShaderNodeTexEnvironment'); env.image = bpy.data.images.load(HDRI); L.new(env.outputs['Color'], bg.inputs['Color'])
-lp = N.new('ShaderNodeLightPath'); mx = N.new('ShaderNodeMixShader'); dark = N.new('ShaderNodeBackground'); dark.inputs['Color'].default_value = (0.02, 0.025, 0.035, 1) if SHOT == 'B' else (0.05, 0.04, 0.035, 1)
+lp = N.new('ShaderNodeLightPath'); mx = N.new('ShaderNodeMixShader'); dark = N.new('ShaderNodeBackground'); dark.inputs['Color'].default_value = (0.02, 0.07, 0.09, 1) if SHOT == 'B' else (0.05, 0.04, 0.035, 1)
 out = N['World Output']; L.new(lp.outputs['Is Camera Ray'], mx.inputs['Fac']); L.new(bg.outputs[0], mx.inputs[1]); L.new(dark.outputs[0], mx.inputs[2]); L.new(mx.outputs[0], out.inputs[0])
 if CYCLES:
     sc.render.engine = 'CYCLES'; sc.cycles.samples = SAMP; sc.cycles.use_denoising = True; sc.cycles.max_bounces = 4; sc.cycles.device = 'CPU'
@@ -225,7 +225,7 @@ else:
     sc.render.engine = 'BLENDER_EEVEE' if 'BLENDER_EEVEE' in ENG else 'BLENDER_EEVEE_NEXT'; sc.eevee.taa_render_samples = SAMP
 sc.render.resolution_x, sc.render.resolution_y = W, H; sc.render.fps = FPS; sc.frame_start, sc.frame_end = 1, NF
 sc.render.use_motion_blur = True; sc.render.motion_blur_shutter = 0.5
-sc.view_settings.view_transform = 'AgX'
+sc.view_settings.view_transform = 'AgX'; sc.view_settings.exposure = 0.9 if SHOT == 'B' else 0.2
 try: sc.view_settings.look = 'AgX - Medium High Contrast'
 except Exception: pass
 sc.render.image_settings.file_format = 'PNG'

@@ -6,7 +6,7 @@ CUT = sys.argv[1]                                   # 抠好图的目录（A.png
 for k in ('A', 'B'):
     c = Image.open(os.path.join(CUT, k + '.png')).convert('RGBA'); pad = 24
     big = Image.new('RGBA', (c.width + 2 * pad, c.height + 2 * pad)); big.alpha_composite(c, (pad, pad))
-    al = big.split()[3].filter(ImageFilter.MaxFilter(21)).filter(ImageFilter.GaussianBlur(1.2))
+    al = big.split()[3].filter(ImageFilter.MaxFilter(41)).filter(ImageFilter.GaussianBlur(1.2))
     paper = Image.new('RGBA', big.size, (247, 243, 233, 255)); paper.putalpha(al); paper.alpha_composite(big)
     paper.save(os.path.join(A, f'standee_{k}.png')); print('standee', k, paper.size)
 FONT = '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc'
