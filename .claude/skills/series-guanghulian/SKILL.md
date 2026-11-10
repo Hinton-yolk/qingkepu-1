@@ -129,6 +129,7 @@ description: 制作「一语道破 · 白话光互连」系列的短视频（脚
 - **开新一集从模板开始**：`templates/guanghulian/`（渲染引擎 `engine/`、纸桌渲染器 `engine/desk/film.js`、渲染脚本、配乐与混音、封面脚本），先读 `templates/guanghulian/README.md` 和 `系列规则.md`。
 - 已有各集源码：`episodes/guanghulian/01-why-light/`、`02-serdes/`、`03-copper-blur/`、`04-retimer-dsp/`；文章原稿在 `episodes/guanghulian/articles/`（05 只有文章）。
 - 01–04 还没有单独的 FACTS.md，事实来源写在各集 `output/*说明.md` 里；新做的内容按 `CLAUDE.md` 每集写 FACTS.md。
+- **系列例外（来自用户旧的全局规则「Series exception (「一语道破」)」，2026-11-10 搬进仓库，免得新会话的全局 md 覆盖后丢失）**：保留角标（右上系列名、左上站名 / 栏目名），可以用多个强调色（金 = 电，青 = 光，珊瑚 = 强调 / 出错）。通用规则里「不要角标、只用一个强调色」对本系列不适用。
 - 风格：「以 Vox-style editorial explainer 为主，局部借 3Blue1Brown 的机制动画，再少量用 Kurzgesagt 的尺度/空间转场」。
 - 纸桌底 `#e4ddcf`；从文章剪下的文字条摆在桌上，红线相连。
 - 机制卡：黑底 `#1d1d1c`，奶油色字。
