@@ -359,7 +359,7 @@ function shiftInset(t, A) {
     const dx = N[0] - TV.P[0], dy = N[1] - TV.P[1], kW = (TV.wallY - TV.P[1]) / dy, Wp = [TV.P[0] + dx * kW, TV.wallY];
     return { d: Math.abs(img(Wp) - img(N)), tb, nm };
   });
-  const dmax = rows[0].d, x0 = 330, w = 400, y0 = 1330;
+  const dmax = rows[0].d, x0 = 330, w = 400, y0 = 1310;
   ID(); ctx.save(); ctx.globalAlpha = A * E.p3out(prog(t, T.a6, T.a6 + 0.3));
   rr(x0 - 150, y0 - 36, w + 190, 150, 18); ctx.fillStyle = "rgba(30,33,37,0.96)"; ctx.fill();
   rows.forEach((r, i) => {
@@ -525,7 +525,7 @@ function noseContour(x, y, s, a) {
   if (a <= 0.01) return;
   ID(); ctx.save(); ctx.translate(x, y); ctx.scale(s, s); ctx.globalAlpha = a; ctx.lineCap = "round";
   ctx.filter = `blur(${Math.max(1, 9 * s).toFixed(1)}px)`;
-  ctx.strokeStyle = "rgba(130,85,60,0.8)"; ctx.lineWidth = 26; ctx.beginPath(); ctx.moveTo(790, 626); ctx.quadraticCurveTo(812, 676, 846, 724); ctx.stroke();
+  ctx.strokeStyle = "rgba(120,78,55,0.9)"; ctx.lineWidth = 30; ctx.beginPath(); ctx.moveTo(794, 624); ctx.quadraticCurveTo(814, 676, 848, 722); ctx.stroke();
   ctx.filter = `blur(${Math.max(1, 4 * s).toFixed(1)}px)`;
   ctx.strokeStyle = "rgba(255,246,235,0.75)"; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(808, 618); ctx.quadraticCurveTo(840, 664, 878, 714); ctx.stroke();
   ctx.restore(); ctx.filter = "none";
@@ -590,7 +590,7 @@ function maskScene(t) {                             // 34–43
     if (ring > 0) { ctx.globalAlpha = k * ring; ctx.strokeStyle = C.acc; ctx.lineWidth = 6; rr(dx - cw * 0.42, dy - ch * 0.3, cw * 0.84, ch * 0.3, 40); ctx.stroke(); }
     ctx.restore();
     tag(COPY.depth, dx - cw / 2 + 4, dy + ch / 2 + 40, k * side, {});
-    const iy = 1235, ih = 210;
+    const iy = 1252, ih = 196;
     irCard(t, dx, iy, cw, ih, k * side, face, { mask: true });
     if (ring > 0) { const sc = ih / 760, ex = dx - 700 * sc + 760 * sc, ey = iy - 720 * sc + 600 * sc; ID(); ctx.save(); ctx.globalAlpha = k * ring; ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.beginPath(); ctx.ellipse(ex, ey, 70, 40, 0, 0, TAU); ctx.stroke(); ctx.restore(); }
     tag(COPY.ir + " · " + COPY.demo, dx - cw / 2 + 4, iy + ih / 2 + 38, k * side, {});
