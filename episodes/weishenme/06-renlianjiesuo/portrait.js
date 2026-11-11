@@ -20,8 +20,8 @@
     p.bezierCurveTo(637, 627, 627, 632, 620, 636);
     p.bezierCurveTo(630, 643, 637, 652, 635, 663);
     p.bezierCurveTo(631, 677, 615, 684, 604, 690);
-    p.bezierCurveTo(613, 704, 627, 718, 625, 736);
-    p.bezierCurveTo(621, 762, 600, 778, 568, 782);
+    p.bezierCurveTo(611, 704, 621, 716, 619, 734);
+    p.bezierCurveTo(615, 758, 596, 774, 566, 778);
     p.bezierCurveTo(540, 786, 522, 790, 508, 796);
     p.bezierCurveTo(500, 850, 506, 920, 514, 1000);
     p.lineTo(300, 1000);
@@ -33,17 +33,16 @@
   }
   function hairPath() {
     const p = new Path2D();
-    p.moveTo(470, 176);
-    p.bezierCurveTo(540, 168, 600, 210, 612, 282);       // the fringe's front edge, over the top of the forehead
-    p.bezierCurveTo(580, 250, 530, 236, 486, 246);
-    p.bezierCurveTo(430, 262, 404, 330, 398, 420);       // down in front of the ear's top, then behind it
-    p.bezierCurveTo(394, 470, 400, 500, 412, 500);
-    p.bezierCurveTo(384, 520, 376, 600, 384, 660);
-    p.bezierCurveTo(390, 720, 384, 760, 360, 780);       // the bob's ends
-    p.bezierCurveTo(320, 790, 290, 770, 280, 730);
-    p.bezierCurveTo(246, 600, 226, 440, 240, 320);
-    p.bezierCurveTo(254, 200, 340, 120, 420, 116);
-    p.bezierCurveTo(450, 114, 470, 140, 470, 176);
+    p.moveTo(612, 282);
+    p.bezierCurveTo(600, 170, 500, 100, 400, 110);       // the top, from the fringe's tip over the crown
+    p.bezierCurveTo(290, 120, 236, 230, 240, 340);
+    p.bezierCurveTo(228, 460, 250, 620, 280, 730);       // the back, down to the bob's ends
+    p.bezierCurveTo(290, 770, 330, 790, 360, 780);
+    p.bezierCurveTo(384, 760, 390, 720, 384, 660);
+    p.bezierCurveTo(376, 600, 384, 520, 412, 500);       // tucked behind the ear
+    p.bezierCurveTo(400, 500, 394, 470, 398, 420);
+    p.bezierCurveTo(404, 330, 430, 262, 486, 246);       // the fringe's lower edge, back to its tip
+    p.bezierCurveTo(530, 236, 580, 250, 612, 282);
     p.closePath();
     return p;
   }
@@ -75,7 +74,7 @@
   function draw(ctx, x, y, s, o = {}) {
     const mk = o.makeup || {}, g = o.grey || 0;
     ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-    if (g > 0) ctx.filter = `grayscale(${g}) contrast(${1 + 0.15 * g}) brightness(${1 + 0.05 * g})`;
+    if (g > 0) ctx.filter = `grayscale(${g}) contrast(${1 - 0.35 * g}) brightness(${1 - 0.1 * g})`;
     // hair behind (the fringe is drawn again over the skin below)
     ctx.fillStyle = HAIR; ctx.fill(P.hair);
     // skin, with soft shading: darker towards the back of the head and down the neck, a shade under the jaw
@@ -87,7 +86,7 @@
     gr = ctx.createRadialGradient(560, 300, 10, 560, 300, 140); gr.addColorStop(0, "rgba(244,222,195,0.7)"); gr.addColorStop(1, "rgba(244,222,195,0)"); ctx.fillStyle = gr; ctx.fillRect(400, 150, 330, 330);
     gr = ctx.createRadialGradient(640, 500, 4, 640, 500, 60); gr.addColorStop(0, "rgba(250,232,210,0.7)"); gr.addColorStop(1, "rgba(250,232,210,0)"); ctx.fillStyle = gr; ctx.fillRect(560, 420, 160, 160);
     // makeup: blush on the cheek, the contour under the cheekbone, eyeshadow
-    if (mk.blush > 0) { gr = ctx.createRadialGradient(540, 520, 5, 540, 520, 70); gr.addColorStop(0, `rgba(${BLUSH},${0.42 * mk.blush})`); gr.addColorStop(1, `rgba(${BLUSH},0)`); ctx.fillStyle = gr; ctx.fillRect(420, 470, 230, 220); }
+    if (mk.blush > 0) { gr = ctx.createRadialGradient(540, 520, 5, 540, 520, 70); gr.addColorStop(0, `rgba(${BLUSH},${0.42 * mk.blush})`); gr.addColorStop(1, `rgba(${BLUSH},0)`); ctx.fillStyle = gr; ctx.fillRect(400, 380, 300, 300); }
     if (mk.contour > 0) {
       ctx.save(); ctx.filter = (g > 0 ? ctx.filter + " " : "") + "blur(10px)"; ctx.fillStyle = `rgba(${CONT},${0.38 * mk.contour})`;
       ctx.beginPath(); ctx.moveTo(462, 610); ctx.bezierCurveTo(500, 590, 540, 600, 566, 616); ctx.bezierCurveTo(540, 628, 500, 636, 466, 640); ctx.closePath(); ctx.fill();
@@ -105,11 +104,11 @@
     ctx.strokeStyle = HAIRL; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(330, 170); ctx.bezierCurveTo(280, 300, 272, 520, 300, 720); ctx.stroke();
 
     // the brow, the eye (open), the lashes
-    ctx.strokeStyle = BROW; ctx.lineCap = "round"; ctx.lineWidth = 11; ctx.beginPath(); ctx.moveTo(532, 392); ctx.bezierCurveTo(552, 384, 574, 382, 592, 386); ctx.stroke();
+    ctx.strokeStyle = BROW; ctx.lineCap = "round"; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(532, 392); ctx.bezierCurveTo(552, 384, 574, 382, 592, 386); ctx.stroke();
     ctx.fillStyle = "#FBF7F2"; ctx.beginPath(); ctx.moveTo(548, 428); ctx.bezierCurveTo(558, 418, 572, 418, 583, 426); ctx.bezierCurveTo(574, 436, 560, 440, 550, 436); ctx.closePath(); ctx.fill();
     ctx.fillStyle = "#2A211C"; ctx.beginPath(); ctx.ellipse(572, 428, 7, 9, 0, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = "#2A211C"; ctx.lineWidth = 4.5; ctx.beginPath(); ctx.moveTo(546, 427); ctx.bezierCurveTo(558, 416, 574, 416, 586, 425); ctx.stroke();
-    ctx.lineWidth = 3; for (let i = 0; i < 4; i++) { const u = 0.45 + i * 0.17, xx = 556 + u * 28, yy = 419 + i * 0.6; ctx.beginPath(); ctx.moveTo(xx, yy); ctx.lineTo(xx + 9, yy - 9 + i); ctx.stroke(); }
+    ctx.lineWidth = 3; for (let i = 0; i < 4; i++) { const u = 0.45 + i * 0.17, xx = 556 + u * 28, yy = 419 + i * 0.6; ctx.beginPath(); ctx.moveTo(xx, yy); ctx.lineTo(xx + 12, yy - 12 + i); ctx.stroke(); }
     ctx.strokeStyle = "rgba(160,110,80,0.6)"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(552, 438); ctx.bezierCurveTo(562, 442, 574, 438, 582, 430); ctx.stroke();
     // the nostril, the lips
     ctx.strokeStyle = SKIND; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(648, 562); ctx.bezierCurveTo(640, 552, 628, 554, 626, 566); ctx.stroke();

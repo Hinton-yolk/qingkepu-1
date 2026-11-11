@@ -146,10 +146,11 @@
         const ln = clamp(1 - dl / (o.lineW || 0.07)) * (o.lineK ?? 1) * clamp((B.d[p] - (o.lineMin ?? -99)) * 1.5);
         let eye = 1; if ((o.eyesOnly ?? 0) > 0) eye = 1 - o.eyesOnly * (1 - clamp(B.a[4][p] * 1.4)) * 0.85;
         const gry = mask ? (o.maskGrey ?? 0) : 0;
-        const kk = (0.25 + 0.75 * near) * eye * (1 - 0.7 * gry);
+        const facing = clamp((nz - 0.35) / 0.4);
+        const kk = (0.25 + 0.75 * near) * eye * (1 - 0.7 * gry) * facing;
         const c = o.lineCol || [241, 240, 236];
         r = c[0]; g = c[1]; b = c[2];
-        a = 255 * al * clamp(ln * kk + (o.fill ?? 0.06) * (0.4 + 0.6 * near) * eye);
+        a = 255 * al * clamp(ln * kk + (o.fill ?? 0.06) * (0.4 + 0.6 * near) * eye * (0.3 + 0.7 * facing));
       } else if (mode === "depth") {
         const v = clamp((B.d[p] - dr[0]) / (dr[1] - dr[0]));
         let k = 0.08 + 0.92 * Math.pow(v, 1.15);

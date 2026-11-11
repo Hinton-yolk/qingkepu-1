@@ -202,18 +202,34 @@ function finger(x0, y0, x1, y1, wd) {
   ctx.strokeStyle = C.skinL; ctx.lineWidth = wd * 0.28; ctx.beginPath(); ctx.moveTo(x0 + nx / nl * wd * 0.22, y0 + ny / nl * wd * 0.22); ctx.lineTo(x1 + nx / nl * wd * 0.22, y1 + ny / nl * wd * 0.22); ctx.stroke();
   ctx.restore();
 }
-function handOnPhone(cx, cy, w, h) {             // the hand holds the phone from below-right: thumb on the left edge, fingers behind the right
-  ID();
-  const R = cx + w / 2, L = cx - w / 2, B = cy + h / 2;
-  // the palm (behind the phone, coming in from the bottom right)
-  ctx.save(); ctx.fillStyle = C.skinD;
-  ctx.beginPath(); ctx.moveTo(R - w * 0.15, B - h * 0.05); ctx.quadraticCurveTo(R + w * 0.55, B - h * 0.12, R + w * 0.75, B + h * 0.35); ctx.lineTo(R - w * 0.3, B + h * 0.4); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = C.skin; ctx.beginPath(); ctx.moveTo(R - w * 0.12, B - h * 0.03); ctx.quadraticCurveTo(R + w * 0.5, B - h * 0.1, R + w * 0.7, B + h * 0.35); ctx.lineTo(R - w * 0.25, B + h * 0.4); ctx.closePath(); ctx.fill();
+function handBehind(cx, cy, w, h) {               // drawn before the phone: the palm under it and the fingertips behind its right edge
+  ID(); const R = cx + w / 2, L = cx - w / 2, B = cy + h / 2;
+  ctx.save();
+  ctx.fillStyle = C.skin; ctx.strokeStyle = C.skinD; ctx.lineWidth = 3;
+  const palm = new Path2D();
+  palm.moveTo(L + w * 0.05, B - h * 0.12); palm.bezierCurveTo(L + w * 0.2, B + h * 0.05, R - w * 0.1, B + h * 0.08, R + w * 0.06, B - h * 0.18);
+  palm.bezierCurveTo(R + w * 0.3, B + h * 0.1, R + w * 0.3, B + h * 0.5, R + w * 0.2, B + h * 0.9); palm.lineTo(L - w * 0.05, B + h * 0.9);
+  palm.bezierCurveTo(L - w * 0.1, B + h * 0.4, L - w * 0.05, B + h * 0.1, L + w * 0.05, B - h * 0.12); palm.closePath();
+  ctx.fill(palm); ctx.stroke(palm);
+  for (let i = 0; i < 3; i++) {                     // fingertips: only their ends show past the edge
+    const y = cy + h * (0.0 + i * 0.13), p = new Path2D();
+    p.moveTo(R - w * 0.05, y - w * 0.065); p.bezierCurveTo(R + w * 0.07, y - w * 0.075, R + w * 0.1, y + w * 0.06, R - w * 0.05, y + w * 0.065); p.closePath();
+    ctx.fill(p); ctx.stroke(p);
+    ctx.strokeStyle = "rgba(214,173,132,0.8)"; ctx.beginPath(); ctx.moveTo(R + w * 0.02, y - w * 0.035); ctx.lineTo(R + w * 0.045, y - w * 0.01); ctx.stroke(); ctx.strokeStyle = C.skinD;
+  }
   ctx.restore();
-  for (let i = 0; i < 3; i++) { const y = cy + h * (0.02 + i * 0.12); finger(R + w * 0.16, y + h * 0.06, R - w * 0.02, y, w * 0.13); }
-  finger(L - w * 0.08, B + h * 0.08, L + w * 0.06, cy + h * 0.2, w * 0.16);   // the thumb
 }
-
+function handOnPhone(cx, cy, w, h) {             // drawn after the phone: the thumb along the lower left edge
+  ID(); const L = cx - w / 2, B = cy + h / 2;
+  ctx.save(); ctx.fillStyle = C.skin; ctx.strokeStyle = C.skinD; ctx.lineWidth = 3;
+  const p = new Path2D();
+  p.moveTo(L - w * 0.06, B + h * 0.1); p.bezierCurveTo(L - w * 0.08, B - h * 0.1, L + w * 0.02, B - h * 0.3, L + w * 0.1, B - h * 0.36);
+  p.bezierCurveTo(L + w * 0.17, B - h * 0.38, L + w * 0.2, B - h * 0.33, L + w * 0.16, B - h * 0.27);
+  p.bezierCurveTo(L + w * 0.1, B - h * 0.18, L + w * 0.1, B - h * 0.05, L + w * 0.14, B + h * 0.1); p.closePath();
+  ctx.fill(p); ctx.stroke(p);
+  ctx.fillStyle = "rgba(243,220,203,0.9)"; ctx.beginPath(); ctx.ellipse(L + w * 0.125, B - h * 0.325, w * 0.035, w * 0.05, 0.5, 0, TAU); ctx.fill();   // the nail
+  ctx.restore();
+}
 // ---------------------------------------------------------------- the opening (and the closing): the person and the phone
 const OPEN = { phone: [860, 1080, 300, 620], isl: [860, 1080 - 310 + 300 * 0.1325] };
 function openZoom(t) {                               // a screen-space push towards the island (2.75–6.5)
@@ -238,11 +254,11 @@ function personScene(t, o = {}) {                     // o.fin: the closing (mak
   withZoom(Z, () => {
     if (Z.s < 3.2) {
       ID(); ctx.save(); ctx.translate(0, nod);
-      PT.draw(ctx, PORT.x, PORT.y, PORT.s, { makeup: { lips: fin ? 1 : lipK(t), blush: fin ? 0.7 : 0.5, shadow: fin ? 0.7 : 0.5, contour: 0 }, mask: fin ? 1 : 0 });
+      PT.draw(ctx, PORT.x, PORT.y, PORT.s, { makeup: { lips: fin ? 1 : lipK(t), blush: fin ? 1 : 0.5, shadow: fin ? 1 : 0.5, contour: 0 }, mask: fin ? 1 : 0 });
       ctx.restore();
       if (!fin) lipstick(t, nod);
     }
-    drawPhone(pcx, y, pw, ph, { unlock: un, glow: Math.max(0, glow) }); handOnPhone(pcx, y, pw, ph);
+    handBehind(pcx, y, pw, ph); drawPhone(pcx, y, pw, ph, { unlock: un, glow: Math.max(0, glow) }); handOnPhone(pcx, y, pw, ph);
   });
 }
 function withZoom(Z, fn) {                          // run a screen-space drawing function under the push (ID → zoom)
@@ -266,6 +282,9 @@ function lipstick(t, nod) {                             // the lipstick finishin
   ctx.restore();
   // two fingertips hold it
   ID(); ctx.save(); ctx.translate(x, y); ctx.rotate(-0.55); ctx.scale(1.5, 1.5);
+  ctx.fillStyle = C.skin; ctx.strokeStyle = C.skinD; ctx.lineWidth = 3;
+  const bh = new Path2D(); bh.moveTo(-40, 120); bh.bezierCurveTo(-110, 160, -150, 300, -120, 520); bh.lineTo(140, 560); bh.bezierCurveTo(120, 380, 90, 200, 40, 150); bh.closePath();
+  ctx.fill(bh); ctx.stroke(bh);
   finger(-60, 150, -18, 120, 44); finger(62, 170, 20, 140, 44);
   ctx.restore();
 }
@@ -437,13 +456,13 @@ function depthScene(t) {                            // 20.75–25.25
   ID(); ctx.save(); ctx.globalAlpha = A;
   FR.render({ ctx, ...view, scale: 0.5, face, ...LINES, fill: lerp(0.05, 0.22, g), lineK: lerp(0.45, 1, E.p2io(g)) });
   ctx.restore();
-  if (g < 1) dotsOn(t, view, face, A * (1 - g), 1, [540, 1700]);
-  if (t >= T.a7) tag(COPY.depth, view.x + view.w / 2, view.y + view.h - 10, A * E.p3out(prog(t, T.a7, T.a7 + 0.3)), { align: "center" });
+  dotsOn(t, view, face, A * lerp(1, 0.55, g), 1, [540, 1700]);
+  if (t >= T.a7) tag(COPY.depth + " · " + COPY.demo, view.x + view.w / 2, view.y + view.h - 10, A * E.p3out(prog(t, T.a7, T.a7 + 0.3)), { align: "center" });
   // the infrared photo: a flat grey picture, in a card
   if (sideK > 0) {
     const cw = 330, ch = 420, ccx = lerp(1250, 790, sideK), ccy = 960 - 40 * cmpK;
     irCard(t, ccx, ccy, cw, ch, A, face, { makeup: {} });
-    tag(COPY.ir, ccx, ccy + ch / 2 + 40, A * sideK, { align: "center" });
+    tag(COPY.ir + " · " + COPY.demo, ccx, ccy + ch / 2 + 40, A * sideK, { align: "center" });
     if (cmpK > 0) {                                   // both go to the stored card: two lines meet it
       ID(); ctx.save(); ctx.globalAlpha = A * cmpK; ctx.strokeStyle = "rgba(241,240,236,0.5)"; ctx.lineWidth = 3; ctx.setLineDash([10, 10]);
       ctx.beginPath(); ctx.moveTo(300, cy + bh / 2 + 10); ctx.lineTo(470, 1290); ctx.moveTo(ccx, ccy + ch / 2 + 75); ctx.lineTo(610, 1290); ctx.stroke(); ctx.restore();
@@ -473,7 +492,7 @@ function storedCard(t, cx, cy, a, tMatch) {
   // a face outline (the stored data: an abstract mark)
   ctx.strokeStyle = "rgba(241,240,236,0.8)"; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(cx - 52, cy, 26, 34, 0, 0, TAU); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(cx - 52, cy - 12); ctx.lineTo(cx - 52, cy + 6); ctx.lineTo(cx - 44, cy + 6); ctx.stroke();
-  ctx.font = `700 40px ${UI}`; ctx.fillStyle = C.paper; ctx.textBaseline = "middle"; ctx.fillText(COPY.stored, cx - 12, cy + 2);
+  ctx.font = `700 44px ${UI}`; ctx.fillStyle = C.paper; ctx.textBaseline = "middle"; ctx.fillText(COPY.stored, cx - 12, cy + 2);
   if (t >= tMatch) {                                  // a tick: they match
     const k = E.p3out(prog(t, tMatch, tMatch + 0.3)), x0 = cx + w / 2 + 34, y0 = cy;
     ctx.strokeStyle = C.acc; ctx.lineWidth = 9; ctx.lineCap = "round"; ctx.lineJoin = "round";
@@ -497,22 +516,22 @@ function makeupScene(t) {                           // 25.25–34
   ctx.restore();
   if (sideK > 0.01) {
     // the depth map: the same before and after (a card, top right)
-    const dx = lerp(1250, 830, sideK), dy = 790, cw = 330, ch = 400;
+    const dx = lerp(1250, 830, sideK), dy = 760, cw = 330, ch = 380;
     ID(); ctx.save(); ctx.globalAlpha = A; rr(dx - cw / 2, dy - ch / 2, cw, ch, 22); ctx.fillStyle = "#1E2125"; ctx.fill();
     ctx.save(); rr(dx - cw / 2, dy - ch / 2, cw, ch, 22); ctx.clip();
-    FR.render({ ctx, x: dx - cw / 2, y: dy - ch / 2, w: cw, h: ch, scale: 0.5, cam: { eye: [0, -0.4, 56], target: [0, -0.4, 0], fov: 25 }, face, ...LINES });
+    const dv = { x: dx - cw / 2, y: dy - ch / 2, w: cw, h: ch, cam: { eye: [3.2, 0.6, 60], target: [3.2, 0.6, 0], fov: 21 }, face: { yaw: 62, pitch: -2 } };
+    FR.render({ ctx, ...dv, scale: 0.5, ...LINES });
+    if (t >= T.prof) bridgeLine(t, dv);
     ctx.restore(); rr(dx - cw / 2, dy - ch / 2, cw, ch, 22); ctx.strokeStyle = "rgba(241,240,236,0.35)"; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
     tag(COPY.depth, dx - cw / 2 + 4, dy + ch / 2 + 40, A * sideK, {});
     tag(COPY.same, dx + cw / 2, dy + ch / 2 + 40, A * E.p3out(prog(t, T.irTag, T.irTag + 0.3)), { align: "right", bg: "rgba(255,74,28,0.0)", stroke: "rgba(241,240,236,0.6)" });
     // the infrared photo: changes a little (lips a touch darker)
-    const iy = 1290; const mkIR = { lips: mk.lips * E.p2io(prog(t, T.cards, T.irTag)), shadow: mk.shadow * E.p2io(prog(t, T.cards, T.irTag)), contour: mk.contour };
-    const pk = E.p3io(prog(t, T.prof - 0.25, T.prof + 0.2));
-    if (pk < 1) {
-      irCard(t, dx, iy, cw, 340, A * (1 - pk), face, { makeup: mkIR });
-      tag(COPY.ir, dx - cw / 2 + 4, iy + 170 + 40, A * sideK * (1 - pk), {});
-      tag(COPY.slight, dx + cw / 2, iy + 170 + 40, A * (1 - pk) * E.p3out(prog(t, T.irTag, T.irTag + 0.3)), { align: "right", bg: "rgba(255,74,28,0.0)", stroke: "rgba(241,240,236,0.6)" });
-    }
-    if (pk > 0) profilePanel(t, dx, iy, cw, 340, A * pk);
+    const iy = 1210; const mkIR = { lips: mk.lips * E.p2io(prog(t, T.cards, T.irTag)), shadow: mk.shadow * E.p2io(prog(t, T.cards, T.irTag)), contour: mk.contour };
+    irCard(t, dx, iy, cw, 300, A, face, { makeup: mkIR });
+    tag(COPY.ir, dx - cw / 2 + 4, iy + 150 + 40, A * sideK, {});
+    tag(COPY.slight, dx + cw / 2, iy + 150 + 40, A * E.p3out(prog(t, T.irTag, T.irTag + 0.3)), { align: "right", bg: "rgba(255,74,28,0.0)", stroke: "rgba(241,240,236,0.6)" });
+    if (t >= T.prof) { const pk = E.p3out(prog(t, T.prof, T.prof + 0.3));
+      tag(COPY.before, dx - cw / 2 - 10, dy - ch / 2 - 36, A * pk, { align: "left" }); tag(COPY.after, dx + cw / 2, dy - ch / 2 - 36, A * pk * E.p3out(prog(t, T.prof + 0.2, T.profEnd)), { align: "right", col: C.acc, bg: "rgba(255,74,28,0.12)" }); }
   }
 }
 // the nose bridge's profile (a side view of the depth map along the middle of the face): before (paper) and after (orange,
@@ -535,6 +554,15 @@ function profilePanel(t, cx, cy, w, h, a) {
   ctx.restore();
   tag(COPY.before, cx - w / 2 + 4, cy + h / 2 + 40, a, {});
   tag(COPY.after, cx + w / 2, cy + h / 2 + 40, a * k, { align: "right", col: C.acc, bg: "rgba(255,74,28,0.12)" });
+}
+function bridgeLine(t, dv) {
+  const k = E.p3out(prog(t, T.prof + 0.2, T.profEnd)), pts = MID.map((i) => FR.project(dv, i));
+  ID(); ctx.save(); ctx.lineJoin = "round"; ctx.lineCap = "round";
+  ctx.lineWidth = 7; ctx.strokeStyle = "rgba(241,240,236,0.95)"; ctx.globalAlpha = E.p3out(prog(t, T.prof, T.prof + 0.3));
+  ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0] + 6, p[1]) : ctx.moveTo(p[0] + 6, p[1]))); ctx.stroke();
+  ctx.globalAlpha = 1; ctx.setLineDash([14, 10]); ctx.lineWidth = 5; ctx.strokeStyle = C.acc;
+  const n = Math.max(2, Math.round(pts.length * k)); ctx.beginPath(); pts.slice(0, n).forEach((p, i) => (i ? ctx.lineTo(p[0] + 6, p[1]) : ctx.moveTo(p[0] + 6, p[1]))); ctx.stroke();
+  ctx.restore();
 }
 // the vertices down the middle of the face, from the brow to the nose tip (for the bridge line)
 const MID = (() => { const P = FR.FACE.P, out = []; for (let y = 3.6; y >= -0.6; y -= 0.15) { let bi = -1, bz = -1e9; for (let i = 0; i < FR.FACE.n; i++) if (Math.abs(P[i * 3]) < 0.12 && Math.abs(P[i * 3 + 1] - y) < 0.1 && P[i * 3 + 2] > bz) { bz = P[i * 3 + 2]; bi = i; } if (bi >= 0) out.push(bi); } return out; })();
@@ -585,6 +613,7 @@ function tipScene(t) {
   const shake = t >= T.miss && t < T.miss + 0.4 ? 1 - prog(t, T.miss, T.miss + 0.4) : 0;
   const morph = E.p3io(prog(t, T.end, T.endMorph));
   ID(); ctx.save(); ctx.globalAlpha = 1 - morph;
+  handBehind(cx, cy, 420 * s, 860 * s);
   drawPhone(cx, cy, 420 * s, 860 * s, t < T.keys - 0.1 ? { unlock: 0, shake, dim: 0 } : t < T.open2 ? { keys: keysN } : { unlock: un });
   handOnPhone(cx, cy, 420 * s, 860 * s);
   ctx.restore();
