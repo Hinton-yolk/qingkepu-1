@@ -1,4 +1,21 @@
-# 02 下集 · 桌面演示版 · 演示装置场景和 y6 试镜头（2026-11-11）
+# 02 下集 · 桌面演示版 · 演示装置场景（2026-11-11）
+
+## 全片（文字分镜 v4；这一节是现行的，下面各节是 y6 试镜头那一版的记录）
+- `film.py`：全片的场景和动画，按镜头配置（`shot=<镜头名>`，见文件里的 SHOTS）。小工具、材质、房间直接取 `rig.py` 里的同一段源码，所以 `rig.py` 不能删。
+- `timeline.json`：十四拍的起止帧、配音文件和起点、机位切点（24 帧 / 秒，共 1962 帧 = 81.75 秒）。`subs.json`：字幕的起止秒。
+- `make_textures_film.py`：盒子上的字、挡片、桌沿签、表上的小签、路线图小卡、手机屏幕逐帧图。
+- `overlay.py`：合成的小部件（后期、小纸签、字幕条、五站条、系列名）。`sheet.py`：拼接触表。
+- 镜头和所在的拍：y1｜y2｜y3d、s34a（y3）｜s34b、y4d、s34c（y4）｜y5｜y6g、y6c（y6）｜y7｜y8d、y8c｜y9e、s9a（y9）｜s9b（y10 + y11）｜y12c、y12g、y12a｜y13｜y14。
+  s34a / s34b / s34c、s9a / s9b、y6g / y6c 各是同一条时间线上的不同机位，分开渲（切点两侧的运动模糊才不会串）。
+- 新加的素材：Poly Haven「retro_multimeter」（CC0，当「总耗电」「每个比特」两只表，指针是单独的零件）。下载：`https://api.polyhaven.com/files/retro_multimeter` 里 gltf / 2k 那一组，放进 `<素材目录>/retro_multimeter/`。手机没有找到 CC0 模型（Poly Haven 没有），按真实尺寸代码建。
+- 纸带的图样是一张按「过窄缝的帧数」排的贴图：黑白格、洇边（σ = 4 毫米的模糊，随走过的路变宽，修字盒之后收回）、打乱盒和还原盒之间换一组 0 和 1，都在这张贴图和材质里。
+```bash
+python3 make_textures.py <素材目录> <tex目录> && python3 make_textures_film.py <素材目录> <tex目录>
+blender -b -P film.py -- <tex> <素材> out/y7_104.png 25 24 shot=y7 still=104     # 270×480 小图；同时写 out/y7_104.png.json（屏幕锚点）
+python3 sheet.py <小图目录> <素材目录> out/接触表.jpg 5                            # 小图要按 sheet.py 里 FRAMES 的镜头和帧渲
+```
+
+# y6 试镜头那一版的记录（2026-11-11）
 
 分镜：`../文字分镜_v3.md`。质感、灯、镜头、后期沿用 `../../../blender_desk_look/`（同一间房、同一扇窗、同一张桌子）。
 
