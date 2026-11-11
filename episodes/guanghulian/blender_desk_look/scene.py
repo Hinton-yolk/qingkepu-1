@@ -3,7 +3,7 @@
 
 用法：
   blender -b -P scene.py -- <tex目录> <贴图下载目录> <输出png> [缩放% 默认25] [采样 默认48] [key=value ...]
-可调参数（key=value）：pitch yaw dist lens fstop el az exposure screen sun sky tx ty tz
+可调参数（key=value）：pitch yaw dist lens fstop el az exposure screen sun sky tx ty tz slat focus thr（自适应采样阈值） gpu=1（OptiX） top=1（俯视调灯）
 """
 import bpy, bmesh, sys, math
 from math import sin, cos, radians, pi
@@ -422,6 +422,7 @@ if "gpu" in P and P["gpu"]:
     scene.cycles.device = "GPU"
 scene.cycles.samples = SAMPLES
 scene.cycles.use_adaptive_sampling = True; scene.cycles.adaptive_threshold = 0.01 if SAMPLES > 200 else 0.05
+if "thr" in P: scene.cycles.adaptive_threshold = P["thr"]
 scene.cycles.use_denoising = True; scene.cycles.denoiser = "OPENIMAGEDENOISE"
 scene.cycles.max_bounces = 8; scene.cycles.diffuse_bounces = 5; scene.cycles.glossy_bounces = 4
 scene.cycles.sample_clamp_indirect = 8.0
