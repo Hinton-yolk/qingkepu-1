@@ -215,6 +215,7 @@ unlockClick(T.ka, 1.2); impact(T.ka, 1.35); stab(T.ka, [46, 53, 58, 62, 65], 0.5
 // the tip: not recognised (a low double buzz); the passcode keys; it opens
 bloom(T.tip, [70, 74, 77], 0.4); buzz(T.miss, 0.12, 0.45); buzz(T.miss + 0.16, 0.12, 0.4);
 HITS.keys.forEach((t, i) => key(t, 0.7, -0.2 + 0.08 * i)); unlockClick(T.open2, 0.8);
+glide(T.tip2 + 0.5, 0.8, 79, 91, 0.35, -0.3); blip(T.tip2 + 1.25, 94, 0.55, -0.3); blip(T.tip2 + 1.375, 98, 0.45, -0.3);   // this time's face goes into the stored card (补存)
 { let k = 0; TL.COPY.end.forEach((s, li) => { const n = s.replace(/[\[\]]/g, "").length; for (let j = 0; j < n; j++) tick(T.title1 + li * 0.3 + j * 0.045, 0.45, -0.2 + 0.05 * (k++ % 8), 2600 + (j % 3) * 300); }); }
 blip(T.ep, 94, 0.6);
 impact(T.sting, 0.55); stab(T.sting, [46, 53, 58, 62, 65], 1.6, 0.8, 0.9); bloom(T.sting, [94, 98, 101, 106], 1.0);

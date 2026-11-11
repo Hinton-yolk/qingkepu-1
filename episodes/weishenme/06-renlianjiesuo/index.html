@@ -253,25 +253,32 @@ function partsScene(t) {
   const leave = E.p3io(prog(t, T.turn, T.turnEnd));
   ID(); ctx.save(); ctx.translate(540, 1020 + 520 * leave); ctx.scale(z * (1 - 0.55 * leave), z * (1 - 0.55 * leave));
   ctx.globalAlpha = 1 - 0.6 * leave;
+  // a soft light on the area, so the parts stand out from the dark
+  const gl = ctx.createRadialGradient(0, 0, 40, 0, 0, 520); gl.addColorStop(0, "rgba(120,130,145,0.22)"); gl.addColorStop(1, "rgba(120,130,145,0)"); ctx.fillStyle = gl; ctx.fillRect(-560, -520, 1120, 1040);
   // the island (black, rounded) holding the dot projector; the infrared camera beside it
-  rr(-60, -95, 430, 190, 95); ctx.fillStyle = "#0C0D0F"; ctx.fill(); ctx.strokeStyle = "rgba(241,240,236,0.18)"; ctx.lineWidth = 3; ctx.stroke();
+  rr(-60, -95, 430, 190, 95); ctx.fillStyle = "#1B1E23"; ctx.fill(); ctx.strokeStyle = "rgba(241,240,236,0.45)"; ctx.lineWidth = 4; ctx.stroke();
   module(170, 0, 64, "proj", t); module(-250, 0, 58, "cam", t);
+  // the orange rings: each part is ringed as it is named
+  [[170, 64, T.parts], [-250, 58, T.parts + 0.25]].forEach(([x, r, t0]) => { const q = E.p3out(prog(t, t0, t0 + 0.3)); if (q > 0) { ctx.globalAlpha = (1 - 0.6 * leave) * q; ctx.strokeStyle = C.acc; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(x, 0, (r + 22) * (1.3 - 0.3 * q), 0, TAU); ctx.stroke(); } });
   ctx.restore();
   if (leave < 0.5) {
-    label(COPY.proj, 540 + 170 * z - 105, 1020 + 180, 46, "rgba(241,240,236,0.92)", t, T.parts, T.turn + 0.3);
-    label(COPY.ircam, 540 - 250 * z - 92, 1020 + 180, 46, "rgba(241,240,236,0.92)", t, T.parts + 0.25, T.turn + 0.3);
+    label(COPY.proj, 540 + 170 * z, 1020 + 190, 52, C.paper, t, T.parts, T.turn + 0.3, { align: "center" });
+    label(COPY.ircam, 540 - 250 * z, 1020 + 190, 52, C.paper, t, T.parts + 0.25, T.turn + 0.3, { align: "center" });
   }
 }
 function module(x, y, r, kind, t) {
   ctx.save(); ctx.translate(x, y);
-  ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fillStyle = "#2B2F35"; ctx.fill();
-  ctx.beginPath(); ctx.arc(0, 0, r * 0.72, 0, TAU); ctx.fillStyle = "#101114"; ctx.fill();
+  const m = ctx.createLinearGradient(-r, -r, r, r); m.addColorStop(0, "#9AA3AE"); m.addColorStop(0.5, "#565E69"); m.addColorStop(1, "#2C3138");
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fillStyle = m; ctx.fill();                       // a metal rim
+  ctx.lineWidth = 2; ctx.strokeStyle = "rgba(241,240,236,0.6)"; ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.74, 0, TAU); ctx.fillStyle = "#14161A"; ctx.fill();
   if (kind === "proj") {                               // the projector's window: a faint, sparse grid of points (示意)
-    ctx.fillStyle = "rgba(221,226,232,0.5)";
-    for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) { if (i * i + j * j > 5) continue; ctx.beginPath(); ctx.arc(i * r * 0.2, j * r * 0.2, 2.6, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = "rgba(221,226,232,0.8)";
+    for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) { if (i * i + j * j > 5) continue; ctx.beginPath(); ctx.arc(i * r * 0.2, j * r * 0.2, 3, 0, TAU); ctx.fill(); }
   } else {                                             // the camera's lens
-    const g = ctx.createRadialGradient(-r * 0.2, -r * 0.2, 2, 0, 0, r * 0.7); g.addColorStop(0, "#5A6270"); g.addColorStop(0.4, "#1E2128"); g.addColorStop(1, "#08090B");
-    ctx.beginPath(); ctx.arc(0, 0, r * 0.62, 0, TAU); ctx.fillStyle = g; ctx.fill();
+    const g = ctx.createRadialGradient(-r * 0.2, -r * 0.2, 2, 0, 0, r * 0.7); g.addColorStop(0, "#8A94A3"); g.addColorStop(0.4, "#2A2F38"); g.addColorStop(1, "#0B0C0E");
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.64, 0, TAU); ctx.fillStyle = g; ctx.fill();
+    ctx.beginPath(); ctx.arc(-r * 0.22, -r * 0.22, r * 0.12, 0, TAU); ctx.fillStyle = "rgba(255,255,255,0.55)"; ctx.fill();
   }
   ctx.restore();
 }
@@ -312,64 +319,94 @@ function dotsScene(t) {                               // 7.75–14.25
 }
 
 // ---------------------------------------------------------------- the top view: the same beam on the wall and on the nose
-const SL = (() => {                                     // the face, cut across at the nose tip's height (top view): z(x)
-  const P = FR.FACE.P, n = FR.FACE.n, xs = []; for (let x = -7.6; x <= 7.61; x += 0.2) xs.push(x);
-  return xs.map((x) => { let best = -1e9; for (let i = 0; i < n; i++) if (Math.abs(P[i * 3] - x) < 0.25 && Math.abs(P[i * 3 + 1] + 0.6) < 0.45) best = Math.max(best, P[i * 3 + 2]); return [x, best]; }).filter((p) => p[1] > -1e8);
-})();
-const TV = { cx: 540, faceY: 1040, wallY: 690, phoneY: 1220, s: 36, P: [720, 1220], Cm: [360, 1220], f: 90 };   // px per cm; projector, camera
-function tvFace(x, z) { return [TV.cx + x * TV.s, TV.faceY - (7.6 - z) * TV.s * 0.9]; }   // the nose tip (z = 7.6) nearest the phone (down)
-function topScene(t) {
-  const pz = 1 + 0.26 * prog(t, T.top, T.back), Z = { s: pz, tx: 540 - 540 * pz, ty: 1000 - 1000 * pz };
-  withZoom(Z, () => topSceneIn(t));
+// The side view (示意): her profile (the makeup picture) on the left, the phone edge-on in front of her face on the right,
+// the dot projector above and the infrared camera below on its edge (in the phone they sit side by side; drawn one above the
+// other so the geometry can be seen — said on screen). A wall (the reference plane) behind her head.
+const SV = { s: 0.62, P: [860, 880], Cm: [860, 1150], f: 120, wallX: 46, phoneTop: 820, phoneBot: 1290 };
+SV.x0 = 560 - 890 * SV.s; SV.y0 = 1000 - 740 * SV.s;
+const SVP = { nose: [890, 740], lips: [852, 825], chin: [816, 935] };              // profile points in the picture (rightmost skin)
+const svXY = (q) => [SV.x0 + q[0] * SV.s, SV.y0 + q[1] * SV.s];
+function svImg(Q) { return SV.Cm[1] + (SV.Cm[1] - Q[1]) * SV.f / (SV.Cm[0] - Q[0]); }          // where a point lands in the camera (a vertical strip right of it)
+function svBeam(name) {
+  const N = svXY(SVP[name]), dx = N[0] - SV.P[0], dy = N[1] - SV.P[1], kW = (SV.wallX - SV.P[0]) / dx;
+  return { N, W: [SV.wallX, SV.P[1] + dy * kW] };
 }
-function topSceneIn(t) {
-  const k = E.p3out(prog(t, T.top, T.topEnd)), leave = E.p3io(prog(t, T.back, T.back + 0.35));
-  if (k <= 0 || leave >= 1) return;
-  const A = k * (1 - leave);
-  ID(); ctx.save(); ctx.globalAlpha = A * 0.12; ctx.strokeStyle = C.paper; ctx.lineWidth = 3;           // a faint, wide grid on the floor (top view)
-  for (let x = -90; x <= 1170; x += 90) { ctx.beginPath(); ctx.moveTo(x, 520); ctx.lineTo(x, 1480); ctx.stroke(); }
-  for (let y = 540; y <= 1480; y += 90) { ctx.beginPath(); ctx.moveTo(-90, y); ctx.lineTo(1170, y); ctx.stroke(); }
+function topScene(t) {                                   // (kept name) the side view, 14.25–20.75
+  const pz = 1 + 0.12 * prog(t, T.top, T.back), Z = { s: pz, tx: 600 - 600 * pz, ty: 1100 - 1100 * pz };
+  withZoom(Z, () => sideIn(t));
+  const k = E.p3out(prog(t, T.top, T.topEnd)), A = k * (1 - E.p3io(prog(t, T.back, T.back + 0.35)));
+  if (t >= T.top) tag(COPY.topv, 96, 650, A * E.p3out(prog(t, T.top, T.top + 0.4)), { fixed: true });
+  if (t >= T.wall && t < T.a6) tag(COPY.sideNote, 96, 1405, A * E.p3out(prog(t, T.wall, T.wall + 0.3)) * (1 - prog(t, T.a6 - 0.2, T.a6)), { fixed: true });
+  if (t >= T.a6) shiftInset(t, A);
+}
+function sideIn(t) {
+  const k = E.p3out(prog(t, T.top, T.topEnd)), A = k * (1 - E.p3io(prog(t, T.back, T.back + 0.35)));
+  if (A <= 0) return;
+  // the floor grid (faint, wide)
+  ID(); ctx.save(); ctx.globalAlpha = A * 0.1; ctx.strokeStyle = C.paper; ctx.lineWidth = 3;
+  for (let x = -90; x <= 1170; x += 90) { ctx.beginPath(); ctx.moveTo(x, 600); ctx.lineTo(x, 1480); ctx.stroke(); }
+  for (let y = 630; y <= 1480; y += 90) { ctx.beginPath(); ctx.moveTo(-90, y); ctx.lineTo(1170, y); ctx.stroke(); }
   ctx.restore();
+  // the wall behind her head (dashed, moving slowly)
+  ID(); ctx.save(); ctx.globalAlpha = A; ctx.setLineDash([16, 14]); ctx.lineDashOffset = -t * 30; ctx.strokeStyle = "rgba(241,240,236,0.5)"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(SV.wallX, 700); ctx.lineTo(SV.wallX, 1400); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+  // her profile: faint until the nose beat (first the beam runs to the wall as if there were no face), then solid
+  const fk = t < T.nose ? 0.18 : lerp(0.18, 1, E.p3out(prog(t, T.nose, T.nose + 0.4)));
+  ctx.save(); ctx.globalAlpha = A * fk; pic("makeup", SV.x0, SV.y0, SV.s); ctx.restore();
+  // the phone, edge on; the projector and the camera on it, named
   ID(); ctx.save(); ctx.globalAlpha = A;
-  // the wall (reference plane), dashed
-  ctx.setLineDash([16, 14]); ctx.lineDashOffset = -t * 30; ctx.strokeStyle = "rgba(241,240,236,0.45)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(140, TV.wallY); ctx.lineTo(940, TV.wallY); ctx.stroke(); ctx.setLineDash([]); ctx.lineDashOffset = 0;
-  // the phone's top edge, the projector and the camera
-  rr(220, TV.phoneY - 18, 640, 36, 18); ctx.fillStyle = "#0C0D0F"; ctx.fill(); ctx.strokeStyle = "rgba(241,240,236,0.25)"; ctx.stroke();
-  ctx.save(); ctx.translate(TV.P[0], TV.P[1]); ctx.scale(0.5, 0.5); module(0, 0, 56, "proj", t); ctx.restore();
-  ctx.save(); ctx.translate(TV.Cm[0], TV.Cm[1]); ctx.scale(0.5, 0.5); module(0, 0, 52, "cam", t); ctx.restore();
-  // the camera's image strip (behind the camera, below it)
-  const sy = TV.phoneY + TV.f;
-  ctx.strokeStyle = "rgba(241,240,236,0.4)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(TV.Cm[0] - 150, sy); ctx.lineTo(TV.Cm[0] + 150, sy); ctx.stroke();
-  // the face (appears for the nose beat)
-  const fk = t < T.nose ? 0 : E.p3out(prog(t, T.nose, T.nose + 0.4));
-  if (fk > 0 || t >= T.a6) {
-    const a = Math.max(fk, t >= T.a6 ? 1 : 0);
-    ctx.globalAlpha = A * a;
-    ctx.beginPath(); SL.forEach(([x, z], i) => { const p = tvFace(x, z); i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); });
-    const top = tvFace(0, -2.7)[1]; ctx.lineTo(tvFace(7.6, -2.6)[0], top); ctx.lineTo(tvFace(-7.6, -2.6)[0], top); ctx.closePath();
-    ctx.fillStyle = "#3A3F47"; ctx.fill(); ctx.strokeStyle = "rgba(241,240,236,0.8)"; ctx.lineWidth = 3; ctx.stroke();
-    ctx.globalAlpha = A;
+  rr(SV.P[0] - 14, SV.phoneTop, 28, SV.phoneBot - SV.phoneTop, 12); ctx.fillStyle = "#2A2E34"; ctx.fill(); ctx.strokeStyle = "rgba(241,240,236,0.55)"; ctx.lineWidth = 3; ctx.stroke();
+  ctx.save(); ctx.translate(SV.P[0], SV.P[1]); ctx.scale(0.42, 0.42); module(0, 0, 60, "proj", t); ctx.restore();
+  ctx.save(); ctx.translate(SV.Cm[0], SV.Cm[1]); ctx.scale(0.42, 0.42); module(0, 0, 56, "cam", t); ctx.restore();
+  // the camera's image: a short strip just right of the camera
+  const sx = SV.Cm[0] + 52; ctx.strokeStyle = "rgba(241,240,236,0.45)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(sx, SV.Cm[1] - 120); ctx.lineTo(sx, SV.Cm[1] + 120); ctx.stroke();
+  ctx.restore();
+  label(COPY.proj, SV.P[0], SV.phoneTop - 26, 46, C.paper, t, T.top + 0.2, T.back + 0.3, { align: "center", alpha: A });
+  label(COPY.ircam, SV.Cm[0] - 40, SV.phoneBot + 60, 46, C.paper, t, T.top + 0.4, T.back + 0.3, { align: "center", alpha: A });
+  label(COPY.imgL, sx + 10, SV.Cm[1] - 140, 40, "rgba(241,240,236,0.85)", t, T.shift, T.back + 0.3, { align: "center", alpha: A });
+  label(COPY.wallL, SV.wallX + 14, 760, 44, "rgba(241,240,236,0.8)", t, T.wall, T.a6, { alpha: A });
+  // the beams
+  if (t >= T.beam && t < T.a6) svBeamDraw(t, "nose", A, 1, true, 0, 0);
+  if (t >= T.a6) { const B3 = [["nose", T.b1], ["lips", T.b2], ["chin", T.b3]]; B3.forEach(([nm, tb], i) => svBeamDraw(t, nm, A, t >= tb && (i === 2 || t < B3[i + 1][1]) ? 1 : 0.15, false, i, tb)); }
+}
+function svBeamDraw(t, name, A, lit, first, idx, tb) {
+  const { N, W } = svBeam(name), sx = SV.Cm[0] + 52;
+  const showWall = first ? E.p3out(prog(t, T.wall, T.wall + 0.35)) : 1;
+  const faceOn = first ? E.p3out(prog(t, T.nose, T.nose + 0.4)) : 1;
+  const beamIn = first ? E.p3out(prog(t, T.beam, T.beam + 0.5)) : E.p3out(prog(t, tb - 0.25, tb + 0.1));
+  const end = faceOn > 0.5 ? N : W;
+  ID(); ctx.save(); ctx.globalAlpha = A * (0.15 + 0.85 * lit);
+  ctx.strokeStyle = C.dot; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(SV.P[0], SV.P[1]); ctx.lineTo(lerp(SV.P[0], end[0], beamIn), lerp(SV.P[1], end[1], beamIn)); ctx.stroke();
+  if (beamIn > 0.2) { const u = ((t * 1.25 + idx * 0.33) % 1) * beamIn; ctx.fillStyle = C.dot; ctx.beginPath(); ctx.arc(lerp(SV.P[0], end[0], u), lerp(SV.P[1], end[1], u), 7, 0, TAU); ctx.fill(); }   // light travelling along the beam
+  if (faceOn > 0.5) { ctx.setLineDash([8, 10]); ctx.strokeStyle = "rgba(221,226,232,0.35)"; ctx.beginPath(); ctx.moveTo(N[0], N[1]); ctx.lineTo(W[0], W[1]); ctx.stroke(); ctx.setLineDash([]); }
+  // the wall point (hollow) and where the camera sees it
+  if (showWall > 0) {
+    ctx.globalAlpha = A * showWall * (faceOn > 0.5 ? 0.45 : 1) * (0.15 + 0.85 * lit);
+    ctx.strokeStyle = C.dot; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(W[0], W[1], 10, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = "rgba(221,226,232,0.25)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(W[0], W[1]); ctx.lineTo(SV.Cm[0], SV.Cm[1]); ctx.stroke();
+    ctx.beginPath(); ctx.arc(sx, svImg(W), 10, 0, TAU); ctx.strokeStyle = C.dot; ctx.lineWidth = 3; ctx.stroke();
+  }
+  if (faceOn > 0) {
+    ctx.globalAlpha = A * faceOn * (0.15 + 0.85 * lit);
+    ctx.beginPath(); ctx.arc(N[0], N[1], 10, 0, TAU); ctx.fillStyle = C.dot; ctx.fill();
+    ctx.strokeStyle = lit > 0.5 ? C.acc : "rgba(221,226,232,0.5)"; ctx.lineWidth = lit > 0.5 ? 4 : 2; if (lit > 0.5) ctx.setLineDash([12, 8]);
+    ctx.beginPath(); ctx.moveTo(N[0], N[1]); ctx.lineTo(SV.Cm[0], SV.Cm[1]); ctx.lineTo(sx, svImg(N)); ctx.stroke(); ctx.setLineDash([]);   // the point → the camera → its place in the camera
+    ctx.beginPath(); ctx.arc(sx, svImg(N), 10, 0, TAU); ctx.fillStyle = C.dot; ctx.fill();
+    if (lit > 0.5) { ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(N[0], N[1], 20, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(sx, svImg(N), 20, 0, TAU); ctx.stroke(); }
+    // the shift in the camera, between the hollow (wall) and the solid (face) point: an orange bar along the strip
+    const sk = first ? E.p3out(prog(t, T.shift, T.shift + 0.45)) : E.p3out(prog(t, tb, tb + 0.35));
+    if (sk > 0 && lit > 0.5) { const a0 = svImg(W), a1 = svImg(N); ctx.globalAlpha = A * sk; ctx.strokeStyle = C.acc; ctx.lineWidth = 9; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(sx + 26, a0); ctx.lineTo(sx + 26, lerp(a0, a1, sk)); ctx.stroke(); }
   }
   ctx.restore();
-  // the beams
-  if (t >= T.beam && t < T.a6) beamPair(t, 0, A, 1, true);
-  if (t >= T.a6) { const B3 = [[0, T.b1], [3.6, T.b2], [6.6, T.b3]]; B3.forEach(([x, tb], i) => beamPair(t, x, A, t >= tb && (i === 2 || t < B3[i + 1][1]) ? 1 : 0.15, false, i, tb)); }   // one beam lit at a time
-  // labels
-  label(COPY.wallL, 150, TV.wallY - 26, 44, "rgba(241,240,236,0.8)", t, T.wall, T.a6, { alpha: A });
-  label(COPY.imgL, 150, sy - 30, 44, "rgba(241,240,236,0.8)", t, T.shift, T.a6, { alpha: A });
-  if (t >= T.top) tag(COPY.topv, 1000, 660, A * E.p3out(prog(t, T.top, T.top + 0.4)), { align: "right", fixed: true });
-  if (t >= T.a6) shiftInset(t, A);
-  if (t >= T.wall && t < T.a6) tag(COPY.angle, 1000, 1405, A * E.p3out(prog(t, T.wall, T.wall + 0.3)) * (1 - prog(t, T.a6 - 0.2, T.a6)), { align: "right", fixed: true });
+  if (!first) {
+    const nm = [COPY.noseL, COPY.lipL, COPY.chinL][idx];
+    label(nm, N[0] + 30, N[1] + 16, 44, "rgba(241,240,236,0.95)", t, tb, T.back + 0.3, { alpha: A * (0.15 + 0.85 * lit) });
+  }
 }
-// the three shifts, enlarged side by side (the strip itself is too small to read): one lights up at a time
+// the three shifts, enlarged side by side: one lights up at a time
 function shiftInset(t, A) {
-  const img = (Q) => TV.Cm[0] - (Q[0] - TV.Cm[0]) * TV.f / (TV.Cm[1] - Q[1]);
-  const rows = [[0, T.b1, COPY.noseL], [3.6, T.b2, COPY.cheekL], [6.6, T.b3, COPY.sideL]].map(([x, tb, nm]) => {
-    const zf = SL.reduce((b, p) => (Math.abs(p[0] - x) < Math.abs(b[0] - x) ? p : b), SL[0])[1], N = tvFace(x, zf);
-    const dx = N[0] - TV.P[0], dy = N[1] - TV.P[1], kW = (TV.wallY - TV.P[1]) / dy, Wp = [TV.P[0] + dx * kW, TV.wallY];
-    return { d: Math.abs(img(Wp) - img(N)), tb, nm };
-  });
-  const dmax = rows[0].d, x0 = 720, w = 300, y0 = 1330;
+  const rows = [["nose", T.b1, COPY.noseL], ["lips", T.b2, COPY.lipL], ["chin", T.b3, COPY.chinL]].map(([nm, tb, lab]) => { const { N, W } = svBeam(nm); return { d: Math.abs(svImg(W) - svImg(N)), tb, nm: lab }; });
+  const dmax = rows[0].d, x0 = 230, w = 300, y0 = 1330;
   FIXED(); ctx.save(); ctx.globalAlpha = A * E.p3out(prog(t, T.a6, T.a6 + 0.3));
   rr(x0 - 150, y0 - 34, w + 180, 150, 18); ctx.fillStyle = "rgba(30,33,37,0.96)"; ctx.fill();
   rows.forEach((r, i) => {
@@ -379,54 +416,6 @@ function shiftInset(t, A) {
     if (k > 0) { ctx.strokeStyle = C.acc; ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + w * (r.d / dmax) * k, y); ctx.stroke(); }
   });
   ctx.restore();
-}
-// one beam from the projector to the face point at lateral x (cm on the face), and where it would land on the wall
-function beamPair(t, x, A, lit, first, idx = 0, tb = 0) {
-  const zf = SL.reduce((b, p) => (Math.abs(p[0] - x) < Math.abs(b[0] - x) ? p : b), SL[0])[1];
-  const N = tvFace(x, zf);
-  // the beam's direction is fixed: from the projector through N; its wall point is where the same line meets the wall
-  const dx = N[0] - TV.P[0], dy = N[1] - TV.P[1], kW = (TV.wallY - TV.P[1]) / dy, Wp = [TV.P[0] + dx * kW, TV.wallY];
-  const sy = TV.phoneY + TV.f;
-  const img = (Q) => TV.Cm[0] - (Q[0] - TV.Cm[0]) * TV.f / (TV.Cm[1] - Q[1]);         // where a point lands on the strip
-  const showWall = first ? E.p3out(prog(t, T.wall, T.wall + 0.35)) : 1;
-  const faceOn = first ? E.p3out(prog(t, T.nose, T.nose + 0.4)) : 1;
-  const beamIn = first ? E.p3out(prog(t, T.beam, T.beam + 0.5)) : E.p3out(prog(t, tb - 0.25, tb + 0.1));
-  ID(); ctx.save(); ctx.globalAlpha = A * (0.15 + 0.85 * lit);
-  // the beam (to the wall when there is no face, to the nose when there is)
-  const end = faceOn > 0.5 ? N : Wp;
-  ctx.strokeStyle = C.dot; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(TV.P[0], TV.P[1]); ctx.lineTo(lerp(TV.P[0], end[0], beamIn), lerp(TV.P[1], end[1], beamIn)); ctx.stroke();
-  if (beamIn > 0.2) { const u = ((t * 1.25 + idx * 0.33) % 1) * beamIn; ctx.fillStyle = C.dot; ctx.beginPath(); ctx.arc(lerp(TV.P[0], end[0], u), lerp(TV.P[1], end[1], u), 7, 0, TAU); ctx.fill(); }   // light travelling along the beam
-  if (faceOn > 0.5) { ctx.setLineDash([8, 10]); ctx.strokeStyle = "rgba(221,226,232,0.4)"; ctx.beginPath(); ctx.moveTo(N[0], N[1]); ctx.lineTo(Wp[0], Wp[1]); ctx.stroke(); ctx.setLineDash([]); }
-  // the wall point (hollow) and its ray to the camera
-  if (showWall > 0) {
-    ctx.globalAlpha = A * showWall * (faceOn > 0.5 ? 0.5 : 1) * (0.35 + 0.65 * lit);
-    ctx.beginPath(); ctx.arc(Wp[0], Wp[1], 10, 0, TAU); ctx.strokeStyle = C.dot; ctx.lineWidth = 3; ctx.stroke();
-    ctx.strokeStyle = "rgba(221,226,232,0.2)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(Wp[0], Wp[1]); ctx.lineTo(TV.Cm[0], TV.Cm[1]); ctx.lineTo(img(Wp), sy); ctx.stroke();
-    ctx.beginPath(); ctx.arc(img(Wp), sy, 11, 0, TAU); ctx.strokeStyle = C.dot; ctx.lineWidth = 4; ctx.stroke();
-  }
-  if (faceOn > 0) {
-    ctx.globalAlpha = A * faceOn * (0.35 + 0.65 * lit);
-    ctx.beginPath(); ctx.arc(N[0], N[1], 10, 0, TAU); ctx.fillStyle = C.dot; ctx.fill();
-    if (lit > 0.5) { ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(N[0], N[1], 20, 0, TAU); ctx.stroke(); }   // the point to follow
-    ctx.strokeStyle = lit > 0.5 ? C.acc : "rgba(221,226,232,0.5)"; ctx.lineWidth = lit > 0.5 ? 4 : 2; if (lit > 0.5) ctx.setLineDash([12, 8]);
-    ctx.beginPath(); ctx.moveTo(N[0], N[1]); ctx.lineTo(TV.Cm[0], TV.Cm[1]); ctx.lineTo(img(N), sy); ctx.stroke(); ctx.setLineDash([]);   // the point → the camera → its place in the camera
-    ctx.beginPath(); ctx.arc(img(N), sy, 11, 0, TAU); ctx.fillStyle = C.dot; ctx.fill();
-    if (lit > 0.5) { ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(img(N), sy, 20, 0, TAU); ctx.stroke(); }
-    // the shift on the strip (orange: the thing to see)
-    const sk = first ? E.p3out(prog(t, T.shift, T.shift + 0.45)) : E.p3out(prog(t, tb, tb + 0.35));
-    if (sk > 0 && lit > 0.5 && first) {          // the three beams' shifts are shown enlarged in the panel instead
-      const a0 = img(Wp), a1 = img(N), yy = sy + (first ? 0 : 26 + idx * 18);
-      ctx.globalAlpha = A * sk; ctx.strokeStyle = C.acc; ctx.lineWidth = first ? 10 : 8; ctx.lineCap = "round";
-      ctx.beginPath(); ctx.moveTo(a0, yy); ctx.lineTo(lerp(a0, a1, sk), yy); ctx.stroke();
-    }
-    // the name of the point (for the three beams)
-    if (!first) { ctx.globalAlpha = A * (0.35 + 0.65 * lit); }
-  }
-  ctx.restore();
-  if (!first) {
-    const nm = [COPY.noseL, COPY.cheekL, COPY.sideL][idx];
-    label(nm, N[0] + (idx === 0 ? -24 : 26), N[1] + (idx === 0 ? 60 : 10), 44, "rgba(241,240,236,0.9)", t, tb, T.back + 0.3, { align: idx === 0 ? "right" : "left", alpha: A * (0.35 + 0.65 * lit) });
-  }
 }
 
 // ---------------------------------------------------------------- the depth map, the infrared photo, the stored you
@@ -625,7 +614,7 @@ function maskScene(t) {                             // 34–43
 function tipScene(t) {
   if (t < T.tip || t >= T.end + 0.6) return;
   const k = E.p3out(prog(t, T.tip, T.tip + 0.45));
-  const s = 0.92, cx = 600, cy = 1150;
+  const s = 0.92, cx = 660, cy = 1150;
   const keysN = 6 * prog(t, T.keys, T.keys + 0.75);
   const un = E.p3out(prog(t, T.open2, T.open2 + 0.3));
   const shake = t >= T.miss && t < T.miss + 0.4 ? 1 - prog(t, T.miss, T.miss + 0.4) : 0;
@@ -635,6 +624,28 @@ function tipScene(t) {
   handPhone(lerp(ocx, cx, mv), lerp(oy, cy, mv), lerp(ow, 420 * s, mv), t < T.keys - 0.1 ? { unlock: 1 - E.p2io(prog(t, T.tip, T.tip + 0.25)), shake, dim: 0 } : t < T.open2 ? { keys: keysN } : { unlock: un });
   ctx.restore();
   if (t >= T.miss && t < T.keys) label(COPY.lockMiss, cx, cy - 860 * s * 0.08, 46, C.paper, t, T.miss, T.keys, { align: "center" });
+  // after the passcode: this time's face (a small snapshot) goes into the stored card — 补存
+  if (t >= T.tip2) {
+    const ka = E.p3out(prog(t, T.tip2, T.tip2 + 0.3)) * (1 - morph), fly = E.p3io(prog(t, T.tip2 + 0.5, T.tip2 + 1.3));
+    storedCardLight(t, 230, 1300, ka, T.tip2 + 1.3);
+    const sx0 = cx, sy0 = cy - 120, sx1 = 134, sy1 = 1300, sxx = lerp(sx0, sx1, fly), syy = lerp(sy0, sy1, fly) - 120 * Math.sin(Math.PI * fly), sc = lerp(1, 0.45, fly);
+    if (fly < 1) { ID(); ctx.save(); ctx.globalAlpha = ka; ctx.translate(sxx, syy); ctx.scale(sc, sc);
+      rr(-90, -110, 180, 220, 22); ctx.fillStyle = "#FFFFFF"; ctx.fill(); ctx.strokeStyle = C.acc; ctx.lineWidth = 6; ctx.stroke();
+      ctx.save(); rr(-90, -110, 180, 220, 22); ctx.clip(); ctx.drawImage(IMG.makeup, 560, 420, 420, 520, -90, -110, 180, 220); ctx.restore(); ctx.restore(); }
+    tag(COPY.tipCond, 96, 650, ka, { col: C.ink, bg: "rgba(20,20,20,0.08)", size: 44, fixed: true });
+  }
+}
+// the stored card on the light ground, with a small "+" when this time's face goes in
+function storedCardLight(t, cx, cy, a, tIn) {
+  if (a <= 0.01) return;
+  ID(); ctx.save(); ctx.globalAlpha = a;
+  const w = 300, h = 124;
+  rr(cx - w / 2, cy - h / 2, w, h, 22); ctx.fillStyle = "#FFFFFF"; ctx.fill(); ctx.strokeStyle = "rgba(20,20,20,0.25)"; ctx.lineWidth = 3; ctx.stroke();
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(cx - 96, cy, 26, 34, 0, 0, TAU); ctx.stroke();
+  ctx.font = `700 44px ${UI}`; ctx.fillStyle = C.ink; ctx.textBaseline = "middle"; ctx.fillText(COPY.stored, cx - 56, cy + 2);
+  if (t >= tIn) { const q = spring(t - tIn, 14, 0.55); ctx.save(); ctx.translate(cx - 96, cy - 50); ctx.scale(q, q); ctx.beginPath(); ctx.arc(0, 0, 24, 0, TAU); ctx.fillStyle = C.acc; ctx.fill();
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(-11, 0); ctx.lineTo(11, 0); ctx.moveTo(0, -11); ctx.lineTo(0, 11); ctx.stroke(); ctx.restore(); }
+  ctx.restore();
 }
 
 // ---------------------------------------------------------------- scrim, captions, end card
@@ -676,7 +687,7 @@ function textBand(t) {
   lines(COPY.fin, t, T.fin, T.finOut, { style: "slam", col: M, lineGap: 0.25 });
   label(COPY.tipTag, 98, 176, 46, C.acc, t, T.tip, T.tipOut, { weight: 700 });
   lines(COPY.tip, t, T.tip, T.tip2, { style: "blur", col: L, lineGap: 0.25 });
-  lines(COPY.tip2, t, T.tip2, T.tipOut, { style: "blur", col: L, lineGap: 0.25 });
+  lines(COPY.tip2, t, T.tip2, T.tipOut, { style: "blur", col: L, lineGap: 0.2, ys: [300, 420, 540], size: 96 });
   // 以 iPhone 面容 ID 为例 (a corner note while the measuring is introduced)
   if (t >= T.note && t < T.noteOut) tag(COPY.note, 96, 585, E.p3out(prog(t, T.note, T.note + 0.3)) * (1 - prog(t, T.noteOut - 0.3, T.noteOut)), { align: "left", col: mixHex(L, D, fl), bg: fl > 0.5 ? "rgba(241,240,236,0.14)" : "rgba(20,20,20,0.08)", size: 50, fixed: true });
   if (t >= T.a3 && t < T.q4) tag(COPY.irNote, 96, 585, E.p3out(prog(t, T.a3 + 0.3, T.a3 + 0.6)) * (1 - prog(t, T.q4 - 0.2, T.q4)), { align: "left", size: 50, fixed: true, bg: "rgba(241,240,236,0.14)" });
