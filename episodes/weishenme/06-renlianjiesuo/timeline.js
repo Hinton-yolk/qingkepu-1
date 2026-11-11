@@ -11,7 +11,7 @@
 //   43     闭环 (light again): makeup and a mask, a glance, the lock opens → 46 小提示: the passcode → 49.5 end card
 // 120 BPM: 1 beat = 0.5 s = 15 frames at 30 fps. Every cue is on the 0.25 s grid, at the script's times.
 (function (root) {
-  const BPM = 120, BEAT = 60 / BPM, BAR = 4 * BEAT, FPS = 30, DUR = 53.0;
+  const BPM = 120, BEAT = 60 / BPM, BAR = 4 * BEAT, FPS = 30, DUR = 53.5;
   const W = 1080, H = 1920;
 
   const T = {
@@ -39,23 +39,23 @@
     // 43–46 · back to the start (light): makeup, a mask, a glance, the lock opens (loudest hit, after a half-beat stop)
     fin: 43, out: 43, outEnd: 43.75, stop: 43.75, ka: 44, finOut: 45.9,
     // 46–49.5 · the tip: not recognised → the passcode → next time easier
-    tip: 46, miss: 46.25, keys: 46.75, keysEnd: 47.75, open2: 48.0, tipOut: 49.4,
+    tip: 46, miss: 46.25, keys: 46.75, keysEnd: 47.75, open2: 48.0, tip2: 48.0, tipOut: 49.9,
     // 49.5–53 end card
-    end: 49.5, endMorph: 50.1, title1: 50.25, ep: 51, sting: 51.5,
+    end: 50.0, endMorph: 50.6, title1: 50.75, ep: 51.5, sting: 52.0,
   };
 
   const COPY = {
     h1: ["[化了妆]，手机", "为什么还[认得]你？"],
     a2: ["它不只在看你，", "还在[量]你"],
-    note: "以 iPhone 面容 ID 为例",
+    note: "以 iPhone 面容 ID 为例", irNote: "红外光，肉眼看不见",
     q3: ["拿什么量？钻进", "屏幕[顶上]看看"],
     a3: ["它往你脸上打出", "成千上万个[光点]"],
     q4: ["打这么多点，", "是为了[什么]？"],
     a4: ["为了量出你脸的", "[高低]"],
     q5: ["点打在脸上，", "怎么看出[高低]？"],
     a5: ["旁边的镜头斜着看，", "同一个点会[挪位置]"],
-    a6: ["离得越近，", "挪得越[多]"],
-    q6: ["每个点挪多少，", "拼起来是[什么]？"],
+    a6: ["鼻尖离手机更近，", "挪得就[更多]"],
+    q6: ["把每个点挪了多少", "[拼起来]"],
     a7: ["就是你脸的", "[高低起伏]"],
     q8: ["那[化了妆]呢？"],
     a8: ["妆主要改[颜色]，", "脸的高低几乎[没变]"],
@@ -66,7 +66,7 @@
     q11: ["只看眼睛周围，", "[够]认出你吗？"],
     a11: ["眼周的特征，", "也是你[独有]的"],
     fin: ["妆会变，口罩会挡，", "但你脸的[形状]还在"],
-    tipTag: "小提示：", tip: ["[浓妆]认不出，", "马上输一次[密码]，", "下次更[容易]认出"], tipNote: "和你很接近时才会补记",
+    tipTag: "小提示：", tip: ["[浓妆]没认出？", "马上输一次[密码]"], tip2: ["和你够接近时，", "下次更[容易]认出"],
     // labels in the picture (short; technical words only as small text)
     proj: "点阵投影器", ircam: "红外镜头", demo: "示意", dots: "红外光点 · 人眼看不见",
     wallL: "参考面", topv: "俯视", noseL: "鼻尖", cheekL: "脸颊", sideL: "脸侧", angle: "角度已放大 · 示意", imgL: "镜头里",

@@ -326,7 +326,7 @@ function topSceneIn(t) {
   const k = E.p3out(prog(t, T.top, T.topEnd)), leave = E.p3io(prog(t, T.back, T.back + 0.35));
   if (k <= 0 || leave >= 1) return;
   const A = k * (1 - leave);
-  ID(); ctx.save(); ctx.globalAlpha = A * 0.15; ctx.strokeStyle = C.paper; ctx.lineWidth = 3;           // a faint, wide grid on the floor (top view)
+  ID(); ctx.save(); ctx.globalAlpha = A * 0.12; ctx.strokeStyle = C.paper; ctx.lineWidth = 3;           // a faint, wide grid on the floor (top view)
   for (let x = -90; x <= 1170; x += 90) { ctx.beginPath(); ctx.moveTo(x, 520); ctx.lineTo(x, 1480); ctx.stroke(); }
   for (let y = 540; y <= 1480; y += 90) { ctx.beginPath(); ctx.moveTo(-90, y); ctx.lineTo(1170, y); ctx.stroke(); }
   ctx.restore();
@@ -353,7 +353,7 @@ function topSceneIn(t) {
   ctx.restore();
   // the beams
   if (t >= T.beam && t < T.a6) beamPair(t, 0, A, 1, true);
-  if (t >= T.a6) { [[0, T.b1], [3.6, T.b2], [6.6, T.b3]].forEach(([x, tb], i) => beamPair(t, x, A, t >= tb ? 1 : 0.35, false, i, tb)); }
+  if (t >= T.a6) { const B3 = [[0, T.b1], [3.6, T.b2], [6.6, T.b3]]; B3.forEach(([x, tb], i) => beamPair(t, x, A, t >= tb && (i === 2 || t < B3[i + 1][1]) ? 1 : 0.15, false, i, tb)); }   // one beam lit at a time
   // labels
   label(COPY.wallL, 150, TV.wallY - 26, 44, "rgba(241,240,236,0.8)", t, T.wall, T.a6, { alpha: A });
   label(COPY.imgL, 150, sy - 30, 44, "rgba(241,240,236,0.8)", t, T.shift, T.a6, { alpha: A });
@@ -391,7 +391,7 @@ function beamPair(t, x, A, lit, first, idx = 0, tb = 0) {
   const showWall = first ? E.p3out(prog(t, T.wall, T.wall + 0.35)) : 1;
   const faceOn = first ? E.p3out(prog(t, T.nose, T.nose + 0.4)) : 1;
   const beamIn = first ? E.p3out(prog(t, T.beam, T.beam + 0.5)) : E.p3out(prog(t, tb - 0.25, tb + 0.1));
-  ID(); ctx.save(); ctx.globalAlpha = A * (0.35 + 0.65 * lit);
+  ID(); ctx.save(); ctx.globalAlpha = A * (0.15 + 0.85 * lit);
   // the beam (to the wall when there is no face, to the nose when there is)
   const end = faceOn > 0.5 ? N : Wp;
   ctx.strokeStyle = C.dot; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(TV.P[0], TV.P[1]); ctx.lineTo(lerp(TV.P[0], end[0], beamIn), lerp(TV.P[1], end[1], beamIn)); ctx.stroke();
@@ -401,14 +401,16 @@ function beamPair(t, x, A, lit, first, idx = 0, tb = 0) {
   if (showWall > 0) {
     ctx.globalAlpha = A * showWall * (faceOn > 0.5 ? 0.5 : 1) * (0.35 + 0.65 * lit);
     ctx.beginPath(); ctx.arc(Wp[0], Wp[1], 10, 0, TAU); ctx.strokeStyle = C.dot; ctx.lineWidth = 3; ctx.stroke();
-    ctx.strokeStyle = "rgba(221,226,232,0.45)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(Wp[0], Wp[1]); ctx.lineTo(TV.Cm[0], TV.Cm[1]); ctx.lineTo(img(Wp), sy); ctx.stroke();
+    ctx.strokeStyle = "rgba(221,226,232,0.3)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(Wp[0], Wp[1]); ctx.lineTo(TV.Cm[0], TV.Cm[1]); ctx.lineTo(img(Wp), sy); ctx.stroke();
     ctx.beginPath(); ctx.arc(img(Wp), sy, 11, 0, TAU); ctx.strokeStyle = C.dot; ctx.lineWidth = 4; ctx.stroke();
   }
   if (faceOn > 0) {
     ctx.globalAlpha = A * faceOn * (0.35 + 0.65 * lit);
     ctx.beginPath(); ctx.arc(N[0], N[1], 10, 0, TAU); ctx.fillStyle = C.dot; ctx.fill();
+    if (lit > 0.5) { ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(N[0], N[1], 20, 0, TAU); ctx.stroke(); }   // the point to follow
     ctx.strokeStyle = "rgba(221,226,232,0.75)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(N[0], N[1]); ctx.lineTo(TV.Cm[0], TV.Cm[1]); ctx.lineTo(img(N), sy); ctx.stroke();
     ctx.beginPath(); ctx.arc(img(N), sy, 11, 0, TAU); ctx.fillStyle = C.dot; ctx.fill();
+    if (lit > 0.5 && first) { ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(img(N), sy, 20, 0, TAU); ctx.stroke(); }
     // the shift on the strip (orange: the thing to see)
     const sk = first ? E.p3out(prog(t, T.shift, T.shift + 0.45)) : E.p3out(prog(t, tb, tb + 0.35));
     if (sk > 0 && lit > 0.5 && first) {          // the three beams' shifts are shown enlarged in the panel instead
@@ -462,7 +464,7 @@ function irCard(t, cx, cy, w, h, A, face, o = {}) {      // o.mk: 0 = no makeup,
   rr(cx - w / 2, cy - h / 2, w, h, 22); ctx.fillStyle = "#26292E"; ctx.fill();
   ctx.save(); rr(cx - w / 2, cy - h / 2, w, h, 22); ctx.clip();
   const sc = h / 760, x = cx - 700 * sc, y = cy - 720 * sc;            // the face (around (700, 720) in the picture) in the middle
-  ctx.filter = "grayscale(1) contrast(0.7) brightness(0.92)";
+  ctx.filter = o.mask ? "grayscale(1) contrast(0.8) brightness(1.08)" : "grayscale(1) contrast(0.7) brightness(0.92)";
   const mk = o.mk ?? 0; pic(o.mask ? "mask" : "base", x, y, sc, 1); if (!o.mask && mk > 0) pic("makeup", x, y, sc, mk);
   ctx.filter = "none";
   const R = mulberry32(5 + Math.floor(t * 15)); ctx.fillStyle = "rgba(255,255,255,0.05)";
@@ -592,16 +594,16 @@ function maskScene(t) {                             // 34–43
   if (side > 0.01) {
     const swing = t >= T.swing ? 14 * Math.sin(TAU * prog(t, T.swing, T.swingEnd)) : 0;
     const face = { yaw: swing + 3 * Math.sin(TAU * (t - T.q10) / 7), pitch: -3 };
-    const dx = lerp(1250, 800, side), dy = 880, cw = 330, ch = 360;
+    const dx = lerp(1250, 790, side), dy = 870, cw = 390, ch = 400;
     ID(); ctx.save(); ctx.globalAlpha = k; rr(dx - cw / 2, dy - ch / 2, cw, ch, 22); ctx.fillStyle = "#1E2125"; ctx.fill();
     ctx.save(); rr(dx - cw / 2, dy - ch / 2, cw, ch, 22); ctx.clip();
-    FR.render({ ctx, x: dx - cw / 2, y: dy - ch / 2, w: cw, h: ch, scale: 0.5, cam: { eye: [0, -0.4, 56], target: [0, -0.4, 0], fov: 25 }, face, ...LINES, mask: 1, maskCut: 0, maskGrey: 1, eyesOnly: ring * 0.75 });
+    FR.render({ ctx, x: dx - cw / 2, y: dy - ch / 2, w: cw, h: ch, scale: 0.5, cam: { eye: [0, -0.4, 56], target: [0, -0.4, 0], fov: 25 }, face, ...LINES, mask: 1, maskCut: 0, maskGrey: 1, eyesOnly: ring * 0.5 });
     ctx.restore();
     rr(dx - cw / 2, dy - ch / 2, cw, ch, 22); ctx.strokeStyle = "rgba(241,240,236,0.35)"; ctx.lineWidth = 3; ctx.stroke();
     if (ring > 0) { ctx.globalAlpha = k * ring; ctx.strokeStyle = C.acc; ctx.lineWidth = 6; rr(dx - cw * 0.42, dy - ch * 0.3, cw * 0.84, ch * 0.3, 40); ctx.stroke(); }
     ctx.restore();
     tag(COPY.depth, dx - cw / 2 + 4, dy + ch / 2 + 40, k * side, {});
-    const iy = 1230, ih = 186;
+    const iy = 1240, ih = 200;
     irCard(t, dx, iy, cw, ih, k * side, face, { mask: true });
     if (ring > 0) { const sc = ih / 760, ex = dx - 700 * sc + 760 * sc, ey = iy - 720 * sc + 600 * sc; ID(); ctx.save(); ctx.globalAlpha = k * ring; ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.beginPath(); ctx.ellipse(ex, ey, 70, 40, 0, 0, TAU); ctx.stroke(); ctx.restore(); }
     tag(COPY.ir + " · " + COPY.demo, dx - cw / 2 + 4, iy + ih / 2 + 30, k * side, {});
@@ -612,7 +614,7 @@ function maskScene(t) {                             // 34–43
     ID(); ctx.save(); ctx.globalAlpha = k * ring; ctx.strokeStyle = C.acc; ctx.lineWidth = 6;
     ctx.beginPath(); ctx.ellipse(e[0] - 20 * ps, e[1], 130 * ps, 95 * ps, -0.1, 0, TAU); ctx.stroke(); ctx.restore();
   }
-  if (t >= T.a10 && t < T.a11) tag(COPY.setting, 96, 1405, E.p3out(prog(t, T.a10 + 0.25, T.a10 + 0.55)) * (1 - prog(t, T.a11 - 0.3, T.a11)), { bg: "rgba(10,11,13,0.78)", fixed: true });
+  if (t >= T.maskEnd && t < T.a11) tag(COPY.setting, 96, 1395, E.p3out(prog(t, T.maskEnd, T.maskEnd + 0.3)) * (1 - prog(t, T.a11 - 0.3, T.a11)), { bg: "rgba(10,11,13,0.85)", stroke: C.acc, size: 54, fixed: true });
   if (t >= T.a11 - 0.25) storedCard(t, 300, 1380, E.p3out(prog(t, T.a11 - 0.25, T.a11 + 0.1)), T.match2);
 }
 
@@ -630,7 +632,6 @@ function tipScene(t) {
   handPhone(lerp(ocx, cx, mv), lerp(oy, cy, mv), lerp(ow, 420 * s, mv), t < T.keys - 0.1 ? { unlock: 1 - E.p2io(prog(t, T.tip, T.tip + 0.25)), shake, dim: 0 } : t < T.open2 ? { keys: keysN } : { unlock: un });
   ctx.restore();
   if (t >= T.miss && t < T.keys) label(COPY.lockMiss, cx, cy - 860 * s * 0.08, 46, C.paper, t, T.miss, T.keys, { align: "center" });
-  label(COPY.tipNote, 96, 700, 44, "rgba(20,20,20,0.7)", t, T.tip + 0.6, T.tipOut);
 }
 
 // ---------------------------------------------------------------- scrim, captions, end card
@@ -671,9 +672,11 @@ function textBand(t) {
   lines(COPY.a11, t, T.a11, T.fin, { style: "blur", col: D });
   lines(COPY.fin, t, T.fin, T.finOut, { style: "slam", col: M, lineGap: 0.25 });
   label(COPY.tipTag, 98, 176, 46, C.acc, t, T.tip, T.tipOut, { weight: 700 });
-  lines(COPY.tip, t, T.tip + 0.15, T.tipOut, { style: "blur", col: L, lineGap: 0.3, ys: [300, 420, 540], size: 96 });
+  lines(COPY.tip, t, T.tip, T.tip2, { style: "blur", col: L, lineGap: 0.25 });
+  lines(COPY.tip2, t, T.tip2, T.tipOut, { style: "blur", col: L, lineGap: 0.25 });
   // 以 iPhone 面容 ID 为例 (a corner note while the measuring is introduced)
-  if (t >= T.note && t < T.noteOut) tag(COPY.note, 96, 1405, E.p3out(prog(t, T.note, T.note + 0.3)) * (1 - prog(t, T.noteOut - 0.3, T.noteOut)), { align: "left", col: mixHex(L, D, fl), bg: fl > 0.5 ? "rgba(241,240,236,0.12)" : "rgba(20,20,20,0.07)", size: 44 });
+  if (t >= T.note && t < T.noteOut) tag(COPY.note, 96, 585, E.p3out(prog(t, T.note, T.note + 0.3)) * (1 - prog(t, T.noteOut - 0.3, T.noteOut)), { align: "left", col: mixHex(L, D, fl), bg: fl > 0.5 ? "rgba(241,240,236,0.14)" : "rgba(20,20,20,0.08)", size: 50, fixed: true });
+  if (t >= T.a3 && t < T.q4) tag(COPY.irNote, 96, 585, E.p3out(prog(t, T.a3 + 0.3, T.a3 + 0.6)) * (1 - prog(t, T.q4 - 0.2, T.q4)), { align: "left", size: 50, fixed: true, bg: "rgba(241,240,236,0.14)" });
 }
 function endCard(t) {
   if (t < T.end) return;
