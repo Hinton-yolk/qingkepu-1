@@ -228,6 +228,7 @@ SAT, CONTRAST, GAIN = 1.7, 0.55, 1.06; AIR = (0.30, 0.10, -0.09); TINT_SH = (0.0
 band_long = B.Band(TLm.SEQ_LONG); band_scr = B.Band(TLm.SEQ_SCR); band_clk = B.Band([1, 0] * 120); band_one = B.Band([1] * 240)
 HITS, _yl = TLm.hits(TL, PH, [10.4, 15.9, 15.9]); YL = dict(zip(('side', 'count', 'count2'), _yl))     # 「听的位置」；自动微调到鼓点落在八分音符的格子上
 def yl_at(t): return YL['side'] if t < T['count'] else YL['count'] if t < B0['y7'] else YL['count2']
+LOCK_HITS = [h for h in HITS if sub0('y6', 1) - 0.4 <= h <= TL['marks']['count_park']][-4:]     # y6「跟着鼓点校准自己」：最后这几个鼓点，每个把刻度挪近一步
 def run_span(phi, idx0, n=5):
     """比特串里第 idx0 … idx0+n−1 位现在在板面上的 y 区间"""
     ya = phi + idx0 * B.BIT; ya -= TLm.PERIOD * round((ya - 14) / TLm.PERIOD); return ya, ya + n * B.BIT
@@ -259,7 +260,7 @@ def scene_fx(img, G, v, t):
     # y6：刻度先是错开的，跟着鼓点对齐
     t_lock = sub0('y6', 1) + 0.3
     if t_lock - 0.6 <= t < B0['y7']:
-        off = 0.38 * B.BIT * (1 - ease((t - t_lock) / 1.1, 'io')); ticks = dict(phase=phi + off, half=0.52, thick=0.045); tick_a = 0.95 * ramp(t, t_lock - 0.6, t_lock - 0.1)
+        off = 0.42 * B.BIT * (1 - sum(ease((t - h) / 0.14, 'out') for h in LOCK_HITS) / max(1, len(LOCK_HITS))); ticks = dict(phase=phi + off, half=0.52, thick=0.045); tick_a = 0.95 * ramp(t, t_lock - 0.6, t_lock - 0.1)
     # y7：一长串 1，没有鼓点 → 芯片自己数的拍（红）慢慢跑偏；真实的节拍（深色）不动
     if B0['y7'] <= t < B0['y8'] + 0.7:
         d = 0.085 * ease((t - VS['y7'] - 1.0) / 2.6, 'in') * (1 - ease((t - B0['y8'] - 0.15) / 0.5, 'io')); red = ramp(t, VS['y7'] + 0.9, VS['y7'] + 1.5) * (1 - ramp(t, B0['y8'] + 0.2, B0['y8'] + 0.65))
