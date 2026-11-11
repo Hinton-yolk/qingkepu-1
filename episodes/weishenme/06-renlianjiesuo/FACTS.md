@@ -22,5 +22,8 @@
 - 深度图用灰阶示意。
 
 ## 待补
-- 开源 3D 头模的来源和许可证（用户同意这种画法后再选定）。
 - F5 化妆品（粉底、口红）厚度的来源，终版渲染前补上。
+
+## 画面素材的来源（发布时要写 / 要勾选）
+- 3D 人脸网格（只画光点和等高线）：Google MediaPipe canonical face model，Apache License 2.0，github.com/google-ai-edge/mediapipe（`assets/mesh/README.md`）。文案署名「人脸网格：Google MediaPipe（Apache-2.0）」。
+- 人物图（素颜、口红、全妆、修容、口罩、拿手机的手）：用户用 GPT 按 `图片prompt.md` 生成（2026-11-11）。发布时抖音、小红书都勾选「内容由 AI 生成」。
