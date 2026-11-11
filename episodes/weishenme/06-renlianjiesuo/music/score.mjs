@@ -131,7 +131,7 @@ for (let t = 0; t < DUR - 1e-6; t += BEAT) {
   if (sec === "dive") { const k = Math.max(0, Math.min(1, (t - T.dive) / (T.diveEnd - T.dive))); for (let e = 0; e < 4; e++) hat(t + e * S16, 0.12 + 0.35 * k * (e === 2 ? 1.3 : 1)); if (Math.abs(t - T.flood) < 0.01) kick(t, 0.6); }
   if (sec === "path" || sec === "mech") { if (q === 0 || q === 2) kick(t, 0.7); if (q === 3) rim(t + BEAT / 2, 0.5); for (let e = 0; e < 4; e++) hat(t + e * S16, e === 2 ? 0.42 : 0.18); }
   if (sec === "build" || sec === "build2") { if (q === 0 || q === 2) kick(t, 0.65); for (let e = 0; e < 4; e++) { const tt = t + e * S16, a0 = sec === "build" ? T.q6 : T.fin, a1 = sec === "build" ? T.stop1 : T.stop; if (!silent(tt)) { const k = (tt - a0) / (a1 - a0); hat(tt, 0.15 + 0.3 * k); snare(tt, 0.06 + 0.3 * k * k); } } }
-  if (sec === "name" || sec === "payoff") { kick(t, q === 0 ? 1 : 0.85); if (q === 1 || q === 3) clap(t, 0.75); for (let e = 0; e < 4; e++) { if (e === 2) hat(t + e * S16, 0.75, true, 0.2); else hat(t + e * S16, e % 2 ? 0.4 : 0.22); } }
+  if (sec === "name" || sec === "payoff") { const after = (sec === "name" ? t - T.a7 : t - T.ka) >= 0.5 ? 0.78 : 1; kick(t, (q === 0 ? 1 : 0.85) * after); if (q === 1 || q === 3) clap(t, 0.75 * after); for (let e = 0; e < 4; e++) { if (e === 2) hat(t + e * S16, 0.75, true, 0.2); else hat(t + e * S16, e % 2 ? 0.4 : 0.22); } }
   if (sec === "card" || sec === "card2") { if (q === 0) kick(t, 0.6); if (q === 2) rim(t, 0.45); hat(t + BEAT / 2, 0.32); hat(t, 0.15); }
   if (sec === "mask") { if (q === 0) kick(t, 0.5); hat(t + BEAT / 2, 0.28); if (q === 2) rim(t, 0.3); }
   if (sec === "tip") { if (q === 0) kick(t, 0.5); hat(t + BEAT / 2, 0.3); }
@@ -197,13 +197,13 @@ glide(T.beam, 0.4, 82, 94, 0.4, 0.3); tick(T.wall, 0.5, -0.2, 3000); tick(T.nose
 HITS.beams.forEach((t, i) => { blip(t, [94, 89, 86][i], 0.55, -0.2 + 0.2 * i); });
 // the depth map grows; the reveal (after a half-beat stop); the IR photo; the compare; the tick
 riser(T.q6 + 0.25, T.stop1 - T.q6 - 0.25, 0.5);
-impact(T.a7, 1.3); stab(T.a7, [51, 58, 63, 67, 70], 0.6, 1, 1.2); bloom(T.a7 + 0.25, [94, 98, 101], 0.7);
-tick(T.irPhoto, 0.5, 0.3, 2800); glide(T.compare, 0.6, 79, 72, 0.35, 0); blip(T.match1, 94, 0.6, 0); blip(T.match1 + 0.125, 98, 0.5, 0);
+impact(T.a7, 1.7); stab(T.a7, [51, 58, 63, 67, 70], 0.8, 1.15, 1.25); bloom(T.a7 + 0.25, [94, 98, 101], 0.7);
+tick(T.irPhoto, 0.35, 0.3, 2800); glide(T.compare, 0.6, 79, 72, 0.2, 0); blip(T.match1, 94, 0.35, 0); blip(T.match1 + 0.125, 98, 0.3, 0);
 // the makeup: three soft brush strokes; the cards; 略变; the contour; the profile line: the same
 HITS.makeup.forEach((t, i) => glide(t, 0.4, 79 + 3 * i, 84 + 3 * i, 0.3, -0.3 + 0.3 * i));
 tick(T.cards, 0.45, 0.3, 2800); tick(T.cards + 0.25, 0.4, 0.35, 3000); blip(T.irTag, 86, 0.45, 0.3);
 HITS.contour.forEach((t) => glide(t, 0.4, 77, 82, 0.28, -0.2));
-softImpact(T.a9, 0.8); glide(T.prof, T.profEnd - T.prof, 82, 89, 0.45, 0.3);
+bloom(T.a9, [82, 86, 89], 0.35); glide(T.prof, T.profEnd - T.prof, 82, 89, 0.45, 0.3);
 // the mask goes on; to the data; the eye ring; the swing; the match
 glide(T.mask, T.maskEnd - T.mask, 67, 79, 0.45, 0); bloom(T.toDepth, [74, 77, 82], 0.4);
 blip(T.ring, 94, 0.55, 0.2); blip(T.ring + 0.125, 98, 0.45, 0.2); glide(T.swing, 1.0, 82, 86, 0.25, -0.3); glide(T.swing + 1.0, 1.0, 86, 82, 0.25, 0.3);

@@ -66,6 +66,8 @@ const hexRGB = (h) => [0, 1, 2].map((i) => parseInt(h.slice(1 + 2 * i, 3 + 2 * i
 const mixHex = (a, b, k) => { const p = hexRGB(a), q = hexRGB(b); return `rgb(${[0, 1, 2].map((i) => Math.round(lerp(p[i], q[i], k))).join(",")})`; };
 const rgba = (h, a) => { const p = hexRGB(h); return `rgba(${p[0]},${p[1]},${p[2]},${a})`; };
 const ID = () => ctx.setTransform(1, 0, 0, 1, 0, 0);
+const RAWSET = CanvasRenderingContext2D.prototype.setTransform;
+const FIXED = () => RAWSET.call(ctx, 1, 0, 0, 1, 0, 0);          // screen space, outside the drift and the pushes (corner notes stay put)
 
 // ---------------------------------------------------------------- text (the series' caption band, as in EP.05)
 function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
@@ -121,7 +123,7 @@ function underline(str, prefix, word, lineIdx, t, t0, t1, ys = [330, 472], size0
 }
 function tag(txt, x, y, a, o = {}) {                                  // a small pill (术语 / 注释 are small text, ≥ 44 px)
   if (a <= 0.01) return;
-  ID(); const size = o.size ?? 44, font = `700 ${size}px ${UI}`, wv = mw(font, txt), pad = 18, hh = size + 22;
+  (o.fixed ? FIXED : ID)(); const size = o.size ?? 44, font = `700 ${size}px ${UI}`, wv = mw(font, txt), pad = 18, hh = size + 22;
   const left = o.align === "center" ? x - (wv + 2 * pad) / 2 : o.align === "right" ? x - wv - 2 * pad : x;
   ctx.save(); ctx.globalAlpha = a;
   rr(left, y - hh / 2, wv + 2 * pad, hh, hh / 2); ctx.fillStyle = o.bg ?? "rgba(241,240,236,0.12)"; ctx.fill();
@@ -192,7 +194,7 @@ function lockIcon(cx, cy, s, un, shake, dim) {
 }
 function phoneKeys(cx, cy, w, h, st) {
   const n = 6, gap = w * 0.085, y = cy - h * 0.22;
-  ctx.font = `700 ${Math.round(w * 0.075)}px ${UI}`; ctx.fillStyle = C.paper; ctx.textAlign = "center"; ctx.fillText(COPY.pass, cx, y - w * 0.12);
+  ctx.font = `700 ${Math.round(w * 0.12)}px ${UI}`; ctx.fillStyle = C.paper; ctx.textAlign = "center"; ctx.fillText(COPY.pass, cx, y - w * 0.13);
   for (let i = 0; i < n; i++) {
     const x = cx + (i - (n - 1) / 2) * gap, k = clamp(st.keys - i);
     ctx.beginPath(); ctx.arc(x, y, w * 0.022, 0, TAU); ctx.strokeStyle = C.paper; ctx.lineWidth = 3; ctx.stroke();
@@ -306,7 +308,7 @@ function dotsScene(t) {                               // 7.75–14.25
   ctx.restore();
   ctx.globalAlpha = 1;
   dotsOn(t, view, face, (1 - leave) * (1 - 0.3 * (t < T.iso ? 0 : E.p2io(prog(t, T.iso, T.isoEnd)))), prog(t, T.fire, T.fireEnd + 0.4), [540, 1700]);
-  if (t >= T.fire) tag(COPY.demo, 944, 1400, (1 - leave) * E.p3out(prog(t, T.fire, T.fire + 0.3)), { align: "right" });
+  if (t >= T.fire) tag(COPY.demo, 944, 1395, (1 - leave) * E.p3out(prog(t, T.fire, T.fire + 0.3)), { align: "right", fixed: true });
 }
 
 // ---------------------------------------------------------------- the top view: the same beam on the wall and on the nose
@@ -355,9 +357,9 @@ function topSceneIn(t) {
   // labels
   label(COPY.wallL, 150, TV.wallY - 26, 44, "rgba(241,240,236,0.8)", t, T.wall, T.a6, { alpha: A });
   label(COPY.imgL, 150, sy - 30, 44, "rgba(241,240,236,0.8)", t, T.shift, T.a6, { alpha: A });
-  if (t >= T.top) tag(COPY.topv, 1000, 660, A * E.p3out(prog(t, T.top, T.top + 0.4)), { align: "right" });
+  if (t >= T.top) tag(COPY.topv, 1000, 660, A * E.p3out(prog(t, T.top, T.top + 0.4)), { align: "right", fixed: true });
   if (t >= T.a6) shiftInset(t, A);
-  if (t >= T.wall && t < T.a6 + 0.2) tag(COPY.angle, 1000, 1410, A * E.p3out(prog(t, T.wall, T.wall + 0.3)), { align: "right" });
+  if (t >= T.wall && t < T.a6) tag(COPY.angle, 1000, 1405, A * E.p3out(prog(t, T.wall, T.wall + 0.3)) * (1 - prog(t, T.a6 - 0.2, T.a6)), { align: "right", fixed: true });
 }
 // the three shifts, enlarged side by side (the strip itself is too small to read): one lights up at a time
 function shiftInset(t, A) {
@@ -367,11 +369,11 @@ function shiftInset(t, A) {
     const dx = N[0] - TV.P[0], dy = N[1] - TV.P[1], kW = (TV.wallY - TV.P[1]) / dy, Wp = [TV.P[0] + dx * kW, TV.wallY];
     return { d: Math.abs(img(Wp) - img(N)), tb, nm };
   });
-  const dmax = rows[0].d, x0 = 330, w = 400, y0 = 1310;
-  ID(); ctx.save(); ctx.globalAlpha = A * E.p3out(prog(t, T.a6, T.a6 + 0.3));
-  rr(x0 - 150, y0 - 36, w + 190, 150, 18); ctx.fillStyle = "rgba(30,33,37,0.96)"; ctx.fill();
+  const dmax = rows[0].d, x0 = 330, w = 400, y0 = 1286;
+  FIXED(); ctx.save(); ctx.globalAlpha = A * E.p3out(prog(t, T.a6, T.a6 + 0.3));
+  rr(x0 - 150, y0 - 36, w + 190, 192, 18); ctx.fillStyle = "rgba(30,33,37,0.96)"; ctx.fill();
   rows.forEach((r, i) => {
-    const lit = t >= r.tb ? 1 : 0.3, k = E.p3out(prog(t, r.tb, r.tb + 0.35)), y = y0 + i * 46;
+    const lit = t >= r.tb ? 1 : 0.3, k = E.p3out(prog(t, r.tb, r.tb + 0.35)), y = y0 + i * 58;
     ctx.globalAlpha = A * lit; ctx.font = `700 44px ${UI}`; ctx.fillStyle = C.paper; ctx.textBaseline = "middle"; ctx.fillText(r.nm, x0 - 130, y + 2);
     ctx.strokeStyle = "rgba(241,240,236,0.25)"; ctx.lineWidth = 12; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + w, y); ctx.stroke();
     if (k > 0) { ctx.strokeStyle = C.acc; ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + w * (r.d / dmax) * k, y); ctx.stroke(); }
@@ -409,7 +411,7 @@ function beamPair(t, x, A, lit, first, idx = 0, tb = 0) {
     ctx.beginPath(); ctx.arc(img(N), sy, 11, 0, TAU); ctx.fillStyle = C.dot; ctx.fill();
     // the shift on the strip (orange: the thing to see)
     const sk = first ? E.p3out(prog(t, T.shift, T.shift + 0.45)) : E.p3out(prog(t, tb, tb + 0.35));
-    if (sk > 0 && lit > 0.5) {
+    if (sk > 0 && lit > 0.5 && first) {          // the three beams' shifts are shown enlarged in the panel instead
       const a0 = img(Wp), a1 = img(N), yy = sy + (first ? 0 : 26 + idx * 18);
       ctx.globalAlpha = A * sk; ctx.strokeStyle = C.acc; ctx.lineWidth = first ? 10 : 8; ctx.lineCap = "round";
       ctx.beginPath(); ctx.moveTo(a0, yy); ctx.lineTo(lerp(a0, a1, sk), yy); ctx.stroke();
@@ -441,7 +443,7 @@ function depthScene(t) {                            // 20.75–25.25
   FR.render({ ctx, ...view, scale: 0.5, face, ...LINES, fill: lerp(0.05, 0.22, g), lineK: lerp(0.45, 1, E.p2io(g)) });
   ctx.restore();
   dotsOn(t, view, face, A * lerp(1, 0.55, g), 1, [540, 1700]);
-  if (t >= T.a7) tag(COPY.depth + " · " + COPY.demo, view.x + view.w / 2, view.y + view.h - 10, A * E.p3out(prog(t, T.a7, T.a7 + 0.3)), { align: "center" });
+  if (t >= T.a7) tag(COPY.depth + " · " + COPY.demo, view.x + view.w / 2, Math.min(view.y + view.h - 10, 1330), A * E.p3out(prog(t, T.a7, T.a7 + 0.3)), { align: "center" });
   // the infrared photo: a flat grey picture, in a card
   if (sideK > 0) {
     const cw = 330, ch = 420, ccx = lerp(1250, 790, sideK), ccy = 960 - 40 * cmpK;
@@ -512,7 +514,7 @@ function makeupScene(t) {                           // 25.25–34
     tag(COPY.depth, dx - cw / 2 + 4, dy + ch / 2 + 40, A * sideK * (1 - pk0), {});
     tag(COPY.same, dx + cw / 2, dy + ch / 2 + 40, (1 - pk0) * A * E.p3out(prog(t, T.irTag, T.irTag + 0.3)), { align: "right", bg: "rgba(255,74,28,0.0)", stroke: "rgba(241,240,236,0.6)" });
     // the infrared photo: changes a little (lips a touch darker)
-    const iy = 1210;
+    const iy = 1185;
     irCard(t, dx, iy, cw, 300, A, face, { mk: E.p2io(prog(t, T.cards, T.irTag)) });
     tag(COPY.ir, dx - cw / 2 + 4, iy + 150 + 40, A * sideK, {});
     tag(COPY.slight, dx + cw / 2, iy + 150 + 40, A * E.p3out(prog(t, T.irTag, T.irTag + 0.3)), { align: "right", bg: "rgba(255,74,28,0.0)", stroke: "rgba(241,240,236,0.6)" });
@@ -599,10 +601,10 @@ function maskScene(t) {                             // 34–43
     if (ring > 0) { ctx.globalAlpha = k * ring; ctx.strokeStyle = C.acc; ctx.lineWidth = 6; rr(dx - cw * 0.42, dy - ch * 0.3, cw * 0.84, ch * 0.3, 40); ctx.stroke(); }
     ctx.restore();
     tag(COPY.depth, dx - cw / 2 + 4, dy + ch / 2 + 40, k * side, {});
-    const iy = 1252, ih = 196;
+    const iy = 1230, ih = 186;
     irCard(t, dx, iy, cw, ih, k * side, face, { mask: true });
     if (ring > 0) { const sc = ih / 760, ex = dx - 700 * sc + 760 * sc, ey = iy - 720 * sc + 600 * sc; ID(); ctx.save(); ctx.globalAlpha = k * ring; ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.beginPath(); ctx.ellipse(ex, ey, 70, 40, 0, 0, TAU); ctx.stroke(); ctx.restore(); }
-    tag(COPY.ir + " · " + COPY.demo, dx - cw / 2 + 4, iy + ih / 2 + 38, k * side, {});
+    tag(COPY.ir + " · " + COPY.demo, dx - cw / 2 + 4, iy + ih / 2 + 30, k * side, {});
   }
   // the eye area, ringed on the person too
   if (ring > 0) {
@@ -610,7 +612,7 @@ function maskScene(t) {                             // 34–43
     ID(); ctx.save(); ctx.globalAlpha = k * ring; ctx.strokeStyle = C.acc; ctx.lineWidth = 6;
     ctx.beginPath(); ctx.ellipse(e[0] - 20 * ps, e[1], 130 * ps, 95 * ps, -0.1, 0, TAU); ctx.stroke(); ctx.restore();
   }
-  if (t >= T.a10 && t < T.a11) tag(COPY.setting, 96, 1405, E.p3out(prog(t, T.a10 + 0.25, T.a10 + 0.55)) * (1 - prog(t, T.a11 - 0.3, T.a11)), { bg: "rgba(10,11,13,0.78)" });
+  if (t >= T.a10 && t < T.a11) tag(COPY.setting, 96, 1405, E.p3out(prog(t, T.a10 + 0.25, T.a10 + 0.55)) * (1 - prog(t, T.a11 - 0.3, T.a11)), { bg: "rgba(10,11,13,0.78)", fixed: true });
   if (t >= T.a11 - 0.25) storedCard(t, 300, 1380, E.p3out(prog(t, T.a11 - 0.25, T.a11 + 0.1)), T.match2);
 }
 
@@ -709,11 +711,11 @@ function drawDark(t) {
   if (t >= T.q10) maskScene(t);
 }
 // a slow, continuous drift of the whole picture (never a shake: < 1 px a frame), so no stretch of the film parks
-const DRIFT = { z: 0.05, x: 26, y: 20 };
+const DRIFT = { z: 0.05, x: 26, y: 10 };
 function driftZ(t) {
   if (t >= T.end) return { s: 1, tx: 0, ty: 0 };
   const s = 1 + DRIFT.z + DRIFT.z * Math.sin(TAU * t / 9), dx = DRIFT.x * Math.sin(TAU * t / 6.7 + 0.7), dy = DRIFT.y * Math.sin(TAU * t / 7.9 + 2.1);
-  return { s, tx: 540 - 540 * s + dx, ty: 1050 - 1050 * s + dy };
+  return { s, tx: 540 - 540 * s + dx, ty: 1400 - 1400 * s + dy };
 }
 function frame(t) {
   ctx.reset(); ID();
