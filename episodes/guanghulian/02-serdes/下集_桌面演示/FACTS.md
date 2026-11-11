@@ -27,7 +27,7 @@
 | y10 修字盒发货端、收货端都有 | 发送端和接收端都有均衡电路。盒子数量不对应具体电路 | 示意 |
 | y10 功率计上升、盒子占掉小半张桌子 | 原文：SerDes 自己带着不少修信号的电路，都要耗电、占面积 | 示意 |
 | y11 总功率计不回落，只有「每个比特」小表被往下压；v4 去掉了「盒子变小」 | 口播说的是每送一个比特少花电，而且是「在拼」。每比特能耗逐代下降：IEEE 802.3df 投稿预测 200G / 通道 SerDes 约 4–5 pJ/b（https://www.ieee802.org/3/df/public/22_11/prli_3df_01_2211.pdf）；Broadcom 的介绍（https://www.broadcom.com/topics/what-is-serdes-for-ai-infrastructure）。每条通道总功耗持平或上升：**仅单一来源**（厂商文章 https://www.linkedin.com/pulse/how-224g-serdes-enables-16t-networking-without-increasing-e9j7c）。以上都是审核 11-11 用 AnySearch 查的，只看了搜索摘要，原文没打开 | 示意；「每比特能耗下降」有两处来源〔摘要〕；「总功耗持平或上升」〔待核，仅单一来源〕，片中不说，画面只让指针停住不回落 |
-| y12 签「一条通道 · 上千亿 / 秒」贴在读带口旁 | 每条通道 112 Gb/s 级（原文） | 成立 |
+| y12 签「一条通道 · 上千亿 / 秒」在暗场的走线旁 | 每条通道 112 Gb/s 级（原文） | 成立 |
 
 ## y6 试镜头（`blender/`，2026-11-11）新加的画面说法
 
