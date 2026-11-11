@@ -140,7 +140,8 @@ SHOTS["y12g"] = dict(n=55, glow=True, scr=True, orig="random", cells=alt(3, w=5)
 # y12 手机：乱码从「七」字起一个个变回来
 SHOTS["y12a"] = dict(n=76, cells=alt(8), props=set(ALL), fixed=True, cam=[(0, A1), (76, shift(A1, dist=0.34))], phone=("y12", 76))
 # y13 读带口 → 切刀 → 托盘：一格切一段，拆回一排
-SHOTS["y13"] = dict(n=120, scr=True, orig="random", cells="random", sign="B", props=set(ALL), fixed=True, cut=True, needle_big=[(0, 0.82)], needle_small=[(0, 0.42)],
+SHOTS["y13"] = dict(n=120, scr=True, orig=alt(60), orig_pre=alt(60, first=1), cells="random",     # 切下来的八段和 y2 左托盘那八张同一组黑白
+                    sign="B", props=set(ALL), fixed=True, cut=True, needle_big=[(0, 0.82)], needle_small=[(0, 0.42)],
                     g=[(-9999, 0.1)], cam=[(0, C1), (22, C1), (88, pose((0.69, -0.09, 0.03), 0.92, 38, 3, (0.62, -0.14, 0.01))), (120, pose((0.695, -0.09, 0.03), 0.90, 38, 3, (0.62, -0.14, 0.01)))])
 # y14 手机 + 路线图小卡
 SHOTS["y14"] = dict(n=96, cells=alt(8), props=set(ALL), fixed=True, route=(8, 16), cam=[(0, shift(A1, dx=-0.02, dz=-0.05, dist=0.46)), (96, shift(A1, dx=-0.02, dz=-0.05, dist=0.44))], phone=("clean", 1))
@@ -395,7 +396,7 @@ def dot(t, solid, coral, rad):
     else:
         verts += [(0.72 * x, 0.72 * y, 0) for x, y, _ in verts[1:]]
         faces = [(1 + s, 1 + (s + 1) % seg, 1 + seg + (s + 1) % seg, 1 + seg + s) for s in range(seg)]
-    o = add_obj("dot", mesh_from("dot", verts, faces)); o.data.materials.append(M_CORAL if coral else M_BLUE_T)
+    o = add_obj("dot", mesh_from("dot", verts, faces)); o.data.materials.append(M_CORAL_T if coral else M_BLUE_T)
     o.location = (tape_x(t) + random.uniform(-0.0003, 0.0003), Y_DOT + random.uniform(-0.0003, 0.0003), Z_TAPE + 0.00003)
     o.parent = tape
     if t > -2:
@@ -405,7 +406,8 @@ def dot(t, solid, coral, rad):
 
 
 # 蓝点只在纸带上：有还原盒时到盒子里为止（还原以后带上是原来的数据，清点的记号不跟过去），否则到纸带尽头
-for m_ in (M_BLUE_T, M_CORAL): cut_outside(m_, PRN_X, X_DES - 0.02 if "des" in PROPS else (X_CUT if "cutter" in PROPS else 0.74))
+M_CORAL_T = M_CORAL.copy()                               # 只给蓝点用的那份才裁；表针也用珊瑚色，不能跟着裁掉
+for m_ in (M_BLUE_T, M_CORAL_T): cut_outside(m_, PRN_X, X_DES - 0.02 if "des" in PROPS else (X_CUT if "cutter" in PROPS else 0.74))
 CORAL = SP.get("coral_dots", [])
 STAMPS = [r for r in RIGHTS if -330 < r <= NF + 1]
 for r in STAMPS:
@@ -469,8 +471,8 @@ def wheel_rot(n): return PHI_W - radians(36) * n
 
 
 # 计数：新一段黑带进来清零，每盖一个实心点加一（格子窄于 15 帧时不数，轮子转不过来）
-events = [(t, "reset") for t, w in edges(PAT_A) if bit_at(PAT_A, t + 0.01) == 1 and w >= 15] + \
-         [(r, "inc") for r in RIGHTS if bit_at(PAT_A, r) == 1]                          # 格子窄了以后不清零，轮子一直往上翻
+events = [(t, "reset") for t, w in edges(PAT_A) if bit_at(PAT_A, t + 0.01) == 1] + \
+         [(r, "inc") for r in RIGHTS if bit_at(PAT_A, r) == 1]                          # 窄格也是同一条规则，轮子在 0 和 1 之间飞快地翻
 run, count_keys = 0, []
 for t, ev in sorted(e for e in events if -400 < e[0] <= NF + 2):
     run = 0 if ev == "reset" else run + 1
@@ -665,7 +667,7 @@ if SP.get("gate"):                                                              
 # =====================================================================================================
 # 透明尺：只盖数据道（盖点的白边露在外面），贴着纸带一起走；刻度一格一道
 # =====================================================================================================
-M_ACR, ba = principled("acrylic", **{"Base Color": (0.93, 0.97, 0.96, 1), "Roughness": 0.03, "IOR": 1.49})
+M_ACR, ba = principled("acrylic", **{"Base Color": (0.93, 0.97, 0.96, 1), "Roughness": 0.03, "IOR": 1.30})    # 折射率调低一点：反光弱，压在黑带上黑带不发灰
 ba.inputs["Transmission Weight"].default_value = 1.0
 nt2 = M_ACR.node_tree; lp = nt2.nodes.new("ShaderNodeLightPath"); tr = nt2.nodes.new("ShaderNodeBsdfTransparent")
 tr.inputs["Color"].default_value = (0.86, 0.92, 0.90, 1); mix = nt2.nodes.new("ShaderNodeMixShader")
@@ -750,6 +752,9 @@ if "meters" in PROPS:
     for i in range(4):
         box(f"strip_hole{i}", STRIP.x - 0.085 + i * 0.055, STRIP.x - 0.060 + i * 0.055, STRIP.y - 0.010, STRIP.y + 0.010, 0.022, 0.0224, M_BLACK)
 
+    M_NEEDLE, bn_ = principled("needle", **{"Base Color": (0.80, 0.16, 0.10, 1), "Roughness": 0.4})
+    bn_.inputs["Emission Color"].default_value = (1.0, 0.22, 0.12, 1); bn_.inputs["Emission Strength"].default_value = 0.9   # 略带自发光：表盘在阴影里时指针也看得见
+
     def meter(name, at, scale, yaw, keys_, tag):
         """Poly Haven「retro_multimeter」（CC0）。指针是单独的零件，绕 y 轴转。v = 0–1 对应指针从左到右。"""
         root = empty(name, at, (0, 0, radians(yaw))); root.scale = (scale,) * 3
@@ -764,11 +769,11 @@ if "meters" in PROPS:
                 if sl_.material and "glass" in sl_.material.name: sl_.material = M_ACR
         if needle is not None:
             piv = empty(name + "_piv", (0, -0.024, 0.148)); piv.parent = root
-            needle.parent = piv; needle.matrix_parent_inverse = Matrix.Translation((0, 0.024, -0.148))
             for f_, v_ in keys_:
                 piv.rotation_euler = (0, radians(-38 + 76 * v_), 0); piv.keyframe_insert("rotation_euler", frame=f_)
-            needle.hide_render = True
-            box(name + "_red", -0.0008, 0.0008, -0.0032, -0.0027, 0.004, 0.054, M_CORAL).parent = piv        # 模型自带的指针太细太暗，前面加一根珊瑚色的
+            bpy.data.objects.remove(needle)                                                # 模型自带的黑针去掉，只留珊瑚色这一根
+            nd = box(name + "_red", -0.0009, 0.0009, -0.0006, -0.0001, 0.004, 0.054, M_NEEDLE); nd.parent = piv   # 模型自带的指针太细太暗，换成一根珊瑚色的
+            nd.visible_shadow = False                                                      # 不投影：太阳很斜，影子会像第二根针
         tex_quad(name + "_tag", (0, -0.030, 0.222 + 0.030), (1, 0, 0), (0, 0.25, 1), 0.120, 0.051, tag).parent = root   # 小签立在表顶上
         return root
     meter("meter_big", (0.42, 0.12, 0.0), 0.62, 6, SP.get("needle_big", [(0, 0.25)]), "tag_power")
