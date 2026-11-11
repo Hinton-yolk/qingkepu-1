@@ -142,7 +142,7 @@ SHOTS["y12a"] = dict(n=76, cells=alt(8), props=set(ALL), fixed=True, cam=[(0, A1
 # y13 读带口 → 切刀 → 托盘：一格切一段，拆回一排
 SHOTS["y13"] = dict(n=120, scr=True, orig=alt(60), orig_pre=alt(60, first=1), cells="random",     # 切下来的八段和 y2 左托盘那八张同一组黑白
                     sign="B", props=set(ALL), fixed=True, cut=True, needle_big=[(0, 0.82)], needle_small=[(0, 0.42)],
-                    g=[(-9999, 0.1)], cam=[(0, C1), (22, C1), (88, pose((0.69, -0.09, 0.03), 0.92, 38, 3, (0.62, -0.14, 0.01))), (120, pose((0.695, -0.09, 0.03), 0.90, 38, 3, (0.62, -0.14, 0.01)))])
+                    g=[(-9999, 0.1)], cam=[(0, C1), (70, shift(C1, dx=0.01)), (100, pose((0.69, -0.09, 0.03), 0.92, 38, 3, (0.62, -0.14, 0.01))), (120, pose((0.695, -0.09, 0.03), 0.91, 38, 3, (0.62, -0.14, 0.01)))])
 # y14 手机 + 路线图小卡
 SHOTS["y14"] = dict(n=96, cells=alt(8), props=set(ALL), fixed=True, route=(8, 16), cam=[(0, shift(A1, dx=-0.02, dz=-0.05, dist=0.46)), (96, shift(A1, dx=-0.02, dz=-0.05, dist=0.44))], phone=("clean", 1))
 
@@ -252,6 +252,18 @@ M_CORAL, _ = principled("dot_coral", **{"Base Color": (0.80, 0.16, 0.10, 1), "Ro
 box("rail", RX0, RX1, YR - 0.027, YR + 0.027, 0, RAIL_H, M_RAIL, bevel=0.0006)
 box("rail_lip_n", RX0, RX1, YR - 0.027, YR - 0.0235, RAIL_H, RAIL_H + 0.0022, M_RAIL, bevel=0.0005)
 box("rail_lip_f", RX0, RX1, YR + 0.0235, YR + 0.027, RAIL_H, RAIL_H + 0.0022, M_RAIL, bevel=0.0005)
+
+
+def appear(o, f):
+    """o 在第 f 帧才出现（之前缩成 0）。只把 scale 这几条曲线设成阶跃，位置曲线照常缓动。"""
+    o.scale = (0, 0, 0); o.keyframe_insert("scale", frame=f - 1)
+    o.scale = (1, 1, 1); o.keyframe_insert("scale", frame=f)
+    ad = o.animation_data
+    for layer in ad.action.layers:
+        for strip in layer.strips:
+            for fc in strip.channelbag(ad.action_slot).fcurves:
+                if fc.data_path == "scale":
+                    for kp in fc.keyframe_points: kp.interpolation = "CONSTANT"
 
 
 def keys_val(sock, pairs, kind="LINEAR"):
@@ -659,10 +671,11 @@ if SP.get("gate"):                                                              
         cyl("gate_leg", (sx * 0.052, 0.0006, 0), (sx * 0.052, 0.0006, 0.070), 0.0018, M_BRASS, 12).parent = gate
     q = tex_quad("gate_card", (0, -0.0005, 0.048), (1, 0, 0), (0, 0, 1), 0.120, 0.056, "gate"); q.parent = gate
     box("gate_back", -0.060, 0.060, 0.0, 0.0012, 0.020, 0.076, PLY).parent = gate
-    gate.keyframe_insert("location", frame=f1 - 6)
+    gate.location.z = 0.42; gate.keyframe_insert("location", frame=f1 - 7)
     gate.location.z = 0.0; gate.keyframe_insert("location", frame=f1 - 1)
     gate.location.z = 0.006; gate.keyframe_insert("location", frame=f1 + 2)
     gate.location.z = 0.0; gate.keyframe_insert("location", frame=f1 + 5)
+    appear(gate, f1 - 7)
 
 # =====================================================================================================
 # 透明尺：只盖数据道（盖点的白边露在外面），贴着纸带一起走；刻度一格一道
@@ -676,7 +689,7 @@ nt2.links.new(mix.outputs[0], nt2.nodes["Material Output"].inputs["Surface"])
 RU = SP.get("ruler")
 M_TICK, _ = principled("ruler_tick", **{"Base Color": (0.93, 0.90, 0.80, 1), "Roughness": 0.5})
 ncell = RU["cells"] if RU else 8
-ruler = empty("ruler", (-0.22, -0.27, 0), (0, 0, radians(7)))
+ruler = empty("ruler", (-0.22, -0.27, -5.0 if not RU else 0), (0, 0, radians(7)))      # 不用尺的镜头把它放到桌子下面看不见的地方
 RL = CELL * ncell + 0.012
 RY0, RY1 = -0.0128, 0.0128
 box("ruler_body", -RL / 2, RL / 2, RY0, RY1, 0.0002, 0.0026, M_ACR, bevel=0.0004).parent = ruler
@@ -747,6 +760,7 @@ for nm_ in ("fix1", "fix2", "fix3"):
         r.location.z = 0.0; r.keyframe_insert("location", frame=f0)
         r.location.z = 0.004; r.keyframe_insert("location", frame=f0 + 2)
         r.location.z = 0.0; r.keyframe_insert("location", frame=f0 + 4)
+        appear(r, f0 - 5)
 if "meters" in PROPS:
     box("strip", STRIP.x - 0.11, STRIP.x + 0.11, STRIP.y - 0.022, STRIP.y + 0.022, 0, 0.022, M_PLAIN, bevel=0.002)
     for i in range(4):
@@ -783,10 +797,12 @@ if "serdes" in PROPS:                                                           
     tg = empty("serdes_tag", (-0.06, -0.33, 0.0))                                           # 一张大签，斜靠在小木条上，落在装置前面的桌面上
     tex_quad("serdes_card", (0, 0, 0.028), (1, 0, 0), (0, 0.92, 0.39), 0.50, 0.150, "tag_serdes").parent = tg
     box("serdes_foot", -0.25, 0.25, 0.060, 0.072, 0, 0.056, WALNUT, bevel=0.0008).parent = tg
-    tg.location.z = 0.40; tg.keyframe_insert("location", frame=f0)
+    tg.location = (-0.06, -0.55, 0.50); tg.keyframe_insert("location", frame=f0)                 # 从镜头这一侧的画外落进来
+    tg.location = (-0.06, -0.33, 0.0)
     tg.location.z = 0.0; tg.keyframe_insert("location", frame=f1)
     tg.location.z = 0.008; tg.keyframe_insert("location", frame=f1 + 2)
     tg.location.z = 0.0; tg.keyframe_insert("location", frame=f1 + 4)
+    appear(tg, f0)
 if "cutter" in PROPS:
     for sy in (-1, 1):
         box("cut_post", X_CUT - 0.004, X_CUT + 0.004, YR + sy * 0.031 - 0.004, YR + sy * 0.031 + 0.004, 0, 0.075, M_BRASS, bevel=0.0006)
@@ -796,8 +812,8 @@ if "cutter" in PROPS:
     TRX = 0.505                                                                            # 右托盘：切下来的八段并排
     box("tray_r", TRX - 0.006, TRX + 0.225, YR - 0.150, YR - 0.096, 0, 0.004, WALNUT, bevel=0.001)
     cuts = [(a + (X_CUT - SLIT_X) / V, bit) for a, b, bit in PAT_B if b - a >= 15]         # (这一格的前沿到切刀的帧, 颜色)
-    done = [c for c in cuts if c[0] < 0][-5:] if SP.get("cut") else [c for c in cuts if c[0] < 0][-8:]
-    todo = [c for c in cuts if 0 <= c[0] < NF][:3] if SP.get("cut") else []
+    done = [c for c in cuts if c[0] < 0][-3:] if SP.get("cut") else [c for c in cuts if c[0] < 0][-8:]
+    todo = [c for c in cuts if 0 <= c[0] < NF - TB][:5] if SP.get("cut") else []
 
     def piece(i, bit):
         root = empty(f"piece{i}", (TRX + 0.014 + i * 0.027, YR - 0.123, 0.0044))
@@ -850,6 +866,7 @@ if SP.get("route"):
     rc.location = rest; rc.rotation_euler = (0, 0, radians(-5)); rc.keyframe_insert("location", frame=f1); rc.keyframe_insert("rotation_euler", frame=f1)
     rc.location = rest + Vector((0, 0, 0.004)); rc.keyframe_insert("location", frame=f1 + 2)
     rc.location = rest; rc.keyframe_insert("location", frame=f1 + 4)
+    appear(rc, f0)
 
 # =====================================================================================================
 # 发光信号（暗场）：纸带前面一块真电路板，走线上的金色明暗段和纸带同图样同速，走进芯片引脚
@@ -932,8 +949,8 @@ if G:
     lane = add_obj("signal_lane", mesh_from("signal_lane", verts, faces, loop_uvs=luv)); lane.data.materials.append(M_SIG)
     PIN = pts[-1]
 
-    def blip(name, at, rad, color, frames, peak):
-        m, b = principled(name, **{"Base Color": (0.02, 0.02, 0.02, 1), "Roughness": 0.3})
+    def blip(name, at, rad, color, frames, peak, base=(0.02, 0.02, 0.02, 1)):
+        m, b = principled(name, **{"Base Color": base, "Roughness": 0.3})
         b.inputs["Emission Color"].default_value = (*color, 1); e = b.inputs["Emission Strength"]; e.default_value = 0.0
         cyl(name, at, at + Vector((0, 0, 0.0005)), rad, m, 20)
         for f_, w in frames:
@@ -942,7 +959,8 @@ if G:
         set_interp(m.node_tree, "LINEAR")
     blip("pin_flash", PIN + Vector((0.0016, 0, 0.0002)), 0.0016, (1.0, 0.56, 0.14), EDGES, P.get("sig", 9.0) * 4)
     blip("chip_sample", SAMPLE, 0.0022, (0.03, 0.22, 1.0),
-         [(r, PER[r]) for r in RIGHTS if -2 <= r <= NF + 2], P.get("smp", 3.0))
+         [(r, PER[r]) for r in RIGHTS if -2 <= r <= NF + 2], P.get("smp", 3.0),
+         base=(0.45, 0.45, 0.46, 1) if BOARD == "gpt" else (0.02, 0.02, 0.02, 1))          # 不亮的时候和金属盖一个颜色，不留一个黑点
     set_interp(nt3, "LINEAR")
 
 # =====================================================================================================
