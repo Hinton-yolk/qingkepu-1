@@ -41,12 +41,12 @@ const COVERS = [
     hero: "ep05-hero-xhs", heroDy: 0, anchor: A["ep05-hero-xhs"], inset: { img: "ep05-inset", cx: 480, cy: 1080, src: 360, x: 870, y: 900, r: 170 }, tag: "电穿过身体",
     ser: 108, t1: 252, t2: 398, size: 120, wash: 480 },
   { out: "ep06-douyin", W: 1080, H: 1920, ep: "EP.06", title: ["化了妆、戴了口罩，", "手机为什么还<b>认得</b>你？"],
-    hero: "ep06-hero", heroDy: 130, anchor: [447, 898], inset: { img: "ep06-inset", cx: 540, cy: 1020, src: 380, x: 840, y: 1350, r: 200 }, tag: "红外光点量出高低",
-    inset2: { img: "ep06-mask", cx: 470, cy: 800, src: 300, x: 210, y: 1390, r: 140, tag: "戴口罩也认得" },
+    hero: "ep06-hero", heroDy: 130, anchor: [640, 912], inset: { img: "ep06-inset", cx: 540, cy: 1020, src: 380, x: 840, y: 1350, r: 200 }, tag: "红外光点量出高低",
+    inset2: { img: "ep06-mask", cx: 440, cy: 800, src: 300, x: 220, y: 1380, r: 160, tag: "戴口罩只看眼周" },
     ser: 300, t1: 452, t2: 602, size: 104, wash: 760 },
   { out: "ep06-xiaohongshu", W: 1080, H: 1440, ep: "EP.06", title: ["化了妆、戴了口罩，", "手机为什么还<b>认得</b>你？"],
-    hero: "ep06-hero", heroDy: -200, anchor: [447, 898], inset: { img: "ep06-inset", cx: 540, cy: 1020, src: 380, x: 850, y: 1140, r: 170 }, tag: "红外光点量出高低",
-    inset2: { img: "ep06-mask", cx: 470, cy: 800, src: 300, x: 170, y: 1150, r: 115, tag: "戴口罩也认得" },
+    hero: "ep06-hero", heroDy: -200, anchor: [640, 912], inset: { img: "ep06-inset", cx: 540, cy: 1020, src: 380, x: 885, y: 1060, r: 170 }, tag: "红外光点量出高低",
+    inset2: { img: "ep06-mask", cx: 440, cy: 800, src: 300, x: 170, y: 1150, r: 115, tag: "戴口罩只看眼周" },
     ser: 108, t1: 252, t2: 398, size: 100, wash: 500 },
 ];
 const ONLY = process.argv[2];                                   // node make.mjs ep04 → only those covers
