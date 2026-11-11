@@ -5,7 +5,7 @@ rig.py 是 y6 试镜头那一版，留作记录；这里把同一套装置做成
 用法：
   blender -b -P film.py -- <tex目录> <素材目录> <输出> [缩放% 默认25] [采样 默认32] shot=<镜头> [key=value ...]
   still=<帧>        只渲一帧（<输出> 是 png），同时把这一帧的屏幕锚点写到 <输出>.json（合成贴字用）
-  fs=<帧> fe=<帧>   渲一段，<输出> 是目录（f_0000.png …）
+  fs=<帧> fe=<帧>   渲一段，<输出> 是目录（f_0000.png …）；step=2 隔帧渲（草稿用）
   anchors=1         不渲染，把每帧的屏幕锚点写到 <输出>（json）
   其它：gpu=1 thr=<自适应阈值> mb=0 exposure fstop …
 镜头名见 SHOTS。同一条时间线上切了机位的，一个机位一个镜头名（s34a / s34b / s34c、s9a / s9b、y6g / y6c），各渲各的帧段（RANGE），
@@ -999,11 +999,15 @@ def anchors_at(f_):
 
 
 if P.get("anchors"):
-    json.dump({"fps": FPS, "frames": NF, "pts": [anchors_at(f_) for f_ in range(NF)]}, open(OUT, "w"))
+    ev = {"edges": [[round(t, 2), round(w, 2), round(1.0 - max(0.0, (g_at(t) - 0.35) / 0.65) * (1.0 if w < 15 else 0.0) * 0.92, 2)] for t, w in EDGES],   # 鼓：帧、相邻格宽、强度
+          "stamps": [[round(r, 2), int(bit_at(PAT_A, r)), round(PER[r], 2)] for r in RIGHTS if -1 <= r <= NF],                                       # 啪：帧、实心?、周期
+          "press": [[round(p_[0], 2), round(p_[1], 2)] for p_ in PRESS if 0 <= p_[0] <= NF]}                                                          # 印带器：帧、格宽
+    json.dump({"fps": FPS, "frames": NF, "pts": [anchors_at(f_) for f_ in range(NF)], "events": ev}, open(OUT, "w"))
     print("[anchors]", OUT)
 elif "fs" in P:
     os.makedirs(OUT, exist_ok=True)
     scene.frame_start, scene.frame_end = int(P["fs"]), int(P["fe"])
+    scene.frame_step = int(P.get("step", 1))                 # 草稿可以隔帧渲（step=2）
     scene.render.filepath = os.path.join(OUT, "f_####")
     T0 = {}
     log = open(os.path.join(OUT, f"times_{int(P['fs']):04d}.txt"), "w")

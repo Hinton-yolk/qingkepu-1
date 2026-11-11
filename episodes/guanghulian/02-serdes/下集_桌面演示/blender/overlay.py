@@ -1,5 +1,5 @@
 """合成用的小部件（接触表和成片共用）：后期（高光晕、暗角、颗粒，参数同 blender_desk_look/post.py）、小纸签、字幕条、五站条、系列名。
-画面坐标都按 1080×1920 设计，s = 实际宽度 / 1080。界面避让按系列 skill 的抖音版：五站条 y = 200，字幕 y = 1400，小签放在 310–1320 之间。"""
+画面坐标都按 1080×1920 设计，s = 实际宽度 / 1080。界面避让按系列 skill 的抖音版：字幕 y = 1400，小签放在 170–1320 之间；顶部不放五站条。"""
 import random
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
@@ -62,7 +62,7 @@ class Kit:
         w, h = b[2] - b[0] + 2 * pad, b[3] - b[1] + 2 * pad
         x, y = xy
         x -= {"l": 0, "m": w / 2, "r": w}[anchor[0]]; y -= {"t": 0, "m": h / 2, "b": h}[anchor[1]]
-        x = min(max(x, 24 * s), self.W - w - 24 * s); y = min(max(y, 300 * s), 1325 * s - h)        # 不出画，不进界面避让区
+        x = min(max(x, 24 * s), self.W - w - 24 * s); y = min(max(y, 170 * s), 1325 * s - h)        # 不出画，不进界面避让区
         lay = Image.new("RGBA", im.size, (0, 0, 0, 0)); ld = ImageDraw.Draw(lay)
         if line_to:
             ld.line([line_to, (x + w / 2, y + h / 2)], fill=(*PAPER, int(255 * alpha)), width=max(1, int(3 * s)))
@@ -94,17 +94,9 @@ class Kit:
             ld.text((cx - (b[2] - b[0]) / 2 - b[0], cy - h / 2 + i * lh + (lh - (b[3] - b[1])) / 2 - b[1]), t, font=self.f_sub, fill=(*CREAM, 255))
         im.alpha_composite(lay)
 
-    def chrome(self, im, station=0, next_station=None):
-        """顶部五站条（快递叫法，亮当前这一站）+ 右上角系列名。"""
+    def chrome(self, im):
+        """右上角系列名。顶部五站条在实拍质感的片子里不放（用户 2026-11-11：「实拍质感的不要留顶部的五站条了，大概率大家不会关注，还影响画面」）。"""
         s = self.s; lay = Image.new("RGBA", im.size, (0, 0, 0, 0)); ld = ImageDraw.Draw(lay)
-        ws = [ld.textbbox((0, 0), n, font=self.f_st)[2] for n in STATIONS]
-        gap = 34 * s; total = sum(ws) + gap * 4; x = (self.W - total) / 2; y = 200 * s
-        self._torn(ld, (x - 26 * s, y - 30 * s, x + total + 26 * s, y + 34 * s), (*DARK, 215), 3)
-        for i, (n, w) in enumerate(zip(STATIONS, ws)):
-            on = i == station or i == next_station
-            ld.text((x, y - 22 * s), n, font=self.f_st, fill=(*CREAM, 255) if on else (*CREAM, 110))
-            if i == station: ld.line([(x, y + 22 * s), (x + w, y + 22 * s)], fill=(*CORAL, 255), width=max(2, int(5 * s)))
-            x += w + gap
         t = "一语道破 · 白话光互连"; b = ld.textbbox((0, 0), t, font=self.f_ser)
         ld.text((self.W - (b[2] - b[0]) - 36 * s, 112 * s), t, font=self.f_ser, fill=(*CREAM, 200), stroke_width=max(1, int(2 * s)), stroke_fill=(20, 20, 20, 160))
         im.alpha_composite(lay)

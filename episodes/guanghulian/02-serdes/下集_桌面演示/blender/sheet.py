@@ -62,7 +62,7 @@ for beat, shot, f, tags, note in FRAMES:
         ax, ay = A[anc][0] * kit.W, A[anc][1] * kit.H
         kit.tag(im, (ax + dx * s, ay + dy * s), text, anchor=corner, big=big, line_to=None if big else (ax, ay))
     if note: kit.note(im, note)
-    kit.chrome(im, station=0, next_station=1 if beat == "y14" else None)
+    kit.chrome(im)
     kit.subtitle(im, sub_at(t))
     cells.append((f"{beat} · {t:.1f} 秒", im.convert("RGB")))
 
