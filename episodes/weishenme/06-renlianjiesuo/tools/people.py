@@ -78,7 +78,7 @@ while q:
         ny, nx = y + dy, x + dx
         if 0 <= ny < H and 0 <= nx < W and not seen[ny, nx] and dark[ny, nx]: seen[ny, nx] = True; q.append((ny, nx))
 scr = Image.fromarray((seen * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.MinFilter(3))
-scr.save(OUT / "screen-mask.png")
+m8 = np.asarray(scr); Image.fromarray(np.dstack([np.full_like(m8, 255)] * 3 + [m8]), "RGBA").save(OUT / "screen-mask.png")   # alpha = the screen (canvas destination-in reads alpha)
 ys, xs = np.where(np.asarray(scr) > 128)
 print("screen bbox", xs.min(), ys.min(), xs.max(), ys.max())
 for f in sorted(OUT.iterdir()): print(f.name, f.stat().st_size // 1024, "KB")
