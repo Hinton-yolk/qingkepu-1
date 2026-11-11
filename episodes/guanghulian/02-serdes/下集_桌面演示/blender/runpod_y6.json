@@ -1,0 +1,9 @@
+{
+  "scene_dir": "out/y6_scene",
+  "script": "rig.py",
+  "out_dir": "out/y6_gpu",
+  "sec_per_unit": 5,
+  "tasks": [
+    {"args": ["/w/scene/tex", "/w/scene/dl", "{out}/y6", "100", "128", "gpu=1", "thr=0.02", "fs=0", "fe=215"], "units": 216}
+  ]
+}

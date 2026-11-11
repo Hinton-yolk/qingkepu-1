@@ -174,7 +174,7 @@ def main():
             except SystemExit as e:                     # Community 没空卡时换 Secure（贵一些）
                 if 'no instances' not in str(e) or cloud == 'SECURE' or '--no-secure' in a: raise
                 print('Community Cloud 没空卡，改用 Secure Cloud'); body['cloudType'] = 'SECURE'; p = api('POST', '/pods', body)
-            pods.append(dict(id=p['id'], token=token, cost=p.get('costPerHr'), done=False, uploaded=False, got=set()))
+            pods.append(dict(id=p['id'], token=token, cost=p.get('costPerHr'), done=False, uploaded=False, got={}))
             print(f"建好 pod {i}: {p['id']}  每小时 ${p.get('costPerHr')}  {(p.get('machine') or {}).get('gpuTypeId') or p.get('gpuTypeId') or '?'}  {body['cloudType']}")
             json.dump([dict(id=q['id'], token=q['token']) for q in pods], open(STATE, 'w'))
         t0 = time.time(); last = {}
@@ -189,15 +189,15 @@ def main():
                     pod_http(q['id'], q['token'], 'PUT', '/bundle', data, timeout=95); q['uploaded'] = True; print(q['id'], '场景已上传')
                 for rel, size in st.get('files', []):       # 渲好一张拉一张
                     dst = os.path.join(J['out_dir'], rel)
-                    if rel in q['got'] or size < 10000 and rel.endswith('.png'): continue
-                    if os.path.exists(dst) and os.path.getsize(dst) == size: q['got'].add(rel); continue
+                    if q['got'].get(rel) == size or size < 10000 and rel.endswith('.png'): continue   # 大小变了（还在写、或日志又长了）就重拉
+                    if os.path.exists(dst) and os.path.getsize(dst) == size: q['got'][rel] = size; continue
                     os.makedirs(os.path.dirname(dst), exist_ok=True)
-                    try: open(dst, 'wb').write(pod_http(q['id'], q['token'], 'GET', '/out/' + rel)); q['got'].add(rel)
+                    try: open(dst, 'wb').write(pod_http(q['id'], q['token'], 'GET', '/out/' + rel)); q['got'][rel] = size
                     except Exception as e: print('下载失败，下轮重试', rel, e)
                 msg = f"[{(time.time() - t0) / 60:5.1f} 分] {q['id']} {st.get('stage')} {st.get('cur', '')} 已拉回 {len(q['got'])}"
                 if st.get('fails'): msg += ' 失败：' + st['fails'].strip().replace('\n', ' | ')[:300]
                 if last.get(q['id']) != msg: print(msg, flush=True); last[q['id']] = msg
-                if st.get('stage') == 'done' and len(q['got']) >= len([f for f in st['files'] if not (f[0].endswith('.png') and f[1] < 10000)]):
+                if st.get('stage') == 'done' and all(q['got'].get(f[0]) == f[1] for f in st['files'] if not (f[0].endswith('.png') and f[1] < 10000)):
                     if st.get('log'): open(os.path.join(J['out_dir'], f"log_{q['id']}.txt"), 'w').write(st['log'] + '\n---setup---\n' + st.get('setup', ''))
                     api('DELETE', f"/pods/{q['id']}"); q['done'] = True; print(q['id'], '完成，已删除')
             time.sleep(15)
