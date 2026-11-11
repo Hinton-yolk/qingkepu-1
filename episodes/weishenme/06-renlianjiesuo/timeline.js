@@ -16,7 +16,7 @@
 
   const T = {
     // 0–2.75 · the phenomenon: the last stroke of lipstick, the phone comes up, a glance, the lock opens
-    stroke: 0, strokeEnd: 0.75, lipOut: 0.75, lipOutEnd: 1.25, rise: 0.25, riseEnd: 1.0, scan: 1.0, ka0: 1.5, underline: 2, h1Out: 2.59,
+    stroke: 0, strokeEnd: 0.75, lipOut: 0.5, lipOutEnd: 0.95, rise: 0.75, riseEnd: 1.25, scan: 1.25, ka0: 1.5, underline: 2, h1Out: 2.59,
     // 2.75–5.25 · it measures you: to the top of the phone
     a2: 2.75, toTop: 2.75, toTopEnd: 4.0, note: 3.0, noteOut: 7.5, glow: 4.25,
     // 5.25–7.75 · one take in (dark): the projector and the infrared camera
