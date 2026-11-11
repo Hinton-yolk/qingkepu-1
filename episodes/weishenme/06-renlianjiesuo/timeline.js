@@ -25,7 +25,7 @@
     a3: 7.75, turn: 7.75, turnEnd: 8.5, fire: 8.25, fireEnd: 9.25,
     q4: 10.25, a4: 12, iso: 12.25, isoEnd: 13.75,
     // 14.25–20.75 · how: the side view; the same beam (wall / nose); three beams
-    q5: 14.25, top: 14.25, topEnd: 15.0, beam: 15.25, a5: 16.25, wall: 16.25, nose: 16.75, shift: 17.25,
+    q5: 14.25, top: 14.25, topEnd: 15.0, beam: 15.0, a5: 16.25, wall: 16.25, nose: 16.75, shift: 17.25,
     a6: 18.75, b1: 19.0, b2: 19.5, b3: 20.0,
     // 20.75–25.25 · put together: the depth map; the infrared photo; both compared with the stored you
     q6: 20.75, back: 20.75, backEnd: 21.5, grow: 21.25, growEnd: 22.5, stop1: 22.5, a7: 22.75, irPhoto: 23.25, compare: 24.0, compareEnd: 24.75, match1: 24.75,

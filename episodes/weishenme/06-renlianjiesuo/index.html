@@ -322,8 +322,8 @@ function dotsScene(t) {                               // 7.75–14.25
 // The side view (示意): her profile (the makeup picture) on the left, the phone edge-on in front of her face on the right,
 // the dot projector above and the infrared camera below on its edge (in the phone they sit side by side; drawn one above the
 // other so the geometry can be seen — said on screen). A wall (the reference plane) behind her head.
-const SV = { s: 0.62, P: [800, 880], Cm: [800, 1150], f: 120, wallX: 110, phoneTop: 820, phoneBot: 1290 };
-SV.x0 = 540 - 890 * SV.s; SV.y0 = 1000 - 740 * SV.s;
+const SV = { s: 0.62, P: [740, 880], Cm: [740, 1150], f: 120, wallX: 70, phoneTop: 820, phoneBot: 1290 };
+SV.x0 = 480 - 890 * SV.s; SV.y0 = 1000 - 740 * SV.s;
 const SVP = { nose: [890, 740], lips: [852, 825], chin: [816, 935] };              // profile points in the picture (rightmost skin)
 const svXY = (q) => [SV.x0 + q[0] * SV.s, SV.y0 + q[1] * SV.s];
 function svImg(Q) { return SV.Cm[1] + (SV.Cm[1] - Q[1]) * SV.f / (SV.Cm[0] - Q[0]); }          // where a point lands in the camera (a vertical strip right of it)
@@ -332,7 +332,7 @@ function svBeam(name) {
   return { N, W: [SV.wallX, SV.P[1] + dy * kW] };
 }
 function topScene(t) {                                   // (kept name) the side view, 14.25–20.75
-  const pz = 1 + 0.06 * prog(t, T.top, T.back), Z = { s: pz, tx: 540 - 540 * pz, ty: 1050 - 1050 * pz };
+  const pz = 1 + 0.1 * prog(t, T.top - 0.5, T.back), Z = { s: pz, tx: 540 - 540 * pz, ty: 1050 - 1050 * pz };   // a steady push (the side view has no sideways drift)
   withZoom(Z, () => sideIn(t));
   const k = E.p3out(prog(t, T.top, T.topEnd)), A = k * (1 - E.p3io(prog(t, T.back, T.back + 0.35)));
   if (t >= T.top) tag(COPY.topv, 96, 650, A * E.p3out(prog(t, T.top, T.top + 0.4)), { fixed: true });
@@ -358,6 +358,11 @@ function sideIn(t) {
   ID(); ctx.save(); ctx.globalAlpha = A;
   rr(SV.P[0] - 14, SV.phoneTop, 28, SV.phoneBot - SV.phoneTop, 12); ctx.fillStyle = "#2A2E34"; ctx.fill(); ctx.strokeStyle = "rgba(241,240,236,0.55)"; ctx.lineWidth = 3; ctx.stroke();
   ctx.save(); ctx.translate(SV.P[0], SV.P[1]); ctx.scale(0.42, 0.42); module(0, 0, 60, "proj", t); ctx.restore();
+  if (t < T.wall) for (let i = 0; i < 3; i++) {          // before the beam: the projector sends out faint rings (it is about to project)
+    const u = ((t - T.top) * 1.4 + i / 3) % 1; ctx.globalAlpha = A * 0.5 * (1 - u) * (1 - prog(t, T.wall - 0.3, T.wall));
+    ctx.strokeStyle = C.dot; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(SV.P[0], SV.P[1], 26 + 110 * u, 0, TAU); ctx.stroke();
+  }
+  ctx.globalAlpha = A;
   ctx.save(); ctx.translate(SV.Cm[0], SV.Cm[1]); ctx.scale(0.42, 0.42); module(0, 0, 56, "cam", t); ctx.restore();
   // the camera's image: a short strip just right of the camera
   const sx = SV.Cm[0] + 52; ctx.strokeStyle = "rgba(241,240,236,0.45)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(sx, SV.Cm[1] - 120); ctx.lineTo(sx, SV.Cm[1] + 120); ctx.stroke();
@@ -380,11 +385,11 @@ function svBeamDraw(t, name, A, lit, first, idx, tb) {
   ctx.strokeStyle = C.dot; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(SV.P[0], SV.P[1]); ctx.lineTo(lerp(SV.P[0], end[0], beamIn), lerp(SV.P[1], end[1], beamIn)); ctx.stroke();
   if (beamIn > 0.2) { const u = ((t * 1.25 + idx * 0.33) % 1) * beamIn; ctx.fillStyle = C.dot; ctx.beginPath(); ctx.arc(lerp(SV.P[0], end[0], u), lerp(SV.P[1], end[1], u), 7, 0, TAU); ctx.fill(); }   // light travelling along the beam
   if (faceOn > 0.5) { ctx.setLineDash([8, 10]); ctx.strokeStyle = "rgba(221,226,232,0.35)"; ctx.beginPath(); ctx.moveTo(N[0], N[1]); ctx.lineTo(W[0], W[1]); ctx.stroke(); ctx.setLineDash([]); }
-  // the wall point (hollow) and where the camera sees it
+  // the wall point (hollow) and where the camera sees it (the three-beam stretch shows only the camera's hollow point, not the wall's)
   if (showWall > 0) {
     ctx.globalAlpha = A * showWall * (faceOn > 0.5 ? 0.45 : 1) * (0.15 + 0.85 * lit);
-    ctx.strokeStyle = C.dot; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(W[0], W[1], 10, 0, TAU); ctx.stroke();
-    ctx.strokeStyle = "rgba(221,226,232,0.25)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(W[0], W[1]); ctx.lineTo(SV.Cm[0], SV.Cm[1]); ctx.stroke();
+    if (first) { ctx.strokeStyle = C.dot; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(W[0], W[1], 10, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = "rgba(221,226,232,0.25)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(W[0], W[1]); ctx.lineTo(SV.Cm[0], SV.Cm[1]); ctx.stroke(); }
     if (lit > 0.5) ctx.globalAlpha = A * showWall;                // the camera's hollow point (where it would be without a face) stays bright: the start of the arrow
     ctx.beginPath(); ctx.arc(sx, svImg(W), lit > 0.5 ? 14 : 10, 0, TAU); ctx.strokeStyle = C.dot; ctx.lineWidth = lit > 0.5 ? 4 : 3; ctx.stroke();
   }
@@ -739,7 +744,8 @@ function drawDark(t) {
 const DRIFT = { z: 0.05, x: 26, y: 10 };
 function driftZ(t) {
   if (t >= T.end) return { s: 1, tx: 0, ty: 0 };
-  const s = 1 + DRIFT.z + DRIFT.z * Math.sin(TAU * t / 9), dx = DRIFT.x * Math.sin(TAU * t / 6.7 + 0.7), dy = DRIFT.y * Math.sin(TAU * t / 7.9 + 2.1);
+  const side = prog(t, T.top - 0.5, T.top) * (1 - prog(t, T.back, T.back + 0.5));   // the side view keeps clear of the platform's right-hand column: no sideways drift there
+  const s = 1 + DRIFT.z + DRIFT.z * Math.sin(TAU * t / 9), dx = DRIFT.x * (1 - side) * Math.sin(TAU * t / 6.7 + 0.7), dy = DRIFT.y * (1 + 1.6 * side) * Math.sin(TAU * t / 7.9 + 2.1);
   return { s, tx: 540 - 540 * s + dx, ty: 1400 - 1400 * s + dy };
 }
 function frame(t) {
