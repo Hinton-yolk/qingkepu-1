@@ -35,10 +35,9 @@ def block(im, cx, y, text, size, bg, fg, seed, kw=None, pad=(34, 16)):
 
 
 def cover(im, y, size, wide=True):
-    """wide=True（抖音 9:16）：系列签、两行大字、副题都压在桌面上。False（小红书 3:4）：桌面只够放两行大字，系列签挪到左上角，不放副题。"""
+    """系列签在左上角，两行大字压在纸带下面的桌面上。wide=True（抖音 9:16）多一行副题，整组字收在 y 1680 以上（主页网格按 3:4 居中裁，底部还有界面）；小红书 3:4 不放副题。"""
     cx = im.size[0] / 2
-    if wide: y = block(im, cx, y, TAG, 40, RED, CREAM, 1, pad=(22, 12)) + 22
-    else: block(im, 300, 60, TAG, 40, RED, CREAM, 1, pad=(22, 12))
+    block(im, 300, 64, TAG, 40, RED, CREAM, 1, pad=(22, 12))       # 系列签在左上角：桌面留给大字
     y = block(im, cx, y, L1, size, DARK, CREAM, 2) + 14
     y = block(im, cx, y, L2, size, PAPER, DARK, 3, kw=KW) + 22
     if wide: block(im, cx, y, SUB, 46, DARK, CREAM, 4, pad=(26, 14))
@@ -47,6 +46,6 @@ def cover(im, y, size, wide=True):
 
 base = grade(Image.open(os.path.join(SRC, "y5", "f_0075.png")), seed=75)
 assert base.size == (1080, 1920), base.size
-cover(base.copy(), 1190, 136).save(os.path.join(OUT, "封面_抖音_1080x1920.png"))
+cover(base.copy(), 1240, 128).save(os.path.join(OUT, "封面_抖音_1080x1920.png"))
 cover(base.crop((0, 160, 1080, 1600)), 1082, 124, wide=False).save(os.path.join(OUT, "封面_小红书_1080x1440.png"))
 print("ok")

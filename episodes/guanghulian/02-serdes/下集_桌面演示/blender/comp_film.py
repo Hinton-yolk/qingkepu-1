@@ -28,7 +28,7 @@ TAGS = {
     "y2": [(4, 36, "tray", "一排", "mt", (0, 215), False), (62, 102, "tape_mid", "排成一列", "mt", (0, 50), False)],
     "y3d": [(6, 36, "prn_out", "黑 = 1　白 = 0", "lt", (-40, 60), False)],
     "s34a": [(4, 90, "dot1", "数一个", "mt", (0, 60), False)],
-    "s34b": [(90, 160, "dot1", "数一个", "mt", (0, 60), False), (167, 187, "ruler", "一格多长 = 节拍", "mt", (0, 70), False)],
+    "s34b": [(90, 138, "dot1", "数一个", "mt", (0, 60), False), (140, 187, "ruler", "一格多长 = 节拍", "mt", (0, 70), False)],   # 尺子 132 帧落稳，签跟着出（全片最要紧的一张签，留够 1.9 秒）
     "y5": [(20, 118, "lamp", "鼓点", "lt", (30, 60), False)],
     "y6g": [(30, 94, "pin", "信号跳一下", "rb", (-30, -70), False)],
     "s9a": [(12, 62, "dot", "每条通道：快一倍", "mt", (0, 70), False)],
@@ -39,12 +39,16 @@ NOTES = {"s34a": (0, 90, "示意：只画两种电平")}       # 全片唯一的
 LOUD = {"s34a": (0, 90), "s34b": (90, 100), "y6c": (146, 234)}     # 要观众数的「啪」：y3–y4 的四下、y6 长黑带上的五下；其余都压低
 
 
-def fade(f, f0, f1, n=5): return max(0.0, min(1.0, (f - f0 + 1) / n, (f1 - f) / n))
+def fade(f, f0, f1, n=5, hard_in=False):
+    """小签淡入淡出各 n 帧。hard_in：不淡入（全片第一帧的大字问题必须一上来就在）。"""
+    return max(0.0, min(1.0, 1.0 if hard_in else (f - f0 + 1) / n, (f1 - f) / n)) if f >= f0 else 0.0
 
 
 def sub_at(t):
-    for a, b, txt in SUBS:
-        if a <= t < b + 0.12: return txt
+    for a, b, txt in SUBS:                                # 正在说的那一句优先
+        if a <= t < b: return txt
+    for a, b, txt in SUBS:                                # 句间的空隙里，上一句多留 0.12 秒，免得字幕一闪一闪
+        if b <= t < b + 0.12: return txt
     return ""
 
 
@@ -56,7 +60,7 @@ def frame_job(job):
     kit = Kit(FONTS, im.size[0]); s = kit.s
     A = ANC[shot]["pts"][f]
     for f0, f1, anc, text, corner, (dx, dy), big in TAGS.get(shot, []):
-        a = fade(f, f0, f1)
+        a = fade(f, f0, f1, hard_in=(shot == "y1" and f0 == 0))
         if a > 0:
             ax, ay = A[anc][0] * kit.W, A[anc][1] * kit.H
             kit.tag(im, (ax + dx * s, ay + dy * s), text, alpha=a, anchor=corner, big=big, line_to=None if big else (ax, ay))
