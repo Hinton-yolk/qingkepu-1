@@ -22,6 +22,13 @@
 | 印带器、托盘和八张小卡、第二只节拍器 | 自创，代码建，**只是占位的样子** | y6 不入画，全景里看得到；轮到 y2、y3 时再细做 |
 | 木纹、墙面 | Poly Haven CC0 贴图 | `wood_table_001`（桌面 4k）、`plywood`、`american_walnut_veneer`（2k）、`painted_plaster_wall`（2k） |
 
+## 发光信号那一段（`glow=1`，用户 11-11：「加，就按照A来处理」）
+- 纸带前面放一块真电路板：Poly Haven「Circuit Board」（CC0，Benny Weimer），缩到 0.6，约 24 cm 见方。下载：`https://api.polyhaven.com/files/circuit_board` 里 gltf / 2k 那一组（gltf + bin + 三张贴图，约 10 MB），放进 `<素材目录>/circuit_board/` 或用 `model=<目录>` 指过去。
+- 走线：沿板上电容和芯片之间的空道另画的一条 1.1 mm 宽的发光带，斜下去进方形芯片左侧的引脚；引脚的 x 和窄缝对齐。亮暗图样和纸带同一份、同速。
+- 金色 = 电信号。**不画成激光**（这一集是电）。跳变到达时引脚金色闪一下；每个节拍正中芯片上蓝色亮一下。
+- 灯：百叶放下来合上（`blind=0.15 slat=-50`），只剩窗缝里的天光，曝光 +2.9。金色的光能照亮旁边的电容，读带口的小灯能照亮黄铜板。后期照旧不加辉光和雾。
+- 机位：上半是纸带和读带口，下半是电路板，慢推。只渲前 96 帧（4 秒）。
+
 ## y6 的时间表（24 帧 / 秒，216 帧 = 9 秒）
 - 一格 = 20 帧（0.83 秒）；纸带每秒走 28.8 mm。
 - 黑白交界过窄缝（小灯亮、鼓）：第 0、20、40、60、80（进长黑带）、180（出长黑带）帧。
@@ -48,5 +55,10 @@ blender -b -P rig.py -- <tex> <素材> out/E.png 25 32 cam=E still=90      # 整
 blender -b -P rig.py -- <tex> <素材> out/draft 50 24 thr=0.08 fs=0 fe=215   # 540×960 草稿
 blender -b -P rig.py -- <tex> <素材> out/anchors.json 50 24 anchors=1    # 合成用的屏幕锚点
 python3 comp.py out/draft out/anchors.json <素材目录> out/y6_draft.mp4
+# 发光信号那一段（4 秒）
+blender -b -P rig.py -- <tex> <素材> out/draft_glow 50 32 thr=0.06 glow=1 model=<电路板模型目录> fs=0 fe=95
+blender -b -P rig.py -- <tex> <素材> out/anchors_glow.json 50 24 anchors=1 glow=1 model=<电路板模型目录>
+python3 comp.py out/draft_glow out/anchors_glow.json <素材目录> out/y6_glow_draft.mp4 --glow
 ```
 Blender 5.2 的坑：后台模式下「新关键帧插值」的偏好设置不生效，匀速 / 阶跃的关键帧要在 F 曲线上显式设（`rig.py` 的 `set_interp`），否则纸带会缓入缓出、蓝点会提前慢慢长出来。
+另一个坑：代码里生成的图（`bpy.data.images.new` + 写 `pixels`）要 `pack()`，否则 Cycles 读到的是空图（金色脉冲不亮）。

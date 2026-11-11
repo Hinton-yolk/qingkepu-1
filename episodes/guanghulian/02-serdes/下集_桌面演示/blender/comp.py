@@ -1,6 +1,7 @@
 """y6 试镜头的合成：后期（高光晕、暗角、颗粒，和 blender_desk_look/post.py 同一套参数，颗粒逐帧换）
 + 字幕 + 两张小签 + 占位声音（鼓 / 啪 / 嗒），输出 mp4。
-用法：python3 comp.py <帧目录> <anchors.json> <字体目录> <输出.mp4> [--no-text]
+用法：python3 comp.py <帧目录> <anchors.json> <字体目录> <输出.mp4> [--no-text] [--glow]
+--glow：发光信号那一段（rig.py glow=1 渲的帧，只有前 4 秒）：小签贴在小灯和芯片引脚旁，加角注。
 字幕时间是估的（这台机器上没有配音文件），只用来对动作；声音是代码合成的占位音。"""
 import sys, os, json, subprocess, wave
 import numpy as np
@@ -8,11 +9,15 @@ from PIL import Image, ImageDraw, ImageFont
 
 SRC, ANCH, FONTS, DST = sys.argv[1:5]
 TEXT = "--no-text" not in sys.argv
-A = json.load(open(ANCH)); FPS, NF = A["fps"], A["frames"]
+GLOW = "--glow" in sys.argv
+A = json.load(open(ANCH)); FPS = A["fps"]
+files = sorted(f for f in os.listdir(SRC) if f.startswith("f_") and f.endswith(".png"))
+NF = len(files)
 TB = 20
 SUBS = [(0.0, 1.25, "芯片也一样："), (1.25, 3.3, "信号每跳一下，就是一个鼓点。"), (3.3, 5.0, "它跟着鼓点校准自己，"),
         (5.0, 7.05, "再按节拍一个一个清点："), (7.05, 8.9, "五个，不是四个。")]
-EDGES = [0, 20, 40, 60, 80, 180]                 # 黑白交界过窄缝（鼓）
+SUBS = [x for x in SUBS if x[0] < NF / FPS - 0.3]
+EDGES = [f for f in (0, 20, 40, 60, 80, 180) if f < NF]   # 黑白交界过窄缝（鼓）
 STAMPS = list(range(10, NF, TB))                 # 盖点（啪）
 TICKS = list(range(0, NF, TB))                   # 摆到左头（嗒）
 
@@ -71,12 +76,12 @@ def tag(im, xy, lines, alpha, s, font, anchor="lb"):
     im.alpha_composite(lay)
 
 
-files = sorted(f for f in os.listdir(SRC) if f.startswith("f_") and f.endswith(".png"))
-assert len(files) == NF, f"帧数不对：{len(files)} / {NF}"
+assert all(name == f"f_{i:04d}.png" for i, name in enumerate(files)), "帧不连续"
 W, H = Image.open(os.path.join(SRC, files[0])).size
 s = W / 1080
 f_tag = ImageFont.truetype(f"{FONTS}/NotoSansSC-Bold.otf", int(46 * s))
 f_sub = ImageFont.truetype(f"{FONTS}/NotoSansSC-Bold.otf", int(54 * s))
+f_note = ImageFont.truetype(f"{FONTS}/NotoSansSC-Bold.otf", int(30 * s))
 
 # ---- 占位声音：鼓（交界）、啪（盖点）、嗒（左头，很轻）----
 SR = 48000
@@ -109,7 +114,15 @@ P = A["pts"]
 for f, name in enumerate(files):
     a = np.asarray(Image.open(os.path.join(SRC, name)).convert("RGB")).astype(np.float32) / 255
     im = Image.fromarray((grade(a, 100 + f) * 255 + 0.5).astype(np.uint8)).convert("RGBA")
-    if TEXT:
+    if TEXT and GLOW:
+        lx, ly = P["lamp"][f][0] * W, P["lamp"][f][1] * H
+        px_, py_ = P["pin"][f][0] * W, P["pin"][f][1] * H
+        tag(im, (lx + 60 * s, ly - 46 * s), ["鼓点"], fade(f, -10, NF - 4), s, f_tag, "lt")
+        tag(im, (px_ + 70 * s, py_ + 30 * s), ["信号跳一下"], fade(f, 30, NF - 4), s, f_tag, "lt")
+        d = ImageDraw.Draw(im)
+        d.text((44 * s, 1335 * s), "示意：电信号本身不发光，金色为示意", font=f_note, fill=(235, 235, 235, 255),
+               stroke_width=max(1, int(3 * s)), stroke_fill=(20, 20, 20, 255))
+    if TEXT and not GLOW:
         lx, ly = P["lamp"][f][0] * W, P["lamp"][f][1] * H
         # 「鼓点」从 y5 留下来；「= 信号跳一下」在说到这半句时出现，长黑带进来前一起淡掉
         a1 = fade(f, -10, 74); a2 = fade(f, 30, 74)
@@ -121,6 +134,7 @@ for f, name in enumerate(files):
         if a3 > 0:
             bx = (P["band_l"][f][0] + P["band_r"][f][0]) / 2 * W; by = P["band_l"][f][1] * H
             tag(im, (bx - 150 * s, by + 36 * s), ["五个，不是四个"], a3, s, f_tag, "lt")
+    if TEXT:
         tsec = f / FPS
         for t0, t1, txt in SUBS:
             if t0 <= tsec < t1:

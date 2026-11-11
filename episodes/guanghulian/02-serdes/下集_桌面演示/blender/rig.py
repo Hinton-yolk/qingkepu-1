@@ -8,6 +8,7 @@
   fs=<帧> fe=<帧>   渲一段，<输出> 是目录（f_0000.png …），同目录写 times.txt（每帧秒数）
   anchors=1         不渲染，只把每帧的屏幕锚点写到 <输出>（json），给合成贴字用
   cam=E             整套装置的横屏全景（看布局用）；默认是 y6 的机位 C1 → C2
+  glow=1            发光信号那一段：纸带前面放一块真电路板（model=<模型目录>），走线上跑金色脉冲；百叶放下、房间变暗；用自己的机位
   其它：gpu=1 thr=<自适应阈值> mb=0（关运动模糊） el az sun sky exposure fstop blind=<百叶下沿高度>
 
 时间（24 帧 / 秒，共 216 帧 = 9 秒）：一格 20 帧。黑白交界过窄缝在第 0、20、40、60、80（进长黑带）、180（出长黑带）帧；
@@ -23,12 +24,17 @@ pos = [a for a in argv[3:] if "=" not in a]
 SCALE = int(pos[0]) if len(pos) > 0 else 25
 SAMPLES = int(pos[1]) if len(pos) > 1 else 32
 P = dict(el=24, az=-18, exposure=0.55, sun=8.0, sky=0.8, fstop=4.0, lens=50, blind=0.66, mb=1, slat=14)
+GLOW_DEFAULTS = dict(blind=0.15, slat=-50, exposure=2.9)     # 发光信号那一段：百叶放下来合上，只剩窗缝里的天光；金色的光才照得出周围的元件
 S = {}
 for a in argv[3:]:
     if "=" in a:
         k, v = a.split("=")
         try: P[k] = float(v)
         except ValueError: S[k] = v
+G = bool(P.get("glow"))
+if G:
+    for k, v in GLOW_DEFAULTS.items():
+        if not any(a.startswith(k + "=") for a in argv[3:]): P[k] = v
 
 FPS, NF, TB = 24, 216, 20            # 帧率、总帧数、一格（一个比特）占几帧
 CELL = 0.024                          # 一格 24 mm
@@ -555,6 +561,75 @@ prof = [(0.0, 0.0), (R_ - 0.004, 0.0), (R_ - 0.001, 0.001), (R_, 0.004), (R_, Hm
 mug = lathe("mug", prof, 64, [M_CER, M_COF], [0, 0, 0, 0, 0, 0, 0, 0, 1], split=50)
 mug.location = (0.40, 0.21, 0.0)
 
+
+# ---------- 发光信号（glow=1）：纸带前面放一块真电路板，走线上跑金色脉冲，进到一颗芯片的引脚 ----------
+# 电路板：Poly Haven「Circuit Board」（CC0，Benny Weimer），缩到 0.6（约 24 cm 见方，接近 microATX）。
+# 金色 = 电信号（系列配色）；电信号本身不发光，角注「金色发光为示意」。
+PIN = None
+if G:
+    BS = 0.6
+    BO = Vector((SLIT_X - BS * 0.024, YR - 0.040 - BS * 0.1986, BS * 0.006 + 0.0004))   # 芯片引脚的 x 对齐窄缝
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=f"{S.get('model', DL + '/circuit_board')}/circuit_board_2k.gltf")
+    for o in set(bpy.data.objects) - before:
+        if o.parent is None:
+            o.scale = (BS, BS, BS); o.location = BO
+
+    def bw(x, y, z=0.0): return BO + BS * Vector((x, y, z))
+    LZ = P.get("lanez", 0.0019)                              # 模型里板面在 z = 0.0015，走线贴在上面
+    route = [(-0.196, -0.060), (0.000, -0.060), (0.014, -0.074), (0.0235, -0.074)]   # 模型坐标：沿电容和芯片之间的空道走，斜下去进方形芯片左侧的引脚
+    pts = [bw(x, y, LZ) for x, y in route]
+    seglen = [(pts[i + 1] - pts[i]).length for i in range(len(pts) - 1)]
+    total = sum(seglen)
+    hw = P.get("lanew", 0.0011) / 2
+    verts, faces, luv = [], [], []
+    acc = 0.0
+    for i in range(len(pts) - 1):
+        a, b = pts[i], pts[i + 1]; d = (b - a).normalized(); nrm = Vector((-d.y, d.x, 0)) * hw
+        ext = d * hw * 0.42 if i < len(pts) - 2 else Vector((0, 0, 0))      # 拐角处多伸一点，接上下一段
+        n0 = len(verts)
+        verts += [tuple(a - nrm), tuple(a + nrm), tuple(b + ext + nrm), tuple(b + ext - nrm)]
+        faces.append((n0, n0 + 3, n0 + 2, n0 + 1))
+        d0, d1 = (total - acc) / CELL, (total - acc - seglen[i]) / CELL     # 离引脚还有几格
+        luv.append([(d0, 0), (d1, 0), (d1, 1), (d0, 1)])
+        acc += seglen[i]
+    Q0, Q1 = -2, 24
+    img = bpy.data.images.new("bits", (Q1 - Q0) * 16, 1)
+    px = []
+    for k in range((Q1 - Q0) * 16):
+        vv = float(bit(Q0 + k // 16)); px += [vv, vv, vv, 1.0]
+    img.pixels = px; img.update(); img.pack()               # 不打包的话 Cycles 读到的是一张空图
+    M_SIG, bsg = principled("signal", **{"Base Color": (0.55, 0.30, 0.10, 1), "Metallic": 1.0, "Roughness": 0.35})
+    nt = M_SIG.node_tree
+    uvn = nt.nodes.new("ShaderNodeUVMap"); mpn = nt.nodes.new("ShaderNodeMapping")
+    tx = nt.nodes.new("ShaderNodeTexImage"); tx.image = img; tx.interpolation = "Linear"; tx.extension = "EXTEND"
+    img.colorspace_settings.name = "Non-Color"
+    mpn.inputs["Scale"].default_value = (1 / (Q1 - Q0), 1, 1)
+    nt.links.new(uvn.outputs["UV"], mpn.inputs["Vector"]); nt.links.new(mpn.outputs["Vector"], tx.inputs["Vector"])
+    mul = nt.nodes.new("ShaderNodeMath"); mul.operation = "MULTIPLY"; mul.inputs[1].default_value = P.get("sig", 9.0)
+    nt.links.new(tx.outputs["Color"], mul.inputs[0]); nt.links.new(mul.outputs[0], bsg.inputs["Emission Strength"])
+    bsg.inputs["Emission Color"].default_value = (1.0, 0.56, 0.14, 1)
+    loc = mpn.inputs["Location"]
+    for f_ in (0, NF):                                         # 图样跟纸带同速往引脚走
+        loc.default_value = ((f_ / TB - Q0) / (Q1 - Q0), 0, 0); loc.keyframe_insert("default_value", frame=f_)
+    lane = add_obj("signal_lane", mesh_from("signal_lane", verts, faces, loop_uvs=luv)); lane.data.materials.append(M_SIG)
+    # 引脚上的两个小发光点：跳变到达时金色闪一下（鼓点）；每个节拍正中蓝色亮一下（清点一次）
+    PIN = pts[-1]
+
+    def blip(name, at, rad, color, frames, peak):
+        m, b = principled(name, **{"Base Color": (0.02, 0.02, 0.02, 1), "Roughness": 0.3})
+        b.inputs["Emission Color"].default_value = (*color, 1); e = b.inputs["Emission Strength"]; e.default_value = 0.0
+        cyl(name, at, at + Vector((0, 0, 0.0005)), rad, m, 20)
+        for f_ in frames:
+            for df, val in ((-1, 0.0), (0, peak), (1, peak * 0.6), (2, peak * 0.2), (4, 0.0)):
+                if f_ + df >= 0:
+                    e.default_value = val; e.keyframe_insert("default_value", frame=f_ + df)
+        set_interp(m.node_tree, "LINEAR")
+    blip("pin_flash", PIN + Vector((0.0016, 0, 0.0002)), 0.0016, (1.0, 0.56, 0.14), EDGES, P.get("sig", 9.0) * 4)
+    blip("chip_sample", bw(0.042, -0.0775, P.get("chipz", 0.0066)), 0.0022, (0.03, 0.22, 1.0),
+         list(range(TB // 2, NF, TB)), P.get("smp", 10.0))
+    set_interp(nt, "LINEAR")
+
 # ---------- 光：窗外的太阳 + 天空（只从窗进来），和定妆静帧一样 ----------
 el, az = radians(P["el"]), radians(P["az"])
 travel = Vector((cos(az) * cos(el), -sin(az) * cos(el), -sin(el)))
@@ -575,6 +650,10 @@ for k_ in ("dist", "pitch", "yaw"):
     for nm_, C in (("c1", C1), ("c2", C2)):
         if f"{nm_}{k_}" in P: C[k_] = P[f"{nm_}{k_}"]
 MOVE = (P.get("m0", 52), P.get("m1", 178))               # 推镜的起止帧
+if G:                                                     # 发光信号那一段：上半是纸带和读带口，下半是电路板；慢推
+    C1 = dict(t=(SLIT_X - 0.030, YR - 0.105, 0.0), dist=P.get("gdist", 0.86), pitch=P.get("gpitch", 50), yaw=P.get("gyaw", 4))
+    C2 = dict(t=(SLIT_X - 0.022, YR - 0.115, 0.0), dist=P.get("gdist", 0.86) - 0.08, pitch=P.get("gpitch", 50) + 1, yaw=P.get("gyaw", 4) - 1)
+    MOVE = (0, 96)
 
 
 def cam_pose(f):
@@ -589,7 +668,7 @@ def cam_pose(f):
 
 cd = bpy.data.cameras.new("cam"); cd.lens = P["lens"]; cd.sensor_width = 36; cd.sensor_fit = "AUTO"
 cam = bpy.data.objects.new("cam", cd); col.objects.link(cam); scene.camera = cam
-foc = empty("focus", (SLIT_X + 0.03, YR, 0.012))
+foc = empty("focus", (SLIT_X + 0.03, YR, 0.012) if not G else (SLIT_X - 0.02, YR - 0.14, 0.0))
 cd.dof.use_dof = True; cd.dof.aperture_fstop = P["fstop"]; cd.dof.focus_object = foc; cd.dof.aperture_blades = 7
 RES = (1080, 1920)
 if S.get("cam") == "E":                                   # 全景：横屏，看整套装置的布局
@@ -633,6 +712,7 @@ if P.get("anchors"):
     from bpy_extras.object_utils import world_to_camera_view
     pts = {"lamp": LAMP + Vector((0, 0, 0.004)), "slit": Vector((SLIT_X, YR + 0.005, PZ1)), "count": Vector((CX, CY, CZ + WR)),
            "sign": SG.copy(), "metro_top": Vector((SLIT_X - 0.07, YR + 0.13, 0.215))}
+    if PIN is not None: pts["pin"] = PIN.copy()
     out = {"fps": FPS, "frames": NF, "pts": {k: [] for k in list(pts) + ["band_l", "band_r"]}}
     for f_ in range(NF):
         scene.frame_set(f_)
