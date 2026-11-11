@@ -64,13 +64,13 @@
     q10: ["那[戴了口罩]，", "半张脸都挡住了呢？"],
     a10: ["它就只看你", "[眼睛]周围"],
     q11: ["只看眼睛周围，", "[够]认出你吗？"],
-    a11: ["眼周的高低和样子，", "也是你[独有]的"],
+    a11: ["眼周的高低和样子", "也是你[独有]的"],
     fin: ["妆会变，口罩会挡，", "但你脸的[形状]还在"],
     tipTag: "小提示：", tip: ["[浓妆]没认出？", "马上输一次[密码]"], tip2: ["这次和存下的够接近，", "下次更[容易]认出"],
     // labels in the picture (short; technical words only as small text)
     proj: "点阵投影器", ircam: "红外镜头", demo: "示意", dots: "红外光点 · 人眼看不见",
     wallL: "参考面", topv: "俯视", noseL: "鼻尖", cheekL: "脸颊", sideL: "脸侧", angle: "角度已放大 · 示意", imgL: "镜头里",
-    depth: "深度图", ir: "红外照片", stored: "存着的你", slight: "略变", same: "没变", before: "修容前", after: "修容后",
+    depth: "深度图", ir: "红外照片", stored: "存下的你", slight: "略变", same: "没变", before: "修容前", after: "修容后",
     setting: "需在设置里打开", setting2: "「戴口罩使用面容 ID」", hiL: "高低", lookL: "样子", lockMiss: "未识别", pass: "输入密码",
     end: ["你每天都在用，", "但你不知道", "它[怎么工作]"], epNum: "EP.06", epName: "人脸解锁",
   };
