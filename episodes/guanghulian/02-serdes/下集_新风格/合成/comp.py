@@ -342,7 +342,7 @@ def overlays(img, v, t, G):
                 ti = cp + 0.15 + 0.25 * i; yy = yb - (i + 0.5) * B.BIT; p = B.proj(G, 0.0, yy); q = B.proj(G, 0.9, yy)
                 a = ramp(t, ti, ti + 0.12) * (1 - ramp(t, B0['y7'] - 0.25, B0['y7'])); k = 1 + 0.35 * (1 - ease(ramp(t, ti, ti + 0.25), 'out'))
                 put(img, sprite(str(i + 1), 76, GOLD), q[0], q[1] - 36, a, scale=k)
-    label(img, '每一位占的时间 = 一拍', 60, cx, 372, t, VS['y4'] + 1.0, sub0('y4', 2) - 0.1)
+    label(img, '每个比特占的时间 = 节拍', 60, cx, 372, t, VS['y4'] + 1.0, sub0('y4', 2) - 0.1)
     tk0 = sub0('y4', 2)
     if G is not None and tk0 <= t < B0['y5'] + 0.3 and v == 'side':
         p = B.proj(G, -0.95, 7.3); a = win(t, tk0 + 1.3, B0['y5'] + 0.3, 0.12, 0.3); e = ease(ramp(t, tk0 + 1.3, tk0 + 1.55), 'out'); r = 44
@@ -358,7 +358,7 @@ def overlays(img, v, t, G):
     # y9：速度翻倍，一拍的时间减半（三级台阶）
     t9 = VS['y9']; a = win(t, t9 + 0.5, VS['y10'] - 0.1, 0.3, 0.3)
     if a > 0:
-        label(img, '速度翻倍：一拍的时间减半', 58, cx, 372, t, t9 + 0.5, VS['y10'] - 0.1)
+        label(img, '速度翻倍：每个比特的时间减半', 54, cx, 372, t, t9 + 0.5, VS['y10'] - 0.1)
         for row, (lab, n, ts) in enumerate((('1×', 4, t9 + 0.6), ('2×', 8, t9 + 1.15), ('4×', 16, t9 + 2.35))):
             ar = a * ramp(t, ts, ts + 0.25); y0 = 490 + row * 100; x0, x1 = 250, 880
             if ar <= 0: continue
