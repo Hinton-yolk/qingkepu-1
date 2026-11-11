@@ -85,3 +85,25 @@ frames("y1", 60, lambda i, f: i >= 2 and f >= (i - 2) * 4.5)          # 第 0 �
 frames("y12", 76, lambda i, f: i >= 2 and f < 8 + (i - 2) * 7)        # 从「七」起一个个变回来，约 2.1 秒时整句回来
 screen([(ch, False) for ch in MSG]).save(f"{OUT}/phone/clean.png")
 print("ok", len(os.listdir(f"{OUT}/phone")), "phone frames")
+
+# ---- GPT 出的电路板俯视图：找出米色的贴片电容，记下它们的外框（film.py 把它们立成小方块，斜着看才有高低）----
+PCB = f"{FONTS}/pcb_gpt/pcb_gpt.png"
+if os.path.exists(PCB):
+    import json
+    import numpy as np
+    a = np.asarray(Image.open(PCB).convert("RGB")).astype(int)
+    R, G_, B = a[..., 0], a[..., 1], a[..., 2]
+    mask = (R > 150) & (G_ > 120) & (B > 70) & (R - B > 40) & (R - B < 120)
+    H, W = mask.shape; seen = np.zeros_like(mask); caps = []
+    for y0, x0 in zip(*np.where(mask)):
+        if seen[y0, x0]: continue
+        stack = [(y0, x0)]; seen[y0, x0] = True; ys, xs = [], []
+        while stack:
+            y, x = stack.pop(); ys.append(y); xs.append(x)
+            for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                yy, xx = y + dy, x + dx
+                if 0 <= yy < H and 0 <= xx < W and mask[yy, xx] and not seen[yy, xx]: seen[yy, xx] = True; stack.append((yy, xx))
+        w, h = max(xs) - min(xs) + 1, max(ys) - min(ys) + 1
+        if len(ys) >= 180 and min(w, h) >= 12 and len(ys) > 0.6 * w * h: caps.append([int(min(xs)), int(min(ys)), int(max(xs)), int(max(ys))])
+    json.dump(caps, open(f"{FONTS}/pcb_gpt/caps.json", "w"))
+    print("pcb caps", len(caps))

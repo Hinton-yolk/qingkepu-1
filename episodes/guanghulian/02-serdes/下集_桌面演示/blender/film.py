@@ -72,7 +72,7 @@ W0 = pose((-0.08, -0.30, 0.0), 1.75, 60, 0, (0.0, -0.06, 0.02), lens=28, fstop=9
 W1 = pose((0.14, -0.04, 0.03), 1.36, 40, 12, (0.10, -0.06, 0.02), lens=35, fstop=8.0)        # 三只修字盒、插线板、两只表
 M1 = pose((0.465, 0.10, 0.085), 0.46, 12, 6, (0.45, 0.09, 0.09), lens=50)                   # 两只表
 A1 = pose((PHONE.x, PHONE.y - 0.02, 0.100), 0.26, 14, 0, (PHONE.x, PHONE.y + 0.035, 0.10))
-G1 = pose((SLIT_X + 0.012, YR - 0.085, 0.0), 0.80, 47, 4, (SLIT_X - 0.02, YR - 0.19, 0.004))
+G1 = pose((SLIT_X + 0.012, YR - 0.100, 0.0), 0.80, 47, 4, (SLIT_X - 0.03, YR - 0.18, 0.004))
 
 
 def shift(p, dx=0, dy=0, dz=0, **kw):
@@ -855,7 +855,42 @@ if SP.get("route"):
 # 发光信号（暗场）：纸带前面一块真电路板，走线上的金色明暗段和纸带同图样同速，走进芯片引脚
 # =====================================================================================================
 PIN = None
-if G:
+BOARD = S.get("board", "gpt")               # gpt：一张正上方俯视的电路板图贴在平板上（用户 11-11 找 GPT 出的图）；old：Poly Haven 的老式主板模型
+if G and BOARD == "gpt":
+    # 图 1254×1254 像素，对应 SB 米见方。图里中间那一对走线（y ≈ 603、612）笔直地从左边走到芯片左侧的焊盘（x ≈ 548）：金色信号就走这一对。
+    SB = P.get("bsize", 0.30); PXM = SB / 1254; BZ = 0.0016      # 放大到 30 厘米见方：是「凑近看」的比例，板边在画外
+    BX0 = SLIT_X - 548 * PXM                                   # 焊盘的 x 对齐窄缝
+    BY0 = YR - 0.036                                           # 图的上沿（靠导轨这一边）
+
+    def bp(ix, iy, z=BZ): return Vector((BX0 + ix * PXM, BY0 - iy * PXM, z))
+    M_PCB, bpb = principled("pcb", Roughness=0.42)
+    tpc = img_node(M_PCB, f"{DL}/pcb_gpt/pcb_gpt.png")
+    M_PCB.node_tree.links.new(tpc.outputs["Color"], bpb.inputs["Base Color"]); bpb.inputs["Coat Weight"].default_value = 0.35
+    bmp = M_PCB.node_tree.nodes.new("ShaderNodeBump"); bmp.inputs["Strength"].default_value = 0.5; bmp.inputs["Distance"].default_value = 0.0006
+    M_PCB.node_tree.links.new(tpc.outputs["Color"], bmp.inputs["Height"]); M_PCB.node_tree.links.new(bmp.outputs["Normal"], bpb.inputs["Normal"])
+    v4 = [tuple(bp(0, 1254)), tuple(bp(1254, 1254)), tuple(bp(1254, 0)), tuple(bp(0, 0))]
+    add_obj("pcb_top", mesh_from("pcb_top", v4, [(0, 1, 2, 3)], uvs=[(0, 0), (1, 0), (1, 1), (0, 1)])).data.materials.append(M_PCB)
+    M_FR4, _ = principled("pcb_edge", **{"Base Color": (0.03, 0.05, 0.04, 1), "Roughness": 0.6})
+    box("pcb_body", BX0, BX0 + SB, BY0 - SB, BY0, 0.0002, BZ - 0.00005, M_FR4)
+    # 芯片的金属盖在 3D 里立起来（图里盖子的范围：x 580–1168，y 298–908）
+    M_LID, bli = principled("chip_lid", **{"Base Color": (0.62, 0.62, 0.63, 1), "Metallic": 1.0, "Roughness": 0.36})
+    bump(M_LID, bli, 600, 0.04, 0.00002, 2.0)
+    la, lb = bp(580, 908), bp(1168, 298)
+    box("chip_lid", la.x, lb.x, la.y, lb.y, BZ, BZ + 0.0032, M_LID, bevel=0.0008)
+    box("chip_sub", bp(566, 0).x, bp(1182, 0).x, bp(0, 922).y, bp(0, 284).y, BZ, BZ + 0.0009, M_FR4, bevel=0.0002)
+    M_CAP, _ = principled("mlcc", **{"Base Color": (0.55, 0.45, 0.30, 1), "Roughness": 0.5})
+    M_END, _ = principled("mlcc_end", **{"Base Color": (0.70, 0.70, 0.70, 1), "Metallic": 1.0, "Roughness": 0.35})
+    for i_, (x0_, y0_, x1_, y1_) in enumerate(json.load(open(f"{DL}/pcb_gpt/caps.json"))):       # 米色的贴片电容立成小方块，两头是银色端头
+        a_, b_ = bp(x0_, y1_), bp(x1_, y0_); hgt = min(b_.x - a_.x, b_.y - a_.y) * 0.75
+        box(f"cap{i_}", a_.x, b_.x, a_.y, b_.y, BZ, BZ + hgt, M_CAP, bevel=0.00015)
+        vert = (y1_ - y0_) > (x1_ - x0_); e = 0.22 * max(b_.x - a_.x, b_.y - a_.y)
+        for k_ in (0, 1):
+            if vert: box(f"cap{i_}e{k_}", a_.x - 0.0001, b_.x + 0.0001, (a_.y - 0.0001 if k_ == 0 else b_.y - e), (a_.y + e if k_ == 0 else b_.y + 0.0001), BZ, BZ + hgt + 0.00005, M_END)
+            else: box(f"cap{i_}e{k_}", (a_.x - 0.0001 if k_ == 0 else b_.x - e), (a_.x + e if k_ == 0 else b_.x + 0.0001), a_.y - 0.0001, b_.y + 0.0001, BZ, BZ + hgt + 0.00005, M_END)
+    pts = [bp(0, 607.5, BZ + 0.00012), bp(548, 607.5, BZ + 0.00012)]
+    hw = P.get("lanew", 0.0027) / 2                             # 一条发光带盖住这一对线（差分对画成一条，是简化）
+    SAMPLE = bp(640, 607.5, BZ + 0.0032 + 0.0002)
+elif G:
     BS = 0.6
     BO = Vector((SLIT_X - BS * 0.024, YR - 0.040 - BS * 0.1986, BS * 0.006 + 0.0004))
     before = set(bpy.data.objects)
@@ -866,8 +901,11 @@ if G:
     def bw(x, y, z=0.0): return BO + BS * Vector((x, y, z))
     route = [(-0.196, -0.060), (0.000, -0.060), (0.014, -0.074), (0.0235, -0.074)]
     pts = [bw(x, y, P.get("lanez", 0.0019)) for x, y in route]
+    hw = P.get("lanew", 0.0011) / 2
+    SAMPLE = bw(0.042, -0.0775, P.get("chipz", 0.0066))
+if G:
     seglen = [(pts[i + 1] - pts[i]).length for i in range(len(pts) - 1)]
-    total = sum(seglen); hw = P.get("lanew", 0.0011) / 2
+    total = sum(seglen)
     verts, faces, luv = [], [], []; acc = 0.0
 
     def u_of(d): return (d / V - T_LO) / (T_HI - T_LO)          # 离引脚 d 米的那一点，在第 0 帧对应纸带上 t = d / V
@@ -903,7 +941,7 @@ if G:
             keys_val(e, [(f_ - 1 * k, 0.0), (f_, peak), (f_ + 1 * k, peak * 0.6), (f_ + 2 * k, peak * 0.2), (f_ + 4 * k, 0.0)])
         set_interp(m.node_tree, "LINEAR")
     blip("pin_flash", PIN + Vector((0.0016, 0, 0.0002)), 0.0016, (1.0, 0.56, 0.14), EDGES, P.get("sig", 9.0) * 4)
-    blip("chip_sample", bw(0.042, -0.0775, P.get("chipz", 0.0066)), 0.0022, (0.03, 0.22, 1.0),
+    blip("chip_sample", SAMPLE, 0.0022, (0.03, 0.22, 1.0),
          [(r, PER[r]) for r in RIGHTS if -2 <= r <= NF + 2], P.get("smp", 3.0))
     set_interp(nt3, "LINEAR")
 
