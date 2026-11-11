@@ -68,9 +68,9 @@ C2 = pose((SLIT_X + 0.058, YR + 0.022, 0.040), 0.66, 40, 3, (SLIT_X + 0.03, YR, 
 C1W = pose((SLIT_X + 0.12, YR + 0.03, 0.05), 1.15, 33, 4, (SLIT_X + 0.06, YR, 0.012))
 C3 = pose((SLIT_X - 0.030, YR + 0.050, 0.085), 0.70, 20, 6, (SLIT_X - 0.05, YR + 0.07, 0.08))
 D1 = pose((PRN_X + 0.03, YR + 0.005, 0.035), 0.66, 30, -7, (PRN_X + 0.03, YR, 0.012))
-W0 = pose((-0.08, -0.12, 0.0), 1.8, 52, 0, (0.0, -0.06, 0.02), lens=28, fstop=9.0)          # 整套装置：正面俯拍，从纸带卷到切刀都在画面里
-W1 = pose((0.12, -0.02, 0.03), 1.5, 40, 12, (0.10, -0.06, 0.02), lens=35, fstop=8.0)        # 三只修字盒、插线板、两只表
-M1 = pose((0.435, 0.10, 0.125), 0.62, 12, 8, (0.42, 0.07, 0.12), lens=50)                   # 两只表
+W0 = pose((-0.08, -0.30, 0.0), 1.75, 60, 0, (0.0, -0.06, 0.02), lens=28, fstop=9.0)          # 整套装置：正面俯拍，从纸带卷到切刀都在画面里
+W1 = pose((0.12, -0.04, 0.03), 1.3, 40, 12, (0.10, -0.06, 0.02), lens=35, fstop=8.0)        # 三只修字盒、插线板、两只表
+M1 = pose((0.465, 0.10, 0.085), 0.46, 12, 6, (0.45, 0.09, 0.09), lens=50)                   # 两只表
 A1 = pose((PHONE.x, PHONE.y - 0.02, 0.100), 0.26, 14, 0, (PHONE.x, PHONE.y + 0.035, 0.10))
 G1 = pose((SLIT_X - 0.020, YR - 0.118, 0.0), 0.66, 45, 5, (SLIT_X - 0.02, YR - 0.19, 0.004))
 
@@ -117,7 +117,7 @@ SHOTS["y8d"] = dict(n=71, scr=True, orig=[(1, 20)] * 80, orig_pre=[(1, 20)] * 40
                     cam=[(0, pose((X_SCR + 0.02, YR + 0.005, 0.035), 0.82, 30, -6, (X_SCR, YR, 0.02))), (71, pose((X_SCR + 0.035, YR + 0.005, 0.035), 0.79, 30, -6, (X_SCR, YR, 0.02)))])
 # y8 读带口：鼓回来；花带过还原盒，出来还是长黑带
 SHOTS["y8c"] = dict(n=85, scr=True, orig=[(1, 20)] * 80, orig_pre=[(1, 20)] * 40, cells="random", sign="B", props={"scr", "des"},
-                    cam=[(0, C1W), (85, shift(C1W, dx=0.02, dist=0.98))])
+                    cam=[(0, shift(C1W, dx=0.05)), (85, shift(C1W, dx=0.07, dist=1.11))])
 # y9 整套装置；桌沿落下「整套 = SerDes」
 SHOTS["y9e"] = dict(n=94, scr=True, orig="random", cells="random", sign="B", props={"scr", "des", "meters", "cutter", "serdes"}, serdes=(62, 70),
                     cam=[(0, W0), (94, shift(W0, dist=1.72))])
@@ -143,7 +143,7 @@ SHOTS["y12a"] = dict(n=76, cells=alt(8), props=set(ALL), fixed=True, cam=[(0, A1
 SHOTS["y13"] = dict(n=120, scr=True, orig="random", cells="random", sign="B", props=set(ALL), fixed=True, cut=True, needle_big=[(0, 0.82)], needle_small=[(0, 0.42)],
                     g=[(-9999, 0.1)], cam=[(0, C1), (22, C1), (88, pose((0.69, -0.09, 0.03), 0.92, 38, 3, (0.62, -0.14, 0.01))), (120, pose((0.695, -0.09, 0.03), 0.90, 38, 3, (0.62, -0.14, 0.01)))])
 # y14 手机 + 路线图小卡
-SHOTS["y14"] = dict(n=96, cells=alt(8), props=set(ALL), fixed=True, route=(8, 16), cam=[(0, shift(A1, dx=-0.012, dz=-0.03, dist=0.37)), (96, shift(A1, dx=-0.012, dz=-0.03, dist=0.35))], phone=("clean", 1))
+SHOTS["y14"] = dict(n=96, cells=alt(8), props=set(ALL), fixed=True, route=(8, 16), cam=[(0, shift(A1, dx=-0.02, dz=-0.05, dist=0.46)), (96, shift(A1, dx=-0.02, dz=-0.05, dist=0.44))], phone=("clean", 1))
 
 SP = SHOTS[SHOT]
 NF = SP["n"]
@@ -717,7 +717,7 @@ def tunnel(name, xc, w, h, body, tex=None, top=None):
 
 if "scr" in PROPS: tunnel("scr_box", X_SCR, 0.084, 0.050, WALNUT, "box_scr")
 if "des" in PROPS: tunnel("des_box", X_DES, 0.084, 0.050, WALNUT, "box_des")
-STRIP = Vector((0.21, 0.135, 0.0))                                                       # 插线板：在导轨后面，不挡近景                                                       # 插线板
+STRIP = Vector((0.47, 0.20, 0.0))                                                       # 插线板：在导轨后面，不挡近景                                                       # 插线板
 DROPS = SP.get("drops", {})
 for nm_ in ("fix1", "fix2", "fix3"):
     if nm_ not in PROPS: continue
@@ -761,10 +761,11 @@ if "meters" in PROPS:
             needle.parent = piv; needle.matrix_parent_inverse = Matrix.Translation((0, 0.024, -0.148))
             for f_, v_ in keys_:
                 piv.rotation_euler = (0, radians(-38 + 76 * v_), 0); piv.keyframe_insert("rotation_euler", frame=f_)
+            box(name + "_red", -0.0008, 0.0008, -0.0032, -0.0027, 0.004, 0.054, M_CORAL).parent = piv        # 模型自带的指针太细太暗，前面加一根珊瑚色的
         tex_quad(name + "_tag", (0, -0.030, 0.222 + 0.030), (1, 0, 0), (0, 0.25, 1), 0.120, 0.051, tag).parent = root   # 小签立在表顶上
         return root
-    meter("meter_big", (0.385, 0.115, 0.0), 0.80, 8, SP.get("needle_big", [(0, 0.25)]), "tag_power")
-    meter("meter_small", (0.495, 0.10, 0.0), 0.52, 14, SP.get("needle_small", [(0, 0.70)]), "tag_bit")
+    meter("meter_big", (0.42, 0.12, 0.0), 0.62, 6, SP.get("needle_big", [(0, 0.25)]), "tag_power")
+    meter("meter_small", (0.515, 0.105, 0.0), 0.45, 12, SP.get("needle_small", [(0, 0.70)]), "tag_bit")
 if "serdes" in PROPS:                                                                      # 桌沿的签：整套 = SerDes
     f0, f1 = SP.get("serdes", (-99, -90))
     tg = empty("serdes_tag", (-0.06, -0.33, 0.0))                                           # 一张大签，斜靠在小木条上，落在装置前面的桌面上
