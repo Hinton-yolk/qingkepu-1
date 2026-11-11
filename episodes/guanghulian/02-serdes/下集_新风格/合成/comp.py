@@ -228,7 +228,8 @@ SAT, CONTRAST, GAIN = 1.7, 0.55, 1.06; AIR = (0.30, 0.10, -0.09); TINT_SH = (0.0
 band_long = B.Band(TLm.SEQ_LONG); band_scr = B.Band(TLm.SEQ_SCR); band_clk = B.Band([1, 0] * 120); band_one = B.Band([1] * 240)
 HITS, _yl = TLm.hits(TL, PH, [10.4, 15.9, 15.9]); YL = dict(zip(('side', 'count', 'count2'), _yl))     # 「听的位置」；自动微调到鼓点落在八分音符的格子上
 def yl_at(t): return YL['side'] if t < T['count'] else YL['count'] if t < B0['y7'] else YL['count2']
-LOCK_HITS = [h for h in HITS if sub0('y6', 1) - 0.4 <= h <= TL['marks']['count_park']][-4:]     # y6「跟着鼓点校准自己」：最后这几个鼓点，每个把刻度挪近一步
+LOCK_HITS = [h for h in HITS if T['count'] + 0.25 <= h <= TL['marks']['count_park']]     # y6「跟着鼓点校准自己」：每个鼓点把刻度往对的位置挪一步
+def split_k(t): return int((t - VS['y3'] - 1.2) / 0.8) % 2      # y3：分成 4 份（0）还是 5 份（1），来回切
 def run_span(phi, idx0, n=5):
     """比特串里第 idx0 … idx0+n−1 位现在在板面上的 y 区间"""
     ya = phi + idx0 * B.BIT; ya -= TLm.PERIOD * round((ya - 14) / TLm.PERIOD); return ya, ya + n * B.BIT
@@ -252,15 +253,17 @@ def scene_fx(img, G, v, t):
     ticks = None; tick_col = WHITE; tick_a = 0.0; ticks2 = None
     # y3：那段连成一片的高电平，分成 4 份还是 5 份？（淡刻度在两种分法之间来回）
     if VS['y3'] + 1.2 <= t < B0['y4'] + 0.2:
-        ya, yb = run_span(phi, 182); k = int((t - VS['y3'] - 1.2) / 0.55) % 2; sc = 1.0 if k else 1.25
-        ticks = dict(phase=ya, scale=sc, half=0.34, thick=0.03, ylo=ya - 0.05, yhi=yb + 0.05); tick_a = 0.75 * win(t, VS['y3'] + 1.2, B0['y4'] + 0.2, 0.3, 0.3)
+        ya, yb = run_span(phi, 182); k = split_k(t); sc = 1.0 if k else 1.25
+        ticks = dict(phase=ya, scale=sc, half=0.42, thick=0.04, ylo=ya - 0.05, yhi=yb + 0.05); tick_a = 0.9 * win(t, VS['y3'] + 1.2, B0['y4'] + 0.2, 0.3, 0.3)
     # y4：节拍刻度（每一位一格）
     if B0['y4'] + 0.2 <= t < B0['y5'] + 0.4:
         ticks = dict(phase=phi, half=0.52, thick=0.045); tick_a = 0.95 * win(t, VS['y4'] + 0.9, B0['y5'] + 0.4, 0.5, 0.4)
     # y6：刻度先是错开的，跟着鼓点对齐
-    t_lock = sub0('y6', 1) + 0.3
-    if t_lock - 0.6 <= t < B0['y7']:
-        off = 0.42 * B.BIT * (1 - sum(ease((t - h) / 0.14, 'out') for h in LOCK_HITS) / max(1, len(LOCK_HITS))); ticks = dict(phase=phi + off, half=0.52, thick=0.045); tick_a = 0.95 * ramp(t, t_lock - 0.6, t_lock - 0.1)
+    t_in = T['count'] + 0.2
+    if t_in <= t < B0['y7']:
+        off = 0.45 * B.BIT * float(np.prod([1 - 0.42 * ease((t - h) / 0.14, 'out') for h in LOCK_HITS]))        # 像真的时钟恢复环路：每个鼓点修掉一部分误差
+        fl = max([math.exp(-(t - h) / 0.12) for h in LOCK_HITS if t >= h] or [0.0]); tick_col = tuple(int(WHITE[i] + (GOLD[i] - WHITE[i]) * 0.8 * fl) for i in range(3))
+        ticks = dict(phase=phi + off, half=0.52, thick=0.045 * (1 + 0.5 * fl)); tick_a = 0.95 * ramp(t, t_in, t_in + 0.4)
     # y7：一长串 1，没有鼓点 → 芯片自己数的拍（红）慢慢跑偏；真实的节拍（深色）不动
     if B0['y7'] <= t < B0['y8'] + 0.7:
         d = 0.085 * ease((t - VS['y7'] - 1.0) / 2.6, 'in') * (1 - ease((t - B0['y8'] - 0.15) / 0.5, 'io')); red = ramp(t, VS['y7'] + 0.9, VS['y7'] + 1.5) * (1 - ramp(t, B0['y8'] + 0.2, B0['y8'] + 0.65))
@@ -268,6 +271,11 @@ def scene_fx(img, G, v, t):
         ticks2 = dict(phase=phi, half=0.30, thick=0.03)
     # y8：打乱以后刻度重新对齐
     if B0['y8'] + 0.7 <= t < T['close'] - 0.1: ticks = dict(phase=phi, half=0.52, thick=0.045); tick_a = 0.95 * (1 - ramp(t, T['close'] - 0.5, T['close'] - 0.1))
+    # y10 第一段：越快越糊，节拍越难听准（刻度抖、发红）
+    if VS['y10'] + 0.9 <= t < T['rx'] - 0.1 and v == 'close':
+        jit = (0.16 * math.sin(11.0 * t) + 0.10 * math.sin(17.3 * t + 1)) * B.BIT * bs * ramp(t, VS['y10'] + 0.9, VS['y10'] + 1.8)
+        ticks = dict(phase=piv - (piv - phi) * bs + jit, scale=bs, half=0.34, thick=0.02); tick_a = 0.9 * win(t, VS['y10'] + 0.9, T['rx'] - 0.1, 0.4, 0.2)
+        rr = ramp(t, VS['y10'] + 1.2, VS['y10'] + 2.2); tick_col = tuple(int(WHITE[i] + (RED[i] - WHITE[i]) * rr) for i in range(3))
     # 光带本体
     m = ease((t - B0['y8'] - 0.15) / 0.6, 'io')                                   # 打乱：一长串 1 原地变成有起有伏
     hb = None
@@ -277,7 +285,7 @@ def scene_fx(img, G, v, t):
     lvl, al, tk = rend(band_long if m < 1 else band_scr, ticks=ticks, hi_boost=hb)
     if 0 < m < 1: lvl2, _, _ = rend(band_scr); lvl = lvl * (1 - m) + lvl2 * m
     shimmer = 1.0 + 0.05 * math.sin(7.0 * t)
-    img[:] = B.comp_band(img, lvl, al, gain=shimmer)
+    img[:] = B.comp_band(img, lvl, al, gain=shimmer, lo_dim=ramp(t, T['side'] + 0.1, T['side'] + 1.4))
     if ticks is not None and tick_a > 0:
         if ticks2 is not None:
             _, _, tk2 = rend(band_one, ticks=ticks2); a2 = (tk2 * 0.85 * ramp(t, VS['y7'] + 0.9, VS['y7'] + 1.5) * (1 - ramp(t, B0['y8'] + 0.2, B0['y8'] + 0.65)))[..., None]; img[:] = img * (1 - a2) + a2 * 0.06
@@ -289,10 +297,14 @@ def scene_fx(img, G, v, t):
         l2, a2, _ = band_clk.render(Gs, w, h, phi * 1.0, cam=cam, dofk=dk, px=px, xoff=-0.95, width=0.34)
         aa = (a2 * (0.25 + 0.5 * np.clip(l2, 0, 1)) * a)[..., None]; img[:] = img * (1 - aa * 0.6) + aa * (np.array(BLUE[::-1], np.float32) / 255)
     # y8 第三段：到对面按同样的规则还原（旁边一行 = 还原后的数据，从芯片那头一格格亮出来）
-    tr = sub0('y8', 2) - 0.2
-    if tr <= t < T['close']:
-        ylo = 17.6 - 7.5 * ease((t - tr) / 1.4, 'io'); l3, a3, _ = band_one.render(Gs, w, h, phi, cam=cam, dofk=dk, px=px, xoff=0.85, width=0.34, ylo=ylo, yhi=17.6)
-        img[:] = B.comp_band(img, l3 * 0.9, a3 * (1 - ramp(t, T['close'] - 0.35, T['close'] - 0.1)), glow=0.35)
+    tr = sub0('y8', 2) - 0.2; t8 = B0['y8'] + 0.15
+    if t8 <= t < T['close']:
+        fo = 1 - ramp(t, T['close'] - 0.35, T['close'] - 0.1); xo = 0.85 * ease((t - t8) / 0.6, 'out')      # 原来那一长串 1 往旁边挪出一行，留作对照
+        l3, a3, _ = band_one.render(Gs, w, h, phi, cam=cam, dofk=dk, px=px, xoff=xo, width=0.34, ylo=10.4, yhi=17.6)
+        img[:] = B.comp_band(img, l3 * 0.45, a3 * 0.55 * fo * ramp(t, t8, t8 + 0.3), glow=0.0)
+        if t >= tr:
+            ylo = 17.6 - 7.2 * ease((t - tr) / 1.4, 'io'); l4, a4, _ = band_one.render(Gs, w, h, phi, cam=cam, dofk=dk, px=px, xoff=0.85, width=0.34, ylo=ylo, yhi=17.6)
+            img[:] = B.comp_band(img, l4 * 0.95, a4 * fo, glow=0.4)
     if v == 'rx' and not whip_at(t):                                               # 进了封装以后：走到接收电路的路（示意，虚线上有小光点在走）
         p0 = B.proj(G, 0, 62.0); p1 = (W0 * 0.90, p0[1] - (p0[1] - H0 * 0.445) * 1.0); a = ramp(t, T['rx'] + 0.2, T['rx'] + 0.6) * (1 - ramp(t, T['wide'] - 0.3, T['wide'] - 0.1))
         for i in range(14):
@@ -326,14 +338,20 @@ def overlays(img, v, t, G):
     label(img, '示意：金色光带 = 两线间的电压差（亮 1 暗 0）', 38, cx, 1240, t, T['B'] + 2.3, VS['y3'] + 1.0, GOLD, bold=False)
     if G is not None and v in ('side', 'count') and not whip_at(t):
         phi = PH(t)
+        # 亮 = 1、暗 = 0：在光带旁就近标一次（只标两边的，中间那一片留给「4 还是 5」）
+        if v == 'side' and T['side'] + 0.4 <= t < VS['y3'] + 3.6:
+            a01 = win(t, T['side'] + 0.4, VS['y3'] + 3.6, 0.3, 0.3)
+            for idx in (179, 180, 181, 187, 188, 189, 190):
+                ya_, _ = run_span(phi, idx, 1); bit = TLm.SEQ_LONG[idx]; p = B.proj(G, 0.0, ya_ + B.BIT / 2); q = B.proj(G, 0.8, ya_ + B.BIT / 2)
+                if 60 < q[0] < W0 * 0.84: put(img, sprite('1' if bit else '0', 50, GOLD if bit else (200, 205, 214)), q[0], q[1] - 26, a01)
         # y3：连成一片的高电平；4？5？
         if VS['y3'] + 0.9 <= t < B0['y4'] + 0.25:
             ya, yb = run_span(phi, 182); pa, pb = B.proj(G, 0, ya), B.proj(G, 0, yb); mx, my = (pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2
             a = win(t, VS['y3'] + 0.9, B0['y4'] + 0.25, 0.3, 0.25); e = ease(ramp(t, VS['y3'] + 0.9, VS['y3'] + 1.5), 'out')
             q0 = B.proj(G, 0.42, ya); q1 = B.proj(G, 0.42, yb); line(img, q0, (q0[0] + (q1[0] - q0[0]) * e, q0[1] + (q1[1] - q0[1]) * e), GOLD, 6, a)
-            put(img, sprite('连成一片的高电平', 50, GOLD), mx + 30, my - 96, a)
+            put(img, sprite('连成一片的高电平', 50, GOLD), min(W0 * 0.84 - 210, mx + 110), my + 96, a)
             a2 = win(t, sub0('y3', 1) + 1.9, B0['y4'] + 0.25, 0.2, 0.25); k = ease(ramp(t, sub0('y3', 1) + 1.9, sub0('y3', 1) + 2.2), 'out')
-            put(img, sprite('4？5？', 76, DARK, stroke=0, bg=(250, 248, 240, 255), pad=22), mx - 40, my + 150, a2, scale=0.8 + 0.2 * k)
+            put(img, sprite('5 个？' if split_k(t) else '4 个？', 76, DARK, stroke=0, bg=(250, 248, 240, 255), pad=22), mx - 60, my + 215, a2, scale=0.8 + 0.2 * k)
         # y6：数五拍
         cp = TL['marks']['count_park']
         if cp <= t < B0['y7']:
@@ -342,6 +360,8 @@ def overlays(img, v, t, G):
                 ti = cp + 0.15 + 0.25 * i; yy = yb - (i + 0.5) * B.BIT; p = B.proj(G, 0.0, yy); q = B.proj(G, 0.9, yy)
                 a = ramp(t, ti, ti + 0.12) * (1 - ramp(t, B0['y7'] - 0.25, B0['y7'])); k = 1 + 0.35 * (1 - ease(ramp(t, ti, ti + 0.25), 'out'))
                 put(img, sprite(str(i + 1), 76, GOLD), q[0], q[1] - 36, a, scale=k)
+    tq0, tq1 = B0['y4'] + 0.4, sub0('y6', 2) - 0.1                                   # 问题还没答完：把「4 个？还是 5 个？」钉在画面上，直到数出五个
+    if tq0 <= t < tq1 and not whip_at(t): put(img, sprite('4 个？还是 5 个？', 40, DARK, stroke=0, bg=(250, 248, 240, 235), pad=16), cx - 30, 1272, win(t, tq0, tq1, 0.3, 0.3) * 0.95)
     label(img, '每个比特占的时间 = 节拍', 60, cx, 372, t, VS['y4'] + 1.0, sub0('y4', 2) - 0.1)
     tk0 = sub0('y4', 2)
     if G is not None and tk0 <= t < B0['y5'] + 0.3 and v == 'side':
@@ -354,6 +374,10 @@ def overlays(img, v, t, G):
     label(img, '没有鼓点，拍子跑偏', 68, cx, 366, t, VS['y7'] + 1.3, B0['y8'] - 0.05, RED)
     label(img, '深色 = 真实节拍　红 = 芯片数的拍', 38, cx, 452, t, VS['y7'] + 1.7, B0['y8'] - 0.05, bold=False)
     label(img, '打乱以后：鼓点一直都在', 62, cx, 372, t, VS['y8'] + 1.6, sub0('y8', 2) - 0.25, GOLD)
+    if G is not None and v == 'count' and not whip_at(t) and B0['y8'] + 0.8 <= t < T['close'] - 0.2:
+        q = B.proj(G, 0.85, 12.0); tr_ = sub0('y8', 2) - 0.2
+        label(img, '原来的数据：一长串 1', 44, min(W0 * 0.84 - 190, max(230, q[0])), q[1] - 54, t, B0['y8'] + 0.8, tr_ + 0.1, (214, 216, 222), bold=False)
+        label(img, '还原回来：还是一长串 1', 44, min(W0 * 0.84 - 200, max(240, q[0])), q[1] - 54, t, tr_ + 0.9, T['close'] - 0.2, GOLD)
     label(img, '到对面：按同样的规则还原', 58, cx, 372, t, sub0('y8', 2) - 0.2, T['close'] - 0.2)
     # y9：速度翻倍，一拍的时间减半（三级台阶）
     t9 = VS['y9']; a = win(t, t9 + 0.5, VS['y10'] - 0.1, 0.3, 0.3)
@@ -369,6 +393,17 @@ def overlays(img, v, t, G):
     label(img, '修信号的电路（示意）', 60, cx, 366, t, T['rx'] + 0.35, T['wide'] - 0.2, BLUE)
     label(img, '散热器已移开（示意）', 36, cx, 448, t, T['rx'] + 0.6, T['wide'] - 0.2, bold=False)
     t10 = sub0('y10', 2)
+    ti = sub0('y10', 1) + 0.9                                                       # 修之前 / 修之后：同一段信号的两条小图（示意）
+    if ti <= t < T['wide'] - 0.2:
+        a = win(t, ti, T['wide'] - 0.2, 0.3, 0.25); x0, y0, ww, hh = 70, 1000, 520, 54; rect(img, x0 - 16, y0 - 62, x0 + ww + 16, y0 + 2 * hh + 96, (14, 15, 18), 0.62 * a)
+        for row, (name, bl, t_on, col) in enumerate((('修之前：糊', 0.62, ti, (214, 216, 222)), ('修之后：清楚', 0.0, ti + 1.0, GOLD))):
+            ar = a * ramp(t, t_on, t_on + 0.3); yy = y0 + row * (hh + 62)
+            if ar <= 0: continue
+            n = 9; off = (t * 1.6) % 240; xs = (np.arange(int(ww * S)) / (ww * S) * n + off) % 240
+            lv = cv2.remap(band_scr.T, (xs * band_scr.sub).astype(np.float32)[None, :], np.full((1, len(xs)), float(band_scr.level_rows(np.array([max(bl, 0.02)]))[0]), np.float32), cv2.INTER_LINEAR)[0]
+            colr = (B.E_LO_DIM[None, :] + (B.E_HI - B.E_LO_DIM)[None, :] * lv[:, None])[None, :, :]; ya_, yb_ = int(yy * S), int((yy + hh) * S); xa_ = int(x0 * S)
+            img[ya_:yb_, xa_:xa_ + len(xs)] = img[ya_:yb_, xa_:xa_ + len(xs)] * (1 - ar) + colr * ar
+            put(img, sprite(name, 34, col), x0, yy - 28, ar, 'lm')
     bars(img, t, t10 - 0.2, T['wide'] - 0.2, [('耗电', GOLD, lambda tt: 0.25 + 0.6 * ease((tt - t10) / 1.3, 'io')), ('面积', BLUE, lambda tt: 0.25 + 0.5 * ease((tt - t10 - 0.5) / 1.3, 'io'))], 690, 1180, hmax=260)
     t11 = VS['y11']; s11 = sub0('y11', 1)
     bars(img, t, t11 + 0.5, T['arev'] - 0.15, [('速度', WHITE, lambda tt: 0.35 + 0.55 * ease((tt - t11 - 1.2) / 1.2, 'io')), ('每比特耗电', GOLD, lambda tt: 0.8 - 0.5 * ease((tt - s11 - 0.3) / 1.4, 'io'))], 610, 820, hmax=300, gap=200)
@@ -389,6 +424,13 @@ def overlays(img, v, t, G):
                 if xb > xa: rect(img, xa, 738 + slide, xb, 766 + slide, (255, 236, 196) if TLm.BITS[k % 120] else (150, 96, 22), 0.95)
         put(img, sprite('发出去：排成一列', 70, WHITE), cx, 860 + slide, ramp(t, VS['y13'] + 0.9, VS['y13'] + 1.2))
         put(img, sprite('收进来：听准节拍、拆回一排', 70, WHITE), cx, 980 + slide, ramp(t, sub0('y13', 1), sub0('y13', 1) + 0.3))
+        tp = sub0('y13', 1) + 0.5                                                   # 拆回一排：一列里的比特一个个落进并排的八个格子（每 1.4 秒换一组）
+        if t >= tp and 0 <= 1080 + slide < H0 - 120:
+            g = int((t - tp) / 1.4); u = (t - tp) - g * 1.4; cw, gp = 84, 16; xs0 = cx - (8 * cw + 7 * gp) / 2
+            for k in range(8):
+                xk = xs0 + k * (cw + gp); bit = TLm.BITS[(g * 8 + k) % 120]; f_ = ramp(u, k * 0.11, k * 0.11 + 0.1) * (1 - ramp(u, 1.25, 1.4))
+                rect(img, xk, 1080 + slide, xk + cw, 1080 + cw + slide, (120, 122, 128), 0.9, outline=3)
+                if f_ > 0: rect(img, xk + 7, 1087 + slide, xk + cw - 7, 1073 + cw + slide, (255, 236, 196) if bit else (96, 62, 16), 0.95 * f_); put(img, sprite('1' if bit else '0', 44, DARK if bit else (214, 216, 222), stroke=0), xk + cw / 2, 1080 + cw / 2 + slide, f_)
     label(img, '下一篇：信号为什么越跑越模糊？', 58, cx, 380, t, VS['y14'] + 0.2, T['end'] + 1, GOLD)
 
 BREAK = {'可高速连接通常不另外送一个节拍器过去': 7, 'SerDes 的速度大约每过几年就要翻一倍': 11}     # 没有标点的长句：折行不拆词

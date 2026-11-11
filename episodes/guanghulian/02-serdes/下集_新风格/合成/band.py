@@ -98,10 +98,12 @@ class Band:
 E_LO = np.array([2, 63, 118], np.float32) / 255; E_HI = np.array([176, 208, 240], np.float32) / 255      # BGR
 A_LO, A_HI = 0.35, 0.80
 
-def comp_band(img, lvl, al, glow=0.55, gain=1.0):
+E_LO_DIM = np.array([8, 24, 40], np.float32) / 255; A_LO_DIM = 0.55     # 「暗的 0」压成深色（观众反馈：暗的 0 也是橙色，和底下的线分不清）
+def comp_band(img, lvl, al, glow=0.55, gain=1.0, lo_dim=0.0):
     """把光带叠到画面上（img：float32 BGR 0–1）。高电平带一圈不大的金色辉光。"""
-    L = np.clip(lvl, 0, 1.6)[..., None]; a = (A_LO + (A_HI - A_LO) * np.clip(L, 0, 1)) * al[..., None]
-    E = (E_LO + (E_HI - E_LO) * np.clip(L, 0, 1)) * (1 + 0.35 * np.clip(L - 1, 0, 1)) * gain
+    elo = E_LO + (E_LO_DIM - E_LO) * lo_dim; alo = A_LO + (A_LO_DIM - A_LO) * lo_dim
+    L = np.clip(lvl, 0, 1.6)[..., None]; a = (alo + (A_HI - alo) * np.clip(L, 0, 1)) * al[..., None]
+    E = (elo + (E_HI - elo) * np.clip(L, 0, 1)) * (1 + 0.35 * np.clip(L - 1, 0, 1)) * gain
     out = img * (1 - a) + E * al[..., None]
     if glow:
         h, w = img.shape[:2]; src = (np.clip(L[..., 0], 0, 1.4) ** 1.5 * al)
