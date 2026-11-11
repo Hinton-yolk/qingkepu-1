@@ -62,7 +62,7 @@ def screen(chars):
     im = Image.new("RGB", (SW, SH), (14, 15, 18)); d = ImageDraw.Draw(im)
     d.rectangle([0, 0, SW, 150], fill=(24, 26, 30)); d.line([(0, 150), (SW, 150)], fill=(52, 54, 60), width=2)
     d.ellipse([28, 62, 98, 132], fill=(96, 128, 170)); d.text((116, 76), "老周", font=fs, fill=(214, 214, 220))
-    d.text((SW - 110, 20), "19:02", font=fs, fill=(150, 150, 158))
+    d.text((SW - 110, 20), "15:42", font=fs, fill=(150, 150, 158))
     d.rounded_rectangle([22, 226, SW - 22, 566], radius=34, fill=(44, 47, 54))
     rows = [chars[:5], chars[5:]]
     for r, row in enumerate(rows):

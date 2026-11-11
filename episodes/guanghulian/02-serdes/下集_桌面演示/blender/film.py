@@ -66,13 +66,13 @@ def pose(t, dist, pitch, yaw, focus=None, lens=50, fstop=4.0): return dict(t=t, 
 C1 = pose((SLIT_X - 0.012, YR + 0.045, 0.062), 0.84, 31, 5, (SLIT_X + 0.03, YR, 0.012))
 C2 = pose((SLIT_X + 0.058, YR + 0.022, 0.040), 0.66, 40, 3, (SLIT_X + 0.03, YR, 0.012))
 C1W = pose((SLIT_X + 0.12, YR + 0.03, 0.05), 1.15, 33, 4, (SLIT_X + 0.06, YR, 0.012))
-C3 = pose((SLIT_X - 0.030, YR + 0.050, 0.085), 0.70, 20, 6, (SLIT_X - 0.05, YR + 0.07, 0.08))
+C3 = pose((SLIT_X - 0.030, YR + 0.050, 0.040), 0.72, 20, 6, (SLIT_X - 0.05, YR + 0.07, 0.08))
 D1 = pose((PRN_X + 0.03, YR + 0.005, 0.035), 0.66, 30, -7, (PRN_X + 0.03, YR, 0.012))
 W0 = pose((-0.08, -0.30, 0.0), 1.75, 60, 0, (0.0, -0.06, 0.02), lens=28, fstop=9.0)          # 整套装置：正面俯拍，从纸带卷到切刀都在画面里
-W1 = pose((0.12, -0.04, 0.03), 1.3, 40, 12, (0.10, -0.06, 0.02), lens=35, fstop=8.0)        # 三只修字盒、插线板、两只表
+W1 = pose((0.14, -0.04, 0.03), 1.36, 40, 12, (0.10, -0.06, 0.02), lens=35, fstop=8.0)        # 三只修字盒、插线板、两只表
 M1 = pose((0.465, 0.10, 0.085), 0.46, 12, 6, (0.45, 0.09, 0.09), lens=50)                   # 两只表
 A1 = pose((PHONE.x, PHONE.y - 0.02, 0.100), 0.26, 14, 0, (PHONE.x, PHONE.y + 0.035, 0.10))
-G1 = pose((SLIT_X - 0.020, YR - 0.118, 0.0), 0.66, 45, 5, (SLIT_X - 0.02, YR - 0.19, 0.004))
+G1 = pose((SLIT_X + 0.012, YR - 0.085, 0.0), 0.80, 47, 4, (SLIT_X - 0.02, YR - 0.19, 0.004))
 
 
 def shift(p, dx=0, dy=0, dz=0, **kw):
@@ -91,9 +91,9 @@ SHOTS["y2"] = dict(n=102, cells=alt(40), cards=True,
 # y3 发货端：切入时黑带已印出四格，第 10 帧印第五下。印头处的格子 = 窄缝处 t 再加 490 帧
 SHOTS["y3d"] = dict(n=36, cells=alt(21, first=0) + [(1, 20)] * 5 + [(0, 20)], cards=True, cam=[(0, D1), (36, shift(D1, dx=0.012))])
 # y3 窄缝 + y4 读带口（同一条时间线）：第 0 帧长黑带进窄缝；没对过的节拍器 24.5 帧一下，只盖下四个实心点
-_slow = [4.5 + 24.5 * k for k in range(-12, 16)]
-_s34 = dict(n=258, cells=[(1, 20)] * 5 + [(0, 20)], pre=alt(30, first=0), rights=_slow, coral_lamp=(104, None),
-            counter=[(0, 0), (4.5, 1), (29, 2), (53.5, 3), (78, 4)], marks=dict(dot1=4.5, band=50),
+_slow = [2.5 + 25 * k for k in range(-12, 16)]            # 四个点落在每格的 1/8、3/8、5/8、7/8 处；第五下落在黑带后 3 毫米的白格里
+_s34 = dict(n=258, cells=[(1, 20)] * 5 + [(0, 20)] * 12, pre=[(0, 20)] * 3 + alt(30, first=1), rights=_slow, coral_lamp=(104, None),   # 长黑带前后都是白：只有黑带下面是实心点
+            counter=[(0, 0), (2.5, 1), (27.5, 2), (52.5, 3), (77.5, 4)], marks=dict(dot1=2.5, band=50),
             ruler=dict(t=20, cells=8, land=(120, 132), lift=(230, 248)))
 SHOTS["s34a"] = dict(_s34, cam=[(0, C2), (90, shift(C2, dx=0.004))]); RANGE["s34a"] = (0, 89)                       # y3 窄缝
 SHOTS["s34b"] = dict(_s34, cam=[(90, shift(C1, dx=0.03)), (187, shift(C1, dx=0.13))]); RANGE["s34b"] = (90, 186)    # y4 前段
@@ -106,7 +106,7 @@ SHOTS["y5"] = dict(n=120, cells=[(0, 10)] + alt(12, first=1), pre=alt(30, first=
                    cam=[(0, C3), (120, shift(C3, dx=0.01, dist=0.64))])
 # y6：第 0–120 帧黑白相间，第 140 帧进长黑带，第 240 帧出。前 96 帧是暗场（发光信号）
 _y6 = dict(n=270, cells=alt(7, first=0) + [(1, 20)] * 5 + [(0, 20)], sign=("flip", 10, 22), marks=dict(band=190))
-SHOTS["y6g"] = dict(_y6, glow=True, cam=[(0, G1), (96, shift(G1, dx=0.010, dy=-0.006, dist=0.61, pitch=46, yaw=3.5))]); RANGE["y6g"] = (0, 95)
+SHOTS["y6g"] = dict(_y6, glow=True, cam=[(0, G1), (96, shift(G1, dx=0.006, dy=-0.006, dist=0.75))]); RANGE["y6g"] = (0, 95)
 SHOTS["y6c"] = dict(_y6, cam=[(96, C1), (112, C1), (238, C2), (270, shift(C2, dx=0.003))]); RANGE["y6c"] = (96, 269)
 # y7 一长串全是 1：节拍器 23 帧一下，没人纠正；第五个点滑过格边
 _r7 = [-10 - 20 * k for k in range(12, -1, -1)] + [10 + 23 * k for k in range(1, 8)]
@@ -122,21 +122,21 @@ SHOTS["y8c"] = dict(n=85, scr=True, orig=[(1, 20)] * 80, orig_pre=[(1, 20)] * 40
 SHOTS["y9e"] = dict(n=94, scr=True, orig="random", cells="random", sign="B", props={"scr", "des", "meters", "cutter", "serdes"}, serdes=(62, 70),
                     cam=[(0, W0), (94, shift(W0, dist=1.72))])
 # y9 窄缝 + y10 + y11（同一条时间线）：第 10 帧起格子窄一半；第 62 帧起是 y10，第 254 帧起是 y11（第 297 帧起再窄一档）
-_s9cells = [(0, 10)] + alt(28, w=10, first=1)
+_s9cells = alt(29, w=10, first=0)
 _s9cells += alt(140, w=5, first=(_s9cells[-1][0] + 1) % 2)
-_s9 = dict(n=374, scr=True, orig="random", cells=_s9cells, pre=alt(30, first=1), sign="B", props=set(ALL),
+_s9 = dict(n=374, scr=True, orig="random", cells=_s9cells, pre=alt(4, w=10, first=1) + alt(30, first=1), sign="B", props=set(ALL),
            g=[(-9999, 0.35), (72, 1.0), (62 + 95 + 33, 0.5), (62 + 151, 0.1)],
            drops=dict(fix1=62 + 95, fix2=62 + 125, fix3=62 + 144), needle_big=[(0, 0.25), (62 + 154, 0.25), (62 + 178, 0.80), (374, 0.82)],
            needle_small=[(0, 0.70), (254 + 92, 0.70), (254 + 99, 0.48), (254 + 105, 0.60), (254 + 114, 0.40), (374, 0.42)])
-SHOTS["s9a"] = dict(_s9, cam=[(0, C2), (62, shift(C2, dx=0.004))]); RANGE["s9a"] = (0, 61)                           # y9 窄缝
-SHOTS["s9b"] = dict(_s9, cam=[(62, shift(C2, dx=0.004)), (62 + 86, shift(C1W, dx=-0.10)), (62 + 100, shift(C1W, dx=-0.10)),
+SHOTS["s9a"] = dict(_s9, cam=[(0, shift(C2, dx=-0.05)), (62, shift(C2, dx=-0.045))]); RANGE["s9a"] = (0, 61)                           # y9 窄缝
+SHOTS["s9b"] = dict(_s9, cam=[(62, shift(C2, dx=-0.045)), (62 + 86, shift(C1W, dx=-0.10)), (62 + 100, shift(C1W, dx=-0.10)),
                               (62 + 156, W1), (254, shift(W1, dist=1.86)), (374, M1)]); RANGE["s9b"] = (62, 373)   # y10 + y11
 # y12 读带口：蓝点稳稳地一个接一个（6 毫米一格）
 SHOTS["y12c"] = dict(n=31, scr=True, orig="random", cells=alt(200, w=5), pre=alt(120, w=5, first=1), sign="B", props=set(ALL), fixed=True, needle_big=[(0, 0.82)], needle_small=[(0, 0.42)],
                      g=[(-9999, 0.1)], cam=[(0, C1), (31, shift(C1, dx=0.01, dist=0.80))])
 # y12 暗场：格子从 6 毫米窄到 3 毫米，走线上是带细闪的金色流光
 SHOTS["y12g"] = dict(n=55, glow=True, scr=True, orig="random", cells=alt(3, w=5) + alt(260, w=2.5, first=1), pre=alt(120, w=5, first=1), sign="B", props=set(ALL), fixed=True,
-                     g=[(-9999, 0.1)], cam=[(0, G1), (55, shift(G1, dx=0.008, dy=-0.005, dist=0.62))])
+                     g=[(-9999, 0.1)], cam=[(0, G1), (55, shift(G1, dx=0.005, dy=-0.005, dist=0.76))])
 # y12 手机：乱码从「七」字起一个个变回来
 SHOTS["y12a"] = dict(n=76, cells=alt(8), props=set(ALL), fixed=True, cam=[(0, A1), (76, shift(A1, dist=0.34))], phone=("y12", 76))
 # y13 读带口 → 切刀 → 托盘：一格切一段，拆回一排
@@ -246,6 +246,7 @@ _src = open(os.path.join(HERE, "rig.py"), encoding="utf-8").read()
 exec(_src[_src.index("bpy.ops.wm.read_factory_settings"):_src.index("# ---------- 导轨")], globals())
 bpy.data.objects.remove(bpy.data.objects["desk"])                                       # 桌子往镜头这边加深：大全景里下半个画面也是桌面
 box("desk", -0.80, 1.00, -1.35, 0.40, -0.032, 0.0, WOOD, bevel=0.0015)
+M_BLUE_T = M_BLUE.copy()
 M_CORAL, _ = principled("dot_coral", **{"Base Color": (0.80, 0.16, 0.10, 1), "Roughness": 0.42})
 box("rail", RX0, RX1, YR - 0.027, YR + 0.027, 0, RAIL_H, M_RAIL, bevel=0.0006)
 box("rail_lip_n", RX0, RX1, YR - 0.027, YR - 0.0235, RAIL_H, RAIL_H + 0.0022, M_RAIL, bevel=0.0005)
@@ -394,7 +395,7 @@ def dot(t, solid, coral, rad):
     else:
         verts += [(0.72 * x, 0.72 * y, 0) for x, y, _ in verts[1:]]
         faces = [(1 + s, 1 + (s + 1) % seg, 1 + seg + (s + 1) % seg, 1 + seg + s) for s in range(seg)]
-    o = add_obj("dot", mesh_from("dot", verts, faces)); o.data.materials.append(M_CORAL if coral else M_BLUE)
+    o = add_obj("dot", mesh_from("dot", verts, faces)); o.data.materials.append(M_CORAL if coral else M_BLUE_T)
     o.location = (tape_x(t) + random.uniform(-0.0003, 0.0003), Y_DOT + random.uniform(-0.0003, 0.0003), Z_TAPE + 0.00003)
     o.parent = tape
     if t > -2:
@@ -403,6 +404,8 @@ def dot(t, solid, coral, rad):
         set_interp(o, "CONSTANT")
 
 
+# 蓝点只在纸带上：有还原盒时到盒子里为止（还原以后带上是原来的数据，清点的记号不跟过去），否则到纸带尽头
+for m_ in (M_BLUE_T, M_CORAL): cut_outside(m_, PRN_X, X_DES - 0.02 if "des" in PROPS else (X_CUT if "cutter" in PROPS else 0.74))
 CORAL = SP.get("coral_dots", [])
 STAMPS = [r for r in RIGHTS if -330 < r <= NF + 1]
 for r in STAMPS:
@@ -467,7 +470,7 @@ def wheel_rot(n): return PHI_W - radians(36) * n
 
 # 计数：新一段黑带进来清零，每盖一个实心点加一（格子窄于 15 帧时不数，轮子转不过来）
 events = [(t, "reset") for t, w in edges(PAT_A) if bit_at(PAT_A, t + 0.01) == 1 and w >= 15] + \
-         [(r, "inc") for r in RIGHTS if bit_at(PAT_A, r) == 1 and PER[r] >= 15]
+         [(r, "inc") for r in RIGHTS if bit_at(PAT_A, r) == 1]                          # 格子窄了以后不清零，轮子一直往上翻
 run, count_keys = 0, []
 for t, ev in sorted(e for e in events if -400 < e[0] <= NF + 2):
     run = 0 if ev == "reset" else run + 1
@@ -482,6 +485,7 @@ for t, n_ in count_keys:
     whub.rotation_euler = (wheel_rot(prev), 0, 0); whub.keyframe_insert("rotation_euler", frame=t)
     whub.rotation_euler = (wheel_rot(n_), 0, 0); whub.keyframe_insert("rotation_euler", frame=t + 3)
     prev = n_
+if count_keys and min(b_ - a_ for (a_, _), (b_, _) in zip(count_keys[:-1], count_keys[1:])) < 6 if len(count_keys) > 1 else False: set_interp(whub, "LINEAR")
 HX0, HX1 = CX - WW / 2 - 0.0012, CX + WW / 2 + 0.0012
 HT = CZ + WR + 0.006
 for nm_, (a, b_) in {"l": (HX0 - 0.006, HX0), "r": (HX1, HX1 + 0.006)}.items():
@@ -668,6 +672,7 @@ tr.inputs["Color"].default_value = (0.86, 0.92, 0.90, 1); mix = nt2.nodes.new("S
 nt2.links.new(lp.outputs["Is Shadow Ray"], mix.inputs[0]); nt2.links.new(ba.outputs[0], mix.inputs[1]); nt2.links.new(tr.outputs[0], mix.inputs[2])
 nt2.links.new(mix.outputs[0], nt2.nodes["Material Output"].inputs["Surface"])
 RU = SP.get("ruler")
+M_TICK, _ = principled("ruler_tick", **{"Base Color": (0.93, 0.90, 0.80, 1), "Roughness": 0.5})
 ncell = RU["cells"] if RU else 8
 ruler = empty("ruler", (-0.22, -0.27, 0), (0, 0, radians(7)))
 RL = CELL * ncell + 0.012
@@ -675,7 +680,8 @@ RY0, RY1 = -0.0128, 0.0128
 box("ruler_body", -RL / 2, RL / 2, RY0, RY1, 0.0002, 0.0026, M_ACR, bevel=0.0004).parent = ruler
 for i in range(ncell + 1):
     x = -CELL * ncell / 2 + i * CELL
-    box(f"ruler_tick{i}", x - 0.0004, x + 0.0004, RY0, RY0 + 0.012, 0.0026, 0.00264, M_BLACK).parent = ruler
+    box(f"ruler_tick{i}", x - 0.0005, x + 0.0005, RY0, RY0 + 0.013, 0.00264, 0.00268, M_TICK).parent = ruler       # 浅色刻度，压在黑带上也看得见
+    box(f"ruler_tickb{i}", x - 0.0010, x + 0.0010, RY0, RY0 + 0.013, 0.0026, 0.00264, M_BLACK).parent = ruler      # 深色衬底，压在白格上也看得见
 if RU:
     ruler.parent = tape
     rest = Vector((tape_x(RU["t"]), YR + 0.005, Z_TAPE))
@@ -761,6 +767,7 @@ if "meters" in PROPS:
             needle.parent = piv; needle.matrix_parent_inverse = Matrix.Translation((0, 0.024, -0.148))
             for f_, v_ in keys_:
                 piv.rotation_euler = (0, radians(-38 + 76 * v_), 0); piv.keyframe_insert("rotation_euler", frame=f_)
+            needle.hide_render = True
             box(name + "_red", -0.0008, 0.0008, -0.0032, -0.0027, 0.004, 0.054, M_CORAL).parent = piv        # 模型自带的指针太细太暗，前面加一根珊瑚色的
         tex_quad(name + "_tag", (0, -0.030, 0.222 + 0.030), (1, 0, 0), (0, 0.25, 1), 0.120, 0.051, tag).parent = root   # 小签立在表顶上
         return root
@@ -792,6 +799,7 @@ if "cutter" in PROPS:
         box(f"piece{i}_p", -0.012, 0.012, -0.021, 0.021, 0, 0.0002, M_PAPER).parent = root
         if bit: box(f"piece{i}_k", -0.012, 0.012, -0.008, 0.018, 0.0002, 0.00026, M_INK).parent = root
         return root
+    if not SP.get("cut"): done = [(0, upcoming[7 - k][2] if 7 - k < len(upcoming) else k % 2) for k in range(8)]   # 不在切的镜头：右托盘和左托盘从左到右同一组黑白
     for i, (f_, bit) in enumerate(done): piece(i, bit)
     for j, (f_, bit) in enumerate(todo):
         i = len(done) + j; r = piece(i, bit); rest = r.location.copy(); fc = f_ + TB       # 这一格的后沿到切刀：落刀

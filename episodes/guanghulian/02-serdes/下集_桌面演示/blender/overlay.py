@@ -72,13 +72,26 @@ class Kit:
         ld.text((x + pad - b[0], y + pad - b[1]), text, font=font, fill=(26, 24, 22, int(255 * alpha)))
         im.alpha_composite(lay)
 
+    @staticmethod
+    def wrap(text, limit=13):
+        """超过 limit 个字就拆成两行：优先在靠中间的标点后面断；没有合适标点的句子在 subs.json 里用「|」标断行处。"""
+        if "|" in text: return text.split("|")                                  # subs.json 里用「|」标了断行的位置
+        if len(text) <= limit: return [text]
+        cuts = [i + 1 for i, ch in enumerate(text[:-1]) if ch in "，、；：,"] or [len(text) // 2]
+        k = min(cuts, key=lambda i: abs(i - len(text) / 2))
+        if max(k, len(text) - k) > limit + 3: k = len(text) // 2
+        return [text[:k], text[k:]]
+
     def subtitle(self, im, text):
         if not text: return
-        s = self.s; d = ImageDraw.Draw(im); b = d.textbbox((0, 0), text, font=self.f_sub)
-        w, h = b[2] - b[0], b[3] - b[1]; cx, cy = self.W / 2, 1400 * s
+        s = self.s; d = ImageDraw.Draw(im); lines = self.wrap(text)
+        bs = [d.textbbox((0, 0), t, font=self.f_sub) for t in lines]
+        lh = int(66 * s); w = max(b[2] - b[0] for b in bs); h = lh * len(lines)
+        cx, cy = self.W / 2 - 30 * s, 1400 * s                                   # 略偏左，让开抖音右侧的按钮
         lay = Image.new("RGBA", im.size, (0, 0, 0, 0)); ld = ImageDraw.Draw(lay)
-        self._torn(ld, (cx - w / 2 - 30 * s, cy - h / 2 - 20 * s, cx + w / 2 + 30 * s, cy + h / 2 + 22 * s), (*DARK, 235), len(text))
-        ld.text((cx - w / 2 - b[0], cy - h / 2 - b[1]), text, font=self.f_sub, fill=(*CREAM, 255))
+        self._torn(ld, (cx - w / 2 - 30 * s, cy - h / 2 - 16 * s, cx + w / 2 + 30 * s, cy + h / 2 + 18 * s), (*DARK, 235), len(text))
+        for i, (t, b) in enumerate(zip(lines, bs)):
+            ld.text((cx - (b[2] - b[0]) / 2 - b[0], cy - h / 2 + i * lh + (lh - (b[3] - b[1])) / 2 - b[1]), t, font=self.f_sub, fill=(*CREAM, 255))
         im.alpha_composite(lay)
 
     def chrome(self, im, station=0, next_station=None):
