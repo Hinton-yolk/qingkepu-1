@@ -5,13 +5,13 @@
 //   5.25   拿什么量？钻进屏幕顶上看看 → in, one take (dark): the dot projector and the infrared camera beside it
 //   7.75   成千上万个光点 → 10.25 为了什么？ → 12 量高低 (lines of equal height sweep over the face)
 //   14.25  怎么看出高低？ → top view: the same beam on the reference wall and on the nose tip → 18.75 three beams
-//   20.75  拼起来是什么？ → 22.75 高低起伏 (the depth map; an infrared photo; both go to the stored you)
+//   20.75  把每个点挪了多少拼起来 → 22.75 高低起伏 (the depth map; an infrared photo; both go to the stored you)
 //   25.25  化了妆呢？ → 26.75 颜色变，高低几乎没变 (depth map still, IR photo 略变) → 29.25 修容 → 31.75 高度没变
 //   34     戴了口罩呢？ → 36.5 只看眼睛周围 → 39 够认出你吗？ → 41 独有的
-//   43     闭环 (light again): makeup and a mask, a glance, the lock opens → 46 小提示: the passcode → 49.5 end card
+//   43     闭环 (light again): makeup and a mask, a glance, the lock opens → 46 / 48 小提示 (two beats) → 50.5 end card
 // 120 BPM: 1 beat = 0.5 s = 15 frames at 30 fps. Every cue is on the 0.25 s grid, at the script's times.
 (function (root) {
-  const BPM = 120, BEAT = 60 / BPM, BAR = 4 * BEAT, FPS = 30, DUR = 53.5;
+  const BPM = 120, BEAT = 60 / BPM, BAR = 4 * BEAT, FPS = 30, DUR = 54.0;
   const W = 1080, H = 1920;
 
   const T = {
@@ -38,10 +38,10 @@
     q11: 39, swing: 39, swingEnd: 41, a11: 41, match2: 41.5,
     // 43–46 · back to the start (light): makeup, a mask, a glance, the lock opens (loudest hit, after a half-beat stop)
     fin: 43, out: 43, outEnd: 43.75, stop: 43.75, ka: 44, finOut: 45.9,
-    // 46–49.5 · the tip: not recognised → the passcode → next time easier
-    tip: 46, miss: 46.25, keys: 46.75, keysEnd: 47.75, open2: 48.0, tip2: 48.0, tipOut: 49.9,
-    // 49.5–53 end card
-    end: 50.0, endMorph: 50.6, title1: 50.75, ep: 51.5, sting: 52.0,
+    // 46–50.4 · the tip, two beats: not recognised → the passcode → close enough, next time easier
+    tip: 46, miss: 46.25, keys: 46.75, keysEnd: 47.75, open2: 48.0, tip2: 48.0, tipOut: 50.4,
+    // 50.5–54 end card
+    end: 50.5, endMorph: 51.1, title1: 51.25, ep: 52.0, sting: 52.5,
   };
 
   const COPY = {
@@ -64,14 +64,14 @@
     q10: ["那[戴了口罩]，", "半张脸都挡住了呢？"],
     a10: ["它就只看你", "[眼睛]周围"],
     q11: ["只看眼睛周围，", "[够]认出你吗？"],
-    a11: ["眼周的特征，", "也是你[独有]的"],
+    a11: ["眼周的高低和样子，", "也是你[独有]的"],
     fin: ["妆会变，口罩会挡，", "但你脸的[形状]还在"],
-    tipTag: "小提示：", tip: ["[浓妆]没认出？", "马上输一次[密码]"], tip2: ["和你够接近时，", "下次更[容易]认出"],
+    tipTag: "小提示：", tip: ["[浓妆]没认出？", "马上输一次[密码]"], tip2: ["这次和存下的够接近，", "下次更[容易]认出"],
     // labels in the picture (short; technical words only as small text)
     proj: "点阵投影器", ircam: "红外镜头", demo: "示意", dots: "红外光点 · 人眼看不见",
     wallL: "参考面", topv: "俯视", noseL: "鼻尖", cheekL: "脸颊", sideL: "脸侧", angle: "角度已放大 · 示意", imgL: "镜头里",
     depth: "深度图", ir: "红外照片", stored: "存着的你", slight: "略变", same: "没变", before: "修容前", after: "修容后",
-    setting: "需在设置里打开", lockMiss: "未识别", pass: "输入密码",
+    setting: "需在设置里打开", setting2: "「戴口罩使用面容 ID」", hiL: "高低", lookL: "样子", lockMiss: "未识别", pass: "输入密码",
     end: ["你每天都在用，", "但你不知道", "它[怎么工作]"], epNum: "EP.06", epName: "人脸解锁",
   };
 
