@@ -7,6 +7,7 @@
 - `scene.py`：Blender 场景（全部代码建模，按真实尺寸，单位米）+ 渲染设置。
 - `post.py`：后期，只加高光晕、轻微暗角、细颗粒。
 - `定妆静帧_v1.jpg`：成品（1080×1920）。无损 PNG 没进仓库。
+- `对照_两个模型各做一张.jpg`：同一份任务说明，Opus 5.5 独立试做的一张（右，540×960 试渲画质）和本目录这张（左）并排。Opus 那次约 13 万 token、10 分钟、试渲 8 次，脚本没进仓库。
 
 ## 重新出图
 ```bash
@@ -20,7 +21,7 @@ python3 make_textures.py <素材目录> <tex目录>
 # 2. 试构图 / 灯光：270×480、48 采样，云端 4 核 CPU 约 10 秒一张
 blender -b -P scene.py -- <tex目录> <素材目录> out/t.png 25 48
 #    调灯时加 top=1 看正上方俯视的光斑；其它参数 key=value（pitch yaw dist fstop el az slat exposure sun sky screen）
-# 3. 高清：1080×1920、600 采样（自适应）+ OIDN，云端 4 核 CPU
+# 3. 高清：1080×1920、600 采样（自适应）+ OIDN，云端 4 核 CPU，实测 15 分钟（当时另有试渲在抢 CPU）
 blender -b -P scene.py -- <tex目录> <素材目录> out/final.png 100 600
 python3 post.py out/final.png out/final_post.png out/final_540.jpg
 ```
@@ -38,3 +39,4 @@ python3 post.py out/final.png out/final_post.png out/final_540.jpg
 - 屏幕玻璃很干净，没有指纹和灰；桌面没有灰尘和杂物痕迹。
 - 两条配角纸条的字是按口播写的，不是用户确认过的纸条原文（它们在焦外，只当环境）。
 - 红线只连到平板脚下的图钉，没有连到屏幕上（真东西钉不进屏幕）。
+- 平板底边金属倒角上有两处小红点，是图钉和红线的反光。
