@@ -2,7 +2,14 @@
 
 上一个对话从 11-08 开到 11-10，太长了，为省额度新开一个对话。规则、决定都已经在仓库里，这里只列**进行中的事**和**新对话要知道的背景**。
 
-## 最新（11-11 夜，接触表已交，等用户说「行了」再渲）
+## 最新（11-11 深夜，终版在 GPU 上渲）
+- 用户：「接触表没问题」；不留顶部五站条；暗场电路板「终版用右边的GPT板子」（`assets/pcb_gpt/`，`film.py board=gpt` 是默认）。`DECISIONS.md` 11-11 最后四条。
+- 已做：GPU 动作草稿（0.43 美元，`out/v4/草稿_02下集_动作.mp4`，动效检查 PASS）；自查后改了落下的道具落前悬空、不用的尺子入画、y13 镜头时间；配乐和音效 `audio/score.py`（成品音轨 `out/v4/audio/final.wav`，-14 LUFS）；发布文案 `publish.md`（封面还没出）。
+- 终版：1080×1920、48 采样（暗场 96），两台 4090，任务表 `out/v4/jobs_final.json`，帧在 `out/v4/gpu_final/<镜头>/`，日志 `out/v4/gpu_final.log`。第一次按 128 采样开渲，每帧 9 秒，会超预算，3 分半后停掉（约 0.1 美元）。实测和教训在 `blender/README.md`「全片的 GPU 渲染」。
+- 渲完之后：`comp_film.py … --audio out/v4/audio/final.wav` 合成 → `tools/motion_check.py` → 封面两张 → 审核（最强模型）、监督（Sonnet）、观众（Codex，要用户登录）→ 交付（成片、`publish.md`、花费、三方意见）。
+- 会话如果断了：先 `python3 tools/runpod_render.py list`，有 `kepu-` 开头的 pod 就 `kill-all`，免得一直扣钱；已拉回的帧在 `out/v4/gpu_final/`，缺的镜头单独补渲（`gen_jobs.py` 生成后删掉已完成的任务）。
+
+## 上一步（11-11 夜，接触表已交）
 - 用户：「算了，还是保留之前的，继续吧」→ 配音保留「科普」。十四句已出（`out/v4/vo/final/`，整条轨 `out/v4/配音_全片_对好时码.mp3`）；时码对到配音上，全片 **81.75 秒、1962 帧**（`文字分镜_v4.md` 第九节、`blender/timeline.json`、`blender/subs.json`）。
 - 全片场景：`blender/film.py`（21 个镜头，用法见 `blender/README.md` 最上面一节）。接触表 25 帧（云端 CPU 小图，花费 0）：仓库里的缩小版 `下集_桌面演示/接触表_v4草稿.jpg`，原图 `out/v4/接触表_02下集_v4.jpg`，小图在 `out/v4/st/`。
 - 节点检查：审核三轮后「通过」（改动见 v4 第九节末尾）；监督无硬性漏项，清单补到 L21。观众（Codex）还没派，等有视频再派。
