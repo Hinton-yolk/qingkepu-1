@@ -100,7 +100,7 @@ clap = (rng.normal(0, 1, len(t2)) * np.exp(-t2 * 75) + 0.6 * np.sin(2 * np.pi * 
 t3 = np.arange(int(0.03 * SR)) / SR
 tick = np.sin(2 * np.pi * 2600 * t3) * np.exp(-t3 * 260)
 for f in EDGES: hit(f / FPS, drum, 0.8)
-for f in STAMPS: hit(f / FPS, clap, 0.32)
+for f in STAMPS: hit(f / FPS, clap, 0.32 if f <= 170 else 0.10)   # 出长黑带以后的「啪」压低，五下才数得清
 for f in TICKS: hit(f / FPS, tick, 0.06)
 aud = np.clip(aud, -1, 1)
 wav = DST.replace(".mp4", ".wav")
@@ -119,9 +119,7 @@ for f, name in enumerate(files):
         px_, py_ = P["pin"][f][0] * W, P["pin"][f][1] * H
         # 同屏小签最多 2 张：实物纸签算一张，这里只留引脚旁这一张（审核 11-11）
         tag(im, (px_ + 10 * s, py_ + 50 * s), ["信号跳一下"], fade(f, 30, NF - 4), s, f_tag, "rt")
-        d = ImageDraw.Draw(im)
-        d.text((44 * s, 1335 * s), "示意：电信号不发光，金色、速度、电路板均为示意", font=f_note, fill=(235, 235, 235, 255),
-               stroke_width=max(1, int(3 * s)), stroke_fill=(20, 20, 20, 255))
+        # 不加「示意」角注（用户 11-11：「示意不需要加了，本来就是为了示范，大家的常识不会觉得电信号会发光」）
     if TEXT and not GLOW:
         lx, ly = P["lamp"][f][0] * W, P["lamp"][f][1] * H
         # 「鼓点」从 y5 留下来；「= 信号跳一下」在说到这半句时出现，长黑带进来前一起淡掉

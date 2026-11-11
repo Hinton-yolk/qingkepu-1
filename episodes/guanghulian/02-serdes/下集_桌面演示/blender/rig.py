@@ -337,7 +337,11 @@ def dot(j):
         a = 2 * pi * s / seg
         r = 0.0040 * (1 + 0.035 * sin(3 * a + ph[0]) + 0.025 * sin(5 * a + ph[1]) + 0.015 * sin(9 * a + ph[2]))
         verts.append((r * cos(a), r * sin(a), 0))
-    faces = [(0, 1 + s, 1 + (s + 1) % seg) for s in range(seg)]
+    if bit(j):                                       # 读到 1：实心点
+        faces = [(0, 1 + s, 1 + (s + 1) % seg) for s in range(seg)]
+    else:                                            # 读到 0：空心圈（用户 11-11 同意：长黑带下面的五个实心点才好数）
+        verts += [(0.72 * x, 0.72 * y, 0) for x, y, _ in verts[1:]]
+        faces = [(1 + s, 1 + (s + 1) % seg, 1 + seg + (s + 1) % seg, 1 + seg + s) for s in range(seg)]
     o = add_obj(f"dot{j}", mesh_from(f"dot{j}", verts, faces)); o.data.materials.append(M_BLUE)
     f_st = TB * j + TB // 2
     o.location = (SLIT_X - V * f_st + random.uniform(-0.0003, 0.0003), Y_DOT + random.uniform(-0.0003, 0.0003), Z_TAPE + 0.00003)
@@ -384,7 +388,7 @@ for f in EDGES:
 set_interp(M_LAMP.node_tree, "LINEAR")
 
 # ---------- 计数器：一只数字轮（0–9），这一段黑带数到第几个 ----------
-CX, CY, CZ, WR, WW = SLIT_X + 0.060, YR + 0.056, 0.040, 0.026, 0.024
+CX, CY, CZ, WR, WW = SLIT_X + 0.085, YR + 0.056, 0.040, 0.026, 0.024   # 离窄缝 85 mm：再近，盖点臂抬起时的影子会扫到数字
 PHI_W = radians(138)                                    # 朝相机的那个方向（窗口）
 seg = 90
 verts, luv, faces = [], [], []
@@ -455,7 +459,8 @@ card.data.materials.append(mat_paper_tex("sign_a", f"{TEX}/sign_reader.png"))
 card.data.materials.append(mat_paper_tex("sign_b", f"{TEX}/sign_chip.png"))
 card.data.polygons[1].material_index = 1
 sg = empty("sign_pivot", SG, (radians(-22), 0, 0)); card.parent = sg
-cyl("sign_axle", SG + Vector((-SGW / 2 - 0.004, 0, 0)), SG + Vector((SGW / 2 + 0.004, 0, 0)), 0.0007, M_STEEL, 10)
+for sx in (-1, 1):                                    # 两端各一根短销，不从字上穿过去
+    cyl("sign_pin", SG + Vector((sx * (SGW / 2 - 0.0005), 0, 0)), SG + Vector((sx * (SGW / 2 + 0.004), 0, 0)), 0.0007, M_STEEL, 10)
 for sx in (-1, 1):
     px = CX + sx * (SGW / 2 + 0.004)
     cyl("sign_post", (px, SG.y, HT - 0.001), (px, SG.y, SG.z + 0.002), 0.0013, M_BRASS, 12)
@@ -627,7 +632,7 @@ if G:
         set_interp(m.node_tree, "LINEAR")
     blip("pin_flash", PIN + Vector((0.0016, 0, 0.0002)), 0.0016, (1.0, 0.56, 0.14), EDGES, P.get("sig", 9.0) * 4)
     blip("chip_sample", bw(0.042, -0.0775, P.get("chipz", 0.0066)), 0.0022, (0.03, 0.22, 1.0),
-         list(range(TB // 2, NF, TB)), P.get("smp", 10.0))
+         list(range(TB // 2, NF, TB)), P.get("smp", 3.0))
     set_interp(nt, "LINEAR")
 
 # ---------- 光：窗外的太阳 + 天空（只从窗进来），和定妆静帧一样 ----------
@@ -652,9 +657,9 @@ for k_ in ("dist", "pitch", "yaw"):
 MOVE = (P.get("m0", 52), P.get("m1", 178))               # 推镜的起止帧
 if G:                                                     # 发光信号那一段：上半是纸带和读带口，下半是电路板；慢推
     # 近、低：走线横贯画面下半，纸带和读带口在后面略虚（第一版机位太远，板子小、走线只是一条细线）
-    gt = Vector((SLIT_X + P.get("gtx", -0.045), YR + P.get("gty", -0.150), 0.0))
-    C1 = dict(t=tuple(gt), dist=P.get("gdist", 0.50), pitch=P.get("gpitch", 36), yaw=P.get("gyaw", 5))
-    C2 = dict(t=tuple(gt + Vector((0.012, -0.006, 0))), dist=P.get("gdist", 0.50) - 0.05, pitch=P.get("gpitch", 36) + 1, yaw=P.get("gyaw", 5) - 1.5)
+    gt = Vector((SLIT_X + P.get("gtx", -0.020), YR + P.get("gty", -0.118), 0.0))
+    C1 = dict(t=tuple(gt), dist=P.get("gdist", 0.66), pitch=P.get("gpitch", 45), yaw=P.get("gyaw", 5))
+    C2 = dict(t=tuple(gt + Vector((0.010, -0.006, 0))), dist=P.get("gdist", 0.66) - 0.05, pitch=P.get("gpitch", 45) + 1, yaw=P.get("gyaw", 5) - 1.5)
     MOVE = (0, 96)
 
 
