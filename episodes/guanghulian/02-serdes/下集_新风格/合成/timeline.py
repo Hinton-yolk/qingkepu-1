@@ -41,20 +41,21 @@ def build():
         for i, s in enumerate(segs): subs.append(dict(id=k, n=i, text=s, t0=round(vs[k] + ed[i], 3), t1=round(vs[k] + ed[i + 1] + (0.12 if i == len(segs) - 1 else 0), 3)))
     sub0 = lambda k, n: next(s['t0'] for s in subs if s['id'] == k and s['n'] == n)
     T = dict(A=0.0, B=2.4, side=6.4, count=b0['y6'], close=b0['y9'], rx=sub0('y10', 1) - 0.1, wide=b0['y11'], arev=b0['y12'], card=b0['y13'], close2=b0['y14'], end=end)
-    return dict(dur=dur, vs=vs, b0=b0, subs=subs, T=T, end=end)
+    m8 = round((sub0('y8', 1) - 0.75) * FPS) / FPS                       # y8「先把数据打乱」：打乱动画的起点（卡在「打乱」这个词上；审核 11-11）
+    return dict(dur=dur, vs=vs, b0=b0, subs=subs, T=T, end=end, m8=m8)
 
 # ---------- 比特串（一整条，240 位一圈）----------
 BITS = [1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0] * 4
-def scr(n, seed):
+def scr(n, seed, runs=(1, 1, 1, 2, 2, 3)):
     r = np.random.default_rng(seed); out = []
     while len(out) < n:
-        b = int(r.integers(0, 2)); L = int(r.choice([1, 1, 1, 2, 2, 3]))
+        b = int(r.integers(0, 2)); L = int(r.choice(runs))
         if out and out[-1] == b: b = 1 - b
         out += [b] * L
     return out[:n]
 # 同一位置上先到的在高位：120–239 = 和 3D 光带一样的普通数据；116–119 过渡；76–115 = 一长串 1（y7）；0–75 = 打乱后的数据
 SEQ_LONG = scr(76, 5) + [1] * 40 + [0, 1, 0, 0] + BITS
-SEQ_SCR = scr(76, 5) + scr(40, 9) + [0, 1, 0, 0] + BITS
+SEQ_SCR = scr(76, 5) + scr(40, 9, (1, 1, 1, 2)) + [0, 1, 0, 0] + BITS      # y8 画面里这一段跳变密一些（鼓点一直都在）
 N = 240; PERIOD = N * BIT
 
 def ease(p, kind):
@@ -76,8 +77,8 @@ def phase_fn(TL):
     # y7：冲到一长串 1（第 96 位在 y ≈ 13.8）
     p7 = end_phi(seg); vb_ = (114.6 - p7) / 0.7 * 2 - c2; seg += [(b0['y7'], b0['y7'] + 0.35, c2, vb_ * 0.5 + c2 * 0.5 + (114.6 - p7) / 0.7 * 0), ]
     seg.pop(); vm = ((114.6 - p7) - c2 * 0.7) / 0.35 + c2                          # 三角形速度：0.35 秒加速到 vm，再 0.35 秒减回来
-    seg += [(b0['y7'], b0['y7'] + 0.35, c2, vm), (b0['y7'] + 0.35, b0['y7'] + 0.7, vm, c2), (b0['y7'] + 0.7, b0['y8'] + 0.55, c2, c2)]
-    tc = g8(b0['y8'] + 0.95); seg += [(b0['y8'] + 0.55, tc, c2, v), (tc, T['close'], v, v)]
+    seg += [(b0['y7'], b0['y7'] + 0.35, c2, vm), (b0['y7'] + 0.35, b0['y7'] + 0.7, vm, c2), ]
+    tc = g8(TL['m8'] + 0.9); seg += [(b0['y7'] + 0.7, tc - 0.4, c2, c2), (tc - 0.4, tc, c2, v), (tc, T['close'], v, v)]      # 打乱完鼓点才回来
     starts = []; p = 40.32
     for a, b, va, vb in seg: starts.append(p); p += (va + vb) / 2 * (b - a)
     pc = p; marks = dict(count_park=tb + 0.5, flow1=(ta, tb), flow2=(tc, T['close']))

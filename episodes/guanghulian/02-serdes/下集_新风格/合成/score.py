@@ -29,7 +29,7 @@ def fade(x, a=0.01, b=0.05):
     if kb: x[-kb:] *= np.linspace(1, 0, kb)
     return x
 
-OPEN1 = T['side']; LONG0, LONG1 = D['b0']['y7'], D['b0']['y8'] + 0.6; FAST0 = T['close']; REV = round(T['arev'] / BEAT) * BEAT; END0 = T['close2']
+OPEN1 = T['side']; LONG0, LONG1 = D['b0']['y7'], D['m8'] + 0.6; FAST0 = T['close']; REV = round(T['arev'] / BEAT) * BEAT; END0 = T['close2']
 CH = {'Am7': [57, 60, 64, 67], 'D': [57, 62, 66, 69], 'Gmaj7': [55, 59, 62, 66], 'Em': [52, 55, 59, 64], 'C': [55, 60, 64, 67], 'G': [55, 59, 62, 67]}
 ROOT = {'Am7': 45, 'D': 38, 'Gmaj7': 43, 'Em': 40, 'C': 36, 'G': 43}
 NBAR = int(np.ceil(DUR / 2)); BARS = [['Am7', 'D', 'Gmaj7', 'Em'][i % 4] for i in range(NBAR)]
@@ -119,7 +119,7 @@ chime(sub0('y6', 2), 91, 0.05)
 whoosh(D['b0']['y7'] - 0.05, 0.8, 0.14, 700)
 for i in range(7): tick(VS['y7'] + 1.3 + i * (0.25 + 0.022 * i), 0.05, 2200 - 110 * i)
 # y8：打乱
-glitch(D['b0']['y8'] + 0.15, 0.6, 0.06); chime(D['b0']['y8'] + 0.8, 86, 0.05)
+glitch(D['m8'], 0.6, 0.06); chime(D['m8'] + 0.65, 86, 0.05)
 tr = sub0('y8', 2) - 0.2
 for i in range(6): pop(tr + 0.1 + i * 0.2, 500 + 60 * i, 0.05)
 # y9：两级台阶
