@@ -322,8 +322,8 @@ function dotsScene(t) {                               // 7.75–14.25
 // The side view (示意): her profile (the makeup picture) on the left, the phone edge-on in front of her face on the right,
 // the dot projector above and the infrared camera below on its edge (in the phone they sit side by side; drawn one above the
 // other so the geometry can be seen — said on screen). A wall (the reference plane) behind her head.
-const SV = { s: 0.62, P: [860, 880], Cm: [860, 1150], f: 120, wallX: 46, phoneTop: 820, phoneBot: 1290 };
-SV.x0 = 560 - 890 * SV.s; SV.y0 = 1000 - 740 * SV.s;
+const SV = { s: 0.62, P: [800, 880], Cm: [800, 1150], f: 120, wallX: 110, phoneTop: 820, phoneBot: 1290 };
+SV.x0 = 540 - 890 * SV.s; SV.y0 = 1000 - 740 * SV.s;
 const SVP = { nose: [890, 740], lips: [852, 825], chin: [816, 935] };              // profile points in the picture (rightmost skin)
 const svXY = (q) => [SV.x0 + q[0] * SV.s, SV.y0 + q[1] * SV.s];
 function svImg(Q) { return SV.Cm[1] + (SV.Cm[1] - Q[1]) * SV.f / (SV.Cm[0] - Q[0]); }          // where a point lands in the camera (a vertical strip right of it)
@@ -332,7 +332,7 @@ function svBeam(name) {
   return { N, W: [SV.wallX, SV.P[1] + dy * kW] };
 }
 function topScene(t) {                                   // (kept name) the side view, 14.25–20.75
-  const pz = 1 + 0.12 * prog(t, T.top, T.back), Z = { s: pz, tx: 600 - 600 * pz, ty: 1100 - 1100 * pz };
+  const pz = 1 + 0.06 * prog(t, T.top, T.back), Z = { s: pz, tx: 540 - 540 * pz, ty: 1050 - 1050 * pz };
   withZoom(Z, () => sideIn(t));
   const k = E.p3out(prog(t, T.top, T.topEnd)), A = k * (1 - E.p3io(prog(t, T.back, T.back + 0.35)));
   if (t >= T.top) tag(COPY.topv, 96, 650, A * E.p3out(prog(t, T.top, T.top + 0.4)), { fixed: true });
@@ -353,6 +353,7 @@ function sideIn(t) {
   // her profile: faint until the nose beat (first the beam runs to the wall as if there were no face), then solid
   const fk = t < T.nose ? 0.18 : lerp(0.18, 1, E.p3out(prog(t, T.nose, T.nose + 0.4)));
   ctx.save(); ctx.globalAlpha = A * fk; pic("makeup", SV.x0, SV.y0, SV.s); ctx.restore();
+  { const yb = SV.y0 + 1536 * SV.s, g = ctx.createLinearGradient(0, yb - 220, 0, yb); g.addColorStop(0, rgba(C.dark, 0)); g.addColorStop(1, rgba(C.dark, A)); ID(); ctx.fillStyle = g; ctx.fillRect(SV.x0 - 2, yb - 220, 1024 * SV.s + 4, 222); }   // her lower edge fades into the dark
   // the phone, edge on; the projector and the camera on it, named
   ID(); ctx.save(); ctx.globalAlpha = A;
   rr(SV.P[0] - 14, SV.phoneTop, 28, SV.phoneBot - SV.phoneTop, 12); ctx.fillStyle = "#2A2E34"; ctx.fill(); ctx.strokeStyle = "rgba(241,240,236,0.55)"; ctx.lineWidth = 3; ctx.stroke();
@@ -364,7 +365,7 @@ function sideIn(t) {
   label(COPY.proj, SV.P[0], SV.phoneTop - 26, 46, C.paper, t, T.top + 0.2, T.back + 0.3, { align: "center", alpha: A });
   label(COPY.ircam, SV.Cm[0] - 40, SV.phoneBot + 60, 46, C.paper, t, T.top + 0.4, T.back + 0.3, { align: "center", alpha: A });
   label(COPY.imgL, sx + 10, SV.Cm[1] - 140, 40, "rgba(241,240,236,0.85)", t, T.shift, T.back + 0.3, { align: "center", alpha: A });
-  label(COPY.wallL, SV.wallX + 14, 760, 44, "rgba(241,240,236,0.8)", t, T.wall, T.a6, { alpha: A });
+  label(COPY.wallL, SV.wallX + 14, 800, 44, "rgba(241,240,236,0.8)", t, T.wall, T.a6, { alpha: A });
   // the beams
   if (t >= T.beam && t < T.a6) svBeamDraw(t, "nose", A, 1, true, 0, 0);
   if (t >= T.a6) { const B3 = [["nose", T.b1], ["lips", T.b2], ["chin", T.b3]]; B3.forEach(([nm, tb], i) => svBeamDraw(t, nm, A, t >= tb && (i === 2 || t < B3[i + 1][1]) ? 1 : 0.15, false, i, tb)); }
@@ -375,7 +376,7 @@ function svBeamDraw(t, name, A, lit, first, idx, tb) {
   const faceOn = first ? E.p3out(prog(t, T.nose, T.nose + 0.4)) : 1;
   const beamIn = first ? E.p3out(prog(t, T.beam, T.beam + 0.5)) : E.p3out(prog(t, tb - 0.25, tb + 0.1));
   const end = faceOn > 0.5 ? N : W;
-  ID(); ctx.save(); ctx.globalAlpha = A * (0.15 + 0.85 * lit);
+  ID(); ctx.save(); ctx.globalAlpha = A * (0.1 + 0.9 * lit);
   ctx.strokeStyle = C.dot; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(SV.P[0], SV.P[1]); ctx.lineTo(lerp(SV.P[0], end[0], beamIn), lerp(SV.P[1], end[1], beamIn)); ctx.stroke();
   if (beamIn > 0.2) { const u = ((t * 1.25 + idx * 0.33) % 1) * beamIn; ctx.fillStyle = C.dot; ctx.beginPath(); ctx.arc(lerp(SV.P[0], end[0], u), lerp(SV.P[1], end[1], u), 7, 0, TAU); ctx.fill(); }   // light travelling along the beam
   if (faceOn > 0.5) { ctx.setLineDash([8, 10]); ctx.strokeStyle = "rgba(221,226,232,0.35)"; ctx.beginPath(); ctx.moveTo(N[0], N[1]); ctx.lineTo(W[0], W[1]); ctx.stroke(); ctx.setLineDash([]); }
@@ -384,7 +385,8 @@ function svBeamDraw(t, name, A, lit, first, idx, tb) {
     ctx.globalAlpha = A * showWall * (faceOn > 0.5 ? 0.45 : 1) * (0.15 + 0.85 * lit);
     ctx.strokeStyle = C.dot; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(W[0], W[1], 10, 0, TAU); ctx.stroke();
     ctx.strokeStyle = "rgba(221,226,232,0.25)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(W[0], W[1]); ctx.lineTo(SV.Cm[0], SV.Cm[1]); ctx.stroke();
-    ctx.beginPath(); ctx.arc(sx, svImg(W), 10, 0, TAU); ctx.strokeStyle = C.dot; ctx.lineWidth = 3; ctx.stroke();
+    if (lit > 0.5) ctx.globalAlpha = A * showWall;                // the camera's hollow point (where it would be without a face) stays bright: the start of the arrow
+    ctx.beginPath(); ctx.arc(sx, svImg(W), lit > 0.5 ? 14 : 10, 0, TAU); ctx.strokeStyle = C.dot; ctx.lineWidth = lit > 0.5 ? 4 : 3; ctx.stroke();
   }
   if (faceOn > 0) {
     ctx.globalAlpha = A * faceOn * (0.15 + 0.85 * lit);
@@ -395,12 +397,18 @@ function svBeamDraw(t, name, A, lit, first, idx, tb) {
     if (lit > 0.5) { ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(N[0], N[1], 20, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(sx, svImg(N), 20, 0, TAU); ctx.stroke(); }
     // the shift in the camera, between the hollow (wall) and the solid (face) point: an orange bar along the strip
     const sk = first ? E.p3out(prog(t, T.shift, T.shift + 0.45)) : E.p3out(prog(t, tb, tb + 0.35));
-    if (sk > 0 && lit > 0.5) { const a0 = svImg(W), a1 = svImg(N); ctx.globalAlpha = A * sk; ctx.strokeStyle = C.acc; ctx.lineWidth = 9; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(sx + 26, a0); ctx.lineTo(sx + 26, lerp(a0, a1, sk)); ctx.stroke(); }
+    if (sk > 0 && lit > 0.5) {                        // an orange arrow in the camera: from the hollow (no face) to the solid (the face) point
+      const a0 = svImg(W), a1 = svImg(N), ae = lerp(a0, a1, sk), dir = Math.sign(a1 - a0) || 1, ax = sx + 30;
+      ctx.globalAlpha = A * sk; ctx.strokeStyle = C.acc; ctx.fillStyle = C.acc; ctx.lineWidth = 8; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(ax, a0); ctx.lineTo(ax, ae - dir * 10); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ax, ae + dir * 6); ctx.lineTo(ax - 13, ae - dir * 16); ctx.lineTo(ax + 13, ae - dir * 16); ctx.closePath(); ctx.fill();
+      ctx.lineWidth = 3; ctx.setLineDash([5, 6]); ctx.beginPath(); ctx.moveTo(sx + 14, a0); ctx.lineTo(ax, a0); ctx.moveTo(sx + 14, a1); ctx.lineTo(ax, a1); ctx.stroke(); ctx.setLineDash([]);
+    }
   }
   ctx.restore();
-  if (!first) {
+  if (!first && lit > 0.5) {                     // the name of the lit point only, on a dark pill, left of the point (off the beams)
     const nm = [COPY.noseL, COPY.lipL, COPY.chinL][idx];
-    label(nm, N[0] + 30, N[1] + 16, 44, "rgba(241,240,236,0.95)", t, tb, T.back + 0.3, { alpha: A * (0.15 + 0.85 * lit) });
+    tag(nm, N[0] - 30, N[1], A * E.p3out(prog(t, tb, tb + 0.2)), { align: "right", bg: "rgba(10,11,13,0.82)" });
   }
 }
 // the three shifts, enlarged side by side: one lights up at a time
@@ -632,7 +640,7 @@ function tipScene(t) {
     if (fly < 1) { ID(); ctx.save(); ctx.globalAlpha = ka; ctx.translate(sxx, syy); ctx.scale(sc, sc);
       rr(-90, -110, 180, 220, 22); ctx.fillStyle = "#FFFFFF"; ctx.fill(); ctx.strokeStyle = C.acc; ctx.lineWidth = 6; ctx.stroke();
       ctx.save(); rr(-90, -110, 180, 220, 22); ctx.clip(); ctx.drawImage(IMG.makeup, 560, 420, 420, 520, -90, -110, 180, 220); ctx.restore(); ctx.restore(); }
-    tag(COPY.tipCond, 96, 650, ka, { col: C.ink, bg: "rgba(20,20,20,0.08)", size: 44, fixed: true });
+    tag(COPY.tipCond, 96, 650, ka * E.p3out(prog(t, T.tip2 + 0.3, T.tip2 + 0.6)), { col: C.ink, bg: "rgba(20,20,20,0.1)", size: 44, fixed: true });
   }
 }
 // the stored card on the light ground, with a small "+" when this time's face goes in

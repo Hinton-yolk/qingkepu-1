@@ -4,7 +4,7 @@
 //   2.75   它不只在看你，还在量你             (the camera goes to the top of the phone; 以 iPhone 面容 ID 为例)
 //   5.25   拿什么量？钻进屏幕顶上看看 → in, one take (dark): the dot projector and the infrared camera beside it
 //   7.75   成千上万个光点 → 10.25 为了什么？ → 12 量高低 (lines of equal height sweep over the face)
-//   14.25  怎么看出高低？ → top view: the same beam on the reference wall and on the nose tip → 18.75 three beams
+//   14.25  怎么看出高低？ → side view (her profile, the phone in front): the same beam on the wall and on the nose tip → 18.75 three beams (鼻尖 / 嘴唇 / 下巴)
 //   20.75  把每个点挪了多少拼起来 → 22.75 高低起伏 (the depth map; an infrared photo; both go to the stored you)
 //   25.25  化了妆呢？ → 26.75 颜色变，高低几乎没变 (depth map still, IR photo 略变) → 29.25 修容 → 31.75 高度没变
 //   34     戴了口罩呢？ → 36.5 只看眼睛周围 → 39 够认出你吗？ → 41 独有的
@@ -24,7 +24,7 @@
     // 7.75–14.25 · the dots; what for; to measure the heights
     a3: 7.75, turn: 7.75, turnEnd: 8.5, fire: 8.25, fireEnd: 9.25,
     q4: 10.25, a4: 12, iso: 12.25, isoEnd: 13.75,
-    // 14.25–20.75 · how: the top view; the same beam (wall / nose); three beams
+    // 14.25–20.75 · how: the side view; the same beam (wall / nose); three beams
     q5: 14.25, top: 14.25, topEnd: 15.0, beam: 15.25, a5: 16.25, wall: 16.25, nose: 16.75, shift: 17.25,
     a6: 18.75, b1: 19.0, b2: 19.5, b3: 20.0,
     // 20.75–25.25 · put together: the depth map; the infrared photo; both compared with the stored you
@@ -69,7 +69,7 @@
     tipTag: "小提示：", tip: ["[浓妆]没认出？", "马上输一次[密码]"], tip2: ["输完密码，", "它会把这次的样子", "[补存]下来"], tipCond: "前提：和存下的够接近 · 临时补存",
     // labels in the picture (short; technical words only as small text)
     proj: "点阵投影器", ircam: "红外镜头", demo: "示意", dots: "红外光点 · 人眼看不见",
-    wallL: "参考面", topv: "侧视 · 示意", sideNote: "示意：两个元件实际左右并排", lipL: "嘴唇", chinL: "下巴", noseL: "鼻尖", cheekL: "脸颊", sideL: "脸侧", angle: "角度已放大 · 示意", imgL: "镜头里",
+    wallL: "参考面", topv: "侧视 · 角度放大 · 示意", sideNote: "示意：两个元件实际左右并排", lipL: "嘴唇", chinL: "下巴", noseL: "鼻尖", cheekL: "脸颊", sideL: "脸侧", angle: "角度已放大 · 示意", imgL: "镜头里",
     depth: "深度图", ir: "红外照片", stored: "存下的你", slight: "略变", same: "没变", before: "修容前", after: "修容后",
     setting: "需在设置里打开", setting2: "「戴口罩使用面容 ID」", hiL: "高低", lookL: "样子", lockMiss: "未识别", pass: "输入密码",
     end: ["你每天都在用，", "但你不知道", "它[怎么工作]"], epNum: "EP.06", epName: "人脸解锁",
