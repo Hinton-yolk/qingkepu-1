@@ -1,6 +1,6 @@
 """全片合成：各镜头的帧（film.py fs/fe 渲的 <帧目录>/<镜头>/f_####.png）按 timeline 接起来，
 加后期、小签、字幕、右上角系列名，配上配音和占位音效（鼓 / 啪 / 嗒 / 印带器），输出 mp4。
-用法：python3 comp_film.py <帧目录> <锚点目录> <字体目录> <配音.wav> <输出.mp4> [--only 镜头,镜头] [--step 2]
+用法：python3 comp_film.py <帧目录> <锚点目录> <字体目录> <配音.wav> <输出.mp4> [--only 镜头,镜头] [--step 2] [--audio 成品音轨.wav]
 锚点目录：film.py anchors=1 写的 <镜头>.json（屏幕锚点 + 声音事件）。音乐还没做；音效是代码合成的占位音，只用来对动作。"""
 import sys, os, json, subprocess, wave
 from multiprocessing import Pool
@@ -11,6 +11,7 @@ from overlay import Kit, grade
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC, ANCH, FONTS, VO, DST = sys.argv[1:6]
 ONLY = sys.argv[sys.argv.index("--only") + 1].split(",") if "--only" in sys.argv else None
+AUDIO = sys.argv[sys.argv.index("--audio") + 1] if "--audio" in sys.argv else None      # 给了就直接用这条成品音轨（配音 + 配乐 + 音效）
 STEP = int(sys.argv[sys.argv.index("--step") + 1]) if "--step" in sys.argv else 1     # 草稿隔帧渲的：缺的帧用前一张顶上
 FS = {}
 FPS = 24
@@ -107,8 +108,9 @@ if __name__ == "__main__":
     wav = DST.replace(".mp4", ".wav")
     with wave.open(wav, "wb") as wf:
         wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(SR); wf.writeframes((aud * 32767).astype(np.int16).tobytes())
+    if AUDIO: wav = AUDIO
     ff = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
-                           "-i", wav, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", "-c:a", "aac", "-b:a", "160k", "-shortest", DST], stdin=subprocess.PIPE)
+                           "-i", wav, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "17", "-preset", "slow", "-c:a", "aac", "-b:a", "192k", "-shortest", DST], stdin=subprocess.PIPE)
     with Pool(4) as pool:
         for buf in pool.imap(frame_job, jobs, chunksize=8): ff.stdin.write(buf)
     ff.stdin.close(); ff.wait()

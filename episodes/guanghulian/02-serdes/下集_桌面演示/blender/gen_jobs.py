@@ -9,7 +9,7 @@ SEGS = [("y1", 0, 59), ("y2", 0, 101), ("y3d", 0, 35), ("s34a", 0, 89), ("s34b",
 tasks = []
 for shot, fs, fe in SEGS:
     dark = shot in ("y6g", "y12g")
-    tasks.append({"args": ["/w/scene/tex", "/w/scene/dl", "{out}/" + shot, scale, spp_dark if dark else spp, "gpu=1", "thr=0.02" if int(scale) >= 100 else "thr=0.05",
+    tasks.append({"args": ["/w/scene/tex", "/w/scene/dl", "{out}/" + shot, scale, spp_dark if dark else spp, "gpu=1", "thr=0.03" if int(scale) >= 100 else "thr=0.05",
                            f"shot={shot}", f"fs={fs}", f"fe={fe}"] + ([f"step={step}"] if step > 1 else []),
                   "units": int((fe - fs + 1) / step * (1.9 if dark else 1.0)) + 8})
 print(json.dumps({"scene_dir": scene, "script": "film.py", "out_dir": out, "sec_per_unit": spu, "tasks": tasks}, ensure_ascii=False, indent=1))
