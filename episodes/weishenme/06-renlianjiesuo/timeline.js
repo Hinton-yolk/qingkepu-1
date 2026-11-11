@@ -28,7 +28,7 @@
     q5: 14.25, top: 14.25, topEnd: 15.0, beam: 15.25, a5: 16.25, wall: 16.25, nose: 16.75, shift: 17.25,
     a6: 18.75, b1: 19.0, b2: 19.5, b3: 20.0,
     // 20.75–25.25 · put together: the depth map; the infrared photo; both compared with the stored you
-    q6: 20.75, back: 20.75, backEnd: 21.5, grow: 21.25, growEnd: 22.5, a7: 22.75, irPhoto: 23.25, compare: 24.0, compareEnd: 24.75, match1: 24.75,
+    q6: 20.75, back: 20.75, backEnd: 21.5, grow: 21.25, growEnd: 22.5, stop1: 22.5, a7: 22.75, irPhoto: 23.25, compare: 24.0, compareEnd: 24.75, match1: 24.75,
     // 25.25–34 · makeup: colour changes, the heights hardly; the contour
     q8: 25.25, lips: 25.25, lipsEnd: 25.75, blush: 25.75, blushEnd: 26.25, shadow: 26.25, shadowEnd: 26.75,
     a8: 26.75, cards: 26.75, cardsEnd: 27.25, irTag: 27.75,
@@ -37,7 +37,7 @@
     q10: 34, mask: 34.25, maskEnd: 35.0, toDepth: 35.0, toDepthEnd: 35.75, a10: 36.5, ring: 36.5, ringEnd: 37.25,
     q11: 39, swing: 39, swingEnd: 41, a11: 41, match2: 41.5,
     // 43–46 · back to the start (light): makeup, a mask, a glance, the lock opens (loudest hit, after a half-beat stop)
-    fin: 43, out: 43, outEnd: 43.75, stop: 43.5, ka: 44, finOut: 45.9,
+    fin: 43, out: 43, outEnd: 43.75, stop: 43.75, ka: 44, finOut: 45.9,
     // 46–49.5 · the tip: not recognised → the passcode → next time easier
     tip: 46, miss: 46.25, keys: 46.75, keysEnd: 47.75, open2: 48.0, tipOut: 49.4,
     // 49.5–53 end card
@@ -85,7 +85,7 @@
     q4: [T.q4], a4: [T.a4], iso: [T.iso],
     q5: [T.q5], top: [T.top], beam: [T.beam], a5: [T.a5], wall: [T.wall], nose: [T.nose], shift: [T.shift],
     a6: [T.a6], beams: [T.b1, T.b2, T.b3],
-    q6: [T.q6], grow: [T.grow], a7: [T.a7], irPhoto: [T.irPhoto], compare: [T.compare], match1: [T.match1],
+    q6: [T.q6], grow: [T.grow], stop1: [T.stop1], a7: [T.a7], irPhoto: [T.irPhoto], compare: [T.compare], match1: [T.match1],
     q8: [T.q8], makeup: [T.lips, T.blush, T.shadow], a8: [T.a8], cards: [T.cards], irTag: [T.irTag],
     q9: [T.q9], contour: [T.contour, T.contour + 0.5], a9: [T.a9], prof: [T.prof],
     q10: [T.q10], mask: [T.mask], toDepth: [T.toDepth], a10: [T.a10], ring: [T.ring],

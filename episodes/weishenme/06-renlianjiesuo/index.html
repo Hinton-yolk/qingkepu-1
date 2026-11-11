@@ -277,7 +277,7 @@ function module(x, y, r, kind, t) {
 // ---------------------------------------------------------------- the face in the dark: dots, heights, the depth map
 const DARKCAM = { eye: [0, -0.4, 44], target: [0, -0.4, 0], fov: 25 };
 function faceView(x, y, w, h) { return { x, y, w, h, cam: DARKCAM }; }
-function yawDots(t) { return 9 * Math.sin(TAU * (t - T.a3) / 9); }
+function yawDots(t) { return 14 * Math.sin(TAU * (t - T.a3) / 6.5); }
 function dotsOn(t, view, face, k, fly, src) {        // the dot pattern on the face; fly: 0..1 travel from src
   if (k <= 0.01) return;
   const o = { ...view, face };
@@ -286,10 +286,10 @@ function dotsOn(t, view, face, k, fly, src) {        // the dot pattern on the f
   for (let j = 0; j < FR.DOTS.length; j++) {
     const i = FR.DOTS[j], p = FR.project(o, i);
     if (p[6] < 0.12) { R(); continue; }
-    const d = R() * 0.45, u = E.p3out(clamp((fly - d) / 0.55));
+    const d = R() * 0.45, ph = R(), u = E.p3out(clamp((fly - d) / 0.55));
     if (u <= 0) continue;
     const x = lerp(src[0], p[0], u), y = lerp(src[1], p[1], u);
-    ctx.globalAlpha = k * (0.35 + 0.55 * clamp(p[6] * 1.3)) * (u < 1 ? 0.7 : 1);
+    ctx.globalAlpha = k * (0.35 + 0.55 * clamp(p[6] * 1.3)) * (u < 1 ? 0.7 : 0.7 + 0.3 * Math.sin(TAU * (t * 1.4 + ph)));   // the dots shimmer a little
     ctx.fillStyle = C.dot; ctx.beginPath(); ctx.arc(x, y, 3.6, 0, TAU); ctx.fill();
     if (u < 1) { ctx.globalAlpha *= 0.35; ctx.strokeStyle = C.dot; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(lerp(src[0], p[0], Math.max(0, u - 0.12)), lerp(src[1], p[1], Math.max(0, u - 0.12))); ctx.stroke(); }
   }
@@ -302,7 +302,7 @@ function dotsScene(t) {                               // 7.75–14.25
   const iso = t < T.iso ? 0 : Math.sin(Math.PI * prog(t, T.iso, T.isoEnd + 0.4));
   ID(); ctx.save(); ctx.globalAlpha = k * (1 - leave);
   const lk = t < T.iso ? 0 : E.p2io(prog(t, T.iso, T.isoEnd));
-  FR.render({ ctx, ...view, scale: 0.5, face, ...LINES, fill: 0.05, lineK: lk, lineMin: lerp(8.5, -3, lk) });
+  FR.render({ ctx, ...view, scale: 0.5, face, ...LINES, fill: 0.1, lineK: lk, lineMin: lerp(8.5, -3, lk) });
   ctx.restore();
   ctx.globalAlpha = 1;
   dotsOn(t, view, face, (1 - leave) * (1 - 0.3 * (t < T.iso ? 0 : E.p2io(prog(t, T.iso, T.isoEnd)))), prog(t, T.fire, T.fireEnd + 0.4), [540, 1700]);
@@ -317,12 +317,20 @@ const SL = (() => {                                     // the face, cut across 
 const TV = { cx: 540, faceY: 1070, wallY: 700, phoneY: 1270, s: 36, P: [720, 1270], Cm: [360, 1270], f: 110 };   // px per cm; projector, camera
 function tvFace(x, z) { return [TV.cx + x * TV.s, TV.faceY - (7.6 - z) * TV.s * 0.9]; }   // the nose tip (z = 7.6) nearest the phone (down)
 function topScene(t) {
+  const pz = 1 + 0.26 * prog(t, T.top, T.back), Z = { s: pz, tx: 540 - 540 * pz, ty: 1000 - 1000 * pz };
+  withZoom(Z, () => topSceneIn(t));
+}
+function topSceneIn(t) {
   const k = E.p3out(prog(t, T.top, T.topEnd)), leave = E.p3io(prog(t, T.back, T.back + 0.35));
   if (k <= 0 || leave >= 1) return;
   const A = k * (1 - leave);
+  ID(); ctx.save(); ctx.globalAlpha = A * 0.15; ctx.strokeStyle = C.paper; ctx.lineWidth = 3;           // a faint, wide grid on the floor (top view)
+  for (let x = -90; x <= 1170; x += 90) { ctx.beginPath(); ctx.moveTo(x, 520); ctx.lineTo(x, 1480); ctx.stroke(); }
+  for (let y = 540; y <= 1480; y += 90) { ctx.beginPath(); ctx.moveTo(-90, y); ctx.lineTo(1170, y); ctx.stroke(); }
+  ctx.restore();
   ID(); ctx.save(); ctx.globalAlpha = A;
   // the wall (reference plane), dashed
-  ctx.setLineDash([16, 14]); ctx.strokeStyle = "rgba(241,240,236,0.45)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(140, TV.wallY); ctx.lineTo(940, TV.wallY); ctx.stroke(); ctx.setLineDash([]);
+  ctx.setLineDash([16, 14]); ctx.lineDashOffset = -t * 30; ctx.strokeStyle = "rgba(241,240,236,0.45)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(140, TV.wallY); ctx.lineTo(940, TV.wallY); ctx.stroke(); ctx.setLineDash([]); ctx.lineDashOffset = 0;
   // the phone's top edge, the projector and the camera
   rr(220, TV.phoneY - 18, 640, 36, 18); ctx.fillStyle = "#0C0D0F"; ctx.fill(); ctx.strokeStyle = "rgba(241,240,236,0.25)"; ctx.stroke();
   ctx.save(); ctx.translate(TV.P[0], TV.P[1]); ctx.scale(0.5, 0.5); module(0, 0, 56, "proj", t); ctx.restore();
@@ -346,7 +354,7 @@ function topScene(t) {
   if (t >= T.a6) { [[0, T.b1], [3.6, T.b2], [6.6, T.b3]].forEach(([x, tb], i) => beamPair(t, x, A, t >= tb ? 1 : 0.35, false, i, tb)); }
   // labels
   label(COPY.wallL, 150, TV.wallY - 26, 44, "rgba(241,240,236,0.8)", t, T.wall, T.a6, { alpha: A });
-  label(COPY.imgL, 40, sy + 16, 44, "rgba(241,240,236,0.8)", t, T.shift, T.a6, { alpha: A });
+  label(COPY.imgL, 150, sy - 30, 44, "rgba(241,240,236,0.8)", t, T.shift, T.a6, { alpha: A });
   if (t >= T.top) tag(COPY.topv, 1000, 660, A * E.p3out(prog(t, T.top, T.top + 0.4)), { align: "right" });
   if (t >= T.a6) shiftInset(t, A);
   if (t >= T.wall && t < T.a6 + 0.2) tag(COPY.angle, 1000, 1410, A * E.p3out(prog(t, T.wall, T.wall + 0.3)), { align: "right" });
@@ -385,6 +393,7 @@ function beamPair(t, x, A, lit, first, idx = 0, tb = 0) {
   // the beam (to the wall when there is no face, to the nose when there is)
   const end = faceOn > 0.5 ? N : Wp;
   ctx.strokeStyle = C.dot; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(TV.P[0], TV.P[1]); ctx.lineTo(lerp(TV.P[0], end[0], beamIn), lerp(TV.P[1], end[1], beamIn)); ctx.stroke();
+  if (beamIn > 0.2) { const u = ((t * 1.25 + idx * 0.33) % 1) * beamIn; ctx.fillStyle = C.dot; ctx.beginPath(); ctx.arc(lerp(TV.P[0], end[0], u), lerp(TV.P[1], end[1], u), 7, 0, TAU); ctx.fill(); }   // light travelling along the beam
   if (faceOn > 0.5) { ctx.setLineDash([8, 10]); ctx.strokeStyle = "rgba(221,226,232,0.4)"; ctx.beginPath(); ctx.moveTo(N[0], N[1]); ctx.lineTo(Wp[0], Wp[1]); ctx.stroke(); ctx.setLineDash([]); }
   // the wall point (hollow) and its ray to the camera
   if (showWall > 0) {
@@ -534,7 +543,7 @@ function noseContour(x, y, s, a) {
 // the contour picture over it for 修容. (cx, cy) is where the face's middle (700, 720 in the picture) lands.
 const MKC = document.createElement("canvas"); MKC.width = 1024; MKC.height = 1536; const MKX = MKC.getContext("2d");
 function personMakeup(t, cx, cy, s, mk, o = {}) {
-  const x = cx - 700 * s, y = cy - 720 * s;
+  const x = cx - 700 * s, y = cy - 720 * s + 5 * Math.sin(TAU * t / 3.7);
   const prev = ctx; ctx = MKX; ctx.reset();
   ctx.drawImage(IMG.makeup, 0, 0);
   ctx.globalCompositeOperation = "destination-in";
@@ -568,7 +577,7 @@ function maskScene(t) {                             // 34–43
   const mk = { lips: 1, blush: 1, shadow: 1, contour: 1 };
   const side = E.p3io(prog(t, T.toDepth, T.toDepthEnd));                 // the person moves left; the data comes in on the right
   const ps = lerp(0.95, 0.8, side), px = lerp(560, 330, side), py = 1030;
-  const ox = px - 700 * ps, oy = py - 720 * ps;
+  const ox = px - 700 * ps, oy = py - 720 * ps + 5 * Math.sin(TAU * t / 3.7);
   const mu = E.p3out(prog(t, T.mask, T.maskEnd)), full = prog(t, T.maskEnd - 0.1, T.maskEnd + 0.2);
   ID(); ctx.save(); ctx.globalAlpha = k;
   pic("contour", ox, oy, ps); noseContour(ox, oy, ps, 1);
@@ -699,13 +708,22 @@ function drawDark(t) {
   if (t >= T.q8 && t < T.q10 + 0.6) makeupScene(t);
   if (t >= T.q10) maskScene(t);
 }
+// a slow, continuous drift of the whole picture (never a shake: < 1 px a frame), so no stretch of the film parks
+const DRIFT = { z: 0.05, x: 26, y: 20 };
+function driftZ(t) {
+  if (t >= T.end) return { s: 1, tx: 0, ty: 0 };
+  const s = 1 + DRIFT.z + DRIFT.z * Math.sin(TAU * t / 9), dx = DRIFT.x * Math.sin(TAU * t / 6.7 + 0.7), dy = DRIFT.y * Math.sin(TAU * t / 7.9 + 2.1);
+  return { s, tx: 540 - 540 * s + dx, ty: 1050 - 1050 * s + dy };
+}
 function frame(t) {
   ctx.reset(); ID();
   const fl = flood(t), ir = irisOf(t);
+  const DZ = driftZ(t), L = () => withZoom(DZ, () => drawLight(t)), D = () => withZoom(DZ, () => drawDark(t));
+  ID(); ctx.fillStyle = fl > 0.5 ? C.dark : C.ground; ctx.fillRect(0, 0, W, H);
   if (ir) {
-    if (ir.into) { drawLight(t); ctx.save(); irisClip(ir, true); drawDark(t); ctx.restore(); }
-    else { drawDark(t); ctx.save(); irisClip(ir, true); drawLight(t); ctx.restore(); }
-  } else if (fl > 0.5) drawDark(t); else drawLight(t);
+    if (ir.into) { L(); ctx.save(); irisClip(ir, true); ctx.fillStyle = C.dark; ctx.fillRect(0, 0, W, H); D(); ctx.restore(); }
+    else { D(); ctx.save(); irisClip(ir, true); ctx.fillStyle = C.ground; ctx.fillRect(0, 0, W, H); L(); ctx.restore(); }
+  } else if (fl > 0.5) D(); else L();
   scrim(t);
   if (ir) { const nw = ir.into ? 1 : 0; ctx.save(); irisClip(ir, false); TXF = 1 - nw; textBand(t); ctx.restore(); ctx.save(); irisClip(ir, true); TXF = nw; textBand(t); ctx.restore(); TXF = null; }
   else textBand(t);
