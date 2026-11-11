@@ -117,19 +117,20 @@ for f, name in enumerate(files):
     if TEXT and GLOW:
         lx, ly = P["lamp"][f][0] * W, P["lamp"][f][1] * H
         px_, py_ = P["pin"][f][0] * W, P["pin"][f][1] * H
-        tag(im, (lx + 60 * s, ly - 46 * s), ["鼓点"], fade(f, -10, NF - 4), s, f_tag, "lt")
-        tag(im, (px_ + 70 * s, py_ + 30 * s), ["信号跳一下"], fade(f, 30, NF - 4), s, f_tag, "lt")
+        # 同屏小签最多 2 张：实物纸签算一张，这里只留引脚旁这一张（审核 11-11）
+        tag(im, (px_ + 10 * s, py_ + 50 * s), ["信号跳一下"], fade(f, 30, NF - 4), s, f_tag, "rt")
         d = ImageDraw.Draw(im)
-        d.text((44 * s, 1335 * s), "示意：电信号本身不发光，金色为示意", font=f_note, fill=(235, 235, 235, 255),
+        d.text((44 * s, 1335 * s), "示意：电信号不发光，金色、速度、电路板均为示意", font=f_note, fill=(235, 235, 235, 255),
                stroke_width=max(1, int(3 * s)), stroke_fill=(20, 20, 20, 255))
     if TEXT and not GLOW:
         lx, ly = P["lamp"][f][0] * W, P["lamp"][f][1] * H
         # 「鼓点」从 y5 留下来；「= 信号跳一下」在说到这半句时出现，长黑带进来前一起淡掉
         a1 = fade(f, -10, 74); a2 = fade(f, 30, 74)
         if a1 > 0:
-            tag(im, (lx + 26 * s, ly - 150 * s), ["鼓点", "= 信号跳一下"] if a2 > 0.5 else ["鼓点"], a1, s, f_tag, "lb")
+            # 小签放在纸带下方的桌面上（上方是计数器和纸签，不能挡），一根细线连到小灯
             if a1 > 0.5:
-                ImageDraw.Draw(im).line([(lx + 4 * s, ly - 10 * s), (lx + 30 * s, ly - 148 * s)], fill=(238, 231, 214, 255), width=max(1, int(3 * s)))
+                ImageDraw.Draw(im).line([(lx, ly + 10 * s), (lx + 16 * s, ly + 52 * s)], fill=(238, 231, 214, 255), width=max(1, int(3 * s)))
+            tag(im, (lx - 10 * s, ly + 50 * s), ["鼓点", "= 信号跳一下"] if a2 > 0.5 else ["鼓点"], a1, s, f_tag, "lt")   # 下沿不超过 y = 1320
         a3 = fade(f, 176, 10 ** 6)
         if a3 > 0:
             bx = (P["band_l"][f][0] + P["band_r"][f][0]) / 2 * W; by = P["band_l"][f][1] * H

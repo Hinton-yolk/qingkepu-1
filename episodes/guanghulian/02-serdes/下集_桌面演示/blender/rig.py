@@ -24,7 +24,7 @@ pos = [a for a in argv[3:] if "=" not in a]
 SCALE = int(pos[0]) if len(pos) > 0 else 25
 SAMPLES = int(pos[1]) if len(pos) > 1 else 32
 P = dict(el=24, az=-18, exposure=0.55, sun=8.0, sky=0.8, fstop=4.0, lens=50, blind=0.66, mb=1, slat=14)
-GLOW_DEFAULTS = dict(blind=0.15, slat=-50, exposure=2.9)     # 发光信号那一段：百叶放下来合上，只剩窗缝里的天光；金色的光才照得出周围的元件
+GLOW_DEFAULTS = dict(blind=0.15, slat=-50, exposure=2.9, fstop=5.6)     # 发光信号那一段：百叶放下来合上，只剩窗缝里的天光；金色的光才照得出周围的元件
 S = {}
 for a in argv[3:]:
     if "=" in a:
@@ -651,8 +651,10 @@ for k_ in ("dist", "pitch", "yaw"):
         if f"{nm_}{k_}" in P: C[k_] = P[f"{nm_}{k_}"]
 MOVE = (P.get("m0", 52), P.get("m1", 178))               # 推镜的起止帧
 if G:                                                     # 发光信号那一段：上半是纸带和读带口，下半是电路板；慢推
-    C1 = dict(t=(SLIT_X - 0.030, YR - 0.105, 0.0), dist=P.get("gdist", 0.86), pitch=P.get("gpitch", 50), yaw=P.get("gyaw", 4))
-    C2 = dict(t=(SLIT_X - 0.022, YR - 0.115, 0.0), dist=P.get("gdist", 0.86) - 0.08, pitch=P.get("gpitch", 50) + 1, yaw=P.get("gyaw", 4) - 1)
+    # 近、低：走线横贯画面下半，纸带和读带口在后面略虚（第一版机位太远，板子小、走线只是一条细线）
+    gt = Vector((SLIT_X + P.get("gtx", -0.045), YR + P.get("gty", -0.150), 0.0))
+    C1 = dict(t=tuple(gt), dist=P.get("gdist", 0.50), pitch=P.get("gpitch", 36), yaw=P.get("gyaw", 5))
+    C2 = dict(t=tuple(gt + Vector((0.012, -0.006, 0))), dist=P.get("gdist", 0.50) - 0.05, pitch=P.get("gpitch", 36) + 1, yaw=P.get("gyaw", 5) - 1.5)
     MOVE = (0, 96)
 
 
@@ -668,7 +670,7 @@ def cam_pose(f):
 
 cd = bpy.data.cameras.new("cam"); cd.lens = P["lens"]; cd.sensor_width = 36; cd.sensor_fit = "AUTO"
 cam = bpy.data.objects.new("cam", cd); col.objects.link(cam); scene.camera = cam
-foc = empty("focus", (SLIT_X + 0.03, YR, 0.012) if not G else (SLIT_X - 0.02, YR - 0.14, 0.0))
+foc = empty("focus", (SLIT_X + 0.03, YR, 0.012) if not G else (SLIT_X - 0.02, YR - 0.19, 0.004))
 cd.dof.use_dof = True; cd.dof.aperture_fstop = P["fstop"]; cd.dof.focus_object = foc; cd.dof.aperture_blades = 7
 RES = (1080, 1920)
 if S.get("cam") == "E":                                   # 全景：横屏，看整套装置的布局
@@ -691,6 +693,9 @@ if P.get("gpu"):
     prefs = bpy.context.preferences.addons["cycles"].preferences
     prefs.compute_device_type = "OPTIX"; prefs.get_devices()
     for d_ in prefs.devices: d_.use = True
+    optix = [d_.name for d_ in prefs.devices if d_.type == "OPTIX"]
+    print("[gpu]", optix)
+    if not optix: raise SystemExit("gpu=1 但没有可用的 OptiX 设备：不要退回 CPU 慢慢渲（2026-11-11 一台 RTX 5090 上每帧 290 秒）")
     scene.cycles.device = "GPU"
 scene.cycles.samples = SAMPLES
 scene.cycles.use_adaptive_sampling = True; scene.cycles.adaptive_threshold = P.get("thr", 0.01 if SAMPLES > 200 else 0.05)
