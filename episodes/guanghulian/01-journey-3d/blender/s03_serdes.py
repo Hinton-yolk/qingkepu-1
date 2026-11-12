@@ -18,7 +18,7 @@ import common as C
 shot = C.Shot('S03'); args = C.parse_args(); sc = C.reset(shot); rnd = random.Random(3); rad = math.radians
 
 N = 32; TW = 3.2; TB = TW / N            # 并行一拍 3.2 秒；串行一拍 0.1 秒（3 帧）。真实约每秒上百亿拍，这里慢放约百亿倍
-ON, OFF = 1.7, 0.08                       # 亮 / 暗时的发光强度
+ON, OFF = 1.15, 0.06                       # 亮 / 暗时的发光强度
 STAGE = 8.0                               # 每一级串化电路沿 X 占 8 µm
 X_DRV0, X_DRV1, X_PAD = 46.0, 58.0, 72.0  # 输出驱动的起止、凸点的位置
 Z_TOP, Z_BUMP = -9.0, -24.0               # 上层厚金属的高度、凸点中心的高度
@@ -84,19 +84,25 @@ for k in range(5): net.box((2.0, 2.0, abs(Z_TOP) / 5 * 0.72), (X_PAD, 0, -abs(Z_
 net.obj('输出网络', out_mat, sig)
 bump_sig = C.Mesh(); bump_sig.sphere(12.5, (X_PAD, 0, Z_BUMP), (1, 1, 0.85)); bump_sig.obj('凸点_信号', C.pbr('凸点（信号）', (0.62, 0.63, 0.64), metallic=1.0, rough=0.3), sig, smooth=True)
 pad = C.Mesh(); pad.cyl(13, 1.6, (X_PAD, 0, Z_TOP - 0.8), seg=8); pad.obj('焊盘_信号', M['bump'], sig)
-halo = C.Mesh(); halo.cyl(3.2, 0.3, (X_PAD, 0, Z_TOP + 0.1), seg=16); halo.obj('通孔落点亮斑', out_mat, sig)
+halo = C.Mesh(); halo.cyl(3.2, 0.3, (X_PAD, 0, Z_TOP + 0.1), seg=16); halo.cyl(12.7, 1.2, (X_PAD, 0, Z_BUMP), seg=32); halo.obj('信号落点亮环', out_mat, sig)
 
 # ---------- 周围的连线（环境）：三层直角走线 + 凸点阵列 + 下方的中介层表面 ----------
 env = C.collection('环境'); l1 = C.Mesh(); l2 = C.Mesh(); l3 = C.Mesh(); bumps = C.Mesh()
+CLR = 36.0                      # 输出通孔和微凸点周围清出一块，观众才看得见信号从哪里离开芯片（示意：真实芯片这里同样布满连线）
 def keepout(x, y, lx):          # 信号线和串化电路周围留空
-    return (x - lx / 2 < X_PAD + 16) and abs(y) < 21
+    return ((x - lx / 2 < X_PAD + 16) and abs(y) < 21) or (abs(x - X_PAD) < CLR + lx / 2 and abs(y) < CLR)
 for _ in range(1400):
     lx = rnd.uniform(8, 90); x = rnd.uniform(-330, 190); y = round(rnd.uniform(-110, 110)) + 0.5
     if not keepout(x, y, lx): l1.box((lx, 0.45, 0.5), (x, y, 0))
 for _ in range(420):
     ly = rnd.uniform(15, 120); x = round(rnd.uniform(-330, 190) / 3) * 3; y = rnd.uniform(-110, 110)
-    l2.box((1.2, ly, 1.0), (x, y, -3.2))
-for k in range(-9, 10): l3.box((560, 5.0, 2.0), (-70, k * 12.0 + 6.0, Z_TOP + 1.0))
+    if not (abs(x - X_PAD) < CLR and abs(y) < CLR + ly / 2): l2.box((1.2, ly, 1.0), (x, y, -3.2))
+for k in range(-9, 10):
+    y = k * 12.0 + 6.0
+    if abs(y) < CLR:
+        xa, xb = -350.0, X_PAD - CLR; l3.box((xb - xa, 5.0, 2.0), ((xa + xb) / 2, y, Z_TOP + 1.0))
+        xa, xb = X_PAD + CLR, 210.0; l3.box((xb - xa, 5.0, 2.0), ((xa + xb) / 2, y, Z_TOP + 1.0))
+    else: l3.box((560, 5.0, 2.0), (-70, y, Z_TOP + 1.0))
 for ix in range(-8, 6):
     for iy in range(-3, 4):
         if (ix, iy) == (0, 0): continue
@@ -110,9 +116,9 @@ C.box('中介层表面', (900, 500, 1.0), (-60, 0, Z_BUMP - 12.5), M['floor'], e
 cam, tgt = C.add_camera('cam_S03', lens=50, fstop=1.0, clip=(0.05, 5000))
 def cam_fn(t):
     a = C.smoother(C.seg(t, 23.0, 27.4)); h = C.seg(t, 27.4, 35.5); b = C.smoother(C.seg(t, 35.5, 38.9))
-    fx = C.lerp(-110, 20, a) + 2.0 * h + C.lerp(0, X_PAD - 22, b); fz = C.lerp(0, Z_TOP - 10, b)
-    d = C.loglerp(150, 78, a) * C.lerp(1.0, 0.94, h) * C.loglerp(1.0, 0.95, b)
-    el = rad(C.lerp(82, 56, a) + C.lerp(0, -3, h) + C.lerp(0, -14, b)); az = rad(180 + C.lerp(0, -14, a) + C.lerp(0, -6, h) + C.lerp(0, 20, b))
+    fx = C.lerp(-110, 20, a) + 2.0 * h + C.lerp(0, X_PAD - 22, b); fz = C.lerp(0, Z_BUMP + 8, b)
+    d = C.loglerp(150, 78, a) * C.lerp(1.0, 0.94, h) * C.loglerp(1.0, 1.25, b)
+    el = rad(C.lerp(82, 56, a) + C.lerp(0, -3, h) + C.lerp(0, -22, b)); az = rad(180 + C.lerp(0, -14, a) + C.lerp(0, -6, h) + C.lerp(0, -50, b))
     focus = Vector((fx, 0, fz)); loc = focus + d * Vector((math.cos(el) * math.cos(az), math.cos(el) * math.sin(az), math.sin(el)))
     return dict(loc=loc, tgt=focus, fstop=50e-3 / (2 * 0.006 * d))
 C.animate_camera(cam, tgt, cam_fn, shot)
