@@ -19,7 +19,8 @@ newest() {            # 输出：最新修改时间（秒） 文件名
 echo "开始监视「$name」：$(date -u +%H:%M:%S) UTC，停滞门槛 ${stale} 秒"
 while true; do
   sleep 30
-  if [ -n "$pat" ] && ! pgrep -f "$pat" >/dev/null; then
+  # 进程关键字也出现在本脚本自己的命令行里，要把自己排除掉，否则永远认不出「进程已结束」
+  if [ -n "$pat" ] && ! pgrep -af "$pat" | grep -v heartbeat_watch | grep -q .; then
     echo "「$name」的进程已结束：$(date -u +%H:%M:%S) UTC"; exit 0
   fi
   line="$(newest)"; now=$(date +%s)
