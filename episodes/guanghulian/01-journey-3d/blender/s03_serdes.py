@@ -41,9 +41,9 @@ B.lights(beol['root'])
 
 dev = C.setup_render(args, exposure=0.0)
 if args.anchors:
-    pair = C.empty('锚点_差分输出')
-    for f in range(shot.f0, shot.f1 + 1): pair.location = B.anchor_pair((f - 1) / C.FPS); pair.keyframe_insert('location', frame=f)
+    pair = C.empty('锚点_差分输出'); bus = C.empty('锚点_并行总线')        # 这两个锚点跟着相机走，标注期间不出画
+    for f in range(shot.f0, shot.f1 + 1):
+        tt = (f - 1) / C.FPS; pair.location = B.anchor_pair(tt); pair.keyframe_insert('location', frame=f); bus.location = B.anchor_bus(tt); bus.keyframe_insert('location', frame=f)
     C.export_anchors(os.path.join(args.out, f'anchors_{shot.id}.json'), shot, cam,
-                     {'并行总线': beol['pts']['并行总线'], '串化电路旁': beol['pts']['串化电路旁'], '差分输出': pair,
-                      'bump_p': beol['pts']['bump_p'], 'bump_n': beol['pts']['bump_n']})
+                     {'并行总线': bus, '串化电路旁': beol['pts']['串化电路旁'], '差分输出': pair, 'bump_p': beol['pts']['bump_p'], 'bump_n': beol['pts']['bump_n']})
 C.render(args, shot, dev)
