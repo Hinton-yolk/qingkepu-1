@@ -336,8 +336,9 @@ PATTERN.forEach((b, i) => { if (b) PULSES.push({ hit: fq(12.2 + 0.55 * i + HIT_D
 PATTERN.forEach((b, i) => { if (b) PULSES.push({ hit: fq(17.0 + 0.30 * i + HIT_DT), dur: 0.22, set: 2, i }); });
 const gate = (tau, dur) => Math.max(0, smooth(tau / RISE) - smooth((tau - dur) / RISE));
 function dipAt(y, t) {            // 高度 y 处此刻「暗了多少」0..1；电极以下恒为 0
-  if (y > YC) return 0;
-  let g = 0; for (const p of PULSES) g = Math.max(g, gate(t - p.hit - (YC - y) / VL, p.dur));
+  if (y > EL_Y1) return 0;                    // 电极以下（入口一侧）不变
+  const dl = Math.max(0, EL_Y0 - y) / VL;     // 在电极那一段高度上立刻变暗；再往上，暗的那一段以光速（示意）流出去
+  let g = 0; for (const p of PULSES) g = Math.max(g, gate(t - p.hit - dl, p.dur));
   return g;
 }
 window.cLightAt = (y, t) => 1 - (1 - DIMC) * dipAt(y, t);              // 给检查脚本用
