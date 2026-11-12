@@ -43,6 +43,8 @@ ZC = ZB + 0.008                         # 网卡板顶面（平放在主板上�
 NIC_Y = (0.792, 0.899); NIC_CX = LANE_X + 0.013; CHIP_Y = 0.822; CHIP = 0.025; CHIP_H = 0.003     # 网卡板前后沿、中心 x；网卡芯片位置、边长、高
 PORT_X = [LANE_X, LANE_X + 0.026]; PORT_Z = ZC + 0.00625; PORT_HERO = 0             # 后面板 2 个光口（网卡上的两个笼子）；路径线走第 1 个
 PORT_TIP = SD + 0.018                   # 光模块尾端（跳线插口）伸出后面板的位置
+FIN_LIFT = 0.0                          # 鳍片离底座的空隙。S02 现在的鳍片比底座高出 5.13 mm（疑似 S02 的小错，待它修）；要临时和 S02 现状对齐就填 0.00513
+NEIGHBOR_PARTS = True                   # 邻居模组上画不画供电器件。S02 现在的邻居只有小板和散热器；要临时和它对齐就填 False
 TRAY_Z = 2.40; TRAY_W = 0.30; TRAY_Y = 0.93     # 线槽底面高度、宽度；线槽在机柜背面上方（柜内坐标 y = 0.78 … 1.08，世界坐标 y = ±1.38 … ±1.68）
 X_CROSS = 3.9                           # 路径线过桥（跨通道的线槽）的位置
 CROSS = (0.3, 3.9, 7.5)
@@ -150,8 +152,8 @@ mk('yellow2', C.pbr, color=(0.62, 0.72, 0.09), rough=0.55)
 mk('tray', C.pbr, color=(0.62, 0.63, 0.65), metallic=1.0, rough=0.38)
 mk('ceil', C.pbr, color=(0.10, 0.105, 0.115), rough=0.8)
 mk('wall', C.pbr, color=(0.30, 0.32, 0.35), rough=0.7)
-mk('glass', C.emit, color=(0.62, 0.80, 1.0), strength=1.6, aov=False)          # 通道尽头门上的玻璃（门外的光）
-mk('lightbar', C.emit, color=(0.74, 0.87, 1.0), strength=9.0, aov=False)      # 顶部灯带：冷白
+mk('glass', C.emit, color=(0.50, 0.72, 1.0), strength=1.6, aov=False)          # 通道尽头门上的玻璃（门外的光）
+mk('lightbar', C.emit, color=(0.62, 0.80, 1.0), strength=9.0, aov=False)      # 顶部灯带：冷白偏蓝
 mk('pcb', C.pbr, color=(0.007, 0.036, 0.027), rough=0.40, coat=0.4)             # 电路板：素的深绿阻焊色，不画走线纹
 mk('mlcc', C.pbr, color=(0.50, 0.38, 0.25), rough=0.55)
 mk('substrate', C.pbr, color=(0.015, 0.085, 0.055), rough=0.42, coat=0.35)
@@ -219,6 +221,7 @@ def build_server():
         g['black'].box((0.010, 0.010, 0.130), (ex, -0.030, 0.205))
         for dz in (-0.058, 0.058): g['black'].box((0.008, 0.028, 0.008), (ex, -0.014, 0.205 + dz))
         for z in (0.030, SH - 0.030): g['silver'].cyl(0.005, 0.007, (ex, -0.0035, z), rot=(PI / 2, 0, 0), seg=12)
+        g['led'].box((0.005, 0.001, 0.030), (ex, -0.0005, 0.095))                                      # 状态灯条（绿）
     # 风扇墙：3 排 × 5 个 80 mm 风扇模块（热插拔模块：外框、叶轮、钢丝格栅、指示灯）
     for r in range(3):
         for c in range(5):
@@ -269,7 +272,8 @@ def build_internals():
             for sx in (-1, 1): g['black'].box((0.006, 0.150, 0.0016), (cx + sx * 0.040, ry, ZB + 0.0008)) # 板间连接器（示意）
             g['substrate'].box((0.072, 0.072, 0.0016), (cx, ry, ZM + 0.0008)); g['silicon'].box((0.026, 0.031, 0.00078), (cx, ry, ZM + 0.00214))
             g['nickel'].box((0.096, 0.096, 0.005), (cx, ry, ZM + 0.00263 + 0.0025))                       # 散热器底座
-            for k in range(-23, 24): g['alu'].box((0.0005, 0.092, 0.040), (cx + k * 0.002, ry, ZM + 0.00763 + 0.020))   # 鳍片：面垂直于 X，风沿 Y 吹
+            for k in range(-23, 24): g['alu'].box((0.0005, 0.092, 0.040), (cx + k * 0.002, ry, ZM + 0.00763 + 0.020 + FIN_LIFT))   # 鳍片：面垂直于 X，风沿 Y 吹
+            if not NEIGHBOR_PARTS and (cx, ry) != (COLS[1], ROW_Y[0]): continue
             for sy in (-1, 1):                                                                            # 供电：电感、供电芯片、铝壳电容、两排贴片电容
                 def free(x): return not (sy > 0 and abs(x) < 0.004)                                      # +Y 一侧正中让出约 8 mm，给路径线走（示意；S02 的这一侧在接缝帧被散热器挡住）
                 for k in range(-3, 4):
@@ -317,7 +321,7 @@ def build_switch():
 SRV = build_server(); INTL = build_internals(); SWT = build_switch()
 
 # ---------- 机柜里的跳线走法（柜内坐标）：后面板光口 → 机柜背面的理线区 → 向上出柜顶 → 翻过线槽边沿 → 落到线槽里 ----------
-RISER_X = 0.250; Y_REAR = SRV_Y + PORT_TIP              # 竖向理线的位置；光模块尾端在柜内的进深
+RISER_X = -0.250; Y_REAR = SRV_Y + PORT_TIP             # 竖向理线的位置（和光口同一侧，镜头从机箱上方能看到跳线从光口后面升上去）；光模块尾端在柜内的进深
 def jumper_route(px, z, lane, tail=0.35):
     y = 1.095 + lane * 0.003; yt = TRAY_Y - 0.13 + lane * 0.004         # 竖向这一段的进深；落进线槽后的位置（靠通道一侧）
     pts = [(px, Y_REAR, z), (px, y, z), (RISER_X, y, z), (RISER_X, y, 2.17), (RISER_X, 1.16, 2.25), (RISER_X, 1.16, TRAY_Z + 0.105),
@@ -390,15 +394,15 @@ def assemble_rack(col, hero=False, parent=None):
     objs.append(tubes('跳线', lines, 0.0016, M['yellow'], col, res=1))
     if lines_up: o = tubes('跳线_淡出', lines_up, 0.0016, MF('yellow'), col, res=1); objs.append(o); fd['upper'].append(o)     # 上方设备淡出时，它们的跳线一起淡出
     # 柜内暖光（柜门和设备之间，从上往下擦着前面板）：给走廊画面一层暖色，和冷白的顶灯分开
-    ld = bpy.data.lights.new('柜内暖光', 'AREA'); ld.energy = WARM_W; ld.color = (1.0, 0.60, 0.30); ld.shape = 'RECTANGLE'; ld.size = 0.42; ld.size_y = 0.03
+    ld = bpy.data.lights.new('柜内暖光', 'AREA'); ld.energy = WARM_W; ld.color = (1.0, 0.56, 0.26); ld.shape = 'RECTANGLE'; ld.size = 0.42; ld.size_y = 0.03
     lo = C.link(bpy.data.objects.new('柜内暖光', ld), col); lo.location = (0, 0.05, 2.02); lo.visible_camera = False; objs.append(lo); fd['light'] = ld
     if parent:
         for o in objs:
             if o.parent is None: o.parent = parent
     return fd
 
-WARM_W = 12.0
-RACK = C.collection('SRC_机柜'); assemble_rack(RACK)
+WARM_W = 25.0
+RACK = C.collection('SRC_机柜'); FD0 = assemble_rack(RACK)
 racks = C.collection('机柜')
 hero = C.empty('机柜A', (xc(I_A), 0.6, 0), racks); FD = assemble_rack(racks, hero=True, parent=hero)
 C.instance_collection(INTL, 'A内部', (0, SRV_Y, SRV_Z[K_HERO]), col=racks).parent = hero
@@ -474,7 +478,7 @@ def gold_route():
     → 沿通道向后，上主板 → 爬上网卡板 → 越过网卡芯片 → 笼子顶面 → 后面板光口（光模块尾端）。"""
     gx, gy = COLS[1], ROW_Y[0]; zt = ZM + 0.00053; zb = ZB + 0.0015; zc = ZC + 0.0016; zh = ZC + CHIP_H + 0.0016; zg = PORT_Z + 0.00625 + 0.0016
     y0 = NIC_Y[0] - 0.003; c0 = CHIP_Y - CHIP / 2 - 0.002; c1 = CHIP_Y + CHIP / 2 + 0.002; g0 = SD - 0.049 - 0.002
-    pts = fillet([(gx, gy + 0.036, zt), (gx, gy + 0.100, zt), (gx, gy + 0.1035, zt), (gx, gy + 0.1035, zb), (gx, GAP_Y, zb), (LANE_X, GAP_Y, zb), (LANE_X, y0, zb), (LANE_X, y0, zc),
+    pts = fillet([(gx, gy + 0.036, zt), (gx, gy + 0.100, zt), (gx, gy + 0.10125, zt), (gx, gy + 0.10125, zb), (gx, GAP_Y, zb), (LANE_X, GAP_Y, zb), (LANE_X, y0, zb), (LANE_X, y0, zc),
                   (LANE_X, c0, zc), (LANE_X, c0, zh), (LANE_X, c1, zh), (LANE_X, c1, zc), (LANE_X, g0, zc), (LANE_X, g0, zg), (LANE_X, SD + 0.001, zg), (LANE_X, PORT_TIP, PORT_Z)], 0.003, n=3)
     rf = [C.lerp(1.0, 1.2, C.smooth(C.seg(p.y, gy + 0.100, GAP_Y))) + 0.4 * C.smooth(C.seg(p.y, 0.60, 0.66)) for p in pts]
     return pts, rf
@@ -501,13 +505,14 @@ tray_run = fillet([ra[-1], (xk, ya, zt), (xk, yb, zt), rb[0]], 0.06, n=6)
 pc = ra[:-1] + tray_run + rb[1:]
 tubes('路径下的跳线', [pc], 0.0016, M['yellow'], room, res=1)       # 青色管里面的那根真实跳线（从 A 柜光口一直到 B 柜光口）
 NIC_A = to_world('A', I_A, srv_to_rack((LANE_X, CHIP_Y, ZC + CHIP_H))); NIC_B = to_world('B', I_B, srv_to_rack((LANE_X, CHIP_Y, ZC + CHIP_H)))
-segs = [('路径_金A', 'e1', pa, R_GOLD, 'path_gold', grf), ('路径_青', 'o', pc, 0.0120, 'path_cyan', taper(pc, 0.3, 0.6)), ('路径_金B', 'e2', pb, R_GOLD, 'path_gold', grf[::-1])]
+segs = [('路径_金A', 'e1', pa, R_GOLD, 'path_gold', grf), ('路径_青', 'o', pc, 0.0140, 'path_cyan', taper(pc, 0.3, 0.6)), ('路径_金B', 'e2', pb, R_GOLD, 'path_gold', grf[::-1])]
 L_TOTAL = sum(plen(p) for _, _, p, _, _, _ in segs); T_P0, T_P1 = 0.3, 3.0; s0 = 0.0; PATH_T = {}
 for name, tag, pts, r, key, rf in segs:
     o = tubes(name, [(pts, rf)], r, M[key], None, res=3); cu = o.data; L = plen(pts)
     ta = C.lerp(T_P0, T_P1, s0 / L_TOTAL); tb = C.lerp(T_P0, T_P1, (s0 + L) / L_TOTAL); s0 += L; PATH_T[name] = (round(ta, 2), round(tb, 2), round(L, 3))
     cu.bevel_factor_end = 0.0; cu.keyframe_insert('bevel_factor_end', frame=C.F(ta)); cu.bevel_factor_end = 1.0; cu.keyframe_insert('bevel_factor_end', frame=C.F(tb)); C.set_interp(cu, 'LINEAR')
     o.hide_render = True; o.keyframe_insert('hide_render', frame=shot.f0); o.hide_render = False; o.keyframe_insert('hide_render', frame=C.F(ta) + 1)
+C.key_value(M['path_gold'].node_tree.nodes['Emission'].inputs['Strength'], [(shot.t0, 1.8), (11.0, 1.8), (12.8, 1.0)])     # 13.0 s 接 S02 的金线（S02 的发光强度是 1.0）
 # 路径采样锚点：沿整条路线取 32 个点（三段按长度比例分，每段至少 3 个，含各段两端），Remotion 沿这些点画线
 N_PATH = 32; PATH_N = [max(3, round(N_PATH * plen(sg[2]) / L_TOTAL)) for sg in segs]; PATH_N[1] += N_PATH - sum(PATH_N)
 PATH_PTS = {f'path_{sg[1]}_{k:02d}': p for sg, n in zip(segs, PATH_N) for k, p in enumerate(resample(sg[2], n))}
@@ -523,15 +528,15 @@ def fade_out(objs, t0, t1):
     for o in objs:
         C.key_fade(o, [(shot.t0, 1), (t0, 1), (t1, 0)])
         o.hide_render = False; o.keyframe_insert('hide_render', frame=C.F(t1) - 1); o.hide_render = True; o.keyframe_insert('hide_render', frame=C.F(t1))
-fade_out(FD['door'], 7.0, 7.6); fade_out(FD['upper'], 7.0, 8.1); fade_out(FD['lid'], 7.6, 8.5)
+fade_out(FD['door'], 7.0, 7.5); fade_out(FD['upper'], 7.0, 7.9); fade_out(FD['lid'], 7.4, 8.4)
 
 # ---------- 相机 ----------
 E = G_A + CAM_END_OFFSET; UDIR = CAM_END_OFFSET.normalized(); D_END = CAM_END_OFFSET.length
 XL = xc(I_A) + LANE_X                                   # 列间通道所在的竖直面：8.5–11 s 机位留在这个面里，才能从散热器之间看到底板上的金线
-T_MID = to_world('A', I_A, srv_to_rack((-0.08, 0.47, ZM)))        # 机箱中部（转向 A 柜以后先看整台机箱）
+T_MID = to_world('A', I_A, srv_to_rack((-0.02, 0.47, ZM)))        # 机箱中部（转向 A 柜以后先看整台机箱）
 CAM_Z0 = 2.0                                            # 走廊段的机位高度：高于人眼、低于柜顶线槽，越过柜顶能看到背面上方的线槽
-KEYS = [(0.0, V((-0.30, 0, CAM_Z0))), (4.5, V((1.45, 0, CAM_Z0))), (7.0, V((2.36, -0.36, 1.80))), (8.5, V((XL, 0.40, 1.68))), (10.5, V((XL, 0.56, 1.42))),
-        (12.0, G_A + UDIR * 0.50 + V((0.03, 0, 0))), (12.5, G_A + UDIR * 0.40), (13.0, E)]
+KEYS = [(0.0, V((-0.30, 0, CAM_Z0))), (4.5, V((1.45, 0, CAM_Z0))), (7.0, V((2.48, -0.05, 1.78))), (8.5, V((XL, 0.40, 1.68))), (10.5, V((XL, 0.56, 1.42))),
+        (12.0, G_A + UDIR * 0.50), (12.5, G_A + UDIR * 0.40), (13.0, E)]
 def cam_pos(t):
     """分段三次埃尔米特样条（切线取相邻关键点的差分）：速度连续，不在关键点上停顿。末端切线 = 沿入射方向、速度 V_END"""
     n = len(KEYS); t = max(KEYS[0][0], min(KEYS[-1][0], t))
@@ -546,8 +551,10 @@ def piece(t, pts):
         if t <= tb: return C.lerp(va, vb, C.smooth(C.seg(t, ta, tb)))
     return pts[-1][1]
 def cam_fn(t):
-    p = cam_pos(t); far = V((p.x + 9.0, p.y, 0.6))
-    tg = far.lerp(T_MID, C.smoother(C.seg(t, 4.5, 7.2))).lerp(G_A, C.smoother(C.seg(t, 10.8, 12.7)))       # 12.7 s 以后朝向固定在 G_A（S02 开头也不动）
+    p = cam_pos(t); far = V((p.x + 9.0, p.y, 0.6)); w = C.smoother(C.seg(t, 4.5, 7.0))
+    d0 = far - p; d1 = T_MID - p                          # 4.5–7 s 转向 A 柜：按角度匀滑地转（方向做球面插值），不是把目标点直线拉过去
+    tg = p + d0.normalized().slerp(d1.normalized(), w) * C.lerp(d0.length, d1.length, w)
+    tg = tg.lerp(G_A, C.smoother(C.seg(t, 11.0, 12.7)))   # 12.7 s 以后朝向固定在 G_A（S02 开头也不动）
     return dict(loc=p, tgt=tg, lens=C.loglerp(24, 50, C.smooth(C.seg(t, 7.0, 13.0))),
                 fstop=piece(t, [(0, 8.0), (4.5, 8.0), (7.5, 4.0), (11.0, 4.0), (13.0, 15.2)]))        # 13.0 s 的 f/15.2 = S02 首帧的光圈（S02 按 mm 建模，换算后孔径约 3.3 mm）
 cam, tgt = C.add_camera('cam_S01', lens=24, fstop=8.0, clip=(0.01, 200))
@@ -557,27 +564,34 @@ C.animate_camera(cam, tgt, cam_fn, shot)
 C.world(FOG, 1.0, hdri='studio_small_09_2k.hdr', hdri_strength=0.14, hdri_rot=rad(90))
 lights = C.collection('灯光')
 def no_cam(o): o.visible_camera = False; return o
+AMB_END = 1.0
 def key_energy(ld, keys):
     for t, e in keys: ld.energy = e; ld.keyframe_insert('energy', frame=C.F(t))
     C.set_interp(ld, 'LINEAR')
 T_L0, T_L1 = 11.0, 12.8                                 # 机箱内的光往 S02 首帧过渡的时间段
-ROOM_END = 0.25                                         # 13.0 s 时机房顶灯剩下的比例（镜头已经在机箱里，机房不入画）
+ROOM_END = 0.04                                         # 13.0 s 时机房顶灯剩下的比例（镜头已经在机箱里，机房不入画）
+TOP_W = 42.0
+COOL = (0.30, 0.55, 1.0)                                # 机房顶灯：冷白偏蓝（不用青，青只给光）
 for x in LIGHT_X[::2]:
-    o = no_cam(C.area_light(f'顶灯{x:.1f}', (x, 0, 2.74), (x, 0, 0), 0.9, 34, (0.64, 0.82, 1.0), size_y=0.25, col=lights))
-    if abs(x - xc(I_A)) < 4.0: key_energy(o.data, [(shot.t0, 34), (T_L0, 34), (T_L1, 34 * ROOM_END)])
-no_cam(C.area_light('逆光', (X1 - 0.4, 0, 2.55), (X1 - 4.5, 0, 0.6), 1.4, 120, (0.64, 0.82, 1.0), size_y=0.6, col=lights))
-# 转向 A 柜时的正面补光（冷白，从通道一侧照向柜面）；4.5 s 前关着，走廊全景不受影响；最后 2 秒关掉
+    o = no_cam(C.area_light(f'顶灯{x:.1f}', (x, 0, 2.74), (x, 0, 0), 0.9, TOP_W, COOL, size_y=0.25, col=lights))
+    key_energy(o.data, [(shot.t0, TOP_W), (T_L0, TOP_W), (T_L1, TOP_W * ROOM_END)])
+C.key_value(M['lightbar'].node_tree.nodes['Emission'].inputs['Strength'], [(shot.t0, 9.0), (T_L0, 9.0), (T_L1, 9.0 * ROOM_END)])   # 灯带本身也一起减弱
+o = no_cam(C.area_light('逆光', (X1 - 0.4, 0, 2.55), (X1 - 4.5, 0, 0.6), 1.4, 120, COOL, size_y=0.6, col=lights))
+key_energy(o.data, [(shot.t0, 120), (T_L0, 120), (T_L1, 120 * ROOM_END)])
+key_energy(FD0['light'], [(shot.t0, WARM_W), (T_L0, WARM_W), (T_L1, WARM_W * ROOM_END)])              # 其它机柜的柜内暖光（共用一盏灯的数据）
+# 转向 A 柜时的正面补光（冷白，从通道一侧照向柜面）；4.5 s 前关着，走廊全景不受影响；柜门淡出后减弱，最后 2 秒关掉
 o = no_cam(C.area_light('A柜正面补光', (xc(I_A) - 0.5, -0.50, 1.95), G_A, 0.8, 30, (0.70, 0.85, 1.0), col=lights))
-key_energy(o.data, [(shot.t0, 0.0), (4.5, 0.0), (6.8, 30.0), (T_L0, 30.0), (T_L1, 0.0)])
-key_energy(FD['light'], [(shot.t0, WARM_W), (T_L0, WARM_W), (T_L1, 0.0)])                               # A 柜自己的柜内暖光：最后 2 秒关掉
+key_energy(o.data, [(shot.t0, 0.0), (4.5, 0.0), (6.8, 30.0), (7.5, 30.0), (8.5, 3.0), (T_L0, 3.0), (T_L1, 0.0)])
+key_energy(FD['light'], [(shot.t0, WARM_W), (7.0, WARM_W), (8.5, 2.0), (T_L0, 2.0), (T_L1, 0.0)])       # A 柜自己的柜内暖光：上方设备淡出后减弱，最后 2 秒关掉
 # 机箱里的三盏灯：位置、颜色、大小照 S02（S02 单位是 mm，原点在 GPU A 模组小板顶面中心）；功率按 1 W ≈ S02 的 1e6 换算。
-# 上盖淡出时亮起（先亮一些，中景看得清），11–12.8 s 过渡到 S02 首帧的强度
+# 上盖淡出时亮起（先亮一些，中景看得清），11–12.8 s 过渡到 S02 首帧的强度。
+# 「环境替身」：S02 的环境光来自 HDRI（强度 0.35）；这里机箱在封闭的机房和机柜里，HDRI 照不进来，用一块大的柔光代替，强度按画面对出来。
 O_MOD = G_A - V((0, 0, 0.00253))
-BOX_LIGHTS = (('箱内暖逆光', (-0.180, 0.260, 0.240), 0.26, (1.0, 0.82, 0.62), 6.0, 2.6), ('箱内冷补光', (0.240, -0.200, 0.160), 0.30, (0.62, 0.78, 1.0), 1.6, 0.7),
-              ('箱内顶光', (0.0, -0.020, 0.320), 0.20, (1.0, 1.0, 1.0), 1.0, 0.4))
+BOX_LIGHTS = (('箱内暖逆光', (-0.180, 0.260, 0.240), 0.26, (1.0, 0.82, 0.62), 3.6, 2.6), ('箱内冷补光', (0.240, -0.200, 0.160), 0.30, (0.62, 0.78, 1.0), 1.2, 0.7),
+              ('箱内顶光', (0.0, -0.020, 0.320), 0.20, (1.0, 1.0, 1.0), 0.7, 0.4), ('箱内环境替身', (0.0, -0.05, 0.50), 0.80, (0.85, 0.90, 1.0), 0.0, AMB_END))
 for name, off, size, color, e_mid, e_end in BOX_LIGHTS:
     o = no_cam(C.area_light(name, O_MOD + V(off), O_MOD, size, e_mid, color, col=lights))
-    key_energy(o.data, [(shot.t0, 0.0), (7.6, 0.0), (8.5, e_mid), (T_L0, e_mid), (T_L1, e_end)])
+    key_energy(o.data, [(shot.t0, 0.0), (7.4, 0.0), (8.4, e_mid), (T_L0, e_mid), (T_L1, e_end)])
 
 # ---------- 远处渐隐（v0 的替身：按相机距离把材质混向雾色；正式制作换体积雾或合成里的深度雾） ----------
 def add_fog(m, d0=3.5, scale=8.0):

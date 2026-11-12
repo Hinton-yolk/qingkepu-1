@@ -21,8 +21,8 @@ rad = math.radians
 N = 32; TW = 6.4; TB = TW / N            # 并行一拍 6.4 秒；串行一拍 0.2 秒（5 Hz）。真实约每秒上百亿拍：慢放倍率要按这个节拍重算
 T_WORD = 24.0 + 20 / 30                  # 某一次「换一排」的时刻（全片秒）。选在帧上，并且让 23.0 秒接缝前后 2 帧内没有任何线在变
 RAMP = 2                                 # 亮暗之间的过渡帧数
-ON, OFF = 0.85, 0.13                     # 亮 / 暗时的发光强度（暗态不全灭）
-GOLD_SIG = (1.0, 0.46, 0.05)             # 信号金：比 common.GOLD 更饱和一点，AgX 下亮的时候不发白
+ON, OFF = 0.55, 0.09                     # 亮 / 暗时的发光强度（暗态不全灭）。亮态不能再高：AgX 下发光越强越发白（试过 0.85：米黄色）
+GOLD_SIG = (1.0, 0.38, 0.02)             # 信号金：比 common.GOLD 偏橙、更饱和，AgX 显示出来才是金色（实测 0.55 强度约 #b5781f）
 WORDS = [[random.Random(3 + k * 7 + i).random() > 0.5 for i in range(N)] for k in range(8)]
 
 # ---------- 尺寸（µm） ----------
@@ -36,6 +36,7 @@ Z_PAD0 = Z_TOP - 1.6                      # 焊盘底面 = 芯片朝下的那个
 Z_FLOOR = -36.0                           # 硅中介层表面
 Z_BUMP = (Z_PAD0 + Z_FLOOR + 1.4) / 2     # 微凸点中心
 CLR = 36.0                                # 输出通孔和这一对微凸点周围清出的净空（示意：真实芯片这里同样布满连线，要加角注）
+PZ = (20.0, X_PAD_N + CLR)                # 净空在 X 方向的范围：从串化电路末两级起（相机从这里贴着差分对往下走），到 N 凸点后面
 BUS_X0 = -1100.0                          # 并排数据线从远处伸过来（毫米尺度上也看得见这一条）
 TILE = (520.0, 220.0); TILE_X0 = -330.0   # 环境连线的「瓦片」：x −330…190、y −110…110；瓦片之间是粗干线
 FIELD_X = (-2080.0, 1750.0); FIELD_Y = 1650.0   # 铺开的范围：S02 的「透视窗」最大半径 1.5 mm，都落在里面；−X 一头到芯片边缘（落点离边 2 mm）
@@ -49,8 +50,9 @@ def materials():
     M['thick'] = C.pbr('上层厚金属', (0.16, 0.095, 0.055), metallic=1.0, rough=0.55, noise_scale=0.2, noise_rough=0.1)
     M['cell'] = C.pbr('电路单元', (0.03, 0.05, 0.10), metallic=0.2, rough=0.5, coat=0.2)
     M['gate'] = C.pbr('栅条', (0.10, 0.16, 0.28), metallic=0.6, rough=0.4)
-    M['bump'] = C.pbr('凸点', (0.42, 0.43, 0.45), metallic=1.0, rough=0.6)          # 哑光：v0 里凸点的高光从数据线缝里露出来，像「移动的光团」
-    M['floor'] = C.pbr('硅中介层表面', (0.012, 0.016, 0.03), metallic=0.4, rough=0.55, noise_scale=0.02, noise_rough=0.08)
+    M['spine'] = C.pbr('瓦片之间的粗干线', (0.10, 0.058, 0.034), metallic=1.0, rough=0.65)
+    M['bump'] = C.pbr('凸点', (0.30, 0.31, 0.34), metallic=0.7, rough=0.62)         # 哑光：v0 里凸点的高光从数据线缝里露出来，像「移动的光团」
+    M['floor'] = C.pbr('硅中介层表面', (0.016, 0.028, 0.065), metallic=0.3, rough=0.6, noise_scale=0.02, noise_rough=0.08)
     return M
 
 # ---------- 信号：按时间亮暗 ----------
@@ -85,7 +87,7 @@ def _tile(kind):
     """一块瓦片里的两层直角细线（随机长度，示意）。kind：'A' 主车道（留出信号通道和凸点周围的净空）、'C' 只留信号通道、'B' 不留。
     三种瓦片用同一个随机种子：线的位置相同，只是 A / C 少掉通道里的那些。"""
     rnd = random.Random(31); m = C.Mesh(); x_lo, x_hi = TILE_X0 + 15, TILE_X0 + TILE[0] - 15; y_hi = TILE[1] / 2 - 15
-    pz0, pz1 = X_PAD_P - CLR, X_PAD_N + CLR
+    pz0, pz1 = PZ
     for _ in range(1300):                               # 最靠近相机的一层：沿 X 的细线，走 1 µm 的轨道
         lx = rnd.uniform(8, 90); x = rnd.uniform(x_lo + lx / 2, x_hi - lx / 2); y = round(rnd.uniform(-y_hi, y_hi - 1)) + 0.5
         chan = abs(y) < 21 and (kind == 'C' or (kind == 'A' and x - lx / 2 < pz1))
@@ -148,16 +150,16 @@ def build(t0, t1, name='连线层'):
             src = tiles['C'] if iy == 0 and BUS_X0 < TILE_X0 + (ix + 1) * TILE[0] and ix < 0 else tiles['B']
             keep(C.instance(src, f'瓦片_{ix}_{iy}', (ix * TILE[0], iy * TILE[1], 0), col=col))
     # --- 上层电源线（沿 X，间距 12 µm）+ 瓦片之间的粗干线（毫米尺度上看得见的大格子） ---
-    l3 = C.Mesh(); fx0, fx1 = FIELD_X; pz0, pz1 = X_PAD_P - CLR, X_PAD_N + CLR
+    l3 = C.Mesh(); sp = C.Mesh(); fx0, fx1 = FIELD_X; pz0, pz1 = PZ
     for k in range(-int(FIELD_Y // 12), int(FIELD_Y // 12)):
         y = k * 12.0 + 6.0
         if abs((y + TILE[1] / 2) % TILE[1]) < 22 or abs((y + TILE[1] / 2) % TILE[1] - TILE[1]) < 22: continue    # 让开粗干线
         if abs(y) < CLR:
             l3.box((pz0 - fx0, 5.0, 2.0), ((fx0 + pz0) / 2, y, Z_TOP + 1.0)); l3.box((fx1 - pz1, 5.0, 2.0), ((fx1 + pz1) / 2, y, Z_TOP + 1.0))
         else: l3.box((fx1 - fx0, 5.0, 2.0), ((fx0 + fx1) / 2, y, Z_TOP + 1.0))
-    for iy in range(-iy1 - 1, iy1 + 1): l3.box((fx1 - fx0, 30.0, 2.0), ((fx0 + fx1) / 2, (iy + 0.5) * TILE[1], Z_TOP + 1.0))
-    for ix in range(ix0, ix1 + 1): l3.box((30.0, 2 * FIELD_Y, 2.0), (TILE_X0 + ix * TILE[0], 0, Z_TOP + 1.0))
-    keep(l3.obj('上层电源线和干线', M['thick'], col))
+    for iy in range(-iy1 - 1, iy1 + 1): sp.box((fx1 - fx0, 30.0, 2.0), ((fx0 + fx1) / 2, (iy + 0.5) * TILE[1], Z_TOP + 1.0))
+    for ix in range(ix0, ix1 + 1): sp.box((30.0, 2 * FIELD_Y, 2.0), (TILE_X0 + ix * TILE[0], 0, Z_TOP + 1.0))
+    keep(l3.obj('上层电源线', M['thick'], col)); keep(sp.obj('粗干线', M['spine'], col))
     # --- 微凸点阵列（顶点实例）+ 中介层表面 ---
     pts = []; pts_cu = []
     for ix in range(math.ceil((fx0 - X_PAD_P) / PITCH), int((fx1 - X_PAD_P) / PITCH) + 1):
@@ -180,15 +182,17 @@ def build(t0, t1, name='连线层'):
                      'bump_p': Vector((X_PAD_P, 0, Z_BUMP)), 'bump_n': Vector((X_PAD_N, 0, Z_BUMP))})
 
 # ---------- 灯光和环境光（两边同一套） ----------
-SUNS = (('连线层主光_冷', (-120, -260, 320), 2.2, (0.62, 0.76, 1.0)), ('连线层逆光_暖', (260, 240, 140), 1.3, (1.0, 0.80, 0.60)))
+# 名字、光从哪个方向来、强度、颜色、投不投影。补光不投影：芯片下面（凸点、中介层）被上面的连线挡着，没有它就是一片黑。
+SUNS = (('连线层主光_冷', (-120, -260, 320), 3.0, (0.62, 0.76, 1.0), True), ('连线层逆光_暖', (260, 240, 140), 1.8, (1.0, 0.80, 0.60), True),
+        ('连线层补光_低', (-260, 200, 70), 1.3, (0.70, 0.82, 1.0), False))
 def lights(root, link_col=None):
     """平行光（太阳灯）：强度和方向不随缩放和位置变，S02（mm）和 S03（µm）里照出来一样。挂在 root 下面，跟着整套东西转。
     link_col：只照这个集合、也只让这个集合挡光（S02 里用：不照封装，也不被封装和散热器挡住）。"""
     out = []; ll = None
     if link_col:
         ll = bpy.data.collections.new('灯光链接_只照连线层'); ll.children.link(link_col)
-    for nm, src, power, color in SUNS:
-        ld = bpy.data.lights.new(nm, 'SUN'); ld.energy = power; ld.color = color; ld.angle = rad(18)
+    for nm, src, power, color, shadow in SUNS:
+        ld = bpy.data.lights.new(nm, 'SUN'); ld.energy = power; ld.color = color; ld.angle = rad(18); ld.use_shadow = shadow
         o = C.link(bpy.data.objects.new(nm, ld)); o.rotation_euler = (-Vector(src)).to_track_quat('-Z', 'Y').to_euler(); o.parent = root
         if ll: o.light_linking.receiver_collection = ll; o.light_linking.blocker_collection = ll
         out.append(o)
@@ -228,16 +232,17 @@ def orbit(t):
     a = C.smoother(C.seg(t, 23.0, T_HOLD0)); h = C.seg(t, T_HOLD0, T_HOLD1)
     fx = hermite([(23.0, SEAM_X, V_SEAM), (T_HOLD0, 20.0, 0.0)], min(t, T_HOLD0)) + 2.0 * h
     d = math.exp(hermite([(23.0, math.log(150.0), K_SEAM), (T_HOLD0, math.log(64.0), 0.0)], min(t, T_HOLD0)) + math.log(0.94) * h)
-    return dict(fx=fx, fz=0.0, d=d, el=C.lerp(82, 56, a) - 3 * h, az=180 - 10 * a + 2 * h, lens=C.lerp(50, 35, a))
+    return dict(fx=fx, fz=0.0, d=d, el=C.lerp(82, 56, a) - 3 * h, az=180 - 13 * a + 1 * h, lens=C.lerp(50, 35, a))
 
 def orbit_pose(p):
     el, az = rad(p['el']), rad(p['az']); f = Vector((p['fx'], 0, p['fz']))
     return f + p['d'] * Vector((math.cos(el) * math.cos(az), math.cos(el) * math.sin(az), math.sin(el))), f
 
-# 35.5–39 秒：从串化电路上方，贴着这一对差分线的一侧往下：过驱动 → 穿过连线层的高度 → 从 P 凸点旁边落到芯片下面，朝着 N 凸点和中介层。
-# 路线基本在一个竖直面里（方位只变几度，不绕圈）；39.0 秒仍在往下。最后一个点在镜头之外，只用来给出 39 秒的速度。
-DESCENT = ((36.5, (20, 9, 37), (62, 1, 0)), (37.5, (47, 12, 20), (90, 0, -18)), (38.3, (63, 14, 3), (104, 1, -30)),
-           (39.0, (73, 15, -14), (114, 2, -36)), (39.5, (79, 15.5, -27), (121, 2, -44)))
+# 35.5–39 秒：从串化电路上方，贴着这一对差分线的一侧一直往下：驱动上方 → 穿过连线层的高度（37.9 秒前后）→ 芯片朝下的面以下，
+# 从侧面看见「粗线 → 通孔 → 焊盘 → 微凸点 → 中介层」；39.0 秒在 P 凸点旁边、离中介层约 15 µm，仍在往下。
+# 路线基本在一个竖直面里（朝向只变几度，不绕圈）。最后一个点在镜头之外，只用来给出 39 秒的速度。
+DESCENT = ((36.4, (14, 11, 34), (58, 1, 0)), (37.2, (34, 15, 16), (76, 2, -6)), (38.0, (48, 17, -2), (90, 2, -20)),
+           (38.6, (57, 18, -14), (100, 3, -28)), (39.0, (62, 18.5, -21), (106, 3, -32)), (39.5, (67, 19, -30), (112, 3, -38)))
 def micro_cam(t):
     """连线层里的相机（局部坐标 µm）：返回 dict(loc, tgt, lens, fstop)。"""
     if t <= T_HOLD1:
@@ -251,5 +256,5 @@ def micro_cam(t):
 
 def anchor_pair(t):
     """「差分输出」标注的锚点：先在两根粗线中间，相机往下走时跟着移到两串通孔之间，最后到两个凸点之间。"""
-    a = Vector((X_DRV0 + 20, 0, 0.8)); b = Vector(((X_PAD_P + X_PAD_N) / 2 - 8, 0, Z_TOP)); c = Vector(((X_PAD_P + X_PAD_N) / 2, 0, Z_BUMP))
-    return a.lerp(b, C.smooth(C.seg(t, 36.6, 37.6))).lerp(c, C.smooth(C.seg(t, 37.8, 38.8)))
+    a = Vector((X_DRV0 + 20, 0, 0.8)); b = Vector((X_PAD_P + 8, 0, Z_TOP / 2)); c = Vector(((X_PAD_P + X_PAD_N) / 2, 0, Z_BUMP))
+    return a.lerp(b, C.smooth(C.seg(t, 36.8, 37.8))).lerp(c, C.smooth(C.seg(t, 38.0, 38.9)))

@@ -99,7 +99,7 @@ def add_window(m, rim=True):
         b.inputs['Emission Color'].default_value = (0.70, 0.85, 1.0, 1); L.new(e2.outputs[0], b.inputs['Emission Strength'])
 
 M['board'] = pcb_material('电路板', (0.005, 0.030, 0.022))
-grind_marks(M['silicon']); add_window(M['silicon']); add_window(M['laser'], rim=False)
+grind_marks(M['silicon'], strength=0.55); add_window(M['silicon']); add_window(M['laser'], rim=False)
 
 # ---------- 机箱底和主板（环境，避免「黑色虚空里孤零零一块」） ----------
 env = C.collection('环境')
@@ -198,11 +198,11 @@ route.hide_render = False; route.keyframe_insert('hide_render', frame=C.F(14.8))
 
 # ---------- 3D 尺度字：约 3 cm ----------
 zt = Z_DIE1 + 0.25
-lab = C.text3d('尺度字_约3cm', '约 3 cm', 2.6, (0, -4.6, zt), M['label'], rot=(0, 0, 0), col=mod)
+lab = C.text3d('尺度字_约3cm', '约 3 cm', 3.4, (0, -4.2, zt), M['label'], rot=(0, 0, 0), col=mod)
 ar = C.Mesh(); ar.box((DIE[0] - 3, 0.22, 0.12), (0, -8, zt))
 for s in (-1, 1): ar.cyl(0.0, 1.8, (s * (DIE[0] / 2 - 0.9), -8, zt), rot=(0, s * rad(90), 0), seg=3, r2=0.9)
 arrow = ar.obj('尺度箭头', M['label'], mod)
-for o in (lab, arrow): C.key_fade(o, [(shot.t0, 0), (14.9, 0), (15.4, 1), (16.5, 1), (17.0, 0)])   # 整颗芯片还在画面里的时候给尺度
+for o in (lab, arrow): C.key_fade(o, [(shot.t0, 0), (14.8, 0), (15.2, 1), (16.3, 1), (16.6, 0)])   # 整颗芯片还在画面里的时候给尺度
 
 # ---------- 动画 ----------
 for f_t, dz in ((13.0, 0), (13.4, 0), (15.6, 130)):
@@ -225,18 +225,19 @@ for o, t_on, t_off in ((wall, 17.5, 21.0),):
     o.hide_render = True; o.keyframe_insert('hide_render', frame=C.F(t_off))
 
 # 相机：对数推进，一个连续镜头。13.0 秒的位置、朝向、焦距、速度和 v0 相同（S01 的尾帧对着它）。
-#   13–16 秒：散热器升起，推向封装；16–17.5 秒：加速甩过没什么可看的量级，俯角保持在 60° 上下，芯片的边缘和侧壁留在画面下方；
+#   13–16.3 秒：散热器升起，推向封装，整颗芯片在画面里（这时给「约 3 cm」）；16.3–17.5 秒：转向落点，加速甩过没什么可看的量级，
+#   俯角保持在 60° 上下，芯片的边缘和侧壁留在画面下方；
 #   17.5–20.5 秒：透视窗打开，俯角压到接近正俯视，相机顺着窗口下到连线层；
 #   20.8–22.3 秒：过渡到连线层自己的相机路线（beol_assets.orbit），之后和 S03 是同一条路线，23.0 秒位置、朝向、速度都连续。
 cam, tgt = C.add_camera('cam_S02', lens=50, fstop=1.0, clip=(0.0005, 5000))
 K0 = math.log(190 / 330) / 2.2                                             # 起步的对数速度（约 83 mm/s，接 S01 末端的 0.08 m/s）
 T_JOIN = 22.3; D_JOIN = B.orbit(T_JOIN)['d'] * UM
 LND = [(13.0, math.log(330), K0), (14.0, math.log(330) + K0, K0)] + [(t, math.log(d), None) for t, d in
-       ((15.2, 172), (16.2, 78), (17.0, 24), (17.6, 11.5), (18.2, 6.6), (18.8, 4.1), (19.4, 2.6), (20.0, 1.55), (20.8, 0.66), (21.6, 0.31))] + [(T_JOIN, math.log(D_JOIN), B.K_SEAM)]
+       ((15.2, 172), (16.0, 112), (16.5, 70), (17.0, 27), (17.6, 11.5), (18.2, 6.6), (18.8, 4.1), (19.4, 2.6), (20.0, 1.55), (20.8, 0.66), (21.6, 0.31))] + [(T_JOIN, math.log(D_JOIN), B.K_SEAM)]
 P_EDGE = P + Vector((0, -0.8, 0))                                          # 先对准落点和芯片边缘之间，让边缘和侧壁多留一会儿
 def cam_params(t):
     """返回 对焦点、距离、俯角、方位角（度）、光圈比。22.3 秒以后完全等于连线层的相机路线。"""
-    f = Vector((0, 0, 0)).lerp(P_EDGE, C.smooth(C.seg(t, 13.5, 17.0))).lerp(P, C.smooth(C.seg(t, 17.6, 19.4)))
+    f = Vector((0, 0, 0)).lerp(P_EDGE, C.smooth(C.seg(t, 15.2, 17.2))).lerp(P, C.smooth(C.seg(t, 17.6, 19.4)))
     f.z = C.lerp(Z_DIE1, Z_BEOL, C.smooth(C.seg(t, 18.8, 20.6)))
     lnd = B.hermite(LND, t); el = C.lerp(50, 62, C.smooth(C.seg(t, 13.0, 17.6))) + C.lerp(0, 20, C.smooth(C.seg(t, 18.0, 21.4)))
     az = C.lerp(-112, -90, C.smooth(C.seg(t, 13.0, 21.5))); ap = 0.010
