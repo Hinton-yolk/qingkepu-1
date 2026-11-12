@@ -99,6 +99,11 @@ exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 't5_shot1_cam
 cam, tgt = C.add_camera('cam_T5S1', lens=35, fstop=2.8, clip=(0.005, 200))
 C.animate_camera(cam, tgt, cam_fn, shot)
 
+# ---------- --anchors：只出屏幕坐标，不渲染（合成用） ----------
+if args.anchors:
+    S.write_anchors(shot, cam, {'gpu_a': G_A, 'gpu_b': G_B, 'module_a': mod['W']((LANE_X, SD + 0.02, PORT_Z))}, args.out)
+    sys.exit(0)
+
 # ---------- 渲染 ----------
 dev = S.setup_render(args, exposure=0.0)
 S.setup_glare(size=7, strength=3.0)

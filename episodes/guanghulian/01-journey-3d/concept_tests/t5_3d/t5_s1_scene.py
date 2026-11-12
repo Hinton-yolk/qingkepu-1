@@ -22,11 +22,10 @@ def parse():
     p.add_argument('--times', default=''); p.add_argument('--frames', default='')
     p.add_argument('--range', nargs=2, type=int, default=None); p.add_argument('--step', type=int, default=1)
     p.add_argument('--gpu', action='store_true'); p.add_argument('--threads', type=int, default=2)
-    p.add_argument('--save-blend', action='store_true'); p.add_argument('--no-render', action='store_true')
+    p.add_argument('--save-blend', action='store_true'); p.add_argument('--no-render', action='store_true'); p.add_argument('--anchors', action='store_true')
     a = p.parse_args(argv)
     if a.frames and '-' in a.frames and ',' not in a.frames:        # --frames a-b
         lo, hi = a.frames.split('-'); a.range = [int(lo), int(hi)]; a.frames = ''
-    a.anchors = False
     return a
 
 class T5Shot:
@@ -278,3 +277,19 @@ def setup_render(args, exposure=0.0, look='AgX - Punchy'):
     if args.threads and not args.gpu:
         sc.render.threads_mode = 'FIXED'; sc.render.threads = args.threads
     return dev
+
+
+def write_anchors(shot, cam, pts, out, W=540, H=960):
+    """--anchors：只算每帧屏幕坐标（像素，左上为原点，z>0 表示在相机前方），写 <out>/anchors.json，不渲染。pts: {名字: 世界坐标}"""
+    from bpy_extras.object_utils import world_to_camera_view
+    import json
+    sc = bpy.context.scene; W, H = [int(v) for v in (sc.render.resolution_x, sc.render.resolution_y)]
+    sc.render.resolution_percentage = 100; frames = {}
+    for f in range(shot.f0, shot.f1 + 1):
+        sc.frame_set(f); bpy.context.view_layer.update(); fr = {}
+        for k, p in pts.items():
+            v = world_to_camera_view(sc, cam, Vector(p)); fr[k] = [round(v.x * W, 1), round((1 - v.y) * H, 1), round(v.z, 2)]
+        fr['t'] = round((f - 1) / FPS, 3); frames[f] = fr
+    os.makedirs(out, exist_ok=True)
+    json.dump({'fps': FPS, 'nf': shot.f1, 'w': W, 'h': H, 'frames': frames}, open(os.path.join(out, 'anchors.json'), 'w'))
+    print('ANCHORS_DONE', os.path.join(out, 'anchors.json'), flush=True)

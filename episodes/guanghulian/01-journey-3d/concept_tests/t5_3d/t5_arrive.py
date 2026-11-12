@@ -67,6 +67,10 @@ exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 't5_arrive_ca
 cam, tgt = C.add_camera('cam_T5ARR', lens=30, fstop=2.0, clip=(0.01, 200))
 C.animate_camera(cam, tgt, cam_fn, shot)
 
+if args.anchors:
+    S.write_anchors(shot, cam, {'gpu_b': G_B, 'module_b': mod['W']((LANE_X, SD + 0.02, PORT_Z))}, args.out)
+    sys.exit(0)
+
 dev = S.setup_render(args, exposure=0.0)
 S.setup_glare(size=7, strength=3.0)
 print('G_B', tuple(round(v, 3) for v in G_B))
