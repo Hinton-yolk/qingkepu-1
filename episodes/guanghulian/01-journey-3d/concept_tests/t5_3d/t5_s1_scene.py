@@ -62,7 +62,7 @@ CYAN_MSG = (0.247, 0.902, 0.941)        # #3FE6F0 光
 DARK_LEVEL = 0.20                        # 暗位 = 亮位的 20%
 GAP_LEVEL = 0.05                         # 段与段之间的短暗隙
 
-def message_material(name, color, strength=4.0, cell=0.05, flip=False):
+def message_material(name, color, strength=4.0, cell=0.05, flip=False, head=False):
     """沿「弧长 UV」（米）流动的八位图样：亮位 1、暗位 0.2、段间隙 0.05。
     节点 'msg_offset'（Value，单位 = 位）：打关键帧，图样沿弧长增大的方向流动；'msg_strength'（Value）：整体强度。
     flip=True：图样沿弧长减小的方向流动。"""
@@ -89,6 +89,11 @@ def message_material(name, color, strength=4.0, cell=0.05, flip=False):
     mr = N.new('ShaderNodeMapRange'); mr.interpolation_type = 'SMOOTHSTEP'; mr.inputs['From Min'].default_value = 0.04; mr.inputs['From Max'].default_value = 0.09
     L.new(edge, mr.inputs['Value'])
     val = math_('ADD', GAP_LEVEL, math_('MULTIPLY', math_('SUBTRACT', level, GAP_LEVEL), mr.outputs['Result']))
+    if head:                                      # 'msg_head'（Value，米）：消息的前端走到哪；前端之后的路段不亮（到达动画用）
+        hd = N.new('ShaderNodeValue'); hd.name = 'msg_head'; hd.outputs[0].default_value = 1e6
+        hm = N.new('ShaderNodeMapRange'); hm.interpolation_type = 'SMOOTHSTEP'
+        L.new(math_('SUBTRACT', hd.outputs[0], sep.outputs['X']), hm.inputs['Value']); hm.inputs['From Min'].default_value = 0.0; hm.inputs['From Max'].default_value = 0.06
+        val = math_('MULTIPLY', val, hm.outputs['Result'])
     e = N.new('ShaderNodeEmission'); e.inputs['Color'].default_value = (*color, 1)
     L.new(math_('MULTIPLY', val, stv.outputs[0]), e.inputs['Strength'])
     out = N.new('ShaderNodeOutputMaterial'); L.new(e.outputs[0], out.inputs[0])

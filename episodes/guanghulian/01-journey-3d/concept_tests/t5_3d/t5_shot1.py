@@ -43,9 +43,9 @@ def radii(pts, r0, r_in):
     for p in pts:
         y = p[1]; k = C.smooth(C.seg(y, SD - 0.014, SD - 0.006)); out.append(C.lerp(r0, r_in, k))
     return out
-rl = radii(route, 0.00125, 0.0005)
+rl = radii(route, 0.0022, 0.0006)
 FAR_K = 6.0                                                             # 拉远时管的粗细倍数（形态键 far）
-msg_mat = S.message_material('msg_gold', S.GOLD_MSG, strength=5.0, cell=0.05)
+msg_mat = S.message_material('msg_gold', S.GOLD_MSG, strength=3.5, cell=0.04)
 tube = S.sweep_tube('消息串_金', world, rl, msg_mat, sides=8, radius_far=[r * (FAR_K if r > 0.0008 else 2.0) for r in rl])
 print('STREAM 长度', round(tube['arc_len'], 3), 'm | 起点', tuple(round(v, 3) for v in world[0]), '| 终点', tuple(round(v, 3) for v in world[-1]))
 # 流速：每秒几位（物理量，随镜头尺度调：贴近时 4 位/秒，拉远后加快，让屏幕上看起来约每秒 3–4 位）
@@ -75,8 +75,8 @@ C.world(ns['FOG'], 1.0, hdri='studio_small_09_2k.hdr', hdri_strength=0.14, hdri_
 lights = C.collection('灯光')
 def no_cam(o): o.visible_camera = False; return o
 for x in ns['LIGHT_X'][::2]:
-    no_cam(C.area_light(f'顶灯{x:.1f}', (x, 0, 2.74), (x, 0, 0), 0.9, ns['TOP_W'], ns['COOL'], size_y=0.25, col=lights))
-no_cam(C.area_light('逆光', (ns['X1'] - 0.4, 0, 2.55), (ns['X1'] - 4.5, 0, 0.6), 1.4, 120, ns['COOL'], size_y=0.6, col=lights))
+    no_cam(C.area_light(f'顶灯{x:.1f}', (x, 0, 2.74), (x, 0, 0), 0.9, 42.0, (0.30, 0.55, 1.0), size_y=0.25, col=lights))
+no_cam(C.area_light('逆光', (ns['X1'] - 0.4, 0, 2.55), (ns['X1'] - 4.5, 0, 0.6), 1.4, 120, (0.30, 0.55, 1.0), size_y=0.6, col=lights))
 O_MOD = G_A - V((0, 0, 0.00253))
 BOX = (('箱内暖逆光', (-0.180, 0.260, 0.240), 0.26, (1.0, 0.82, 0.62), 3.6), ('箱内冷补光', (0.240, -0.200, 0.160), 0.30, (0.62, 0.78, 1.0), 1.2),
        ('箱内顶光', (0.0, -0.020, 0.320), 0.20, (1.0, 1.0, 1.0), 0.7), ('箱内环境替身', (0.0, -0.05, 0.50), 0.80, (0.85, 0.90, 1.0), 0.5))
