@@ -151,7 +151,7 @@ for sy in (-1, 1):
 for sx in (-1, 1):
     for k in range(-16, 17):
         for j in range(3): mlcc(sx * (42 + j * 3.2), k * 2.2, 0, 1.6, 0.8, 0.8, 'X')
-ind.obj('电感', M['ferrite'], mod, bevel=0.6); drm.obj('供电芯片', M['epoxy'], mod, bevel=0.08); can.obj('铝壳电容', M['can'], mod, smooth=True)
+big_parts = [ind.obj('电感', M['ferrite'], mod, bevel=0.6), drm.obj('供电芯片', M['epoxy'], mod, bevel=0.08), can.obj('铝壳电容', M['can'], mod, smooth=True)]
 cb.obj('贴片电容体', M['mlcc'], mod); ct.obj('贴片电容焊端', M['tin'], mod)
 
 # ---------- 散热器（GPU A 的会升起淡出；邻居的留着） ----------
@@ -159,11 +159,14 @@ def heatsink(name, mat_fin, mat_base, col):
     base = C.box(name + '_底座', (96, 96, 5), (0, 0, Z_DIE1 + 0.1 + 2.5), mat_base, col, bevel=0.5)
     f = C.Mesh()
     for k in range(-23, 24): f.box((0.5, 92, 40), (k * 2.0, 0, Z_DIE1 + 5.1 + 20))
-    fins = f.obj(name + '_鳍片', mat_fin, col); fins.parent = base; fins.matrix_parent_inverse = base.matrix_world.inverted(); return base, fins
+    fins = f.obj(name + '_鳍片', mat_fin, col); fins.parent = base
+    fins.matrix_parent_inverse = Matrix.Translation(base.location).inverted()   # 不能用 base.matrix_world：这时还没更新（v0 的鳍片因此悬空了 5.13 mm）
+    return base, fins
 hs_base, hs_fins = heatsink('散热器A', M['alu'], M['nickel'], mod)
 # 邻居模组：2 列 × 4 排里的另外 7 个（只放电路板和散热器，共享网格）
 nb = C.collection('邻居模组'); src_col = C.collection('邻居源'); nb_base, nb_fins = heatsink('散热器邻', M['alu_n'], M['nickel'], src_col)
 nb_board = C.box('邻居电路板', (102, 200, 2.4), (0, 0, -1.2), M['board'], src_col, bevel=0.3)
+for o in big_parts: C.instance(o, o.name + '_邻', col=src_col)        # 邻居也带电感、供电芯片、铝壳电容（共享网格），和 S01 的 8 个模组一致
 PX, PY = 106, 260                      # 4 列 × 2 排（和 S01 的服务器内部一致）；GPU A = 从 −X 数第 2 列、前排
 for ix in range(4):
     for iy in range(2):
@@ -192,8 +195,10 @@ for pl in me.polygons: pl.use_smooth = True
 wall = C.link(bpy.data.objects.new('透视窗窗壁', me), mod); wall.location = (P.x, P.y, (Z_DIE0 + Z_DIE1) / 2)
 
 # ---------- 「电的路」（接 S01 的尾帧）：金线从封装的 +Y 边沿模组小板往机箱后方走；13.3–14.8 秒淡出 ----------
-rt = C.Mesh(); rt.path([(0, SUB[1] / 2, 0.2), (0, 100, 0.2)], 2.5, 0.3)
-rt.path([(0, 101.25, 0.2), (0, 101.25, -3.85), (0, 160, -3.85)], 2.5, 0.3)      # 小板边缘以后：下到主板、继续往后（S01 的走法待对齐）
+# 走法照 S01 v1（原点 = GPU A 模组小板顶面中心）：封装 +Y 边 (0, 36) → 沿小板顶面到 (0, 100) → 小板后沿外 1.25 mm 处下到底板（低 4 mm）
+#   → 直走到 y = 130 → 横移到 x = −53（第 1、2 列模组之间的通道）→ 沿通道向 +Y 走出画面。小板上宽 2.5 mm，底板上宽 3 mm。
+rt = C.Mesh(); zb = -4.0 + 0.2; rt.path([(0, SUB[1] / 2, 0.2), (0, 101.25, 0.2), (0, 101.25, zb)], 2.5, 0.3)
+rt.path([(0, 101.25, zb), (0, 130, zb), (-53, 130, zb), (-53, 420, zb)], 3.0, 0.3)
 route = rt.obj('电的路', M['route'], mod); C.key_fade(route, [(13.0, 1), (13.3, 1), (14.8, 0)])
 route.hide_render = False; route.keyframe_insert('hide_render', frame=C.F(14.8)); route.hide_render = True; route.keyframe_insert('hide_render', frame=C.F(14.8) + 1)
 
