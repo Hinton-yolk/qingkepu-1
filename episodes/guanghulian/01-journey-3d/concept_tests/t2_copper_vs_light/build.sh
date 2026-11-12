@@ -7,7 +7,7 @@ for mode in silent sound; do
   caps=$([ "$mode" = sound ] && echo true || echo false)
   rm -rf "$OUT/fr_$mode"
   node "$HERE/../render.cjs" "$HERE/t2.html" "$OUT/fr_$mode" 9 "{\"captions\":$caps}"
-  f="$OUT/EP01_T2_copper_vs_light_v1_${mode}_540x960_30fps.mp4"
+  f="$OUT/EP01_T2_copper_vs_light_v2_${mode}_540x960_30fps.mp4"
   if [ "$mode" = sound ]; then
     python3 "$HERE/audio_t2.py" "$OUT/t2.wav"
     ffmpeg -v error -y -framerate 30 -i "$OUT/fr_$mode/f_%05d.png" -i "$OUT/t2.wav" -vf scale=540:960:flags=lanczos \

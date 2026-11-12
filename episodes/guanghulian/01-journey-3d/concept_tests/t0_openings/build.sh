@@ -8,6 +8,6 @@ for v in A B; do
   rm -rf "$OUT/fr_$v"
   node "$HERE/../render.cjs" "$HERE/t0.html" "$OUT/fr_$v" 4 "{\"variant\":\"$v\"}"
   ffmpeg -v error -y -framerate 30 -i "$OUT/fr_$v/f_%05d.png" -vf scale=540:960:flags=lanczos \
-    -c:v libx264 -preset slow -crf 20 -pix_fmt yuv420p -an -movflags +faststart -map_metadata -1 "$OUT/EP01_T0${v}_${name}_v1_silent_540x960_30fps.mp4"
+    -c:v libx264 -preset slow -crf 20 -pix_fmt yuv420p -an -movflags +faststart -map_metadata -1 "$OUT/EP01_T0${v}_${name}_v2_silent_540x960_30fps.mp4"
 done
 ls -la "$OUT"/*.mp4

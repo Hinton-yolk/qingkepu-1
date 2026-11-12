@@ -47,79 +47,90 @@ function label(ctx, text, x, y, size = 24) {
 }
 
 // ---------------- A ----------------
-// 世界坐标：u 沿线缆，v 横向。线缆宽 70，玻璃丝宽 9.6，头发宽 6（比例 玻璃丝:头发 = 1.6），走光的芯宽 0.7（约头发的 1/9）。
-const CAB_W = 70, FIB_W = 9.6, HAIR_W = 6, CORE_W = 0.7;
-const FIB_V = [-21, -7, 7, 21], LIGHT_FIB = 0;       // 走光的是 v=-21 这一根（最外侧，紧挨头发）
-const AXIS = -1.15;                                  // 线缆倾斜角
-const HAIR_PATH = [[700, -330], [450, -200], [260, -100], [120, -45], [0, -33], [-600, -33]];  // 头发：从右上斜着进来，贴着玻璃丝躺下
+// 世界坐标：u 沿线缆，v 横向。线缆宽 70，玻璃丝宽 9.3，头发宽 5.7（玻璃丝 = 头发 1.6 倍），走光的芯宽 0.65。
+// 1.4 秒时镜头约 7 倍：玻璃丝约 65 像素，头发约 40 像素，亮线约 4.5 像素。
+const CAB_W = 70, FIB_W = 9.3, HAIR_W = 5.7, CORE_W = 0.65, EDGE = 3.5;
+const AXIS = -1.15;                                  // 线缆倾斜角（u 轴指向右上）
+function glassFiber(ctx, v, alpha, L) {
+  const g = ctx.createLinearGradient(0, v - FIB_W / 2, 0, v + FIB_W / 2);
+  g.addColorStop(0, 'rgba(200,240,250,0.62)'); g.addColorStop(0.2, 'rgba(160,215,230,0.22)');
+  g.addColorStop(0.5, 'rgba(120,190,215,0.10)'); g.addColorStop(0.8, 'rgba(160,215,230,0.22)'); g.addColorStop(1, 'rgba(200,240,250,0.62)');
+  ctx.globalAlpha = alpha; ctx.fillStyle = g; ctx.fillRect(-L, v - FIB_W / 2, 2 * L, FIB_W);
+  ctx.fillStyle = 'rgba(235,252,255,0.9)'; ctx.fillRect(-L, v - FIB_W / 2, 2 * L, 0.28); ctx.fillRect(-L, v + FIB_W / 2 - 0.28, 2 * L, 0.28);
+  ctx.globalAlpha = 1;
+}
 function renderA(ctx, t) {
   bg(ctx);
-  // 镜头：从 1.25 倍推到 3.0 倍，第一帧起就在动
-  const k = clamp(t / 4.0, 0, 1), z = 1.25 * Math.pow(3.0 / 1.25, k * (2 - k) * 0.9 + 0.1 * k);
-  const cx = 270, cy = 400;
-  const jacket = smooth((t - 0.8) / 0.7);            // 0.8–1.5 秒外皮变透明
+  // 镜头：0–1.4 秒从 1.25 倍冲到 7 倍（第一帧起就在动），之后慢慢继续推
+  const k = clamp(t / 1.4, 0, 1);
+  const z = t < 1.4 ? 1.25 * Math.pow(7 / 1.25, k * (2 - k)) : 7 * (1 + 0.05 * (t - 1.4) / 2.6);
+  const cx = 270, cy = 330;
+  const jacket = smooth((t - 0.5) / 0.7);            // 0.5–1.2 秒外皮中间变没，只剩两侧窄边
   ctx.save();
   ctx.translate(cx, cy); ctx.scale(z, z); ctx.rotate(AXIS);
-  const L = 1600;
-  const cabs = [-170, -85, 0, 85, 170];
-  for (const v0 of cabs) {
+  const L = 400;
+  for (const v0 of [-170, -85, 0, 85, 170]) {
     const focus = v0 === 0;
-    // 里面的玻璃丝（只在焦点线缆里画，外皮透明后才看得见）
     if (focus) {
-      ctx.fillStyle = 'rgba(30,50,40,1)';
-      ctx.fillRect(-L, v0 - CAB_W / 2, 2 * L, CAB_W);                    // 外皮底下的暗腔
+      // 外皮里面的空间：深青蓝，不是灰绿
+      const cg = ctx.createLinearGradient(0, -CAB_W / 2, 0, CAB_W / 2);
+      cg.addColorStop(0, '#0b2a3b'); cg.addColorStop(0.5, '#10384b'); cg.addColorStop(1, '#0b2a3b');
+      ctx.fillStyle = cg; ctx.fillRect(-L, -CAB_W / 2, 2 * L, CAB_W);
+      // 两侧只露一部分的玻璃丝：暗、虚
+      ctx.save(); ctx.filter = 'blur(3px)';
+      glassFiber(ctx, -34, 0.55 * jacket, L); glassFiber(ctx, 34, 0.55 * jacket, L);
+      ctx.restore();
+      // 主角：一根玻璃丝，正中间
+      glassFiber(ctx, 0, jacket, L);
+      // 走光的芯：一段亮一段暗，明显在流动；光晕只在玻璃丝里面
+      const P = 6.5, off = (t * 46) % (P * 8);      // 亮 / 暗段各约 45 像素，流速约 320 像素 / 秒
       ctx.globalAlpha = jacket;
-      for (let i = 0; i < FIB_V.length; i++) {
-        const v = FIB_V[i];
-        ctx.fillStyle = 'rgba(210,235,240,0.55)'; ctx.fillRect(-L, v - FIB_W / 2, 2 * L, FIB_W);
-        ctx.fillStyle = 'rgba(235,250,255,0.75)'; ctx.fillRect(-L, v - FIB_W / 2, 2 * L, 0.8);
-        ctx.fillRect(-L, v + FIB_W / 2 - 0.8, 2 * L, 0.8);
-      }
-      // 走光的芯：一串明暗在里面流动，亮度只在芯里，光晕比玻璃丝窄得多
-      const vv = FIB_V[LIGHT_FIB], P = 14, off = (t * 150) % (P * 8);
-      for (let u = -300; u < 300; u += P) {
-        const idx = ((Math.floor((u + off) / P) % 8) + 8) % 8, on = PATTERN[idx];
-        const a = 0.22 + 0.78 * on;
-        ctx.fillStyle = rgba(CYAN, 0.30 * a); ctx.fillRect(u, vv - 1.9, P, 3.8);
-        ctx.fillStyle = rgba([215, 252, 255], a); ctx.fillRect(u, vv - CORE_W * 1.5, P, CORE_W * 3);
+      for (let u = -150; u < 150; u += P) {
+        const idx = ((Math.floor((u - off) / P) % 8) + 8) % 8, on = PATTERN[idx];
+        ctx.fillStyle = rgba(CYAN, on ? 0.45 : 0.10); ctx.fillRect(u, -0.95, P, 1.9);
+        if (on) { ctx.fillStyle = rgba(CYAN, 0.22); ctx.fillRect(u, -1.6, P, 3.2); }
+        ctx.fillStyle = on ? 'rgba(235,255,255,1)' : rgba(CYAN, 0.28); ctx.fillRect(u, -CORE_W / 2, P, CORE_W);
       }
       ctx.globalAlpha = 1;
     }
-    // 外皮：哑光柠檬黄，透明后只剩淡淡的一层
-    const ja = 1 - 0.86 * (focus ? jacket : 0);
-    ctx.fillStyle = rgba([226, 214, 58], ja); ctx.fillRect(-L, v0 - CAB_W / 2, 2 * L, CAB_W);
-    ctx.fillStyle = rgba([186, 174, 36], ja * 0.9); ctx.fillRect(-L, v0 + CAB_W / 2 - 14, 2 * L, 14);   // 背光面
-    ctx.fillStyle = rgba([240, 232, 120], ja * 0.5); ctx.fillRect(-L, v0 - CAB_W / 2 + 4, 2 * L, 6);   // 哑光的宽高光
-    ctx.strokeStyle = rgba([120, 108, 20], 0.85 * (focus ? 1 - 0.3 * jacket : 1)); ctx.lineWidth = 1.5;
-    ctx.strokeRect(-L, v0 - CAB_W / 2, 2 * L, CAB_W);
-  }
-  // 头发：1.5 秒起沿路径进来
-  const reveal = smooth((t - 1.4) / 0.8);
-  let hairLabel = null;
-  if (reveal > 0) {
-    // 按路径总长截取
-    let total = 0; const segs = [];
-    for (let i = 0; i < HAIR_PATH.length - 1; i++) { const l = Math.hypot(HAIR_PATH[i + 1][0] - HAIR_PATH[i][0], HAIR_PATH[i + 1][1] - HAIR_PATH[i][1]); segs.push(l); total += l; }
-    let rem = total * reveal;
-    ctx.strokeStyle = '#4a2c1a'; ctx.lineWidth = HAIR_W; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.beginPath(); ctx.moveTo(...HAIR_PATH[0]);
-    for (let i = 0; i < segs.length; i++) {
-      const f = Math.min(1, rem / segs[i]);
-      const x = HAIR_PATH[i][0] + (HAIR_PATH[i + 1][0] - HAIR_PATH[i][0]) * f, y = HAIR_PATH[i][1] + (HAIR_PATH[i + 1][1] - HAIR_PATH[i][1]) * f;
-      ctx.lineTo(x, y); rem -= segs[i]; if (rem <= 0) break;
+    // 外皮：哑光柠檬黄。焦点线缆的中间会变没，两侧窄边一直在
+    const ja = focus ? 1 - jacket : 1;
+    if (ja > 0.01) {
+      ctx.fillStyle = rgba([226, 214, 58], ja); ctx.fillRect(-L, v0 - CAB_W / 2, 2 * L, CAB_W);
+      ctx.fillStyle = rgba([186, 174, 36], ja * 0.9); ctx.fillRect(-L, v0 + CAB_W / 2 - 14, 2 * L, 14);
+      ctx.fillStyle = rgba([240, 232, 120], ja * 0.5); ctx.fillRect(-L, v0 - CAB_W / 2 + 4, 2 * L, 6);
     }
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(150,100,70,0.55)'; ctx.lineWidth = 1.2; ctx.stroke();
-    if (reveal > 0.99) hairLabel = [-60, -33];
+    if (focus) for (const s of [-1, 1]) {
+      ctx.fillStyle = '#e2d63a'; ctx.fillRect(-L, s < 0 ? -CAB_W / 2 : CAB_W / 2 - EDGE, 2 * L, EDGE);
+      ctx.fillStyle = '#a69a20'; ctx.fillRect(-L, s < 0 ? -CAB_W / 2 + EDGE - 0.6 : CAB_W / 2 - EDGE, 2 * L, 0.6);
+    } else { ctx.strokeStyle = 'rgba(120,108,20,0.85)'; ctx.lineWidth = 1.5; ctx.strokeRect(-L, v0 - CAB_W / 2, 2 * L, CAB_W); }
+  }
+  // 头发：1.6 秒起从右边横着滑进来，躺在玻璃丝旁边，和它平行
+  const slide = smooth((t - 1.6) / 0.7), hv = 14 + (1 - slide) * 70;
+  if (slide > 0) {
+    ctx.strokeStyle = 'rgba(20,10,5,0.5)'; ctx.lineWidth = HAIR_W + 0.7; ctx.lineCap = 'butt';
+    ctx.beginPath(); ctx.moveTo(-L, hv); ctx.lineTo(L, hv); ctx.stroke();
+    ctx.strokeStyle = '#4f2f1b'; ctx.lineWidth = HAIR_W;
+    ctx.beginPath(); ctx.moveTo(-L, hv); ctx.lineTo(L, hv); ctx.stroke();
+    ctx.strokeStyle = 'rgba(205,150,105,0.75)'; ctx.lineWidth = 0.9;
+    ctx.beginPath(); ctx.moveTo(-L, hv - 1.5); ctx.lineTo(L, hv - 1.5); ctx.stroke();
   }
   const m = ctx.getTransform();
   ctx.restore();
-  if (hairLabel) {
-    const sx = m.a * hairLabel[0] + m.c * hairLabel[1] + m.e, sy = m.b * hairLabel[0] + m.d * hairLabel[1] + m.f;
-    ctx.save(); ctx.globalAlpha = smooth((t - 2.2) / 0.25);
-    label(ctx, '头发', clamp(sx + 30, 20, 440), clamp(sy - 40, 80, 560));
+  const sp = (u, v) => { const x = u * Math.cos(0) , _ = x; return [m.a * u + m.c * v + m.e, m.b * u + m.d * v + m.f]; };
+  const fade = a => smooth((t - a) / 0.2);
+  const lab = (text, a, u, v, lead) => {
+    if (t < a) return;
+    const [x, y] = sp(u, v);
+    ctx.save(); ctx.globalAlpha = fade(a);
+    if (lead) { const [x2, y2] = sp(u, 0); ctx.strokeStyle = 'rgba(235,250,255,0.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.stroke(); ctx.fillStyle = '#eaffff'; ctx.beginPath(); ctx.arc(x2, y2, 3.5, 0, 7); ctx.fill(); }
+    ctx.font = `30px ${FONT}`; const w = ctx.measureText(text).width;
+    label(ctx, text, clamp(x - w / 2, 14, W - w - 14), y, 30);
     ctx.restore();
-  }
+  };
+  lab('玻璃丝', 1.5, -26, -19, false);
+  lab('头发', 2.0, -2, 14, false);
+  lab('光', 2.4, 26, -19, true);
   bigText(ctx, ['AI 芯片之间传数据', '为什么要用玻璃丝？'], t, 705, 46);
 }
 
@@ -140,16 +151,17 @@ function renderB(ctx, t) {
   const PER = 0.2, SPEED = 1.6, span = Y0 - VP[1];
   for (let y = Y0; y > VP[1] + 3; y -= 1) {
     const z = span / (y - VP[1]);
-    const idx = Math.floor((z - SPEED * t) / PER);
-    const bit = PATTERN[((-idx % 8) + 8) % 8];
-    const fade = Math.exp(-(z - 1) / 2.0);               // 条纹对比度：近处 1，远处趋于 0
-    const mean = 0.45, val = mean + ((bit ? 1 : 0.12) - mean) * fade;
+    const zn = span / (y - 1 - VP[1]);
+    let bsum = 0; for (let q = 0; q < 6; q++) { const zz = z + (zn - z) * (q + 0.5) / 6; const ix = Math.floor((zz - SPEED * t) / PER); bsum += PATTERN[((-ix % 8) + 8) % 8] ? 1 : 0.12; }
+    const bit = bsum / 6;
+    const fade = Math.exp(-(z - 1) / 2.0) * (1 - smooth((z - 2.5) / 5));   // 条纹对比度：近处 1，到 z≈7.5 时降到 0，远处是均匀暗金
+    const mean = 0.45, val = mean + (bit - mean) * fade;
     const w = W0 / z;
     const haze = Math.min(1, (z - 1) / 9);               // 越远越融进背景，边也虚
     const alpha = 0.95 - 0.55 * haze;
     const col = [GOLD[0] * val + 40 * (1 - val), GOLD[1] * val + 28 * (1 - val), GOLD[2] * val + 14 * (1 - val)];
     ctx.fillStyle = rgba(col, alpha);
-    ctx.fillRect(VP[0] - w / 2, y, w, 1.2);
+    ctx.fillRect(VP[0] - w / 2, y, w, 1.6);
     // 边缘虚化：远处加两侧渐隐的软边
     if (z > 2) { const soft = Math.min(6, w * 0.35); ctx.fillStyle = rgba(col, alpha * 0.35); ctx.fillRect(VP[0] - w / 2 - soft, y, soft, 1.2); ctx.fillRect(VP[0] + w / 2, y, soft, 1.2); }
   }
@@ -158,17 +170,17 @@ function renderB(ctx, t) {
   for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(VP[0] + s * W0 / 2, Y0); ctx.lineTo(VP[0] + s * W0 / 2 / 5, VP[1] + span / 5); ctx.stroke(); }
   // 远处机柜：小轮廓，在雾里
   const cabX = VP[0], cabY = VP[1] - 4;
-  const cw = 26, chh = 44;
-  const ask = smooth((t - 2.5) / 0.35), pulse = ask * (0.65 + 0.35 * Math.sin((t - 2.5) * 9));
-  if (ask > 0) { const g = ctx.createRadialGradient(cabX, cabY - chh / 2, 2, cabX, cabY - chh / 2, 48); g.addColorStop(0, rgba(CORAL, 0.55 * pulse)); g.addColorStop(1, rgba(CORAL, 0)); ctx.fillStyle = g; ctx.fillRect(cabX - 60, cabY - chh / 2 - 60, 120, 120); }
+  const cw = 52, chh = 88;
+  const ask = smooth((t - 1.6) / 0.35), pulse = ask * (0.65 + 0.35 * Math.sin((t - 1.6) * 9));
+  if (ask > 0) { const g = ctx.createRadialGradient(cabX, cabY - chh / 2, 2, cabX, cabY - chh / 2, 90); g.addColorStop(0, rgba(CORAL, 0.55 * pulse)); g.addColorStop(1, rgba(CORAL, 0)); ctx.fillStyle = g; ctx.fillRect(cabX - 100, cabY - chh / 2 - 100, 200, 200); }
   ctx.fillStyle = 'rgba(34,66,82,0.95)'; ctx.fillRect(cabX - cw / 2, cabY - chh, cw, chh);
   ctx.strokeStyle = ask > 0 ? rgba([255, 150, 135], 0.55 + 0.4 * pulse) : 'rgba(150,200,215,0.6)'; ctx.lineWidth = 1.5; ctx.strokeRect(cabX - cw / 2, cabY - chh, cw, chh);
   ctx.fillStyle = 'rgba(150,200,215,0.45)';
-  for (let i = 0; i < 6; i++) ctx.fillRect(cabX - cw / 2 + 4, cabY - chh + 5 + i * 7, cw - 8, 3);
+  for (let i = 0; i < 6; i++) ctx.fillRect(cabX - cw / 2 + 8, cabY - chh + 9 + i * 13, cw - 16, 5);
   if (ask > 0) {
-    ctx.font = `bold 34px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(5,16,24,0.9)'; ctx.strokeText('?', cabX, cabY - chh - 26 - 4 * Math.sin((t - 2.5) * 6));
-    ctx.fillStyle = rgba(CORAL, ask); ctx.fillText('?', cabX, cabY - chh - 26 - 4 * Math.sin((t - 2.5) * 6));
+    ctx.font = `bold 40px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(5,16,24,0.9)'; ctx.strokeText('?', cabX, cabY - chh - 28 - 4 * Math.sin((t - 1.6) * 6));
+    ctx.fillStyle = rgba(CORAL, ask); ctx.fillText('?', cabX, cabY - chh - 28 - 4 * Math.sin((t - 1.6) * 6));
   }
   // 一排八条消息：亮亮暗亮暗暗亮暗；微微闪，表示在发出去
   const bw = 34, gap = 10, x0 = W / 2 - (8 * bw + 7 * gap) / 2;
@@ -180,6 +192,9 @@ function renderB(ctx, t) {
     ctx.beginPath(); ctx.roundRect(x, Y0 + 8, bw, 50, 5); ctx.fill();
   }
   ctx.restore();
+  const bs = (x, y) => [VP[0] + (x - VP[0]) * push, VP[1] + (y - VP[1]) * push];
+  { const [x, y] = bs(cabX + cw / 2 + 14, cabY - chh / 2); ctx.save(); ctx.globalAlpha = smooth((t - 0.5) / 0.25); label(ctx, '对面的芯片', x + 10, y, 26); ctx.restore(); }
+  { const zc = 2.2, [x, y] = bs(VP[0] + W0 / 2 / zc + 22, VP[1] + span / zc); ctx.save(); ctx.globalAlpha = smooth((t - 0.8) / 0.25); label(ctx, '铜线', x, y, 28); ctx.restore(); }
   bigText(ctx, ['这条消息', '送得到吗？'], t, 120, 60);
 }
 

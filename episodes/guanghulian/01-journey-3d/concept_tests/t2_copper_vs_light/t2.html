@@ -16,14 +16,18 @@ const CYAN = [86, 232, 240], GOLD = [255, 190, 70], CORAL = [255, 122, 107];
 const PASS = 4.5;
 const PATTERN = [1, 1, 0, 1, 0, 0, 1, 0];
 const DARK = 0.28;               // 暗不是全黑
-const FLOW = 0.34;               // 条纹流速，路程比例每秒（两遍相同）
-const BITS = 12;                 // 整条路上有 12 位的长度
+const FLOW = 0.15;               // 条纹流速，路程比例每秒（两遍相同）
+const BITS = 22;                 // 整条路上有 22 位的长度（近处每位约 60 像素）
 const K = 1.6;
-const X0 = 270, Y_NEAR = 760, Y_FAR = 185;
+const X0 = 270, Y_NEAR = 692, Y_FAR = 185;
+const bandW = d => 28 + 62 * (sc(d) - sc(1)) / (1 - sc(1));   // 近处约 90，远处约 28
+const coreW = d => 4 + 4 * (sc(d) - sc(1)) / (1 - sc(1));
 const sc = d => 1 / (1 + K * d);
 const yOf = d => Y_NEAR - (Y_NEAR - Y_FAR) * (1 - sc(d)) / (1 - sc(1));
-const camZ = u => 1 + 0.05 * (u / PASS);          // 同一条相机曲线
+const CAM_Y = 320;
+const camZ = u => 1 + 0.22 * smooth(u / PASS);       // 同一条相机曲线：4.5 秒推到 1.22 倍
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+function _s(){}
 const smooth = x => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
 const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${clamp(a, 0, 1)})`;
 const mix = (c, k) => c.map(v => Math.round(v * k));
@@ -39,8 +43,8 @@ function bitAt(p, bw) {
 }
 // 铜：越远边越虚、对比越小；光：边一直分明，只是略暗
 function levelCopper(d, u) {
-  const bw = 0.03 + 1.2 * Math.pow(d, 1.5);
-  const c = Math.exp(-3.2 * Math.pow(d, 1.25));
+  const bw = 0.03 + 2.0 * Math.pow(d, 1.3);
+  const c = Math.exp(-4.5 * Math.pow(d, 1.25));
   const b = bitAt(d * BITS - FLOW * BITS * u, bw);
   return (0.5 + (b - 0.5) * c) * (1 - 0.35 * d) ; // 0..1，远处趋于均匀
 }
@@ -59,7 +63,7 @@ function label(ctx, text, x, y, align = 'left', size = 22, alpha = 0.92) {
 function caption(ctx, text, alpha) {
   if (alpha <= 0) return;
   ctx.font = `34px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  const lines = text.split('\n'), lh = 46, y0 = 905 - (lines.length - 1) * lh / 2;
+  const lines = text.split('\n'), lh = 46, y0 = 915 - (lines.length - 1) * lh / 2;
   const w = Math.max(...lines.map(l => ctx.measureText(l).width));
   ctx.fillStyle = `rgba(6,18,26,${0.82 * alpha})`;
   ctx.beginPath(); ctx.roundRect(W / 2 - w / 2 - 18, y0 - 30, w + 36, lines.length * lh + 14, 12); ctx.fill();
@@ -68,7 +72,7 @@ function caption(ctx, text, alpha) {
 }
 const CAPS = [[0.3, 4.2, '同一条路，假如还走铜线'], [4.8, 8.8, '换成光：\n到了对面，还认得出来']];
 
-const BAR_W = 16, BAR_H = 44, BAR_GAP = 28, ROW_Y_BOT = 790, ROW_Y_TOP = 138;
+const BAR_W = 22, BAR_H = 44, BAR_GAP = 30, ROW_Y_BOT = 720, ROW_Y_TOP = 138;
 function row(ctx, y, levels, colors) {
   for (let i = 0; i < 8; i++) {
     const x = X0 + (i - 3.5) * BAR_GAP;
@@ -90,7 +94,7 @@ function renderFrame(t, opt) {
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 
   const z = camZ(u);
-  ctx.translate(W / 2, 480); ctx.scale(z, z); ctx.translate(-W / 2, -480);
+  ctx.translate(W / 2, CAM_Y); ctx.scale(z, z); ctx.translate(-W / 2, -CAM_Y);
 
   // 路两旁的机柜轮廓（简化）
   for (const d of [0.08, 0.3, 0.55, 0.8]) {
@@ -104,28 +108,30 @@ function renderFrame(t, opt) {
     }
   }
 
-  // 线：切成很多小段，每段亮度由「这个位置此刻的图样」决定
-  const N = 220;
-  ctx.lineCap = 'butt';
+  // 路：有透视的带子，切成很多横向小片，每片亮度由「这个位置此刻的图样」决定
+  const N = 320;
+  const trap = (d0, d1, wf) => {
+    const y0 = yOf(d0), y1 = yOf(Math.min(d1, 1)), w0 = bandW(d0) * wf / 2, w1 = bandW(Math.min(d1, 1)) * wf / 2;
+    ctx.beginPath(); ctx.moveTo(X0 - w0, y0); ctx.lineTo(X0 + w0, y0); ctx.lineTo(X0 + w1, y1 - 0.6); ctx.lineTo(X0 - w1, y1 - 0.6); ctx.closePath(); ctx.fill();
+  };
+  if (light) {
+    ctx.fillStyle = 'rgba(170,215,230,0.10)'; trap(0, 1, 1);                 // 很淡的玻璃丝
+    ctx.strokeStyle = 'rgba(190,230,240,0.22)'; ctx.lineWidth = 1.5;
+    for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(X0 + sd * bandW(0) / 2, yOf(0)); ctx.lineTo(X0 + sd * bandW(1) / 2, yOf(1)); ctx.stroke(); }
+  } else {
+    ctx.fillStyle = 'rgba(110,80,35,0.6)'; trap(0, 1, 1);
+  }
   for (let i = 0; i < N; i++) {
-    const d0 = i / N, d1 = (i + 1.15) / N, dm = (d0 + d1) / 2;
-    const s = sc(dm), y0 = yOf(d0), y1 = yOf(Math.min(d1, 1));
+    const d0 = i / N, d1 = (i + 1.3) / N, dm = (d0 + d1) / 2;
     if (!light) {
-      ctx.strokeStyle = 'rgba(120,90,40,0.55)'; ctx.lineWidth = 20 * s;     // 铜线本体
-      ctx.beginPath(); ctx.moveTo(X0, y0); ctx.lineTo(X0, y1); ctx.stroke();
-      const lv = levelCopper(dm, u), k = DARK + (1 - DARK) * lv;
-      const col = mix(GOLD, k);
-      ctx.strokeStyle = `rgb(${col[0]},${col[1]},${col[2]})`; ctx.lineWidth = 13 * s;
-      ctx.beginPath(); ctx.moveTo(X0, y0); ctx.lineTo(X0, y1); ctx.stroke();
+      const lv = levelCopper(dm, u), k = DARK + (1 - DARK) * lv, col = mix(GOLD, k);
+      ctx.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`; trap(d0, d1, 0.94);
     } else {
-      ctx.strokeStyle = 'rgba(120,170,190,0.22)'; ctx.lineWidth = 8 * s;     // 通道本身
-      ctx.beginPath(); ctx.moveTo(X0, y0); ctx.lineTo(X0, y1); ctx.stroke();
       const lv = levelLight(dm, u), k = DARK + (1 - DARK) * lv;
-      ctx.strokeStyle = rgba(CYAN, 0.30 * k); ctx.lineWidth = 11 * s;        // 很窄的光晕，不外漫
-      ctx.beginPath(); ctx.moveTo(X0, y0); ctx.lineTo(X0, y1); ctx.stroke();
+      const cw = coreW(dm) / bandW(dm);
+      ctx.fillStyle = rgba(CYAN, 0.28 * k); trap(d0, d1, cw * 2.2);          // 很窄的光晕，不外漫
       const col = [0, 1, 2].map(j => Math.round((CYAN[j] * 0.7 + 255 * 0.3 * 0.7) * k));
-      ctx.strokeStyle = `rgb(${col[0]},${col[1]},${col[2]})`; ctx.lineWidth = 6 * s;
-      ctx.beginPath(); ctx.moveTo(X0, y0); ctx.lineTo(X0, y1); ctx.stroke();
+      ctx.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`; trap(d0, d1, cw);
     }
   }
 
@@ -133,21 +139,26 @@ function renderFrame(t, opt) {
   const sendLv = PATTERN.map(b => DARK + (1 - DARK) * b);
   row(ctx, ROW_Y_BOT, sendLv, PATTERN.map(() => GOLD));
   // 上排：收到。第一幕：糊成一片；第二幕：和发出的一样。第一条线到达的时刻之后才亮起
-  const arrive = smooth((u - 2.6) / 0.5);
   const recvLv = PATTERN.map((b, i) => {
-    const v = light ? (DARK + (1 - DARK) * b) * 0.84 : 0.44 + 0.03 * (b - 0.5);
-    return 0.08 + (v - 0.08) * arrive;
+    if (light) {   // 第二遍：一条一条依次亮出图样
+      const a = smooth((u - (2.6 + 0.2 * i)) / 0.15);
+      return 0.08 + ((DARK + (1 - DARK) * b) * 0.84 - 0.08) * a;
+    }
+    const a = smooth((u - 2.6) / 0.5);          // 第一遍：亮起后在亮暗之间游移
+    const wob = 0.42 + 0.17 * Math.sin(u * (7 + i * 1.3) + i * 2.1) + 0.04 * (b - 0.5);
+    return 0.08 + (wob - 0.08) * a;
   });
   const recvCol = PATTERN.map(() => GOLD);
-  if (!light) {      // 认错了：第 3 条（本该暗）闪两下珊瑚色
-    const ph = u - 3.5, f = (ph > 0 && ph < 0.3) || (ph > 0.42 && ph < 0.72);
-    if (f) { recvCol[2] = CORAL; recvLv[2] = 1; }
+  if (!light) {      // 认错了：第 3 条（本该暗）闪三下珊瑚色，每下约 0.2 秒
+    for (const t0 of [3.4, 3.72, 4.04]) if (u > t0 && u < t0 + 0.2) { recvCol[2] = CORAL; recvLv[2] = 1; }
   }
   row(ctx, ROW_Y_TOP, recvLv, recvCol);
+  label(ctx, '发出', X0 + 4 * BAR_GAP + 6, ROW_Y_BOT, 'left', 22);
+  label(ctx, '收到', X0 + 4 * BAR_GAP + 6, ROW_Y_TOP, 'left', 22);
 
   // 标签：贴在线上
   const lab = light ? '换成光' : '假设：还走铜线';
-  label(ctx, lab, X0 - 30, 520, 'right', 24, smooth((u - 0.1) / 0.3));
+  label(ctx, lab, X0 - 48, 470, 'right', 22, smooth((u - 0.1) / 0.3));
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.font = `15px ${FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = 'rgba(220,235,240,0.55)';
