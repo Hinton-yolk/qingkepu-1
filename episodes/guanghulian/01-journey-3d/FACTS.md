@@ -89,3 +89,27 @@
 | H22 | S09：到 GPU B 之前同样先经过网卡（片中略过） | 对端结构相同、方向相反，所以接收一侧至少有两次解串（网卡 B 一次，GPU B 一次；沿途的 PCIe 交换芯片、重定时器也各收发一次） | 由 H1、H9、H11 对称推出，没有另找来源 |
 | H23 | S10「每条通道每秒上千亿个比特」指光口的通道 | 网卡之后每条通道约 106.25 Gb/s（F16）；GPU 一侧每条通道是 32 Gb/s（H2） | 见 F16、H2 |
 
+## 五、铜缆能走多远（2026-11-12 晚，导演提案阶段查的）
+
+- 配合 `preprod/11`、`preprod/12` 里「假如还走铜线」的对照。查证由审核角色做，工具是 AnySearch；公开 PDF 直接下载后转成文字读。IEEE 标准原文要付费，没读到。
+- 片中现在不上任何米数（融合稿撤下了 7 / 5 / 3 / 2 米的阶梯）。要恢复定量标注，先对标准条目。
+
+| 结论 | 来源 | 核到的程度 |
+|---|---|---|
+| IEEE 802.3ck 的目标：双轴铜缆「至少 2 米」，适用于单通道 100 Gb/s、两通道 200 Gb/s、四通道 400 Gb/s。通道损耗 ≤ 28.5 dB @ 26.56 GHz，其中主机 6.875 dB | Samtec 等，DesignCon 2020 论文 https://suddendocs.samtec.com/notesandwhitepapers/samtec-paper_validation-of-achieving-100-gbs-signaling-per-electrical-lane-over-2-meters-of-passive-twinaxial-copper-cable_designcon-2020.pdf | 读过原文（PDF 转文字） |
+| 线缆组件损耗 19.75 dB @ 26.5 GHz，对应 2 米；同一速率下电路板走线约 25 厘米（通道损耗上限 20 dB）；「第二代芯片正在让线缆更长」 | Ethernet Alliance 2023 技术讲稿 https://ethernetalliance.org/wp-content/uploads/2023/06/30607-EA-2023-Tech-Webinar-Ethernet-in-DesignPostEvent_final.pdf | 读过原文（PDF 转文字） |
+| 800GBASE-CR8（8 × 100 Gb/s）：铜缆，最长 2 米 | TIA FOTC https://www.tiafotc.org/ieee-802-3-ethernet-standards-update/multimode-standards-update/800gbase-sr8/ | 读过原文（二手页面） |
+| 历代标准距离：7 米（每条 10 Gb/s）、5 米（25）、3 米（50）、「至少 2 米」（100） | 维基百科 Ethernet physical layer https://en.wikipedia.org/wiki/Ethernet_physical_layer | 读过原文（二手） |
+| 厂商无源产品：「DAC 最长 2–3 米」；线性有源铜缆「3、4、5 米」（按 100G-PAM4） | NVIDIA LinkX 产品组合文件，2024-10-07 版 https://docs.nvidia.com/linkx-400gbe-ndr-combo-main-portfolio-100g-pam4.pdf （即 08 的 R6） | 读过原文（PDF 转文字；版面是多栏，具体料号对应哪一类没有逐个核） |
+| 线性有源铜缆「最长 5 米，无源版最长 2 米」 | Volex QSFP112 ACC 规格书 https://www.volex.com/media/2hnp2nrx/volex-400g-qsfp112-acc-cable-data-sheet.pdf | 读过原文；厂商资料 |
+| 带 DSP 的有源铜缆（每条 100 Gb/s）到 7 米；「没有这类芯片，800G 的无源铜缆只能到 2 米」；每条 200 Gb/s 时带 DSP 能超过 3 米 | Marvell 新闻稿 2025-04-01 https://www.prnewswire.com/news-releases/marvell-extends-connectivity-leadership-with-aec-ecosystem-demonstrations-at-ofc-2025-302416599.html | 读过原文；厂商说法 |
+| 800G 有源铜缆「最长 7 米」 | Credo 产品页 https://credosemi.com/products/zeroflapaec/ | 读过原文；厂商说法 |
+| 每条 200 Gb/s 时无源铜缆约 1–1.5 米 | 检索结果里的第三方博客 | 只看到摘要，仅单一来源，不要用 |
+| IEEE 802.3ck-2022、802.3df-2024 标准原文 | IEEE Xplore | 没读到（付费） |
+
+怎么用这些数：
+- 「至少 2 米」是标准保证能通的距离，不是物理上限；它已经算上了纠错和接收端均衡。
+- 带 DSP 的有源铜缆 7 米：两家厂商的说法，互相独立，但都是厂商资料。
+- 历代标准距离 7 / 5 / 3 / 2 米只有维基百科的表（二手），片中不用。
+- 同一速率下电路板走线约 25 厘米、铜缆 2 米：所以不能画成「铜缆比走线糊得快」。
+- 连带查到：有的新机柜里几十颗 GPU 靠几千根铜缆相连（NVIDIA 技术博客，读过，仅一家官方来源；那是机柜内的另一条路）。
