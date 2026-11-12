@@ -123,7 +123,10 @@ C.box('硅中介层', (INT[0], INT[1], INT[2] - 0.5 * UM), (0, 0, Z_SUB + (INT[2
 die = C.box('大芯片', (DIE[0], DIE[1], Z_DIE1 - Z_DIE0), (0, 0, (Z_DIE0 + Z_DIE1) / 2), M['silicon'], mod, bevel=0.02)
 rim = C.Mesh(); zr = (Z_DIE0 + Z_BEOL + B.Z_PAD0 * UM) / 2; hr = Z_DIE0 - (Z_BEOL + B.Z_PAD0 * UM); wr = 0.10   # 连线层在芯片四边的侧面（约 12 µm 厚的一条铜色）
 for sy in (-1, 1): rim.box((DIE[0], wr, hr), (0, sy * (DIE[1] - wr) / 2, zr)); rim.box((wr, DIE[1] - 2 * wr, hr), (sy * (DIE[0] - wr) / 2, 0, zr))
-rim.obj('连线层侧面', MB['thick'], mod)
+rim.obj('连线层侧面', C.pbr('连线层侧面（铜色）', (0.50, 0.27, 0.12), metallic=1.0, rough=0.45), mod)
+side = C.Mesh(); zs = (Z_DIE0 + Z_DIE1 - 0.03) / 2; hs = Z_DIE1 - 0.03 - Z_DIE0; ws = 0.004        # 硅本体的侧壁：划片留下的哑光灰面（不然镜面一样的侧壁只映出黑色，看不出厚度）
+for sy in (-1, 1): side.box((DIE[0] + 2 * ws, ws, hs), (0, sy * (DIE[1] + ws) / 2, zs)); side.box((ws, DIE[1], hs), (sy * (DIE[0] + ws) / 2, 0, zs))
+side.obj('硅侧壁', C.pbr('硅侧壁（划片面）', (0.30, 0.31, 0.35), metallic=0.3, rough=0.7, noise_scale=40, noise_rough=0.1, stretch=(1, 1, 0.05)), mod)
 hb = C.Mesh()
 for sx in (-1, 1):
     for k in range(4): hb.box(HBM, (sx * (DIE[0] / 2 + 1.2 + HBM[0] / 2), (k - 1.5) * (HBM[1] + 0.35), Z_DIE0 + HBM[2] / 2 + 0.03))
@@ -240,7 +243,7 @@ K0 = math.log(190 / 330) / 2.2                                             # 起
 T_JOIN = 22.3; D_JOIN = B.orbit(T_JOIN)['d'] * UM
 LND = [(13.0, math.log(330), K0), (14.0, math.log(330) + K0, K0)] + [(t, math.log(d), None) for t, d in
        ((15.2, 172), (16.0, 112), (16.5, 70), (17.0, 27), (17.6, 11.5), (18.2, 6.6), (18.8, 4.1), (19.4, 2.6), (20.0, 1.55), (20.8, 0.66), (21.6, 0.31))] + [(T_JOIN, math.log(D_JOIN), B.K_SEAM)]
-P_EDGE = P + Vector((0, -0.8, 0))                                          # 先对准落点和芯片边缘之间，让边缘和侧壁多留一会儿
+P_EDGE = P + Vector((0, -0.5, 0))                                          # 先对准落点和芯片边缘之间，让边缘和侧壁多留一会儿
 def cam_params(t):
     """返回 对焦点、距离、俯角、方位角（度）、光圈比。22.3 秒以后完全等于连线层的相机路线。"""
     f = Vector((0, 0, 0)).lerp(P_EDGE, C.smooth(C.seg(t, 15.2, 17.2))).lerp(P, C.smooth(C.seg(t, 17.6, 19.4)))
