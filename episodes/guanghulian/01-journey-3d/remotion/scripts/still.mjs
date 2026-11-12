@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-// 出单帧：npm run still -- <帧号> [更多帧号…] [--guides] [--scale=0.5]
+// 出单帧：npm run still -- <帧号> [更多帧号…] [--guides] [--tag=名字] [--scale=0.5]
 //   1380      Remotion 帧号（从 0 起，= 秒 × fps）
 //   46s       全片时间（秒）
 //   b1381     Blender 的全片帧号（从 1 起，= Remotion 帧号 + 1）
 // 输出到 out/stills/t<秒>_f<Remotion 帧号>.png。多个帧号一次打包、一次出完。
+//   --tag=名字  文件名后面加 _名字（同一帧出几个版本对比时用；接触表会把它标在那一格上）
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -32,7 +33,7 @@ const frames = args
   });
 if (frames.length === 0) {
   console.error(
-    "用法：npm run still -- <帧号> [更多帧号…] [--guides] [--scale=0.5]",
+    "用法：npm run still -- <帧号> [更多帧号…] [--guides] [--tag=名字] [--scale=0.5]",
   );
   process.exit(1);
 }
@@ -44,7 +45,9 @@ for (const f of frames) {
 }
 
 const guides = flags.includes("--guides");
-const pass = flags.filter((f) => f !== "--guides");
+const tagFlag = flags.find((f) => f.startsWith("--tag="));
+const tag = tagFlag ? tagFlag.slice(6).replace(/[^\p{L}\p{N}-]+/gu, "") : "";
+const pass = flags.filter((f) => f !== "--guides" && f !== tagFlag);
 const outDir = path.join(ROOT, "out", "stills");
 const tmpDir = path.join(outDir, "_tmp");
 fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -81,7 +84,7 @@ for (const f of frames) {
     console.error(`没找到第 ${f} 帧的输出`);
     process.exit(1);
   }
-  const name = `t${(f / fps).toFixed(2).padStart(6, "0")}_f${String(f).padStart(4, "0")}${guides ? "_guides" : ""}.png`;
+  const name = `t${(f / fps).toFixed(2).padStart(6, "0")}_f${String(f).padStart(4, "0")}${guides ? "_guides" : ""}${tag ? "_" + tag : ""}.png`;
   fs.renameSync(path.join(tmpDir, src), path.join(outDir, name));
   console.log("已出：", path.relative(ROOT, path.join(outDir, name)));
 }

@@ -60,8 +60,8 @@ export type LabelSlot = {
  * 用完后循环。两个槽一左一右、一高一低。退回默认位置的标签只有衬底和字，不画引线（它没有指着任何东西）。
  */
 export const DEFAULT_SLOTS: LabelSlot[] = [
-  { x: 250, y: 712, side: "right", vert: "up" },
-  { x: 830, y: 680, side: "left", vert: "down" },
+  { x: 250, y: 800, side: "right", vert: "up" },
+  { x: 830, y: 690, side: "left", vert: "down" },
 ];
 
 /** 个别镜头单独指定（顺序 = 该镜头里贴物体标签的先后）。现在没有哪个镜头需要。 */

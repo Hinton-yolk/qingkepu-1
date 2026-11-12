@@ -34,6 +34,91 @@ const manifest = {
 };
 const report = [];
 
+// ---------- 标注 ↔ 锚点对照 ----------
+// 和 src/lib/manifest.ts 的 resolveAnchorName 是同一条规则：
+//   写了 anchor_key 只认它；否则依次试 anchor 字段原文、text 原文；先精确比，再「不分大小写、去掉空格」比。
+const normName = (s) => s.toLowerCase().replace(/\s+/g, "");
+const resolveAnchor = (o, names) => {
+  const cands = (o.anchor_key ? [o.anchor_key] : [o.anchor, o.text]).filter(
+    (c) => typeof c === "string" && c.length > 0,
+  );
+  for (const c of cands) if (names.includes(c)) return c;
+  for (const c of cands) {
+    const hit = names.find((n) => normName(n) === normName(c));
+    if (hit) return hit;
+  }
+  return null;
+};
+
+/** 每条贴物体的标注对上了哪个锚点、它在场时锚点有多少帧在画面内；路线有没有取样点 */
+const anchorReport = (shot, data, names, hasFrames) => {
+  const out = [];
+  const frameKeys = Object.keys(data.frames)
+    .map(Number)
+    .sort((a, b) => a - b);
+  const short = (t) => (t.length > 14 ? t.slice(0, 14) + "…" : t);
+  const labels = shot.overlays.filter((o) =>
+    ["label", "term", "scale", "alert"].includes(o.type),
+  );
+  for (const o of labels) {
+    if (o.type === "scale" && hasFrames) {
+      // 分镜里 scale 是 Blender 内的 3D 立体字：有 Blender 帧时 Remotion 不画
+      continue;
+    }
+    const name = resolveAnchor(o, names);
+    const head = `      ${o.type}「${short(o.text)}」${o.t}–${Math.round((o.t + o.dur) * 10) / 10} s`;
+    if (!name) {
+      out.push(
+        `${head}：没对上锚点（anchor = "${short(o.anchor ?? "")}"）→ 默认位置，不画引线`,
+      );
+      continue;
+    }
+    const a = Math.round(o.t * fps) + 1;
+    const b = Math.round((o.t + o.dur) * fps);
+    const inSpan = frameKeys.filter((f) => f >= a && f <= b);
+    const seen = inSpan.filter((f) => {
+      const v = data.frames[String(f)][name];
+      return (
+        v &&
+        v[2] > 0 &&
+        v[0] >= 0 &&
+        v[0] <= data.width &&
+        v[1] >= 0 &&
+        v[1] <= data.height
+      );
+    });
+    out.push(
+      `${head} → ${name}：在场 ${inSpan.length} 帧里锚点有 ${seen.length} 帧在画面内` +
+        (seen.length === 0
+          ? "（一帧都不在画面内：这条标签多半不会画出来）"
+          : ""),
+    );
+  }
+  // 同一时刻最多 3 个标签（和 src/shotConfig.ts 的 MAX_LABELS 一致）
+  const sorted = [...labels].sort((x, y) => x.t - y.t);
+  sorted.forEach((o, i) => {
+    const active = sorted
+      .slice(0, i)
+      .filter((p) => p.t <= o.t && o.t < p.t + p.dur);
+    if (active.length >= 3)
+      out.push(
+        `      注意：「${short(o.text)}」出现时已有 ${active.length} 个标签在场，超过 3 个的不画`,
+      );
+  });
+  for (const o of shot.overlays.filter(
+    (x) => x.type === "path_trace" && x.text.includes("→"),
+  )) {
+    const n = names.filter((k) => /^path_[a-z]+\d*_\d+$/i.test(k)).length;
+    out.push(
+      `      path_trace「${short(o.text)}」：` +
+        (n > 0
+          ? `沿 ${n} 个 path_* 取样点画线`
+          : "没有 path_<段>_<序号> 取样点 → 退回图例"),
+    );
+  }
+  return out;
+};
+
 for (const shot of TL.shots) {
   const id = shot.id;
   const f0 = Math.round(shot.start * fps) + 1;
@@ -91,7 +176,27 @@ for (const shot of TL.shots) {
       const keys = new Set();
       for (const row of Object.values(a.frames))
         for (const k of Object.keys(row)) keys.add(k);
-      report[report.length - 1] += `；锚点 ${[...keys].join("、")}`;
+      // 路线取样点（path_<段>_<序号>）很多，按段合并成一项
+      const pathSecs = {};
+      const others = [];
+      for (const k of keys) {
+        const m = /^path_([a-z]+\d*)_(\d+)$/i.exec(k);
+        if (m) pathSecs[m[1]] = (pathSecs[m[1]] ?? 0) + 1;
+        else others.push(k);
+      }
+      const pathNote = Object.entries(pathSecs)
+        .map(([sec, n]) => `path_${sec}_* ×${n}`)
+        .join("、");
+      report[report.length - 1] +=
+        `；锚点 ${[...others, ...(pathNote ? [pathNote] : [])].join("、")}`;
+      report.push(
+        ...anchorReport(
+          shot,
+          manifest.anchors[id],
+          [...keys],
+          Boolean(manifest.frames[id]),
+        ),
+      );
       break;
     } catch (e) {
       console.warn(`提示：锚点文件读不了，已跳过：${p}（${e.message}）`);

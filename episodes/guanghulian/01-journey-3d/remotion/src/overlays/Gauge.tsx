@@ -196,7 +196,7 @@ export const Gauge: React.FC<Props> = ({ overlay, duration }) => {
             {pct}
           </span>
           <span style={{ fontSize: 60, fontWeight: 700, color: C.light }}>
-            %
+            {STR.percent}
           </span>
         </div>
         {/* 条：青色 = 进去的，珊瑚色 = 漏掉的 */}
@@ -231,7 +231,7 @@ export const Gauge: React.FC<Props> = ({ overlay, duration }) => {
             color: d > 0.05 ? C.cream : rgba(C.cream, 0.7),
           }}
         >
-          {STR.offset} {d.toFixed(1)} µm
+          {STR.offset} {d.toFixed(1)} {STR.unitMicron}
         </div>
       </div>
     </Panel>

@@ -20,4 +20,8 @@ export const STR = {
   approx: "约",
   spotFiber: "光纤能接住的范围",
   spotChip: "芯片来的光斑",
+  percent: "%",
+  unitMicron: "µm",
+  // 路线图例（没有路线取样锚点时的退路）：两段之间的箭头
+  arrow: "→",
 };

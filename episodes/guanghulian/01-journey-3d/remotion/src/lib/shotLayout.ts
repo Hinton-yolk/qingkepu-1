@@ -379,7 +379,9 @@ const buildShot = (shot: Shot): ShotLabels => {
     .sort((a, b) => a.o.t - b.o.t || a.order - b.order);
   for (const { o, key, order } of sorted) {
     const { from, to } = localSpan(shot, o);
-    if (specs.filter((s) => s.from <= from && from < s.to).length >= MAX_LABELS) {
+    if (
+      specs.filter((s) => s.from <= from && from < s.to).length >= MAX_LABELS
+    ) {
       dropped.push(o);
       continue;
     }
@@ -572,8 +574,7 @@ export const layoutLabels = (shot: Shot, local: number): PlacedLabel[] => {
     );
 
     const live = from === k && spec.anchorName !== null && st.inFrame;
-    const inZone =
-      a.y >= SAFE.top - 50 && a.y <= Math.min(H, SAFE.bottom + 30);
+    const inZone = a.y >= SAFE.top - 50 && a.y <= Math.min(H, SAFE.bottom + 30);
     const target =
       live &&
       inZone &&

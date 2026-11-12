@@ -17,6 +17,7 @@ import {
   pathSections,
 } from "../lib/pathTrace";
 import { localSpan, pathChipSizes, pathWords } from "../lib/shotLayout";
+import { STR } from "../strings";
 import {
   PATH_TRACE,
   pathTraceDefault,
@@ -232,7 +233,7 @@ const Legend: React.FC<Props> = ({ overlay, duration }) => {
             <React.Fragment key={i}>
               {i > 0 ? (
                 <span style={{ color: rgba(C.cream, 0.7), fontWeight: 400 }}>
-                  →
+                  {STR.arrow}
                 </span>
               ) : null}
               <div

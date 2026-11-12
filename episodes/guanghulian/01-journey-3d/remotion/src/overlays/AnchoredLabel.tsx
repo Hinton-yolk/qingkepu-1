@@ -110,7 +110,12 @@ export const AnchoredLabels: React.FC<{ shot: Shot }> = ({ shot }) => {
                 textShadow: TEXT_SHADOW_SOFT,
                 whiteSpace: "nowrap",
                 opacity: interpolate(f, [3, 9], [0, 1], CLAMP),
-                translate: interpolate(f, [3, 9], ["0px 8px", "0px 0px"], CLAMP),
+                translate: interpolate(
+                  f,
+                  [3, 9],
+                  ["0px 8px", "0px 0px"],
+                  CLAMP,
+                ),
               }}
             >
               {spec.head.lines.map((l, i) => (

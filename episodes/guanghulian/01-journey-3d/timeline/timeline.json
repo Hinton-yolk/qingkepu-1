@@ -79,7 +79,7 @@
      "dur": 5.2,
      "type": "path_trace",
      "text": "电 → 光 → 电",
-     "anchor": "路线：Blender 出 3D 发光管和路径采样锚点 path_00…path_NN；Remotion 沿锚点画线（挡住的段也画，虚线），在三段上分别标「电」「光」「电」"
+     "anchor": "路线：Blender 出 3D 发光管和沿路线取样的锚点（A 端电 path_e1_NN、光 path_o_NN、B 端电 path_e2_NN，编号沿 A → B 递增）；Remotion 沿锚点画虚线，把被机柜挡住的段补全，在三段上分别标「电」「光」「电」"
     },
     {
      "t": 0.6,
@@ -110,8 +110,8 @@
      "anchor": "nic_a"
     },
     {
-     "t": 0.3,
-     "dur": 8.2,
+     "t": 3.4,
+     "dur": 5.4,
      "type": "note",
      "text": "路线已简化：省去中间的交换机；金 = 电、青 = 光，颜色为示意；服务器结构为示例",
      "anchor": "角注"
