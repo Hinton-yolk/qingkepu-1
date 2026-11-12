@@ -2,6 +2,7 @@
 
 **T4 v1 已交**（33 秒，静音版 + 试听版，Drive + PR #3 评论；说明和哈希在 `episodes/guanghulian/01-journey-3d/previews/director-concepts/README.md` 的「T4」一节）。**现在是停点，等用户当第一个观众回答三句话、等 ChatGPT 看片。** 下面几条是做的过程，留作参考。
 - PR #3 第 18–20 条：撤回一条误发的权限规则（我们没写进任何文件，不用动）；第 20 条说 ChatGPT 在 main 上配了 Claude Code GitHub Actions（以「@claude 」开头的新评论触发），还没验证。**往 PR 发评论时不要以「@claude」开头。**
+- 往 PR 写链接：带中文文件名（被转成 `%E5…`）的链接，裸写或写成 `[名称](…)` 都会被包上反引号点不了。改成链到它所在目录（`/tree/<提交号>/…`，路径里没有中文），在正文里写文件名。
 
 
 - **T0/T1/T2 的看片结果已经出来**：PR #3 的 review「ChatGPT 外部导演审核｜T0/T1/T2 低清概念测试」（T1 选 A；T2 放大接收端、修 `n % 8` 音画错位；T0 合成开场）。
