@@ -40,7 +40,7 @@
        {"t": 19.6, "dur": 3.0, "type": "note", "text": "硅和绝缘层已透明化；连线为简化示意", "anchor": "角注"}
      ]},
     {"id": "S03", "name": "SerDes：并排 → 一列", "start": 23.0, "end": 39.0, "station": "st1",
-     "scale": "50 µm → 5 µm → 微凸点（直径约 25 µm，间距约 40 µm）", "blender": "blender/s03_serdes.py", "status": "planned",
+     "scale": "50 µm → 5 µm → 微凸点（直径约 25 µm，间距约 45 µm，示意）", "blender": "blender/s03_serdes.py", "status": "planned",
      "camera": "相机沿并行总线平移到串化电路上方后停住（讲工序时相机不动）；35.5 s 起跟着唯一的输出线往下走（倒装芯片：凸点在连线层下面，和相机推进同向），穿过凸点离开芯片",
      "transition_out": "跟着输出信号往下：微凸点 → 硅中介层 → C4 凸点 → 有机基板 → 焊球 → 电路板差分走线（S04 首帧在运动中；中间几级用 1 帧暗场带过，不逐级展示）",
      "purpose": "第一站：并行数据被排成一列，变成一条高速电信号",
@@ -48,7 +48,8 @@
        {"t": 23.5, "dur": 4.0, "type": "label", "text": "并排的数据线（示意画 32 条）", "anchor": "并行总线"},
        {"t": 28.9, "dur": 6.5, "type": "timing_diagram", "text": "并行（慢，一排同时）→ 串行（快，一个接一个）", "anchor": "Remotion 时序示意：横轴是时间，不是空间"},
        {"t": 33.6, "dur": 3.0, "type": "term", "text": "SerDes · 串行器 / 解串器", "anchor": "串化电路旁"},
-       {"t": 28.9, "dur": 6.5, "type": "note", "text": "亮 / 暗 = 1 / 0（示意；真实每秒变化上百亿次，这里慢放约百亿倍）", "anchor": "角注"}
+       {"t": 36.2, "dur": 2.8, "type": "note", "text": "凸点周围的连线已省略；芯片到电路板之间还有中介层、基板、焊球，这里略过", "anchor": "角注"},
+       {"t": 28.9, "dur": 6.5, "type": "note", "text": "亮 / 暗 = 1 / 0（示意；真实每秒上千亿个，这里慢放约百亿倍）", "anchor": "角注"}
      ]},
     {"id": "S04", "name": "电的路：电路板差分走线", "start": 39.0, "end": 55.0, "station": "st2",
      "scale": "2 mm → 10 cm", "blender": "blender/s04_pcb_trace.py", "status": "planned",
@@ -104,7 +105,7 @@
      "overlays": [
        {"t": 106.3, "dur": 4.0, "type": "label", "text": "单模光纤：每公里损失不到一成的光（1310 nm）", "anchor": "光纤旁"},
        {"t": 111.0, "dur": 4.5, "type": "label", "text": "不是更快，是损耗小、传得远", "anchor": "线槽上方"},
-       {"t": 106.3, "dur": 10.0, "type": "note", "text": "青色为示意；亮暗图样为示意，未按比例", "anchor": "角注"}
+       {"t": 106.3, "dur": 10.0, "type": "note", "text": "青色为示意；已慢放约十亿倍；拉远后的亮暗图样未按比例", "anchor": "角注"}
      ]},
     {"id": "S09", "name": "抵达：探测、放大、恢复、解串", "start": 117.0, "end": 132.0, "station": "st5",
      "scale": "5 mm → 20 µm → 50 µm", "blender": "blender/s09_receive.py", "status": "planned",
@@ -148,7 +149,7 @@
     {"id": "n10", "shot": "S03", "start": 28.9, "end": 32.7, "text": "把这一大排数据排成一列，一个接一个，极快地送出去。"},
     {"id": "n11", "shot": "S03", "start": 33.6, "end": 36.0, "text": "干这件事的电路，叫 SerDes。"},
     {"id": "n12", "shot": "S04", "start": 39.3, "end": 40.5, "text": "第二站，电的路。"},
-    {"id": "n13", "shot": "S04", "start": 40.8, "end": 43.3, "text": "信号先在电路板的走线和铜缆上跑。"},
+    {"id": "n13", "shot": "S04", "start": 40.8, "end": 43.3, "text": "信号先在电路板的走线或铜缆上跑。"},
     {"id": "n14", "shot": "S04", "start": 44.0, "end": 47.1, "text": "麻烦是：跑得越快、路越长，信号就越模糊；"},
     {"id": "n15", "shot": "S04", "start": 48.0, "end": 50.3, "text": "到了对面，0 和 1 快要分不清了。"},
     {"id": "n16", "shot": "S05", "start": 55.3, "end": 58.1, "text": "所以常见的光模块里，先设一个“检修站”："},
