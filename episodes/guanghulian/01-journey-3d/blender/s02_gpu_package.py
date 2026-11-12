@@ -29,6 +29,7 @@ Z_DIE0 = Z_BEOL + 1 * UM               # 硅本体的底面（晶体管那一面
 Z_DIE1 = 2.53                          # 硅背面（和 v0 相同：13.0 秒的相机对着它，不能动）；硅本体厚约 0.79 mm
 P = Vector((9.5, -DIE[1] / 2 + 2.0, 0))   # 落点：大芯片靠边 2 mm、离右侧存储芯片约 5 mm（串化电路通常在芯片边缘一带）
 R_MAX = 1.5                            # 「透视窗」的最大半径（mm）；连线层铺开的范围比它大（beol_assets.FIELD_X / FIELD_Y）
+SHIFT = Vector((-P.x, -P.y, -Z_BEOL))  # 渲染前把整个场景平移，让落点在世界原点（见文件末尾「整体平移」）；脚本里的坐标仍然以封装中心为原点
 
 # ---------- 材质 ----------
 M = {}
@@ -86,7 +87,7 @@ def add_window(m, rim=True):
     N = m.node_tree.nodes; L = m.node_tree.links; b = N['Principled BSDF']
     geo = N.new('ShaderNodeNewGeometry'); sep = N.new('ShaderNodeSeparateXYZ'); L.new(geo.outputs['Position'], sep.inputs[0])
     cmb = N.new('ShaderNodeCombineXYZ'); L.new(sep.outputs['X'], cmb.inputs['X']); L.new(sep.outputs['Y'], cmb.inputs['Y'])
-    dist = N.new('ShaderNodeVectorMath'); dist.operation = 'DISTANCE'; L.new(cmb.outputs[0], dist.inputs[0]); dist.inputs[1].default_value = (P.x, P.y, 0)
+    dist = N.new('ShaderNodeVectorMath'); dist.operation = 'DISTANCE'; L.new(cmb.outputs[0], dist.inputs[0]); dist.inputs[1].default_value = (P.x + SHIFT.x, P.y + SHIFT.y, 0)   # 这里用的是世界坐标，所以要算上整体平移
     rv = N.new('ShaderNodeValue'); rv.name = 'window_R'; WINDOW_NODES.append(rv)
     gt = N.new('ShaderNodeMath'); gt.operation = 'GREATER_THAN'; L.new(dist.outputs['Value'], gt.inputs[0]); L.new(rv.outputs[0], gt.inputs[1])
     L.new(gt.outputs[0], b.inputs['Alpha'])
@@ -274,9 +275,26 @@ macro_lights = [C.area_light('主光_暖逆光', (-180, 260, 240), (0, 0, 0), 26
 ll = bpy.data.collections.new('灯光链接_不照连线层'); ll.children.link(beol['col']); ll.collection_children[0].light_linking.link_state = 'EXCLUDE'
 for o in macro_lights: o.light_linking.receiver_collection = ll
 B.lights(beol['root'], beol['col'])
+# 进到连线层以后（画面里只剩连线层），把封装这一侧撤掉：20.4–21.4 秒封装的灯渐暗到 0，21.8 秒起封装和环境不再渲染。
+# 不撤的话，被照亮的散热器和加强环会映在铜线上，S02 尾帧比 S03 首帧亮约 12%、偏暖（实测），接缝会跳。
+T_OFF0, T_OFF1, T_HIDE = 20.4, 21.4, 21.8
+for o in macro_lights:
+    e = o.data.energy
+    for tt, v in ((T_OFF0, e), (T_OFF1, 0.0)): o.data.energy = v; o.data.keyframe_insert('energy', frame=C.F(tt))
+    C.set_interp(o.data, 'LINEAR')
+for o in list(mod.all_objects) + list(env.all_objects) + list(nb.all_objects) + macro_lights:
+    if o in (route, wall): continue                                    # 这两个早就不渲染了（各有自己的关键帧）
+    o.hide_render = False; o.keyframe_insert('hide_render', frame=C.F(T_HIDE) - 1); o.hide_render = True; o.keyframe_insert('hide_render', frame=C.F(T_HIDE))
+
+# ---------- 整体平移：让落点在世界原点 ----------
+# 连线只有 0.5 µm（0.0005 mm）粗。落点离封装中心十几毫米时，Cycles 的光线起点偏移（和坐标的大小成正比）已经和线宽可比，
+# 光会从细线里漏过去：实测同一时刻 S02 比 S03 亮约 14%。平移以后落点附近的坐标都很小，两边才一致。画面不变（相机一起平移）。
+anc_pkg = C.empty('锚点_package', (0, SUB[1] / 2, Z_SUB)); anc_bus = C.empty('锚点_bus', (P.x, P.y, Z_BEOL))
+shift = C.empty('整体平移', SHIFT); src_objs = set(src_col.all_objects)
+for o in bpy.data.objects:
+    if o.parent is None and o is not shift and o not in src_objs: o.parent = shift
 
 dev = C.setup_render(args, exposure=0.0)
 if args.anchors:
-    C.export_anchors(os.path.join(args.out, f'anchors_{shot.id}.json'), shot, cam,
-                     {'大芯片': lab_anchor, 'package': Vector((0, SUB[1] / 2, Z_SUB)), 'bus': Vector((P.x, P.y, Z_BEOL))})
+    C.export_anchors(os.path.join(args.out, f'anchors_{shot.id}.json'), shot, cam, {'大芯片': lab_anchor, 'package': anc_pkg, 'bus': anc_bus})
 C.render(args, shot, dev)

@@ -169,13 +169,13 @@ def build(t0, t1, name='连线层'):
     def instancer(nm, verts, unit):
         me = bpy.data.meshes.new(nm); me.from_pydata(verts, [], []); g = C.link(bpy.data.objects.new(nm, me), col); g.instance_type = 'VERTS'
         keep(g); unit.parent = g; objs.append(unit); return g
-    b = C.Mesh(); b.sphere(BUMP_R, (0, 0, Z_BUMP), (1, 1, (Z_PAD0 - Z_FLOOR - 1.4) / 2 / BUMP_R), seg=16); b.cyl(13, 1.6, (0, 0, Z_TOP - 0.8), seg=8)
+    b = C.Mesh(); b.sphere(BUMP_R, (0, 0, Z_BUMP), (1, 1, (Z_PAD0 - Z_FLOOR - 1.4) / 2 / BUMP_R), seg=16)
     instancer('凸点阵列', pts, b.obj('凸点单元', M['bump'], col, smooth=True))
-    cu = C.Mesh(); cu.cyl(13, 1.4, (0, 0, Z_FLOOR + 0.7), seg=12); cu.box((8, 3, 0.8), (16, 0, Z_FLOOR + 0.4)); cu.cyl(2.6, 0.8, (21, 0, Z_FLOOR + 0.4), seg=10)
-    instancer('中介层焊盘阵列', pts_cu, cu.obj('中介层焊盘单元', M['thick'], col))
+    cu = C.Mesh(); cu.cyl(13, 1.6, (0, 0, Z_TOP - 0.8), seg=8); cu.cyl(13, 1.4, (0, 0, Z_FLOOR + 0.7), seg=12); cu.box((8, 3, 0.8), (16, 0, Z_FLOOR + 0.4)); cu.cyl(2.6, 0.8, (21, 0, Z_FLOOR + 0.4), seg=10)
+    instancer('焊盘阵列', pts_cu, cu.obj('焊盘单元', M['thick'], col))      # 芯片一侧的焊盘（上层金属，铜色）+ 中介层一侧的焊盘和一小段走线
     pp = C.Mesh()
-    for xp in (X_PAD_P, X_PAD_N): pp.cyl(13, 1.4, (xp, 0, Z_FLOOR + 0.7), seg=12)
-    keep(pp.obj('中介层焊盘_差分', M['thick'], col))
+    for xp in (X_PAD_P, X_PAD_N): pp.cyl(13, 1.6, (xp, 0, Z_TOP - 0.8), seg=8); pp.cyl(13, 1.4, (xp, 0, Z_FLOOR + 0.7), seg=12)
+    keep(pp.obj('焊盘_差分', M['thick'], col))
     keep(C.box('中介层表面', (fx1 - fx0 + 300, 2 * FIELD_Y + 300, 1.0), ((fx0 + fx1) / 2, 0, Z_FLOOR - 0.5), M['floor'], col))
     return dict(root=root, col=col, objs=objs, mat_p=mat_p, mat_n=mat_n, mat1=mat1,
                 pts={'并行总线': Vector((-60, 0, 0)), '串化电路旁': Vector((20, 16, 0)), '驱动': Vector((X_DRV0 + 9, 0, 0)),
@@ -186,14 +186,15 @@ def build(t0, t1, name='连线层'):
 SUNS = (('连线层主光_冷', (-120, -260, 320), 3.0, (0.62, 0.76, 1.0), True), ('连线层逆光_暖', (260, 240, 140), 1.8, (1.0, 0.80, 0.60), True),
         ('连线层补光_低', (-260, 200, 70), 1.3, (0.70, 0.82, 1.0), False))
 def lights(root, link_col=None):
-    """平行光（太阳灯）：强度和方向不随缩放和位置变，S02（mm）和 S03（µm）里照出来一样。挂在 root 下面，跟着整套东西转。
+    """平行光（太阳灯）：强度和方向不随缩放和位置变，S02（mm）和 S03（µm）里照出来一样。方向按 root 的朝向换算（root 不动，所以不用挂父子）。
     link_col：只照这个集合、也只让这个集合挡光（S02 里用：不照封装，也不被封装和散热器挡住）。"""
     out = []; ll = None
     if link_col:
         ll = bpy.data.collections.new('灯光链接_只照连线层'); ll.children.link(link_col)
     for nm, src, power, color, shadow in SUNS:
         ld = bpy.data.lights.new(nm, 'SUN'); ld.energy = power; ld.color = color; ld.angle = rad(18); ld.use_shadow = shadow
-        o = C.link(bpy.data.objects.new(nm, ld)); o.rotation_euler = (-Vector(src)).to_track_quat('-Z', 'Y').to_euler(); o.parent = root
+        d = root.rotation_euler.to_matrix() @ Vector(src)              # 方向跟着 root 的朝向转；不挂成子物体（不让灯跟着缩放）
+        o = C.link(bpy.data.objects.new(nm, ld)); o.rotation_euler = (-d).to_track_quat('-Z', 'Y').to_euler()
         if ll: o.light_linking.receiver_collection = ll; o.light_linking.blocker_collection = ll
         out.append(o)
     return out
@@ -241,8 +242,8 @@ def orbit_pose(p):
 # 35.5–39 秒：从串化电路上方，贴着这一对差分线的一侧一直往下：驱动上方 → 穿过连线层的高度（37.9 秒前后）→ 芯片朝下的面以下，
 # 从侧面看见「粗线 → 通孔 → 焊盘 → 微凸点 → 中介层」；39.0 秒在 P 凸点旁边、离中介层约 15 µm，仍在往下。
 # 路线基本在一个竖直面里（朝向只变几度，不绕圈）。最后一个点在镜头之外，只用来给出 39 秒的速度。
-DESCENT = ((36.4, (14, 11, 34), (58, 1, 0)), (37.2, (34, 15, 16), (76, 2, -6)), (38.0, (48, 17, -2), (90, 2, -20)),
-           (38.6, (57, 18, -14), (100, 3, -28)), (39.0, (62, 18.5, -21), (106, 3, -32)), (39.5, (67, 19, -30), (112, 3, -38)))
+DESCENT = ((36.3, (12, 12, 34), (56, 1, 0)), (37.1, (30, 17, 22), (72, 2, -4)), (37.7, (40, 20, 8), (82, 2, -12)), (38.2, (47, 22, -9), (88, 2, -17)),
+           (38.6, (52, 23, -17), (96, 3, -22)), (39.0, (57, 24, -23), (104, 3, -28)), (39.5, (63, 24.5, -31), (112, 3, -35)))
 def micro_cam(t):
     """连线层里的相机（局部坐标 µm）：返回 dict(loc, tgt, lens, fstop)。"""
     if t <= T_HOLD1:
