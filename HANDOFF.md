@@ -3,6 +3,13 @@
 上一个对话从 11-12 早上开到晚上，上下文涨到 84 万 token，每走一步都要重读一遍，把每周用量上限撞穿了。所以换新对话。
 规则、决定、现状都在仓库里，这里只写**新对话接手要知道的事**。11-10 的旧交接保留在文末。
 
+## 零、2026-11-12 晚的更新（比下面各节新，有出入时以这里为准）
+- **现在在做**：导演概念测试（二维动态粗样）。方向是双导演融合稿 `episodes/guanghulian/01-journey-3d/preprod/12_fusion_director_treatment.md`（独立稿是 `preprod/11`）。T1「电控制光」v1 已交到 PR #3 和 Drive；T2（同机位铜 / 光对照）、T0（两个开场）接着做；T3 窄门后置。说明和进度在 `episodes/guanghulian/01-journey-3d/previews/director-concepts/README.md`。
+- **评价顺序**：观众懂不懂 → 因果有没有讲反 → 再谈技术精细度。不给自己的样片打「通过」。
+- **工作方式**（都写进了 `CLAUDE.md`「四个角色」）：创意阶段主 agent 直接做，不走完整的多子代理审核；按任务复杂度选模型（Sonnet 默认做实现，Opus 做导演创意，Fable 只在重大难题上用并先说明原因，Haiku 做机械活）。
+- **概念测试怎么渲**：`concept_tests/` 里的网页动画 + `render.cjs`（Playwright 逐帧截图）+ ffmpeg + numpy 合成临时声音。本机就能跑，不用 Blender 和云 GPU。
+- Drive 审核文件夹用连接器按名字「kepu-studio_审核预览」找；直链和文件 ID 只写在 PR 里。
+
 ## 一、现在在做什么
 **光互连 01 的 3D 正式版**《一个比特的旅程：从 GPU 到 GPU》，Blender + Remotion，竖屏 1080×1920，30 fps。
 
