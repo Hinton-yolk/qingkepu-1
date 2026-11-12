@@ -1,4 +1,13 @@
-# 最新进展（2026-11-12 夜 16:0x UTC；先读这一节）
+# 最新进展（2026-11-13，T6-Story 进行中；先读这一节）
+
+- 任务：PR #3 第 35 条评论《T6-Story｜37 秒故事优先重构：Storyboard + Animatic》，用户已批准并在会话里说「立即开始」。不用 RunPod、不做精细 3D、不做全片。
+- 已做：七幕镜头表 `episodes/guanghulian/01-journey-3d/concept_tests/t6_story/镜头表_T6.md`（主 agent）。一个 Sonnet 角色在做 `t6.html` 动态故事板（T5 渲好的帧当底板 + 2D 叠层），工作目录 `scratchpad/t6/work/`，进度 `progress.txt`。
+- T5 的底板帧在会话临时目录 `scratchpad/t5/work/out_full/`；新容器里没有，要么从 Drive 的 T5 预览抽帧，要么用仓库里 `concept_tests/t6_story/plates/`（角色会拷进去）。
+- 交付：故事板图 `previews/t6/T6_storyboard.jpg`、37 秒静音版 + 试听版 → Drive 审核文件夹 + PR #3 评论（链接、SHA256、规格、版本、费用 $0），最多三条说明。然后停。
+
+---
+
+# 更早：T5 交付（2026-11-12 夜 16:0x UTC）
 
 **T5 3D 导演预览 v1 已交**（20.8 秒，静音版 + 试听版；Drive + PR #3 评论 #6828824023；说明、哈希、费用在 `episodes/guanghulian/01-journey-3d/previews/t5/README.md`，过程在 `concept_tests/t5_3d/夜间进度.md`）。**现在是停点：等 ChatGPT 独立审核和用户决定下一步。不开始 T6。**
 - RunPod 本轮合计 ≤ $0.87（试渲 $0.02 + 整段按秒约 $0.74，工具上限估计 $0.85），机器都已删除。
