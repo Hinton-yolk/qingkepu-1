@@ -404,7 +404,7 @@ function sceneC(ctx, t) {
   label(ctx, '电信号', W - 12, YC + 36, 'right', 22, smooth((t - 11.6) / 0.4));
   label(ctx, '调制器', BX + 4, BY - 22, 'left', 22);
   label(ctx, '光', XB - 22, Y_TOP + 40, 'right', 22);
-  label(ctx, '示意：调制器里实际是电改变了光的步调；暗不是全灭', 14, 872, 'left', 15, 0.9);
+  label(ctx, '示意：调制器里实际是电改变了', 14, 38, 'left', 15, 0.9); label(ctx, '光的步调；暗不是全灭', 14, 62, 'left', 15, 0.9);
   ctx.restore();
 }
 
@@ -447,7 +447,8 @@ function renderFrame(t, opt) {
       [x, y] = sp(270, 120); label(ctx, 'GPU B', x, y - 4, 'center', 20, 1 - smooth((u - 4.4) / 0.4) * (panelA(t, 'copper') > 0.3 ? 1 : 0));
       const la = smooth((u - 0.1) / 0.3) * (1 - smooth((u - 6.0) / 0.4));
       [x, y] = sp(222, 470); label(ctx, '假设：还走铜线', x, y, 'right', 22, la);
-      label(ctx, '示意：高速、不带中继芯片的铜线；不是突然断掉，是越来越糊', 14, 872, 'left', 15, smooth((u - 0.4) / 0.4) * (1 - smooth((u - 6.0) / 0.4)));
+      const na = smooth((u - 0.4) / 0.4) * (1 - smooth((u - 6.0) / 0.4));
+      label(ctx, '示意：高速、不带中继芯片的铜线；', 14, 38, 'left', 15, na); label(ctx, '不是突然断掉，是越来越糊', 14, 62, 'left', 15, na);
       ctx.fillStyle = `rgba(4,12,18,${ex})`; ctx.fillRect(0, 0, W, H);
     } else {
       sceneC(ctx, t);

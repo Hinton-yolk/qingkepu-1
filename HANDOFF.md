@@ -1,3 +1,14 @@
+# 最新进展（2026-11-12 夜，T4 进行中；先读这一节，再读下面的交接）
+
+- **T0/T1/T2 的看片结果已经出来**：PR #3 的 review「ChatGPT 外部导演审核｜T0/T1/T2 低清概念测试」（T1 选 A；T2 放大接收端、修 `n % 8` 音画错位；T0 合成开场）。
+- **新任务 T4**：PR #3 第 17 条评论《T4：一次真正的“可看懂的电影小样”》。用户在会话里已经说了执行（「直接制作一段约 22–35 秒的连续叙事概念短片……完成后将静音版和带临时音效版上传 Google Drive，并在 PR #3 提供链接、版本、哈希和简短交付说明，然后等待审核」）。不用再问方向。
+- **已做**：主 agent 写好导演分镜和节奏表 `episodes/guanghulian/01-journey-3d/concept_tests/t4_film/导演分镜_T4.md`（约 31 秒，五段）。Sonnet 实现角色写了 `t4.html`、`render_par.cjs`（4 进程并行，1 倍像素）、`dump_events.cjs` 的初稿，**进行中、未验收**；还没有 `audio_t4.py`、`build.sh`，没有渲过全片。
+- **接着做**：把分镜和第一节「怎么渲」交给一个 Sonnet 实现角色继续（任务书要点：声音事件由网页 `window.t4Events()` 导出、音频脚本不另写时间；每个文件 < 3 MB；跑 `tools/motion_check.py`；数字核对音画同步；关键帧索引存 `previews/director-concepts/T4_v1_每秒一帧.jpg`；不 commit、不上传）。主 agent 看关键帧小图，最多一轮快改，再上传 Drive、发 PR 评论、更新 `previews/director-concepts/README.md`。
+- **用户 11-12 夜新说的**：渲染超过 5 分钟要另想办法（二维 Canvas 片用本机多进程并行；GPU 帮不上，Blender 才交给 RunPod，按 1 美元规则）。
+- Drive 审核文件夹按名字「kepu-studio_审核预览」搜得到（ID 不进仓库）。
+
+---
+
 # 交接（新对话先读这个）· 2026-11-12 晚
 
 上一个对话（11-12 中午到晚上）从读交接一路做到三组概念测试交付，上下文涨到四十多万 token。用户决定换新对话，并把主对话换成 Opus。
