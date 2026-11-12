@@ -21,7 +21,7 @@
 
 ## 目录
 ```
-preprod/     00 任务书原文 · 01 旁白草案 · 02 分镜 · 03 科学审查表 · 04 资产清单 · 05 制作依赖 · 06 阶段 A 交接与检查记录
+preprod/     00 任务书原文 · 01 旁白草案 · 02 分镜 · 03 科学审查表 · 04 资产清单 · 05 制作依赖 · 06 阶段 A 交接与检查记录 · 07 预览视频交接方案与实测
 FACTS.md     每个数字和结构说法的来源
 timeline/    timeline.json（唯一的时间来源）· validate.py（检查镜头衔接、语速、标注越界）
 blender/     common.py（公共库）· s01_datacenter.py · s02_gpu_package.py · s03_serdes.py · fetch_assets.sh
@@ -89,6 +89,7 @@ blender -b --python-exit-code 1 --python blender/s02_gpu_package.py -- <输出�
 - 淡出到 0 以后关渲染（s01 的 `fade_out()`）；`transparent_max_bounces` 默认调高。
 
 ## 交接
+- 2026-11-12 下午（二）：PR #3 评论要求每个视频节点给出 ChatGPT 能直接下载的 MP4。实测：仓库私有，PR 附件不登录是 403，仓库文件是 404；用 Drive 连接器上传 5.36 MB 的预演失败（每次调用约 3.1 MB 上限）。用户决定先不上传，只要方案对比：见 `preprod/07_预览视频交接方案与实测.md`。**现在是阻塞状态，没有任何 ChatGPT 可直接下载的视频地址**；长期规范等方案选定并由 ChatGPT 实测通过后再写。用户 Drive 的共享文件夹里留了一个空的子文件夹「kepu-studio_审核预览」。
 - 2026-11-12 下午：按 Issue #2 做阶段 A 交接：重跑检查并记录（`preprod/06_阶段A交接与检查记录.md`），预演抽帧进仓库（`previews/S01-S03_animatic_v0/`），开 Draft PR（doityj335-prog/kepu-studio#3，https://github.com/doityj335-prog/kepu-studio/pull/3，用户确认前不合并）。外部审阅（ChatGPT）通过 GitHub 进行；不订阅 PR 动态、不建触发器；关键帧审核前不启动付费渲染。Issue 列的七条优先修正（S02 灰屏、23 秒接缝、S03 结尾、资产可信度、一致性和可读性等）**都还没开始改**。
 - 2026-11-12：S01–S03 低清动态预演（0–39 秒，无声，Blender 画面 270×480、10 fps）已出。审核（Sonnet）：发给用户「通过」，条件是说明里写明粗模预演和已知问题；监督：没有硬性违反。观众（Codex）没看过。预演文件不进仓库。
 - 2026-11-12：阶段 A 交付。下一步等用户确认旁白、开头、科学取舍和云 GPU 的连法；不依赖这些的事（S01–S03 低清动态预演、S04–S10 的预演场景）可以先做。

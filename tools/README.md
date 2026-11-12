@@ -36,6 +36,13 @@ python3 tools/gemini_watch.py "<YouTube 链接或本地视频文件>" -q "问题
 - **只用标准库**，不用装依赖。
 - Gemini 的回答是它对视频的描述，**不是核实过的事实**；要引用进脚本或 FACTS.md 的数字，先对照原视频。
 
+## preview_manifest.py：视频审核交付的规格表
+把预览视频交给外部审阅时，PR 里「视频审核交付」一节要写文件大小、sha256、时长、宽高、帧率、音轨和对应提交。这个脚本读本地文件生成那张表，不上传任何东西。
+
+```bash
+python3 tools/preview_manifest.py <视频文件> [--url 直链] [--commit 提交号] [--note 说明]
+```
+
 ## frame_stats.py：画面亮度和色度
 「3D 镜头语法」里「微观世界的样子」「工序台的样子」两条的色度阈值用它测。
 
