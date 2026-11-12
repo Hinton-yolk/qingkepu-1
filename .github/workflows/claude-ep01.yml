@@ -1,0 +1,35 @@
+name: Claude Code - EP01 tasks
+
+# Active only on the default branch. A comment must start with '@claude '.
+# Limit initial deployment to PR #3 and the repository owner's account.
+on:
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: claude-ep01-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  claude-task:
+    if: >-
+      github.event.issue.pull_request &&
+      github.event.issue.number == 3 &&
+      github.event.comment.user.login == 'doityj335-prog' &&
+      startsWith(github.event.comment.body, '@claude ')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Execute task with Claude Code
+        uses: anthropics/claude-code-action@v1
+        with:
+          github_token: ${{ github.token }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          trigger_phrase: '@claude'
+          claude_args: |
+            --model sonnet
+            --max-turns 15
