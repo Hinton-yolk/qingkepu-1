@@ -26,14 +26,18 @@ export const PANEL_HEIGHT = {
   gauge: 340,
 } as const;
 
-export const panelRect = (h: number) => ({
+/** 图表面板的位置。bottom 默认在角注带上面；同时在场的角注叠得更高时由 lib/shotLayout 往上让 */
+export const panelRect = (h: number, bottom: number = PANEL_BOTTOM) => ({
   x: SAFE.left,
-  y: PANEL_BOTTOM - h,
+  y: bottom - h,
   w: SAFE.width,
   h,
 });
 
-/** 时序图里并行线画几条（3D 里示意画 32 条；手机上 8 条才看得清，导演可改） */
+/**
+ * 时序图里并行线画几条（3D 里示意画 32 条；手机上 8 条才看得清，待导演定）。
+ * 条数会写进图里并行那一行标题后面的小字（strings.ts 的 timingLanes），免得和 3D 画面对不上。
+ */
 export const TIMING_LANES = 8;
 /** 时序图一共演示几拍（几组数据） */
 export const TIMING_WORDS = 4;
@@ -52,21 +56,36 @@ export type LabelSlot = {
 };
 
 /**
- * 没有 anchors JSON 时的默认锚点位置（屏幕坐标）。按镜头里「贴物体的标签」出现的先后顺序取用，
- * 用完后循环。两个槽一左一右、一高一低，同时出现两条标签也不会叠在一起。
+ * 标注在 anchors JSON 里找不到对应锚点时的默认位置（屏幕坐标）。按镜头里「贴物体的标签」出现的先后顺序取用，
+ * 用完后循环。两个槽一左一右、一高一低。退回默认位置的标签只有衬底和字，不画引线（它没有指着任何东西）。
  */
 export const DEFAULT_SLOTS: LabelSlot[] = [
   { x: 250, y: 712, side: "right", vert: "up" },
   { x: 830, y: 680, side: "left", vert: "down" },
 ];
 
-/** 个别镜头单独指定（顺序 = 该镜头里贴物体标签的先后）。有 anchors JSON 后这些都不再使用。 */
-export const SHOT_SLOTS: Record<string, LabelSlot[]> = {
-  S01: [{ x: W / 2 - 120, y: 860, side: "right", vert: "up" }],
+/** 个别镜头单独指定（顺序 = 该镜头里贴物体标签的先后）。现在没有哪个镜头需要。 */
+export const SHOT_SLOTS: Record<string, LabelSlot[]> = {};
+
+/** 标签和锚点之间留多远（标签停在锚点旁边，不挡住它） */
+export const LABEL_GAP = {
+  dx: 40, // 斜向摆放：横向间距
+  dy: 36, // 斜向摆放：纵向间距
+  v: 52, // 正上 / 正下
+  h: 60, // 正左 / 正右
+  clear: 20, // 标签边框离锚点至少这么远
 };
 
-/** 标签引线：从锚点斜着引出多远 */
-export const LEADER = { dx: 64, dy: 72 };
+/** 同一时刻最多几个贴物体的标签（多出来的、开始得晚的不画；scan 时会提示） */
+export const MAX_LABELS = 3;
+
+/**
+ * 锚点出画以后标签怎么办：
+ *   刚出画（离画面边不到 LABEL_NEAR_MARGIN）：标签留着，停在离锚点最近的画面内位置，不画引线；
+ *   出得更远、或转到相机背后：停在最后的位置，用 LABEL_LOST_FADE 帧淡出，不跟着乱飞。
+ */
+export const LABEL_NEAR_MARGIN = 120;
+export const LABEL_LOST_FADE = 8;
 
 /**
  * scale 类标注在分镜里写的是「3D 立体字（Blender 内）」。
@@ -91,4 +110,35 @@ export const pathTraceDefault = (i: number, n: number) => {
     x: SAFE.left + 90 + u * (SAFE.width - 180),
     y: 760 - 70 * Math.sin(Math.PI * u),
   };
+};
+
+// ---------- 开头大字 ----------
+/**
+ * hook_title 占的区域（屏幕坐标）。大字固定在这里；它在场时，标签和路线上的字都让开这一块。
+ * 位置：走廊地面上、角注带上面；左右各收进 140 px，让出两侧机柜上的 GPU 锚点。
+ */
+export const HOOK_BOX = { x: 140, y: 984, w: W - 280, h: 240 };
+
+// ---------- 路线（path_trace） ----------
+/**
+ * 路线图：沿 anchors JSON 里的取样点画一条 2D 折线。
+ *   锚点名  path_<段>_<两位以上的序号>，序号沿 A → B 递增。
+ *           段名以 e 开头 = 电（金），以 o 开头 = 光（青）；先后顺序见 sectionOrder，表里没有的段按名字排在后面。
+ *   例：path_e1_00 … path_e1_07，path_o_00 … path_o_23，path_e2_00 … path_e2_05
+ */
+export const PATH_TRACE = {
+  sectionOrder: ["e1", "o", "e2"],
+  drawSeconds: 2.7, // 标注开始后多久从 A 端画到 B 端
+  lineWidth: 6,
+  outlineWidth: 11, // 深色描边（垫在彩线下面）
+  dash: [16, 16], // 虚线：这是把被机柜挡住的段补全的「路线图」，不是 3D 里的实物
+  charGap: 54, // 「电 / 光」离线多远
+};
+
+/** 路线文案里的字 → 信号色（「电 → 光 → 电」；旧写法「金（电）→ 青（光）」也认） */
+export const SIGNAL_WORDS: Record<string, "electric" | "light"> = {
+  电: "electric",
+  金: "electric",
+  光: "light",
+  青: "light",
 };

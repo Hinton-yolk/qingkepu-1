@@ -1,10 +1,20 @@
-// note：角注。小字，贴着内容区下沿（最后一行落在 y ≈ 1290–1316）；同一时刻有多条时竖着排。
+// note：角注。小字（28 px），深色衬底，贴着内容区下沿（最下面一条的下沿在 y = 1316）；同一时刻有多条时竖着排，先出现的在上。
 // 一个镜头一个 NoteStack：按当前帧决定哪些角注在场，逐条淡入淡出。
+// 叠多高由 lib/shotLayout 量（measureNote）：图表面板和标签据此往上让，角注自己不会压到字幕（它只往上长）。
 import React from "react";
 import { interpolate, useCurrentFrame } from "remotion";
-import { splitTwoLines, textWidth } from "../lib/text";
-import { C, CLAMP, FONT_FAMILY, rgba, SAFE, SIZE, TEXT_SHADOW } from "../theme";
-import { Overlay, Shot, toFrame } from "../timeline";
+import { localSpan, measureNote, NOTE } from "../lib/shotLayout";
+import {
+  BACKING,
+  C,
+  CLAMP,
+  FONT_FAMILY,
+  rgba,
+  SAFE,
+  SIZE,
+  TEXT_SHADOW_SOFT,
+} from "../theme";
+import { Overlay, Shot } from "../timeline";
 
 const FADE = 6;
 
@@ -13,19 +23,9 @@ export const NoteStack: React.FC<{ shot: Shot; notes: Overlay[] }> = ({
   notes,
 }) => {
   const frame = useCurrentFrame(); // 镜头内帧号
-  const shotStart = toFrame(shot.start);
-
   const visible = notes
-    .map((n) => {
-      const from = toFrame(n.t) - shotStart;
-      const to = toFrame(n.t + n.dur) - shotStart;
-      const k = Math.min(
-        interpolate(frame, [from, from + FADE], [0, 1], CLAMP),
-        interpolate(frame, [to - FADE, to], [1, 0], CLAMP),
-      );
-      return { n, k, on: frame >= from && frame < to };
-    })
-    .filter((v) => v.on);
+    .map((n) => ({ n, ...localSpan(shot, n) }))
+    .filter(({ from, to }) => frame >= from && frame < to);
 
   if (visible.length === 0) return null;
 
@@ -35,39 +35,38 @@ export const NoteStack: React.FC<{ shot: Shot; notes: Overlay[] }> = ({
         position: "absolute",
         left: SAFE.left,
         width: SAFE.width,
-        bottom: `calc(100% - ${SAFE.bottom - 4}px)`,
+        bottom: `calc(100% - ${NOTE.bottom}px)`,
         display: "flex",
         flexDirection: "column",
-        gap: 6,
+        gap: NOTE.gap,
         fontFamily: FONT_FAMILY,
       }}
     >
-      {visible.map(({ n, k }, i) => {
-        // 一行放不下时在标点后面折成两行（不把词拆开）；两行也放不下的极长角注才交给浏览器自己折
-        const maxW = SAFE.width - 32;
-        const lines = splitTwoLines(n.text, SIZE.note, maxW);
-        const natural = lines.some((l) => textWidth(l, SIZE.note) > maxW);
+      {visible.map(({ n, from, to }, i) => {
+        const m = measureNote(n);
         return (
           <div
             key={i}
             style={{
-              opacity: k,
+              opacity: Math.min(
+                interpolate(frame, [from, from + FADE], [0, 1], CLAMP),
+                interpolate(frame, [to - FADE, to], [1, 0], CLAMP),
+              ),
               fontSize: SIZE.note,
-              lineHeight: "36px",
-              color: rgba(C.cream, 0.82),
-              textShadow: TEXT_SHADOW,
-              // 很淡的深色衬底：压在亮画面上也读得清
+              lineHeight: `${NOTE.lineH}px`,
+              color: rgba(C.cream, 0.96),
+              textShadow: TEXT_SHADOW_SOFT,
               alignSelf: "flex-start",
               maxWidth: "100%",
               boxSizing: "border-box",
-              backgroundColor: rgba(C.ink, 0.5),
-              borderRadius: 4,
-              borderLeft: `3px solid ${rgba(C.cream, 0.45)}`,
-              padding: "0 12px 0 14px",
-              whiteSpace: natural ? "normal" : "nowrap",
+              backgroundColor: rgba(C.ink, BACKING.note),
+              borderRadius: 6,
+              borderLeft: `${NOTE.border}px solid ${rgba(C.cream, 0.6)}`,
+              padding: `${NOTE.padY}px ${NOTE.padRight}px ${NOTE.padY}px ${NOTE.padLeft}px`,
+              whiteSpace: m.natural ? "normal" : "nowrap",
             }}
           >
-            {natural ? n.text : lines.map((l, j) => <div key={j}>{l}</div>)}
+            {m.natural ? n.text : m.lines.map((l, j) => <div key={j}>{l}</div>)}
           </div>
         );
       })}

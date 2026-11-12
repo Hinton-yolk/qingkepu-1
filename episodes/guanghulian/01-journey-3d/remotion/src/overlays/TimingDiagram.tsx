@@ -5,6 +5,7 @@
 //       等这一组收齐，下一拍一起出现在并行线上。
 // 画法：亮 = 1，暗 = 0（和同镜头的角注一致）；一条竖线（「现在」）从左扫到右，扫过的地方才画出来。
 // 都是电信号，所以只用金色。
+// 并行线只画 TIMING_LANES 条（手机上看得清的数量），和 3D 画面里的条数不一样：并行那一行的标题后面用小字注明。
 import React from "react";
 import { interpolate, useCurrentFrame } from "remotion";
 import { bitAt } from "../lib/signal";
@@ -32,6 +33,7 @@ export const TimingDiagram: React.FC<Props> = ({ overlay, duration }) => {
     (parts[0] ?? "").includes("并行") || !(parts[0] ?? "").includes("串行");
   const labelTop = parts[0] ?? overlay.text;
   const labelBot = parts[1] ?? "";
+  const lanesNote = STR.timingLanes(N);
 
   const X0 = 6;
   const AXIS_PAD = 86; // 右边留给箭头和「时间」
@@ -178,12 +180,15 @@ export const TimingDiagram: React.FC<Props> = ({ overlay, duration }) => {
 
   return (
     <Panel height={PANEL_HEIGHT.timing_diagram} opacity={opacity}>
+      {/* 并行那一行的标题后面注明图里画了几条线（3D 画面里的条数不一样） */}
       <RowLabel
         x={0}
         y={0}
         text={labelTop}
         swatch={C.electric}
         fontSize={SIZE.panelLabel}
+        suffix={p2s ? lanesNote : undefined}
+        suffixSize={SIZE.panelSmall}
       />
       <RowLabel
         x={0}
@@ -191,6 +196,8 @@ export const TimingDiagram: React.FC<Props> = ({ overlay, duration }) => {
         text={labelBot}
         swatch={C.electric}
         fontSize={SIZE.panelLabel}
+        suffix={p2s ? undefined : lanesNote}
+        suffixSize={SIZE.panelSmall}
       />
       <svg
         width={w}
