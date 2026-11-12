@@ -28,7 +28,8 @@ export const TimingDiagram: React.FC<Props> = ({ overlay, duration }) => {
   const K = TIMING_WORDS;
 
   const parts = overlay.text.split("→").map((s) => s.trim());
-  const p2s = (parts[0] ?? "").includes("并行") || !(parts[0] ?? "").includes("串行");
+  const p2s =
+    (parts[0] ?? "").includes("并行") || !(parts[0] ?? "").includes("串行");
   const labelTop = parts[0] ?? overlay.text;
   const labelBot = parts[1] ?? "";
 
@@ -48,10 +49,16 @@ export const TimingDiagram: React.FC<Props> = ({ overlay, duration }) => {
   const axisY = h - 12;
 
   // 「现在」：匀速从左扫到右（时间均匀地流），最后停 1 秒看全图
-  const tau = interpolate(frame, [10, Math.max(20, duration - 34)], [0, K], CLAMP);
+  const tau = interpolate(
+    frame,
+    [10, Math.max(20, duration - 34)],
+    [0, K],
+    CLAMP,
+  );
   const cursorX = X0 + tau * colW;
 
-  const bit = (word: number, lane: number) => bitAt(BITS_OFFSET + word * N + lane);
+  const bit = (word: number, lane: number) =>
+    bitAt(BITS_OFFSET + word * N + lane);
   const laneY = (blockTop: number, i: number) => blockTop + i * LANE_PITCH;
   const parTop = p2s ? topY : botY;
   const serTop = p2s ? botY : topY;
@@ -74,7 +81,7 @@ export const TimingDiagram: React.FC<Props> = ({ overlay, duration }) => {
           width={Math.max(0, grown - 4)}
           height={LANE_H}
           rx={3}
-          fill={rgba(C.electric, bit(k, i) ? 0.95 : 0.16)}
+          fill={rgba(C.electric, bit(k, i) ? 0.95 : 0.26)}
         />,
       );
     }
@@ -96,7 +103,7 @@ export const TimingDiagram: React.FC<Props> = ({ overlay, duration }) => {
         width={Math.max(0, grown - 3)}
         height={SERIAL_H}
         rx={3}
-        fill={rgba(C.electric, bit(k, i) ? 0.95 : 0.16)}
+        fill={rgba(C.electric, bit(k, i) ? 0.95 : 0.26)}
       />,
     );
 
@@ -106,11 +113,28 @@ export const TimingDiagram: React.FC<Props> = ({ overlay, duration }) => {
     const sy = p2s ? serTop : serTop + SERIAL_H;
     const current = tau - s < 1 / N;
     const sameWord = Math.floor(tau - 1e-6) === k;
-    const a = current ? 0.95 : sameWord ? 0.42 : 0.16;
+    // 只画当前这一组的对应线；前面几组已经讲过，不留线（留着会把格子盖花）
+    if (!sameWord) continue;
+    const a = current ? 0.95 : 0.5;
     links.push(
       <g key={`l${j}`} opacity={a}>
-        <line x1={cx} y1={ly} x2={cx} y2={sy} stroke={C.cream} strokeWidth={current ? 2.5 : 1.5} />
-        <circle cx={cx} cy={ly} r={current ? 5.5 : 3.5} fill={C.cream} />
+        <line
+          x1={cx}
+          y1={ly}
+          x2={cx}
+          y2={sy}
+          stroke={C.cream}
+          strokeWidth={current ? 2.5 : 1.5}
+        />
+        {/* 圆点带着这一位的值：实心金 = 1，空心 = 0 */}
+        <circle
+          cx={cx}
+          cy={ly}
+          r={current ? 6.5 : 4.5}
+          fill={bit(k, i) ? C.electric : C.ink}
+          stroke={C.cream}
+          strokeWidth={current ? 2.5 : 1.5}
+        />
         {!p2s && k + 1 < K ? (
           // 存着，等下一拍一起出：一条很淡的虚线拉到下一拍的起点
           <line
@@ -154,9 +178,25 @@ export const TimingDiagram: React.FC<Props> = ({ overlay, duration }) => {
 
   return (
     <Panel height={PANEL_HEIGHT.timing_diagram} opacity={opacity}>
-      <RowLabel x={0} y={0} text={labelTop} swatch={C.electric} fontSize={SIZE.panelLabel} />
-      <RowLabel x={0} y={botLabelY} text={labelBot} swatch={C.electric} fontSize={SIZE.panelLabel} />
-      <svg width={w} height={h} style={{ position: "absolute", left: 0, top: 0 }}>
+      <RowLabel
+        x={0}
+        y={0}
+        text={labelTop}
+        swatch={C.electric}
+        fontSize={SIZE.panelLabel}
+      />
+      <RowLabel
+        x={0}
+        y={botLabelY}
+        text={labelBot}
+        swatch={C.electric}
+        fontSize={SIZE.panelLabel}
+      />
+      <svg
+        width={w}
+        height={h}
+        style={{ position: "absolute", left: 0, top: 0 }}
+      >
         {/* 每条线的底轨 */}
         {Array.from({ length: N }).map((_, i) => (
           <rect
@@ -169,7 +209,14 @@ export const TimingDiagram: React.FC<Props> = ({ overlay, duration }) => {
             fill={rgba(C.cream, 0.05)}
           />
         ))}
-        <rect x={X0} y={serTop} width={K * colW} height={SERIAL_H} rx={3} fill={rgba(C.cream, 0.05)} />
+        <rect
+          x={X0}
+          y={serTop}
+          width={K * colW}
+          height={SERIAL_H}
+          rx={3}
+          fill={rgba(C.cream, 0.05)}
+        />
         {beats}
         {cells}
         {links}
@@ -185,7 +232,14 @@ export const TimingDiagram: React.FC<Props> = ({ overlay, duration }) => {
           />
         ) : null}
         {/* 时间轴 */}
-        <line x1={X0} y1={axisY} x2={axisEnd} y2={axisY} stroke={rgba(C.cream, 0.7)} strokeWidth={2} />
+        <line
+          x1={X0}
+          y1={axisY}
+          x2={axisEnd}
+          y2={axisY}
+          stroke={rgba(C.cream, 0.7)}
+          strokeWidth={2}
+        />
         <path
           d={`M${axisEnd - 12} ${axisY - 8} L${axisEnd} ${axisY} L${axisEnd - 12} ${axisY + 8}`}
           fill="none"

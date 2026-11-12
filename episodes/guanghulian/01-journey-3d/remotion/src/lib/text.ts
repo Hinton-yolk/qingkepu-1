@@ -7,8 +7,12 @@ export const textWidth = (
   fontSize: number,
   fontWeight: number | string = 400,
 ) =>
-  measureText({ text, fontFamily: FONT_FAMILY, fontSize, fontWeight: String(fontWeight) })
-    .width;
+  measureText({
+    text,
+    fontFamily: FONT_FAMILY,
+    fontSize,
+    fontWeight: String(fontWeight),
+  }).width;
 
 /** 让一行字不超过 maxWidth：返回合适的字号（不超过 base） */
 export const fitFontSize = (
@@ -25,9 +29,29 @@ const BREAK_AFTER = "，。；：、？！,;:!?";
 const NO_LINE_START = "，。；：、？！,;:!?”’）》」』%";
 const NO_LINE_END = "“‘（《「『";
 
+/** 可以断行的位置（字符下标）：词与词之间。用浏览器自带的中文分词；没有分词器时退到「任意两个字之间」。 */
+const wordBreaks = (text: string): Set<number> | null => {
+  const Seg = (
+    Intl as unknown as {
+      Segmenter?: new (
+        locale: string,
+        opts: { granularity: "word" },
+      ) => { segment: (s: string) => Iterable<{ segment: string }> };
+    }
+  ).Segmenter;
+  if (!Seg) return null;
+  const out = new Set<number>();
+  let n = 0;
+  for (const part of new Seg("zh", { granularity: "word" }).segment(text)) {
+    n += Array.from(part.segment).length;
+    out.add(n);
+  }
+  return out;
+};
+
 /**
- * 字幕：一行放得下就一行；放不下折成两行。
- * 优先在靠近中间的标点后面断；没有合适的标点就在中间断，但不拆英文单词和数字，也不让标点落在行首。
+ * 字幕 / 角注：一行放得下就一行；放不下折成两行。
+ * 只在词与词之间断（不把「转换」这样的词拆开）；优先在靠近中间的标点后面断；不让标点落在行首。
  */
 export const splitTwoLines = (
   text: string,
@@ -38,10 +62,12 @@ export const splitTwoLines = (
   const full = textWidth(text, fontSize, fontWeight);
   if (full <= maxWidth) return [text];
   const chars = Array.from(text);
+  const allowed = wordBreaks(text);
   let best: { i: number; score: number } | null = null;
   for (let i = 1; i < chars.length; i++) {
     const prev = chars[i - 1];
     const next = chars[i];
+    if (allowed && !allowed.has(i)) continue;
     if (NO_LINE_START.includes(next) || NO_LINE_END.includes(prev)) continue;
     if (/[A-Za-z0-9]/.test(prev) && /[A-Za-z0-9]/.test(next)) continue;
     const left = chars.slice(0, i).join("").trimEnd();
@@ -51,10 +77,10 @@ export const splitTwoLines = (
     if (wl > maxWidth || wr > maxWidth) continue;
     // 越均衡越好；在标点后面断有加分
     const balance = Math.abs(wl - wr) / full;
-    const score = balance - (BREAK_AFTER.includes(prev) ? 0.3 : 0);
+    const score = balance - (BREAK_AFTER.includes(prev) ? 0.45 : 0);
     if (!best || score < best.score) best = { i, score };
   }
-  if (!best) return [text]; // 实在分不开：调用方会缩小字号
+  if (!best) return [text]; // 实在分不开：调用方会缩小字号或交给浏览器折行
   return [
     chars.slice(0, best.i).join("").trimEnd(),
     chars.slice(best.i).join("").trimStart(),
@@ -68,7 +94,9 @@ export const splitTwoLines = (
  *   「GPU 芯片（示例结构）」→ GPU 芯片 ｜ （示例结构）
  * 拆不出来就只有一行。
  */
-export const splitHeadBody = (text: string): { head: string; body: string | null } => {
+export const splitHeadBody = (
+  text: string,
+): { head: string; body: string | null } => {
   const dot = text.indexOf(" · ");
   if (dot > 0) return { head: text.slice(0, dot), body: text.slice(dot + 3) };
   const colon = text.indexOf("：");

@@ -7,7 +7,17 @@ import { Easing, interpolate, useCurrentFrame } from "remotion";
 import { anchorAt, anchorNames } from "../lib/manifest";
 import { splitHeadBody, textWidth } from "../lib/text";
 import { LabelSlot, LEADER } from "../shotConfig";
-import { C, CLAMP, FONT_FAMILY, H, rgba, SAFE, SIZE, TEXT_SHADOW, W } from "../theme";
+import {
+  C,
+  CLAMP,
+  FONT_FAMILY,
+  H,
+  rgba,
+  SAFE,
+  SIZE,
+  TEXT_SHADOW,
+  W,
+} from "../theme";
 import { Overlay, toFrame } from "../timeline";
 
 type Props = {
@@ -42,7 +52,10 @@ export const AnchoredLabel: React.FC<Props> = ({
   const parts = isScale
     ? (() => {
         const p = overlay.text.split(" · ");
-        return { head: p[0], body: p.length > 1 ? p.slice(1).join(" · ") : null };
+        return {
+          head: p[0],
+          body: p.length > 1 ? p.slice(1).join(" · ") : null,
+        };
       })()
     : splitHeadBody(overlay.text);
   const headSize = isTerm ? SIZE.term : SIZE.labelHead;
@@ -50,7 +63,9 @@ export const AnchoredLabel: React.FC<Props> = ({
   const bodyWeight = isScale ? 700 : 400;
   const maxTextW = 600;
   const headFit = Math.min(1, maxTextW / textWidth(parts.head, headSize, 700));
-  const bodyFit = parts.body ? Math.min(1, maxTextW / textWidth(parts.body, bodySize, bodyWeight)) : 1;
+  const bodyFit = parts.body
+    ? Math.min(1, maxTextW / textWidth(parts.body, bodySize, bodyWeight))
+    : 1;
   const headFs = Math.floor(headSize * headFit);
   const bodyFs = Math.floor(bodySize * bodyFit);
   const headW = textWidth(parts.head, headFs, 700);
@@ -75,27 +90,51 @@ export const AnchoredLabel: React.FC<Props> = ({
   let ex = ax + dir * LEADER.dx;
   let ey = ay + (vert === "up" ? -LEADER.dy : LEADER.dy);
   ey = Math.max(SAFE.top + HEAD_H + 4, Math.min(bottomLimit - bodyH - 6, ey));
-  if (side === "right") ex = Math.max(SAFE.left, Math.min(SAFE.right - lineW, ex));
+  if (side === "right")
+    ex = Math.max(SAFE.left, Math.min(SAFE.right - lineW, ex));
   else ex = Math.min(SAFE.right, Math.max(SAFE.left + lineW, ex));
   const lineX0 = side === "right" ? ex : ex - lineW;
 
   // 锚点不可见（出画或在相机背后）时不画引线和圆点，只留文字
   const anchorOk =
-    (live ? live.visible : true) && ay > SAFE.top - 40 && ay < SAFE.bottom + 40 && ax > 0 && ax < W;
+    (live ? live.visible : true) &&
+    ay > SAFE.top - 40 &&
+    ay < SAFE.bottom + 40 &&
+    ax > 0 &&
+    ax < W;
 
-  const drawK = interpolate(frame, [0, 7], [0, 1], { ...CLAMP, easing: Easing.out(Easing.cubic) });
+  const drawK = interpolate(frame, [0, 7], [0, 1], {
+    ...CLAMP,
+    easing: Easing.out(Easing.cubic),
+  });
   const textK = interpolate(frame, [3, 9], [0, 1], CLAMP);
   const outK = interpolate(frame, [duration - 6, duration], [1, 0], CLAMP);
 
   const leaderLen = Math.hypot(ex - ax, ey - ay);
 
   return (
-    <div style={{ position: "absolute", inset: 0, opacity: outK, fontFamily: FONT_FAMILY }}>
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        opacity: outK,
+        fontFamily: FONT_FAMILY,
+      }}
+    >
       <svg width={W} height={H} style={{ position: "absolute", inset: 0 }}>
         {anchorOk ? (
           <>
             {/* 深色衬线，保证压在亮画面上也看得见 */}
-            <line x1={ax} y1={ay} x2={ex} y2={ey} stroke={rgba(C.ink, 0.6)} strokeWidth={5} strokeDasharray={leaderLen} strokeDashoffset={leaderLen * (1 - drawK)} />
+            <line
+              x1={ax}
+              y1={ay}
+              x2={ex}
+              y2={ey}
+              stroke={rgba(C.ink, 0.6)}
+              strokeWidth={5}
+              strokeDasharray={leaderLen}
+              strokeDashoffset={leaderLen * (1 - drawK)}
+            />
             <line
               x1={ax}
               y1={ay}
@@ -106,7 +145,15 @@ export const AnchoredLabel: React.FC<Props> = ({
               strokeDasharray={leaderLen}
               strokeDashoffset={leaderLen * (1 - drawK)}
             />
-            <circle cx={ax} cy={ay} r={6} fill={C.ink} stroke={color} strokeWidth={2.5} opacity={drawK} />
+            <circle
+              cx={ax}
+              cy={ay}
+              r={6}
+              fill={C.ink}
+              stroke={color}
+              strokeWidth={2.5}
+              opacity={drawK}
+            />
           </>
         ) : null}
         <line
@@ -161,7 +208,9 @@ export const AnchoredLabel: React.FC<Props> = ({
             fontSize: bodyFs,
             fontWeight: bodyWeight,
             lineHeight: `${BODY_H - 4}px`,
-            color: isScale ? color : rgba(color === C.cream ? C.cream : color, 0.92),
+            color: isScale
+              ? color
+              : rgba(color === C.cream ? C.cream : color, 0.92),
             textShadow: TEXT_SHADOW,
             whiteSpace: "nowrap",
             opacity: textK,

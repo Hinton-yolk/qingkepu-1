@@ -39,7 +39,9 @@ export const EndCard: React.FC<{ overlay: Overlay; duration: number }> = ({
   const mapY = 930;
   const x0 = SAFE.left + 90;
   const x1 = SAFE.right - 90;
-  const xs = TL.stations.map((_, i) => (n === 1 ? W / 2 : x0 + ((x1 - x0) * i) / (n - 1)));
+  const xs = TL.stations.map((_, i) =>
+    n === 1 ? W / 2 : x0 + ((x1 - x0) * i) / (n - 1),
+  );
   const stub = 60;
   const kind = (i: number) => STATION_SIGNAL[TL.stations[i].id] ?? "electric";
   // 第 i 段（站 i → 站 i+1）的颜色：出发站是「光」或「换乘」之后，下一段是光
@@ -51,7 +53,10 @@ export const EndCard: React.FC<{ overlay: Overlay; duration: number }> = ({
     return C.electric;
   };
   const total = xs[n - 1] + stub - (xs[0] - stub);
-  const draw = interpolate(frame, [10, 52], [0, 1], { ...CLAMP, easing: Easing.inOut(Easing.cubic) });
+  const draw = interpolate(frame, [10, 52], [0, 1], {
+    ...CLAMP,
+    easing: Easing.inOut(Easing.cubic),
+  });
   const head = xs[0] - stub + total * draw;
 
   const f1 = fitFontSize(line1, 68, SAFE.width, 700);
@@ -84,22 +89,60 @@ export const EndCard: React.FC<{ overlay: Overlay; duration: number }> = ({
         <Colored text={line1} />
       </div>
 
-      <svg width={W} height={200} style={{ position: "absolute", left: 0, top: mapY - 100 }}>
+      <svg
+        width={W}
+        height={200}
+        style={{ position: "absolute", left: 0, top: mapY - 100 }}
+      >
         <defs>
           <clipPath id="endcard-draw">
             <rect x={0} y={0} width={head} height={200} />
           </clipPath>
         </defs>
         <g clipPath="url(#endcard-draw)">
-          <line x1={xs[0] - stub} y1={100} x2={xs[0]} y2={100} stroke={C.electric} strokeWidth={6} strokeLinecap="round" />
+          <line
+            x1={xs[0] - stub}
+            y1={100}
+            x2={xs[0]}
+            y2={100}
+            stroke={C.electric}
+            strokeWidth={6}
+            strokeLinecap="round"
+          />
           {xs.slice(0, -1).map((x, i) => (
-            <line key={i} x1={x} y1={100} x2={xs[i + 1]} y2={100} stroke={segColor(i)} strokeWidth={6} />
+            <line
+              key={i}
+              x1={x}
+              y1={100}
+              x2={xs[i + 1]}
+              y2={100}
+              stroke={segColor(i)}
+              strokeWidth={6}
+            />
           ))}
-          <line x1={xs[n - 1]} y1={100} x2={xs[n - 1] + stub} y2={100} stroke={C.electric} strokeWidth={6} strokeLinecap="round" />
+          <line
+            x1={xs[n - 1]}
+            y1={100}
+            x2={xs[n - 1] + stub}
+            y2={100}
+            stroke={C.electric}
+            strokeWidth={6}
+            strokeLinecap="round"
+          />
         </g>
         {xs.map((x, i) => {
           const k = interpolate(head, [x - 10, x + 10], [0, 1], CLAMP);
-          return <circle key={i} cx={x} cy={100} r={6 + 6 * k} fill={C.ink} stroke={rgba(C.cream, 0.3 + 0.7 * k)} strokeWidth={3} />;
+          return (
+            <circle
+              key={i}
+              cx={x}
+              cy={100}
+              r={6 + 6 * k}
+              fill={C.ink}
+              stroke={rgba(C.cream, 0.3 + 0.7 * k)}
+              strokeWidth={3}
+            />
+          );
         })}
       </svg>
       {TL.stations.map((st, i) => (
@@ -114,7 +157,12 @@ export const EndCard: React.FC<{ overlay: Overlay; duration: number }> = ({
             fontSize: 32,
             lineHeight: "44px",
             whiteSpace: "nowrap",
-            opacity: interpolate(head, [xs[i] - 10, xs[i] + 10], [0.3, 1], CLAMP),
+            opacity: interpolate(
+              head,
+              [xs[i] - 10, xs[i] + 10],
+              [0.3, 1],
+              CLAMP,
+            ),
           }}
         >
           {st.name}
@@ -132,7 +180,12 @@ export const EndCard: React.FC<{ overlay: Overlay; duration: number }> = ({
           lineHeight: 1.4,
           color: rgba(C.cream, 0.85),
           whiteSpace: "nowrap",
-          opacity: interpolate(frame, [Math.min(48, duration - 20), Math.min(60, duration - 8)], [0, 1], CLAMP),
+          opacity: interpolate(
+            frame,
+            [Math.min(48, duration - 20), Math.min(60, duration - 8)],
+            [0, 1],
+            CLAMP,
+          ),
         }}
       >
         {line2}

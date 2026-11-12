@@ -9,7 +9,10 @@ const FADE = 3;
 const PAD_X = 26;
 const MAX_TEXT_W = SAFE.width - PAD_X * 2;
 
-const Line: React.FC<{ n: Narration; duration: number }> = ({ n, duration }) => {
+const Line: React.FC<{ n: Narration; duration: number }> = ({
+  n,
+  duration,
+}) => {
   const frame = useCurrentFrame();
   const lines = splitTwoLines(n.text, SIZE.subtitle, MAX_TEXT_W, 700);
   // 折两行后还是太宽（极长的一句）就缩字号

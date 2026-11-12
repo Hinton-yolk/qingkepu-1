@@ -29,7 +29,9 @@ export const Panel: React.FC<{
         color: C.cream,
       }}
     >
-      <div style={{ position: "relative", width: "100%", height: "100%" }}>{children}</div>
+      <div style={{ position: "relative", width: "100%", height: "100%" }}>
+        {children}
+      </div>
     </div>
   );
 };
@@ -65,7 +67,14 @@ export const RowLabel: React.FC<{
     }}
   >
     {swatch ? (
-      <div style={{ width: 26, height: 5, borderRadius: 3, backgroundColor: swatch }} />
+      <div
+        style={{
+          width: 26,
+          height: 5,
+          borderRadius: 3,
+          backgroundColor: swatch,
+        }}
+      />
     ) : null}
     <span>{text}</span>
   </div>

@@ -52,8 +52,18 @@ const Legend: React.FC<Props> = ({ overlay, duration }) => {
         opacity,
       }}
     >
-      <div style={{ fontSize: 36, lineHeight: "46px", fontWeight: 700 }}>{title}</div>
-      <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 30, lineHeight: "40px" }}>
+      <div style={{ fontSize: 36, lineHeight: "46px", fontWeight: 700 }}>
+        {title}
+      </div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          fontSize: 30,
+          lineHeight: "40px",
+        }}
+      >
         {segs.map((s, i) => (
           <React.Fragment key={i}>
             <div
@@ -61,10 +71,22 @@ const Legend: React.FC<Props> = ({ overlay, duration }) => {
                 display: "flex",
                 alignItems: "center",
                 gap: 10,
-                opacity: interpolate(frame, [i * step, i * step + 8], [0.25, 1], CLAMP),
+                opacity: interpolate(
+                  frame,
+                  [i * step, i * step + 8],
+                  [0.25, 1],
+                  CLAMP,
+                ),
               }}
             >
-              <div style={{ width: 86, height: 6, borderRadius: 3, backgroundColor: s.color }} />
+              <div
+                style={{
+                  width: 86,
+                  height: 6,
+                  borderRadius: 3,
+                  backgroundColor: s.color,
+                }}
+              />
               <span>{s.label}</span>
             </div>
           </React.Fragment>
@@ -77,7 +99,15 @@ const Legend: React.FC<Props> = ({ overlay, duration }) => {
 const stationColor = (name: string) => {
   const st = TL.stations.find((s) => s.name === name);
   const kind = st ? (STATION_SIGNAL[st.id] ?? "electric") : "electric";
-  return { st, colors: kind === "light" ? [C.light, C.light] : kind === "both" ? [C.electric, C.light] : [C.electric, C.electric] };
+  return {
+    st,
+    colors:
+      kind === "light"
+        ? [C.light, C.light]
+        : kind === "both"
+          ? [C.electric, C.light]
+          : [C.electric, C.electric],
+  };
 };
 
 const StationNames: React.FC<Props> = ({ overlay, shotId, duration }) => {
@@ -89,7 +119,14 @@ const StationNames: React.FC<Props> = ({ overlay, shotId, duration }) => {
   const out = interpolate(frame, [duration - 8, duration], [1, 0], CLAMP);
 
   return (
-    <div style={{ position: "absolute", inset: 0, fontFamily: FONT_FAMILY, opacity: out }}>
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        fontFamily: FONT_FAMILY,
+        opacity: out,
+      }}
+    >
       {names.map((name, i) => {
         const { st, colors } = stationColor(name);
         const a = anchorAt(shotId, [name, st?.id], film);

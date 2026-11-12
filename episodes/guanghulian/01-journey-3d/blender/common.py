@@ -296,7 +296,9 @@ def area_light(name, loc, target, size, power, color=(1, 1, 1), size_y=None, col
 
 # ---------- 标注锚点 ----------
 def export_anchors(path, shot, cam, anchors, step=1, res=(1080, 1920)):
-    """anchors：{名字: 物体 或 Vector}。逐帧把它们投影到屏幕（1080×1920，左上角为原点），给 Remotion 贴标签用。"""
+    """anchors：{名字: 物体 或 Vector}。逐帧把它们投影到屏幕（1080×1920，左上角为原点），给 Remotion 贴标签用。
+    名字直接用 timeline.json 里那条标注的 anchor 字符串（例如「大芯片」「串化电路旁」），Remotion 按它匹配。"""
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     sc = bpy.context.scene; out = {'shot': shot.id, 'fps': FPS, 'width': res[0], 'height': res[1], 'step': step, 'frames': {}}
     for f in range(shot.f0, shot.f1 + 1, step):
         sc.frame_set(f); row = {}

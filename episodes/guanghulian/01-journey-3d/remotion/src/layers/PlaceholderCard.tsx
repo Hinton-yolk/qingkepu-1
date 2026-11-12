@@ -18,7 +18,14 @@ export const PlaceholderCard: React.FC<{ shot: Shot }> = ({ shot }) => {
             patternUnits="userSpaceOnUse"
             patternTransform="rotate(35)"
           >
-            <line x1={0} y1={0} x2={0} y2={56} stroke={rgba(C.cream, 0.045)} strokeWidth={14} />
+            <line
+              x1={0}
+              y1={0}
+              x2={0}
+              y2={56}
+              stroke={rgba(C.cream, 0.045)}
+              strokeWidth={14}
+            />
           </pattern>
         </defs>
         <rect width={W} height={H} fill={`url(#hatch-${shot.id})`} />
@@ -52,7 +59,9 @@ export const PlaceholderCard: React.FC<{ shot: Shot }> = ({ shot }) => {
           color: rgba(C.cream, 0.62),
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 18, height: 50 }}>
+        <div
+          style={{ display: "flex", alignItems: "center", gap: 18, height: 50 }}
+        >
           <div
             style={{
               flexShrink: 0,
@@ -79,9 +88,21 @@ export const PlaceholderCard: React.FC<{ shot: Shot }> = ({ shot }) => {
             {shot.id} {shot.name}
           </div>
         </div>
-        <div style={{ fontSize: 24, lineHeight: "36px", marginTop: 6 }}>
-          {STR.placeholderScale} {shot.scale}　·　{STR.placeholderStatus} {shot.status}　·
-          {STR.placeholderHint}
+        <div
+          style={{
+            fontSize: 24,
+            lineHeight: "36px",
+            marginTop: 6,
+            whiteSpace: "pre",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {[
+            `${STR.placeholderStatus} ${shot.status}`,
+            STR.placeholderHint,
+            `${STR.placeholderScale} ${shot.scale}`,
+          ].join("  ·  ")}
         </div>
         <div
           style={{

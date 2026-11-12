@@ -2,7 +2,16 @@
 import React from "react";
 import { interpolate, useCurrentFrame } from "remotion";
 import { STATION_SIGNAL } from "../shotConfig";
-import { C, CLAMP, FONT_FAMILY, rgba, SAFE, SIZE, TEXT_SHADOW, W } from "../theme";
+import {
+  C,
+  CLAMP,
+  FONT_FAMILY,
+  rgba,
+  SAFE,
+  SIZE,
+  TEXT_SHADOW,
+  W,
+} from "../theme";
 import { TL, toFrame } from "../timeline";
 
 const signalColors = (stationId: string): [string, string] => {
@@ -17,12 +26,18 @@ export const StationBar: React.FC = () => {
   const n = TL.stations.length;
   const x0 = SAFE.left + 70;
   const x1 = SAFE.right - 70;
-  const xs = TL.stations.map((_, i) => (n === 1 ? W / 2 : x0 + ((x1 - x0) * i) / (n - 1)));
+  const xs = TL.stations.map((_, i) =>
+    n === 1 ? W / 2 : x0 + ((x1 - x0) * i) / (n - 1),
+  );
   const lineY = SAFE.stationY + 30;
 
   // 当前镜头、当前站
-  const shot = TL.shots.find((s) => frame >= toFrame(s.start) && frame < toFrame(s.end));
-  const activeIdx = shot ? TL.stations.findIndex((s) => s.id === shot.station) : -1;
+  const shot = TL.shots.find(
+    (s) => frame >= toFrame(s.start) && frame < toFrame(s.end),
+  );
+  const activeIdx = shot
+    ? TL.stations.findIndex((s) => s.id === shot.station)
+    : -1;
 
   // 每一站第一次点亮的帧（用来做 8 帧的过渡）
   const activation = TL.stations.map((st) => {
@@ -30,11 +45,18 @@ export const StationBar: React.FC = () => {
     return first ? toFrame(first.start) : Infinity;
   });
   // 走过的站：这一站之后已经有别的站点亮过
-  const lastStarted = activation.reduce((acc, a, i) => (frame >= a ? i : acc), -1);
+  const lastStarted = activation.reduce(
+    (acc, a, i) => (frame >= a ? i : acc),
+    -1,
+  );
 
   return (
     <div style={{ position: "absolute", inset: 0, fontFamily: FONT_FAMILY }}>
-      <svg width={W} height={SAFE.stationY + 80} style={{ position: "absolute", left: 0, top: 0 }}>
+      <svg
+        width={W}
+        height={SAFE.stationY + 80}
+        style={{ position: "absolute", left: 0, top: 0 }}
+      >
         <line
           x1={xs[0]}
           y1={lineY}
@@ -82,7 +104,9 @@ export const StationBar: React.FC = () => {
       </svg>
       {TL.stations.map((st, i) => {
         const isActive = i === activeIdx;
-        const k = isActive ? interpolate(frame - activation[i], [0, 8], [0, 1], CLAMP) : 0;
+        const k = isActive
+          ? interpolate(frame - activation[i], [0, 8], [0, 1], CLAMP)
+          : 0;
         return (
           <div
             key={st.id}

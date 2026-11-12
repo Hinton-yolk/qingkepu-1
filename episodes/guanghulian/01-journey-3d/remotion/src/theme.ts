@@ -54,8 +54,13 @@ export const SIZE = {
   station: 28,
 };
 
-/** 文字压在 3D 画面上时的暗色描边阴影（不是辉光：只为可读） */
-export const TEXT_SHADOW = `0 0 6px ${rgba(TL.colors.ink, 0.95)}, 0 2px 10px ${rgba(TL.colors.ink, 0.8)}`;
+/** 文字压在 3D 画面上时的暗色晕边（不是辉光：只为在亮画面上也读得清） */
+export const TEXT_SHADOW = [
+  `0 0 3px ${rgba(TL.colors.ink, 1)}`,
+  `0 0 8px ${rgba(TL.colors.ink, 0.95)}`,
+  `0 0 18px ${rgba(TL.colors.ink, 0.75)}`,
+  `0 2px 4px ${rgba(TL.colors.ink, 0.9)}`,
+].join(", ");
 
 export const CLAMP = {
   extrapolateLeft: "clamp",

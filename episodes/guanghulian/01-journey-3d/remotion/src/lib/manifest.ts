@@ -9,8 +9,18 @@ type Manifest = {
   frames: Record<string, { ext: string; frames: number[] }>;
   anchors: Record<
     string,
-    { width: number; height: number; step: number; frames: Record<string, AnchorRow> }
+    {
+      width: number;
+      height: number;
+      step: number;
+      frames: Record<string, AnchorRow>;
+    }
   >;
+  audio: {
+    narration: string | null; // 整条旁白
+    music: string | null;
+    lines: Record<string, string>; // 逐句旁白：旁白 id → 文件
+  };
 };
 
 export const MANIFEST = raw as unknown as Manifest;
@@ -19,7 +29,10 @@ export const hasFrames = (shotId: string) =>
   (MANIFEST.frames[shotId]?.frames.length ?? 0) > 0;
 
 /** 该镜头里离 film（全片帧号，从 1 起）最近的已有帧；一帧都没有时返回 null */
-export const nearestFrameFile = (shotId: string, film: number): string | null => {
+export const nearestFrameFile = (
+  shotId: string,
+  film: number,
+): string | null => {
   const entry = MANIFEST.frames[shotId];
   if (!entry || entry.frames.length === 0) return null;
   const a = entry.frames;
@@ -30,7 +43,10 @@ export const nearestFrameFile = (shotId: string, film: number): string | null =>
     if (a[mid] < film) lo = mid + 1;
     else hi = mid;
   }
-  const pick = lo > 0 && Math.abs(a[lo - 1] - film) <= Math.abs(a[lo] - film) ? a[lo - 1] : a[lo];
+  const pick =
+    lo > 0 && Math.abs(a[lo - 1] - film) <= Math.abs(a[lo] - film)
+      ? a[lo - 1]
+      : a[lo];
   return `frames/${shotId}/${shotId}_${String(pick).padStart(6, "0")}.${entry.ext}`;
 };
 
@@ -91,8 +107,8 @@ export const anchorAt = (
 };
 
 /** 一条标注对应的锚点名候选：anchor_key（若导演写了）→ anchor 字段原文 → 标注文字原文 */
-export const anchorNames = (o: { anchor_key?: string; anchor?: string; text: string }) => [
-  o.anchor_key,
-  o.anchor,
-  o.text,
-];
+export const anchorNames = (o: {
+  anchor_key?: string;
+  anchor?: string;
+  text: string;
+}) => [o.anchor_key, o.anchor, o.text];

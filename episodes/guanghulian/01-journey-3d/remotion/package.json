@@ -17,6 +17,7 @@
     "draft": "remotion render src/index.ts Journey out/journey_draft_540x960.mp4 --scale=0.5 --crf=32 --jpeg-quality=70",
     "prerender": "npm run scan",
     "render": "remotion render src/index.ts Journey out/journey_1080x1920.mp4 --crf=16 --jpeg-quality=95",
+    "sheet": "python3 scripts/contact_sheet.py",
     "pretypecheck": "npm run scan",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src && tsc --noEmit"
@@ -24,6 +25,7 @@
   "dependencies": {
     "@remotion/cli": "4.0.543",
     "@remotion/layout-utils": "4.0.543",
+    "@remotion/media": "4.0.543",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "remotion": "4.0.543"

@@ -205,5 +205,5 @@ C.area_light('芯片近光', (P.x - 6, P.y - 8, 14), (P.x, P.y, Z_DIE0), 10, 2.5
 dev = C.setup_render(args, exposure=0.0)
 if args.anchors:
     C.export_anchors(os.path.join(args.out, f'anchors_{shot.id}.json'), shot, cam,
-                     {'gpu_die': Vector((0, 0, Z_DIE1)), 'package': Vector((0, SUB[1] / 2, Z_SUB)), 'bus': Vector((P.x, P.y, Z_BEOL))})
+                     {'大芯片': Vector((-6, 6, Z_DIE1)), 'package': Vector((0, SUB[1] / 2, Z_SUB)), 'bus': Vector((P.x, P.y, Z_BEOL))})
 C.render(args, shot, dev)

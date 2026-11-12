@@ -79,7 +79,12 @@ export const eyeDelay = (tau: number) => Math.min(2 * tau, 0.34 + 0.6 * tau);
 export const TAU_MAX = 0.57;
 
 /** 在采样数组里取 t 时刻的值（线性插值）。数组从 t0 起，每 UI spu 个点。 */
-export const valueAt = (values: number[], t0: number, spu: number, t: number) => {
+export const valueAt = (
+  values: number[],
+  t0: number,
+  spu: number,
+  t: number,
+) => {
   const f = (t - t0) * spu;
   const i = Math.max(0, Math.min(values.length - 2, Math.floor(f)));
   const u = Math.max(0, Math.min(1, f - i));

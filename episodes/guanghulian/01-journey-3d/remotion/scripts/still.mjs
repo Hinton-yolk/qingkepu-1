@@ -10,7 +10,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const TL = JSON.parse(fs.readFileSync(path.resolve(ROOT, "..", "timeline", "timeline.json"), "utf8"));
+const TL = JSON.parse(
+  fs.readFileSync(
+    path.resolve(ROOT, "..", "timeline", "timeline.json"),
+    "utf8",
+  ),
+);
 const fps = TL.meta.fps;
 const total = Math.round(TL.shots.at(-1).end * fps);
 
@@ -26,7 +31,9 @@ const frames = args
     process.exit(1);
   });
 if (frames.length === 0) {
-  console.error("用法：npm run still -- <帧号> [更多帧号…] [--guides] [--scale=0.5]");
+  console.error(
+    "用法：npm run still -- <帧号> [更多帧号…] [--guides] [--scale=0.5]",
+  );
   process.exit(1);
 }
 for (const f of frames) {
@@ -43,7 +50,12 @@ const tmpDir = path.join(outDir, "_tmp");
 fs.rmSync(tmpDir, { recursive: true, force: true });
 fs.mkdirSync(tmpDir, { recursive: true });
 
-const bin = path.join(ROOT, "node_modules", ".bin", process.platform === "win32" ? "remotion.cmd" : "remotion");
+const bin = path.join(
+  ROOT,
+  "node_modules",
+  ".bin",
+  process.platform === "win32" ? "remotion.cmd" : "remotion",
+);
 const r = spawnSync(
   bin,
   [

@@ -4,7 +4,16 @@ import { C, H, PANEL_BOTTOM, rgba, SAFE, W } from "../theme";
 
 export const Guides: React.FC = () => {
   const line = (y: number, key: string) => (
-    <line key={key} x1={0} y1={y} x2={W} y2={y} stroke={rgba(C.alert, 0.7)} strokeWidth={2} strokeDasharray="10 8" />
+    <line
+      key={key}
+      x1={0}
+      y1={y}
+      x2={W}
+      y2={y}
+      stroke={rgba(C.alert, 0.7)}
+      strokeWidth={2}
+      strokeDasharray="10 8"
+    />
   );
   return (
     <svg width={W} height={H} style={{ position: "absolute", inset: 0 }}>

@@ -6,13 +6,7 @@
 // 小标题文字从标注的 text 拆出来；颜色只用金（电）、青（光）、珊瑚（出错）和奶油色。
 import React from "react";
 import { Easing, interpolate, useCurrentFrame } from "remotion";
-import {
-  eyeDelay,
-  sampleWave,
-  TAU_MAX,
-  toPath,
-  valueAt,
-} from "../lib/signal";
+import { eyeDelay, sampleWave, TAU_MAX, toPath, valueAt } from "../lib/signal";
 import { PANEL_HEIGHT, WaveformVariant } from "../shotConfig";
 import { STR } from "../strings";
 import { C, CLAMP, rgba, SIZE } from "../theme";
@@ -42,8 +36,12 @@ const Degrade: React.FC<Props> = ({ overlay, duration, alert }) => {
   const labelTx = parts[0] ?? overlay.text;
   const labelRx = parts[1] ?? "";
 
-  const alertAt = alert ? toFrame(alert.t) - toFrame(overlay.t) : Math.round(duration * 0.5);
-  const alertEnd = alert ? alertAt + (toFrame(alert.t + alert.dur) - toFrame(alert.t)) : duration;
+  const alertAt = alert
+    ? toFrame(alert.t) - toFrame(overlay.t)
+    : Math.round(duration * 0.5);
+  const alertEnd = alert
+    ? alertAt + (toFrame(alert.t + alert.dur) - toFrame(alert.t))
+    : duration;
   // 模糊程度：从几乎不糊，到 alert 出现时最糊，之后保持
   const tau =
     TAU_MAX *
@@ -89,7 +87,13 @@ const Degrade: React.FC<Props> = ({ overlay, duration, alert }) => {
   const eyePaths: string[] = [];
   for (let m = 0; m < 22; m++) {
     const n = newest - m;
-    const seg = sampleWave({ t0: n + 0.5 + delay - 1, ui: 2, spu: 24, tau, edge: 0.08 });
+    const seg = sampleWave({
+      t0: n + 0.5 + delay - 1,
+      ui: 2,
+      spu: 24,
+      tau,
+      edge: 0.08,
+    });
     eyePaths.push(toPath(seg, EX + 6, EX + EW - 6, EYE.bot - 14, EYE.top + 14));
   }
 
@@ -97,8 +101,20 @@ const Degrade: React.FC<Props> = ({ overlay, duration, alert }) => {
 
   return (
     <Panel height={PANEL_HEIGHT.degrade} opacity={panelFade(frame, duration)}>
-      <RowLabel x={0} y={0} text={labelTx} swatch={C.electric} fontSize={SIZE.panelLabel} />
-      <RowLabel x={0} y={150} text={labelRx} swatch={C.electric} fontSize={SIZE.panelLabel} />
+      <RowLabel
+        x={0}
+        y={0}
+        text={labelTx}
+        swatch={C.electric}
+        fontSize={SIZE.panelLabel}
+      />
+      <RowLabel
+        x={0}
+        y={150}
+        text={labelRx}
+        swatch={C.electric}
+        fontSize={SIZE.panelLabel}
+      />
       <RowLabel
         x={EX}
         y={0}
@@ -106,7 +122,11 @@ const Degrade: React.FC<Props> = ({ overlay, duration, alert }) => {
         fontSize={SIZE.panelSmall}
         opacity={0.75}
       />
-      <svg width={w} height={h} style={{ position: "absolute", left: 0, top: 0 }}>
+      <svg
+        width={w}
+        height={h}
+        style={{ position: "absolute", left: 0, top: 0 }}
+      >
         <defs>
           <clipPath id="wf-left">
             <rect x={0} y={36} width={LW} height={h - 36} />
@@ -188,7 +208,14 @@ const Degrade: React.FC<Props> = ({ overlay, duration, alert }) => {
           fill={rgba(C.alert, 0.2 * alertK)}
         />
         {eyePaths.map((d, i) => (
-          <path key={i} d={d} fill="none" stroke={C.electric} strokeWidth={2.5} opacity={0.5} />
+          <path
+            key={i}
+            d={d}
+            fill="none"
+            stroke={C.electric}
+            strokeWidth={2.5}
+            opacity={0.5}
+          />
         ))}
         <line
           x1={EX + 6}
@@ -254,7 +281,13 @@ const Restore: React.FC<Props> = ({ overlay, duration }) => {
   const tau = TAU_MAX;
   const delay = eyeDelay(tau);
   const blurred = sampleWave({ t0, ui: UI, spu: SPU, tau, edge: 0.08 });
-  const clean = sampleWave({ t0: t0 - LAT - delay, ui: UI, spu: SPU, tau: 0, edge: 0.1 });
+  const clean = sampleWave({
+    t0: t0 - LAT - delay,
+    ui: UI,
+    spu: SPU,
+    tau: 0,
+    edge: 0.1,
+  });
   const Y = { top: 62, bot: 150 };
   const thY = (Y.top + Y.bot) / 2;
   const outK = interpolate(frame, [16, 30], [0, 1], CLAMP);
@@ -272,7 +305,13 @@ const Restore: React.FC<Props> = ({ overlay, duration }) => {
 
   return (
     <Panel height={PANEL_HEIGHT.restore} opacity={panelFade(frame, duration)}>
-      <RowLabel x={0} y={0} text={labelIn} swatch={C.electric} fontSize={SIZE.panelLabel} />
+      <RowLabel
+        x={0}
+        y={0}
+        text={labelIn}
+        swatch={C.electric}
+        fontSize={SIZE.panelLabel}
+      />
       <RowLabel
         x={RX0}
         y={0}
@@ -281,7 +320,11 @@ const Restore: React.FC<Props> = ({ overlay, duration }) => {
         fontSize={SIZE.panelLabel}
         opacity={outK}
       />
-      <svg width={w} height={h} style={{ position: "absolute", left: 0, top: 0 }}>
+      <svg
+        width={w}
+        height={h}
+        style={{ position: "absolute", left: 0, top: 0 }}
+      >
         <defs>
           <clipPath id="wf-in">
             <rect x={0} y={40} width={SW} height={h - 40} />
@@ -308,13 +351,31 @@ const Restore: React.FC<Props> = ({ overlay, duration }) => {
             strokeLinejoin="round"
           />
           {dots.map((d, i) => (
-            <circle key={i} cx={d.x} cy={d.y} r={5} fill={C.cream} stroke={C.ink} strokeWidth={2} opacity={0.8} />
+            <circle
+              key={i}
+              cx={d.x}
+              cy={d.y}
+              r={5}
+              fill={C.cream}
+              stroke={C.ink}
+              strokeWidth={2}
+              opacity={0.8}
+            />
           ))}
         </g>
         {/* 中间：从左到右的箭头（DSP 在这里重新判决） */}
-        <g opacity={0.3 + 0.5 * outK} stroke={C.cream} strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round">
+        <g
+          opacity={0.3 + 0.5 * outK}
+          stroke={C.cream}
+          strokeWidth={3}
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <line x1={SW + 28} y1={thY} x2={RX0 - 30} y2={thY} />
-          <path d={`M${RX0 - 46} ${thY - 14} L${RX0 - 30} ${thY} L${RX0 - 46} ${thY + 14}`} />
+          <path
+            d={`M${RX0 - 46} ${thY - 14} L${RX0 - 30} ${thY} L${RX0 - 46} ${thY + 14}`}
+          />
         </g>
         <g clipPath="url(#wf-out)" opacity={outK}>
           <path
@@ -359,21 +420,37 @@ const Eo: React.FC<Props> = ({ overlay, duration }) => {
   const t0 = 40 + frame / 10;
   const elec = sampleWave({ t0, ui: UI, spu: SPU, tau: 0, edge: 0.16 });
   // 光强：跟着电信号走；暗的时候不是全黑（消光比有限，示意）
-  const opt = sampleWave({ t0, ui: UI, spu: SPU, tau: 0.05, edge: 0.16 }).map((v) => 0.1 + 0.9 * v);
+  const opt = sampleWave({ t0, ui: UI, spu: SPU, tau: 0.05, edge: 0.16 }).map(
+    (v) => 0.1 + 0.9 * v,
+  );
   const E = { top: 50, bot: 116 };
   const O = { top: 192, bot: 270 }; // bot 对应光强 0
   const optK = interpolate(frame, [10, 22], [0, 1], CLAMP);
 
   const edges: number[] = [];
-  for (let n = Math.ceil(t0); n <= t0 + UI; n++) edges.push(((n - t0) / UI) * w);
+  for (let n = Math.ceil(t0); n <= t0 + UI; n++)
+    edges.push(((n - t0) / UI) * w);
 
   const optLine = toPath(opt, 0, w, O.bot, O.top);
   const optFill = `${optLine}L${w} ${O.bot}L0 ${O.bot}Z`;
 
   return (
     <Panel height={PANEL_HEIGHT.eo} opacity={panelFade(frame, duration)}>
-      <RowLabel x={0} y={0} text={labelE} swatch={C.electric} fontSize={SIZE.panelLabel} />
-      <RowLabel x={0} y={140} text={labelO} swatch={C.light} fontSize={SIZE.panelLabel} opacity={optK} />
+      <RowLabel
+        x={0}
+        y={0}
+        text={labelE}
+        swatch={C.electric}
+        fontSize={SIZE.panelLabel}
+      />
+      <RowLabel
+        x={0}
+        y={140}
+        text={labelO}
+        swatch={C.light}
+        fontSize={SIZE.panelLabel}
+        opacity={optK}
+      />
       {badge ? (
         <div
           style={{
@@ -389,7 +466,11 @@ const Eo: React.FC<Props> = ({ overlay, duration }) => {
           {badge}
         </div>
       ) : null}
-      <svg width={w} height={h} style={{ position: "absolute", left: 0, top: 0 }}>
+      <svg
+        width={w}
+        height={h}
+        style={{ position: "absolute", left: 0, top: 0 }}
+      >
         <defs>
           <clipPath id="wf-eo">
             <rect x={0} y={40} width={w} height={h - 40} />
@@ -418,8 +499,21 @@ const Eo: React.FC<Props> = ({ overlay, duration }) => {
           />
           <g opacity={optK}>
             <path d={optFill} fill={rgba(C.light, 0.2)} />
-            <path d={optLine} fill="none" stroke={C.light} strokeWidth={5} strokeLinejoin="round" />
-            <line x1={0} y1={O.bot} x2={w} y2={O.bot} stroke={rgba(C.cream, 0.35)} strokeWidth={1.5} />
+            <path
+              d={optLine}
+              fill="none"
+              stroke={C.light}
+              strokeWidth={5}
+              strokeLinejoin="round"
+            />
+            <line
+              x1={0}
+              y1={O.bot}
+              x2={w}
+              y2={O.bot}
+              stroke={rgba(C.cream, 0.35)}
+              strokeWidth={1.5}
+            />
           </g>
         </g>
       </svg>

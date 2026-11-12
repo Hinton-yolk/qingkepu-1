@@ -132,5 +132,5 @@ C.area_light('底部补光', (X_PAD, -120, 40), (X_PAD, 0, Z_BUMP), 120, 4.0e5, 
 dev = C.setup_render(args, exposure=0.0)
 if args.anchors:
     C.export_anchors(os.path.join(args.out, f'anchors_{shot.id}.json'), shot, cam,
-                     {'bus': Vector((-60, 0, 0)), 'serializer': Vector((20, 16, 0)), 'output': Vector((X_DRV1 + 6, 0, 0)), 'bump': Vector((X_PAD, 0, Z_BUMP))})
+                     {'并行总线': Vector((-60, 0, 0)), '串化电路旁': Vector((20, 16, 0)), 'output': Vector((X_DRV1 + 6, 0, 0)), 'bump': Vector((X_PAD, 0, Z_BUMP))})
 C.render(args, shot, dev)

@@ -44,7 +44,9 @@ export const Gauge: React.FC<Props> = ({ overlay, duration }) => {
           ...CLAMP,
           easing: Easing.inOut(Easing.cubic),
         });
-  const eta = Math.exp(-(d * d) / (MODE_FIELD_RADIUS_UM * MODE_FIELD_RADIUS_UM));
+  const eta = Math.exp(
+    -(d * d) / (MODE_FIELD_RADIUS_UM * MODE_FIELD_RADIUS_UM),
+  );
   const pct = Math.round(eta * 100);
   const dMax = Math.max(...stops, 1);
 
@@ -66,7 +68,11 @@ export const Gauge: React.FC<Props> = ({ overlay, duration }) => {
 
   return (
     <Panel height={PANEL_HEIGHT.gauge} opacity={opacity}>
-      <svg width={DW} height={h} style={{ position: "absolute", left: 0, top: 0 }}>
+      <svg
+        width={DW}
+        height={h}
+        style={{ position: "absolute", left: 0, top: 0 }}
+      >
         <defs>
           <radialGradient id={`spot-${uid}`}>
             <stop offset="0%" stopColor={C.light} stopOpacity={0.95} />
@@ -98,10 +104,20 @@ export const Gauge: React.FC<Props> = ({ overlay, duration }) => {
         <circle cx={fx} cy={cy} r={3.5} fill={C.cream} />
         <circle cx={sx} cy={cy} r={3.5} fill={C.cream} />
         {d * s > 14 ? (
-          <g stroke={C.cream} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round">
+          <g
+            stroke={C.cream}
+            strokeWidth={2}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <line x1={fx} y1={cy} x2={sx} y2={cy} />
-            <path d={`M${fx + 8} ${cy - 6} L${fx} ${cy} L${fx + 8} ${cy + 6}`} />
-            <path d={`M${sx - 8} ${cy - 6} L${sx} ${cy} L${sx - 8} ${cy + 6}`} />
+            <path
+              d={`M${fx + 8} ${cy - 6} L${fx} ${cy} L${fx + 8} ${cy + 6}`}
+            />
+            <path
+              d={`M${sx - 8} ${cy - 6} L${sx} ${cy} L${sx - 8} ${cy + 6}`}
+            />
           </g>
         ) : null}
       </svg>
@@ -131,14 +147,23 @@ export const Gauge: React.FC<Props> = ({ overlay, duration }) => {
           {STR.spotFiber}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: rgba(C.light, 0.75) }} />
+          <div
+            style={{
+              width: 20,
+              height: 20,
+              borderRadius: 10,
+              backgroundColor: rgba(C.light, 0.75),
+            }}
+          />
           {STR.spotChip}
         </div>
       </div>
 
       {/* 读数 */}
       <div style={{ position: "absolute", left: RX, top: 0, width: barW }}>
-        <div style={{ fontSize: 34, lineHeight: "44px", fontWeight: 700 }}>{title}</div>
+        <div style={{ fontSize: 34, lineHeight: "44px", fontWeight: 700 }}>
+          {title}
+        </div>
         <div
           style={{
             display: "flex",
@@ -170,7 +195,9 @@ export const Gauge: React.FC<Props> = ({ overlay, duration }) => {
           >
             {pct}
           </span>
-          <span style={{ fontSize: 60, fontWeight: 700, color: C.light }}>%</span>
+          <span style={{ fontSize: 60, fontWeight: 700, color: C.light }}>
+            %
+          </span>
         </div>
         {/* 条：青色 = 进去的，珊瑚色 = 漏掉的 */}
         <div
