@@ -19,7 +19,7 @@ SAMP = int(opt('--samples', '64')); GPU = '--gpu' in argv
 TIMES = [float(v) for v in opt('--times').split(',')] if opt('--times') else None
 FR = opt('--frames'); FRANGE = tuple(int(v) for v in FR.split('-')) if FR else None
 THREADS = int(opt('--threads', '2'))
-FPS = 30; DUR = 12.0; NF = round(DUR * FPS); F = lambda sec: 1 + round(sec * FPS)
+FPS = 30; DUR = 12.5; NF = round(DUR * FPS); F = lambda sec: 1 + round(sec * FPS)
 HERE = os.path.dirname(os.path.abspath(__file__))
 LAYOUT = os.path.join(HERE, 'assets', 't5_layout.png')
 ASSETS = os.path.normpath(os.path.join(HERE, '..', '..', 'blender', 'assets_dl'))
@@ -31,7 +31,7 @@ VSPEED = 12.6            # 消息流速 u/s
 BITLEN = 3.5            # 一位（含暗隙）长度 u  → 约 3.6 位/秒
 Y_EXIT = 11.0           # 电极出口：此后光带带消息
 GOLD = (0.887, 0.468, 0.051); CYAN = (0.05, 0.79, 0.87)
-Y_EDGE = 40.0; Y_FACE = 40.4
+Y_EDGE = 40.0; Y_FACE = 43.0
 
 # ---------- 版本兼容 ----------
 def fcurves_of(idb):
@@ -99,10 +99,12 @@ def pattern_nodes(m, ell_socket):
     it = N.new('ShaderNodeTexImage'); it.image = pat_img; it.interpolation = 'Closest'; it.extension = 'REPEAT'; L.new(u.outputs[0], it.inputs[0])
     bitv = it.outputs['Color']
     sp = N.new('ShaderNodeSeparateColor'); L.new(bitv, sp.inputs[0]); bit = sp.outputs['Red']
-    lvl = math_('ADD', 0.2, math_('MULTIPLY', bit, 0.8))
+    lvl = math_('ADD', 0.3, math_('MULTIPLY', bit, 0.7))
     # 暗隙：f 在 [0,0.12] 为暗（柔边 0.05）
-    g1 = N.new('ShaderNodeMapRange'); g1.inputs['From Min'].default_value = 0.07; g1.inputs['From Max'].default_value = 0.13; L.new(f, g1.inputs['Value'])
-    return math_('MULTIPLY', lvl, g1.outputs[0]), T
+    ga = N.new('ShaderNodeMapRange'); ga.interpolation_type = 'SMOOTHSTEP'; ga.inputs['From Min'].default_value = 0.0; ga.inputs['From Max'].default_value = 0.32; L.new(f, ga.inputs['Value'])
+    gb = N.new('ShaderNodeMapRange'); gb.interpolation_type = 'SMOOTHSTEP'; gb.inputs['From Min'].default_value = 1.0; gb.inputs['From Max'].default_value = 0.68; L.new(f, gb.inputs['Value'])
+    win = math_('ADD', 0.10, math_('MULTIPLY', math_('MINIMUM', ga.outputs[0], gb.outputs[0]), 0.90))
+    return math_('MULTIPLY', lvl, win), T
 def ell_node(m, P0, d, l0):
     """路径坐标 ℓ = ℓ0 + dot(世界位置 − P0, 方向)"""
     N = m.node_tree.nodes; L = m.node_tree.links
@@ -117,13 +119,17 @@ def mat_gold(name, P0, d, l0, emis=2.2):
     b.inputs['Emission Color'].default_value = (*GOLD, 1)
     mul = m.node_tree.nodes.new('ShaderNodeMath'); mul.operation = 'MULTIPLY'; mul.inputs[1].default_value = emis; L.new(lvl, mul.inputs[0]); L.new(mul.outputs[0], b.inputs['Emission Strength'])
     return m
-def mat_light(name, mode, emis=5.0, y_ell=None):
+def mat_light(name, mode, emis=5.0, y_ell=None, soft=False):
     """光（青）：mode 'steady' 满亮；'msg' 全程带消息（y>Y_EXIT 才有图样，之前满亮）；'core' 同 msg × 耦合系数 cpl"""
     m = bpy.data.materials.new(name); m.use_nodes = True; N = m.node_tree.nodes; L = m.node_tree.links
     for n in list(N): N.remove(n)
     o = N.new('ShaderNodeOutputMaterial'); e = N.new('ShaderNodeEmission'); e.inputs['Color'].default_value = (*CYAN, 1)
     ao = N.new('ShaderNodeOutputAOV'); ao.aov_name = 'lightmask'; ao.inputs['Value'].default_value = 1.0
     L.new(e.outputs[0], o.inputs[0])
+    softf = None
+    if soft:
+        lw = N.new('ShaderNodeLayerWeight'); lw.inputs['Blend'].default_value = 0.45
+        sub = N.new('ShaderNodeMath'); sub.operation = 'SUBTRACT'; sub.inputs[0].default_value = 1.0; L.new(lw.outputs['Fresnel'], sub.inputs[1]); softf = sub.outputs[0]
     if mode == 'steady':
         e.inputs['Strength'].default_value = emis; return m
     g = N.new('ShaderNodeNewGeometry'); sep = N.new('ShaderNodeSeparateXYZ'); L.new(g.outputs['Position'], sep.inputs[0])
@@ -133,6 +139,8 @@ def mat_light(name, mode, emis=5.0, y_ell=None):
     res = mx.outputs[0]
     if mode == 'core':
         cp = value_node(m, 'cpl', 1.0); mc = N.new('ShaderNodeMath'); mc.operation = 'MULTIPLY'; L.new(res, mc.inputs[0]); L.new(cp.outputs[0], mc.inputs[1]); res = mc.outputs[0]
+    if softf is not None:
+        ms = N.new('ShaderNodeMath'); ms.operation = 'MULTIPLY'; L.new(res, ms.inputs[0]); L.new(softf, ms.inputs[1]); res = ms.outputs[0]
     st = N.new('ShaderNodeMath'); st.operation = 'MULTIPLY'; st.inputs[1].default_value = emis; L.new(res, st.inputs[0]); L.new(st.outputs[0], e.inputs['Strength'])
     return m
 def mat_leak():
@@ -151,12 +159,20 @@ def mat_leak():
     t = mn('DIVIDE', mn('SUBTRACT', sep.outputs['Y'], Y_FACE), 9.0)
     ax = mn('MULTIPLY', mn('POWER', mn('MAXIMUM', mn('SUBTRACT', 1.0, t), 0.0), 2.0), mn('MINIMUM', mn('MAXIMUM', mn('DIVIDE', mn('SUBTRACT', sep.outputs['Y'], Y_FACE), 3.0), 0.0), 1.0))
     r = mn('POWER', mn('ADD', mn('POWER', sep.outputs['X'], 2.0), mn('POWER', mn('SUBTRACT', sep.outputs['Z'], 0.5), 2.0)), 0.5)
-    R_ = mn('ADD', 1.4, mn('MULTIPLY', mn('SUBTRACT', sep.outputs['Y'], Y_FACE), 0.28))
+    R_ = mn('ADD', 1.2, mn('MULTIPLY', mn('SUBTRACT', sep.outputs['Y'], Y_FACE), 0.3))
     rad = mn('POWER', mn('MAXIMUM', mn('SUBTRACT', 1.0, mn('DIVIDE', r, R_)), 0.0), 2.0)
     lk = value_node(m, 'leak', 0.0)
     st = mn('MULTIPLY', mn('MULTIPLY', ax, rad), mn('MULTIPLY', lk.outputs[0], 0.8)); L.new(st, e.inputs['Strength'])
     return m
 
+def mat_glass_edge():
+    m = bpy.data.materials.new('fiber_glass_edge'); m.use_nodes = True; N = m.node_tree.nodes; L = m.node_tree.links
+    for n in list(N): N.remove(n)
+    o = N.new('ShaderNodeOutputMaterial'); tr = N.new('ShaderNodeBsdfTransparent'); gl = N.new('ShaderNodeEmission'); gl.inputs['Strength'].default_value = 1.2
+    gl.inputs['Color'].default_value = (0.55, 0.72, 0.95, 1); lw = N.new('ShaderNodeLayerWeight'); lw.inputs['Blend'].default_value = 0.3
+    mp = N.new('ShaderNodeMapRange'); mp.inputs['From Min'].default_value = 0.82; mp.inputs['From Max'].default_value = 1.0; mp.inputs['To Max'].default_value = 0.9
+    mx = N.new('ShaderNodeMixShader'); L.new(lw.outputs['Fresnel'], mp.inputs['Value']); L.new(mp.outputs[0], mx.inputs[0]); L.new(tr.outputs[0], mx.inputs[1]); L.new(gl.outputs[0], mx.inputs[2]); L.new(mx.outputs[0], o.inputs[0])
+    return m
 def add_vis(m, name='vis'):
     """让材质可以整体淡入（Transparent 混合），系数由关键帧的 vis 节点给"""
     N = m.node_tree.nodes; L = m.node_tree.links
@@ -176,28 +192,29 @@ def mat_chip():
         if isinstance(a, tuple): mx.inputs['A'].default_value = (*a, 1)
         else: L.new(a, mx.inputs['A'])
         mx.inputs['B'].default_value = (*bcol, 1); return mx.outputs['Result']
-    c1 = mix(sp.outputs['Red'], (0.02, 0.07, 0.30), (0.20, 0.30, 0.52)); c2 = mix(sp.outputs['Green'], c1, GOLD)
+    c1 = mix(sp.outputs['Red'], (0.006, 0.022, 0.12), (0.09, 0.15, 0.32)); c2 = mix(sp.outputs['Green'], c1, GOLD)
     L.new(c2, b.inputs['Base Color']); L.new(sp.outputs['Green'], b.inputs['Metallic'])
     b.inputs['Roughness'].default_value = 0.3; b.inputs['Coat Weight'].default_value = 0.4
     return m
 
 M = dict(
     chip=mat_chip(),
-    clad=mat('upper_cladding_glass', (0.7, 0.8, 1.0), 0.0, 0.08, alpha=0.07, coat=0.5),
-    si_wg=mat('si_waveguide', (0.35, 0.45, 0.65), 0.0, 0.1, alpha=0.35),
+    clad=mat('upper_cladding_glass', (0.7, 0.8, 1.0), 0.0, 0.08, alpha=0.035, coat=0.2),
+    si_wg=mat('si_waveguide', (0.25, 0.32, 0.5), 0.0, 0.1, alpha=0.10),
     die_side=mat('die_side', (0.09, 0.10, 0.14), 0.7, 0.35, bump=0.1),
     steady=mat_light('light_steady', 'steady', emis=4.0),
     msg=mat_light('light_msg', 'msg', emis=4.0),
-    core=mat_light('light_core', 'core', emis=3.2),
-    tail=mat_light('tail', 'msg', emis=0.35),
+    core=mat_light('light_core', 'core', emis=4.5, soft=True),
+    cone=mat_light('light_cone', 'msg', emis=3.0, soft=True),
+    tail=mat_light('tail', 'msg', emis=0.5, soft=True),
     leak=mat_leak(),
-    glass=mat('fiber_glass', (0.75, 0.85, 0.95), 0.0, 0.15, alpha=0.14, coat=0.0),
+    glass=mat_glass_edge(),
     vgroove=mat('v_groove', (0.16, 0.17, 0.21), 0.5, 0.3, bump=0.05),
     ssc=mat('ssc', (0.5, 0.6, 0.8), 0.0, 0.2, alpha=0.35),
     pcb=mat('pcb_mask', (0.03, 0.16, 0.06), 0.0, 0.6, coat=0.0, bump=0.05),
-    ic=mat('ic', (0.05, 0.05, 0.06), 0.2, 0.4, bump=0.05),
-    laser=mat('laser', (0.34, 0.35, 0.38), 0.8, 0.28),
-    shell=add_vis(mat('shell', (0.7, 0.73, 0.78), 1.0, 0.25, alpha=0.10), 'shellvis'),
+    ic=mat('ic', (0.03, 0.03, 0.04), 0.2, 0.5, bump=0.05),
+    laser=mat('laser', (0.10, 0.105, 0.12), 0.7, 0.35),
+    shell=add_vis(mat('shell', (0.55, 0.62, 0.75), 1.0, 0.2, alpha=0.20), 'shellvis'),
     ribbon=mat('ribbon', (0.5, 0.52, 0.55), 0.0, 0.5, alpha=0.5),
     mpo=mat('mpo', (0.14, 0.15, 0.17), 0.4, 0.4, bump=0.05),
     finger=mat('finger', GOLD, 1.0, 0.25),
@@ -256,8 +273,9 @@ tail_in = box('tail_in', -0.55, 0.55, -26, 36, WG_Z - 0.2, WG_Z + 0.2, M['tail']
 ssc = box('ssc', -0.9, 0.9, 36, Y_EDGE, 0.1, 0.8, M['ssc'], bev=0.04)
 ssc_band = box('ssc_band', -0.5, 0.5, 36, Y_EDGE, 0.25, 0.55, M['msg'])
 # 激光器（在芯片上，端面 y=-14 朝 +y）
-laser = box('laser', -4, 4, -40, -26, 0.0, 3.2, M['laser'], bev=0.15)
-laser_face = box('laser_face', -0.7, 0.7, -26.02, -25.98, WG_Z - 0.3, WG_Z + 0.3, M['steady'])
+laser = box('laser', -2.6, 2.6, -36, -26, 0.0, 2.2, M['laser'], bev=0.12)
+laser_face = box('laser_face', -1.4, 1.4, -26.06, -25.9, 0.3, 1.1, M['steady'])
+laser_glow = box('laser_glow', -0.9, 0.9, -26.0, -22.0, 0.2, 0.9, M['tail'])
 # 金电极夹着波导，x=±1.7，y -1..11（z 1.0..1.5，在上包层面上）
 EX = 1.7
 elec = []
@@ -265,8 +283,8 @@ for s in (-1, 1):
     m = mat_gold(f'gold_el_{s}', Vector((0, 0, 0)), Vector((0, 1, 0)), 0.0)
     elec.append(box(f'electrode_{s}', s * EX - 0.55, s * EX + 0.55, -1.2, 11.0, 1.0, 1.5, m, bev=0.06))
     # 驱动芯片（黑）+ 焊线 + 走线
-    dx0, dx1 = sorted((s * 8, s * 14)); drv = box(f'driver_{s}', dx0, dx1, -11, -3, 1.0, 3.2, M['ic'], bev=0.12)
-    P_start = Vector((s * 8.2, -7.0, 3.2)); P_end = Vector((s * 1.9, -1.0, 1.5)); d = (P_end - P_start); Ld = d.length; dn = d.normalized()
+    dx0, dx1 = sorted((s * 15, s * 21)); drv = box(f'driver_{s}', dx0, dx1, -11, -3, 1.0, 3.2, M['ic'], bev=0.12)
+    P_start = Vector((s * 15.3, -7.0, 3.2)); P_end = Vector((s * 1.9, -1.0, 1.5)); d = (P_end - P_start); Ld = d.length; dn = d.normalized()
     mw = mat_gold(f'gold_wire_{s}', P_start, dn, -1.0 - Ld, emis=2.6)
     arc = [P_start.lerp(P_end, k / 14) + Vector((0, 0, 2.4 * math.sin(math.pi * k / 14))) for k in range(15)]
     cu = bpy.data.curves.new(f'bond_{s}', 'CURVE'); cu.dimensions = '3D'; cu.bevel_depth = 0.14; cu.bevel_resolution = 3
@@ -274,30 +292,30 @@ for s in (-1, 1):
     for pt, p in zip(sp_.points, arc): pt.co = (p.x, p.y, p.z, 1.0)
     bo = bpy.data.objects.new(f'bond_{s}', cu); bo.data.materials.append(mw); link(bo)
     # 走线：从 x=±45 流向驱动器，ℓ 在 |x|=14 处为 -1.0-Ld-6
-    l14 = -1.0 - Ld - 6.0
-    mt = mat_gold(f'gold_trace_{s}', Vector((s * 14, -7, 1)), Vector((-s, 0, 0)), l14, emis=2.2)
-    box(f'trace_{s}', min(s * 14, s * 46), max(s * 14, s * 46), -7.4, -6.6, 1.0, 1.1, mt)
+    l14 = -1.0 - Ld - 6.0 - 0.0
+    mt = mat_gold(f'gold_trace_{s}', Vector((s * 21, -7, 1)), Vector((-s, 0, 0)), l14, emis=2.2)
+    box(f'trace_{s}', min(s * 21, s * 46), max(s * 21, s * 46), -7.4, -6.6, 1.0, 1.1, mt)
 # 光纤阵列：V 形槽块抵着芯片边缘，5 根光纤，中间那根带光（x 由 fiber_x 控制）
-FIB_R, CORE_R = 7.0, 1.5; PITCH = 20.0; FIB_Y1 = 350.0
-poly = [(-60, -16)]
-for k in range(-2, 3): pass
-pts = [(-60, -16), (60, -16), (60, -1.5)]
+FIB_R, CORE_R = 5.0, 1.0; PITCH = 14.0; FIB_Y1 = 350.0
+pts = [(-60, -16), (60, -16), (60, -1.0)]
 for k in range(2, -3, -1):
-    cx = k * PITCH; pts += [(cx + 9.2, -1.5), (cx, -8.0), (cx - 9.2, -1.5)]
-pts += [(-60, -1.5)]
-# 去掉相邻 V 间重复点（相邻 V 在 cx±10 处各有 -1.5 点，间隔 20-18.4=1.6）
+    cx = k * PITCH; pts += [(cx + 5.06, -1.0), (cx, -8.16), (cx - 5.06, -1.0)]
+pts += [(-60, -1.0)]
 vgroove = prism_poly_xz('v_groove', pts, Y_FACE + 0.2, 95, M['vgroove'])
-fibers = []; cores = []; fib_center = None
+fibers = []; cores = []
 for k in range(-2, 3):
-    gl = cyl_y(f'fiber_{k}', k * PITCH, 0.5, Y_FACE, FIB_Y1, FIB_R, M['glass'], verts=40)
+    gl = cyl_y(f'fiber_{k}', k * PITCH, 0.5, Y_FACE, FIB_Y1, FIB_R, M['glass'], verts=48)
     mc = M['core'] if k == 0 else DARK_CORE
     co = cyl_y(f'core_{k}', k * PITCH, 0.5, Y_FACE, FIB_Y1, CORE_R, mc, verts=20)
     fibers.append(gl); cores.append(co)
-    if k == 0: fib_center = (gl, co)
-ribbon = box('ribbon', -62, 62, 150, 340, -9, 9, M['ribbon'], bev=0.5)
-mpo = box('mpo', -52, 52, 340, 420, -24, 24, M['mpo'], bev=1.0)
+ribbon = box('ribbon', -38, 38, 150, 340, -7, 7, M['ribbon'], bev=0.5)
+mpo = box('mpo', -46, 46, 340, 420, -20, 20, M['mpo'], bev=1.0)
+# 端口到纤芯之间的小光锥（带消息）
+bmc = bmesh.new(); bmesh.ops.create_cone(bmc, cap_ends=False, segments=20, radius1=0.5, radius2=CORE_R, depth=Y_FACE - Y_EDGE); mec = bpy.data.meshes.new('gap_cone'); bmc.to_mesh(mec); bmc.free()
+gap_cone = bpy.data.objects.new('gap_cone', mec); gap_cone.data.materials.append(M['cone']); link(gap_cone)
+gap_cone.location = (0, (Y_FACE + Y_EDGE) / 2, 0.5); gap_cone.rotation_euler = (math.radians(-90), 0, 0)
 leak_vol = None
-bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=True, segments=24, radius1=1.2, radius2=6.0, depth=10.0); me = bpy.data.meshes.new('leak_cone'); bm.to_mesh(me); bm.free()
+bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=True, segments=24, radius1=1.0, radius2=4.4, depth=10.0); me = bpy.data.meshes.new('leak_cone'); bm.to_mesh(me); bm.free()
 leak_vol = bpy.data.objects.new('leak_cone', me); leak_vol.data.materials.append(M['leak']); link(leak_vol)
 leak_vol.location = (0, Y_FACE + 5.0, 0.5); leak_vol.rotation_euler = (math.radians(-90), 0, 0)    # 锥尖在端面，向 +y 张开
 
@@ -320,15 +338,15 @@ cam.data.sensor_fit = 'VERTICAL'; cam.data.sensor_height = 24; cam.data.lens = 3
 tc = cam.constraints.new('TRACK_TO'); tc.target = tgt; tc.track_axis = 'TRACK_NEGATIVE_Z'; tc.up_axis = 'UP_Y'
 cam.data.clip_start = 0.3; cam.data.clip_end = 3000
 cam.data.dof.use_dof = True; cam.data.dof.focus_object = tgt
-key_l = area('key', (-60, -60, 90), 40000, 60, (1.0, 0.95, 0.88), tgt)
-fill_l = area('rim', (70, 60, 50), 22000, 50, (0.6, 0.72, 1.0), tgt)
+key_l = area('key', (-60, -60, 90), 22000, 60, (1.0, 0.95, 0.88), tgt)
+fill_l = area('rim', (70, 60, 50), 12000, 50, (0.6, 0.72, 1.0), tgt)
 # 灯光跟着相机目标走
 for l in (key_l, fill_l):
     cp = l.constraints.new('COPY_LOCATION'); cp.target = tgt; cp.use_offset = True
 wd = bpy.data.worlds.new('w'); sc.world = wd; wd.use_nodes = True; N = wd.node_tree.nodes; L = wd.node_tree.links
 for n in list(N): N.remove(n)
 out = N.new('ShaderNodeOutputWorld'); bg_hdr = N.new('ShaderNodeBackground'); bg_col = N.new('ShaderNodeBackground'); mx = N.new('ShaderNodeMixShader'); lp = N.new('ShaderNodeLightPath')
-bg_col.inputs['Color'].default_value = (0.008, 0.025, 0.10, 1); bg_hdr.inputs['Strength'].default_value = 0.9
+bg_col.inputs['Color'].default_value = (0.008, 0.025, 0.10, 1); bg_hdr.inputs['Strength'].default_value = 0.45
 if os.path.exists(HDRI):
     env = N.new('ShaderNodeTexEnvironment'); env.image = bpy.data.images.load(HDRI, check_existing=True); L.new(env.outputs['Color'], bg_hdr.inputs['Color'])
 else: bg_hdr.inputs['Color'].default_value = (0.5, 0.55, 0.65, 1)
@@ -349,11 +367,12 @@ def hermite(keys, t):
     h00 = 2 * u ** 3 - 3 * u ** 2 + 1; h10 = u ** 3 - 2 * u ** 2 + u; h01 = -2 * u ** 3 + 3 * u ** 2; h11 = u ** 3 - u ** 2
     return h00 * p1 + h10 * m1 + h01 * p2 + h11 * m2
 V = Vector
-EYE = [(0.0, V((-46, -118, 58))), (0.5, V((-10, -52, 24))), (2.0, V((-9, -40, 21))), (4.0, V((-8, -22, 18))), (6.0, V((-8, 0, 15))),
-       (7.0, V((-9, 12, 11))), (8.2, V((-3.5, 26, 12.5))), (10.6, V((-3.0, 27, 12.0))), (11.1, V((-4, 55, 5))), (11.6, V((-1, 150, 5.5))), (12.0, V((0, 300, 5)))]
-TGT = [(0.0, V((0, -8, -3))), (0.5, V((0, -14, 0.5))), (2.0, V((0, -3, 0.5))), (4.0, V((0, 12, 0.5))), (6.0, V((0, 32, 0.6))),
-       (7.0, V((0.2, 38, 0.7))), (8.2, V((0.8, 41, 0.8))), (10.6, V((0.6, 41, 0.7))), (11.1, V((0, 85, 0.5))), (11.6, V((0, 200, 0.5))), (12.0, V((0, 340, 0.5)))]
-FST = [(0.0, 0.08), (0.5, 0.05), (4.0, 0.04), (7.0, 0.03), (8.2, 0.02), (10.6, 0.02), (11.5, 0.012), (12.0, 0.012)]
+EYE = [(0.0, V((-95, -165, 80))), (1.0, V((-9, -50, 22))), (2.2, V((-8, -28, 24))), (3.6, V((-7, -16, 27))), (5.2, V((-7, -6, 27))), (6.6, V((-7, 8, 25))),
+       (7.6, V((10, 22, 14))), (8.2, V((15, 27, 13))), (11.1, V((16, 28, 12.5))), (11.5, V((6, 60, 8))), (11.9, V((2, 170, 8))), (12.5, V((0, 320, 6)))]
+TGT = [(0.0, V((0, -10, -6))), (1.0, V((0, -14, 0.5))), (2.2, V((0, -2, 0.5))), (3.6, V((0, 5, 0.5))), (5.2, V((0, 14, 0.5))), (6.6, V((0, 28, 0.6))),
+       (7.6, V((0.2, 39, 0.7))), (8.2, V((0, 41.5, 0.5))), (11.1, V((0, 41.5, 0.5))), (11.5, V((0, 95, 0.5))), (11.9, V((0, 210, 0.5))), (12.5, V((0, 365, 2)))]
+FST = [(0.0, 0.05), (2.2, 0.05), (6.6, 0.04), (8.2, 0.08), (11.1, 0.08), (11.5, 0.4), (12.5, 0.4)]
+LENS = [(0.0, 17), (1.0, 30), (6.6, 30), (7.8, 22), (11.1, 22), (11.5, 26), (12.5, 28)]
 DISTK = [(0.0, 1.0), (12.0, 1.0)]
 def lin(keys, t):
     for (t0, a), (t1, b) in zip(keys, keys[1:]):
@@ -361,8 +380,8 @@ def lin(keys, t):
     return keys[-1][1]
 sstep = lambda a, b, x: (lambda u: u * u * (3 - 2 * u))(min(max((x - a) / (b - a), 0.0), 1.0))
 def fiber_dx(t):
-    return 3.2 * (sstep(8.5, 9.2, t) - sstep(9.8, 10.6, t))
-def coupling(dx): return max(0.08, math.exp(-(dx / 2.1) ** 2))
+    return 3.2 * (sstep(9.0, 9.7, t) - sstep(10.3, 11.1, t))
+def coupling(dx): return max(0.08, math.exp(-(dx / 1.3) ** 2))
 
 # 每帧关键帧（运动模糊要用）
 for f in range(1, NF + 1):
@@ -370,13 +389,14 @@ for f in range(1, NF + 1):
     tg = hermite(TGT, t); ey = hermite(EYE, t); ey = tg + (ey - tg) * lin(DISTK, t)
     cam.location = ey; cam.keyframe_insert('location', frame=f)
     tgt.location = tg; tgt.keyframe_insert('location', frame=f)
+    cam.data.lens = lin(LENS, t); cam.data.keyframe_insert('lens', frame=f)
     cam.data.dof.aperture_fstop = lin(FST, t); cam.data.dof.keyframe_insert('aperture_fstop', frame=f)
     dx = fiber_dx(t)
     for o in fibers[2:3] + cores[2:3]: o.location.x = dx; o.keyframe_insert('location', index=0, frame=f)
     for (m, n, name) in VALUE_NODES:
         if name == 'T': n.outputs[0].default_value = t
-        elif name == 'shellvis': n.outputs[0].default_value = 1.0 - sstep(0.15, 0.9, t)
-        elif name == 'vis': n.outputs[0].default_value = sstep(4.4, 5.8, t)
+        elif name == 'shellvis': n.outputs[0].default_value = 1.0 - sstep(0.5, 1.2, t)
+        elif name == 'vis': n.outputs[0].default_value = min(1.0, (1.0 - sstep(1.0, 1.8, t)) + sstep(6.0, 7.2, t))
         elif name == 'cpl': n.outputs[0].default_value = coupling(dx)
         elif name == 'leak': n.outputs[0].default_value = max(0.0, 1.0 - coupling(dx) / 1.0) if dx > 0.05 else 0.0
         else: continue
@@ -399,7 +419,7 @@ if GPU:
                 sc.cycles.device = 'GPU'; print('GPU_DEVICE', dt); break
         except Exception: pass
 sc.render.resolution_x, sc.render.resolution_y = W, H; sc.render.resolution_percentage = 100; sc.render.fps = FPS; sc.frame_start, sc.frame_end = 1, NF
-sc.render.use_motion_blur = True; sc.render.motion_blur_shutter = 0.4
+sc.render.use_motion_blur = True; sc.render.motion_blur_shutter = 0.2
 sc.view_settings.view_transform = 'AgX'
 for lk in ('AgX - Medium High Contrast', 'Medium High Contrast'):
     try: sc.view_settings.look = lk; break
@@ -414,7 +434,7 @@ try:
     mul = ng.nodes.new('ShaderNodeMix'); mul.data_type = 'RGBA'; mul.blend_type = 'MULTIPLY'; mul.inputs['Factor'].default_value = 1.0
     ng.links.new(emit, mul.inputs['A']); ng.links.new(mask, mul.inputs['B'])
     gl = ng.nodes.new('CompositorNodeGlare'); ng.links.new(mul.outputs['Result'], gl.inputs['Image'])
-    for k, v in (('Type', 'Fog Glow'), ('Threshold', 0.0), ('Strength', 0.7), ('Quality', 'High'), ('Size', 0.55)):
+    for k, v in (('Type', 'Fog Glow'), ('Threshold', 0.0), ('Strength', 1.4), ('Quality', 'High'), ('Size', 0.6)):
         try: gl.inputs[k].default_value = v
         except Exception as e: print('辉光参数跳过', k, e)
     add = ng.nodes.new('ShaderNodeMix'); add.data_type = 'RGBA'; add.blend_type = 'ADD'; add.inputs['Factor'].default_value = 1.0
@@ -424,7 +444,7 @@ except Exception as e: print('COMPOSITOR 跳过：', e)
 set_fmt('PNG'); sc.render.use_overwrite = True
 
 # ---------- 锚点（给 2D 合成贴标签） ----------
-ANCH = {'laser_label': V((0.9, -18.0, 1.3)), 'electric_label': V((4.2, 5.0, 1.6)), 'offset_label': V((1.5, 40.7, 4.0)), 'core_face': V((0, Y_FACE, 0.5))}
+ANCH = {'laser_label': V((0.9, -18.0, 1.3)), 'electric_label': V((4.2, 5.0, 1.6)), 'offset_label': V((1.0, 43.0, 6.0)), 'core_face': V((0, Y_FACE, 0.5))}
 def anchors_for(f):
     sc.frame_set(f); bpy.context.view_layer.update(); fr = {}
     for k, p in ANCH.items():
