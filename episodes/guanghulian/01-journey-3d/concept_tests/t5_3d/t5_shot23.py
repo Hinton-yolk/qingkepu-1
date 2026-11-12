@@ -162,16 +162,19 @@ def mat_leak():
     R_ = mn('ADD', 1.2, mn('MULTIPLY', mn('SUBTRACT', sep.outputs['Y'], Y_FACE), 0.3))
     rad = mn('POWER', mn('MAXIMUM', mn('SUBTRACT', 1.0, mn('DIVIDE', r, R_)), 0.0), 2.0)
     lk = value_node(m, 'leak', 0.0)
-    st = mn('MULTIPLY', mn('MULTIPLY', ax, rad), mn('MULTIPLY', lk.outputs[0], 0.8)); L.new(st, e.inputs['Strength'])
+    st = mn('MULTIPLY', mn('MULTIPLY', ax, rad), mn('MULTIPLY', lk.outputs[0], 2.6)); L.new(st, e.inputs['Strength'])
     return m
 
 def mat_glass_edge():
     m = bpy.data.materials.new('fiber_glass_edge'); m.use_nodes = True; N = m.node_tree.nodes; L = m.node_tree.links
     for n in list(N): N.remove(n)
-    o = N.new('ShaderNodeOutputMaterial'); tr = N.new('ShaderNodeBsdfTransparent'); gl = N.new('ShaderNodeEmission'); gl.inputs['Strength'].default_value = 1.2
+    o = N.new('ShaderNodeOutputMaterial'); tr = N.new('ShaderNodeBsdfTransparent'); gl = N.new('ShaderNodeEmission'); gl.inputs['Strength'].default_value = 0.7
     gl.inputs['Color'].default_value = (0.55, 0.72, 0.95, 1); lw = N.new('ShaderNodeLayerWeight'); lw.inputs['Blend'].default_value = 0.3
-    mp = N.new('ShaderNodeMapRange'); mp.inputs['From Min'].default_value = 0.82; mp.inputs['From Max'].default_value = 1.0; mp.inputs['To Max'].default_value = 0.9
-    mx = N.new('ShaderNodeMixShader'); L.new(lw.outputs['Fresnel'], mp.inputs['Value']); L.new(mp.outputs[0], mx.inputs[0]); L.new(tr.outputs[0], mx.inputs[1]); L.new(gl.outputs[0], mx.inputs[2]); L.new(mx.outputs[0], o.inputs[0])
+    mp = N.new('ShaderNodeMapRange'); mp.inputs['From Min'].default_value = 0.0; mp.inputs['From Max'].default_value = 1.0; mp.inputs['To Max'].default_value = 0.9
+    gg = N.new('ShaderNodeNewGeometry'); dd = N.new('ShaderNodeVectorMath'); dd.operation = 'DOT_PRODUCT'; L.new(gg.outputs['Normal'], dd.inputs[0]); L.new(gg.outputs['Incoming'], dd.inputs[1])
+    ab = N.new('ShaderNodeMath'); ab.operation = 'ABSOLUTE'; L.new(dd.outputs['Value'], ab.inputs[0]); ed = N.new('ShaderNodeMath'); ed.operation = 'SUBTRACT'; ed.inputs[0].default_value = 1.0; L.new(ab.outputs[0], ed.inputs[1])
+    pw = N.new('ShaderNodeMath'); pw.operation = 'POWER'; pw.inputs[1].default_value = 6.0; L.new(ed.outputs[0], pw.inputs[0])
+    mx = N.new('ShaderNodeMixShader'); L.new(pw.outputs[0], mp.inputs['Value']); L.new(mp.outputs[0], mx.inputs[0]); L.new(tr.outputs[0], mx.inputs[1]); L.new(gl.outputs[0], mx.inputs[2]); L.new(mx.outputs[0], o.inputs[0])
     return m
 def add_vis(m, name='vis'):
     """让材质可以整体淡入（Transparent 混合），系数由关键帧的 vis 节点给"""
@@ -368,9 +371,9 @@ def hermite(keys, t):
     return h00 * p1 + h10 * m1 + h01 * p2 + h11 * m2
 V = Vector
 EYE = [(0.0, V((-95, -165, 80))), (1.0, V((-9, -50, 22))), (2.2, V((-8, -28, 24))), (3.6, V((-7, -16, 27))), (5.2, V((-7, -6, 27))), (6.6, V((-7, 8, 25))),
-       (7.6, V((10, 22, 14))), (8.2, V((15, 27, 13))), (11.1, V((16, 28, 12.5))), (11.5, V((6, 60, 8))), (11.9, V((2, 170, 8))), (12.5, V((0, 320, 6)))]
+       (7.6, V((10, 22, 14))), (8.2, V((15, 29, 13))), (11.1, V((16, 30, 12.5))), (11.5, V((6, 60, 8))), (11.9, V((2, 170, 8))), (12.5, V((0, 320, 6)))]
 TGT = [(0.0, V((0, -10, -6))), (1.0, V((0, -14, 0.5))), (2.2, V((0, -2, 0.5))), (3.6, V((0, 5, 0.5))), (5.2, V((0, 14, 0.5))), (6.6, V((0, 28, 0.6))),
-       (7.6, V((0.2, 39, 0.7))), (8.2, V((0, 41.5, 0.5))), (11.1, V((0, 41.5, 0.5))), (11.5, V((0, 95, 0.5))), (11.9, V((0, 210, 0.5))), (12.5, V((0, 365, 2)))]
+       (7.6, V((0.2, 39, 0.7))), (8.2, V((1.2, 43, 0.5))), (11.1, V((1.2, 43, 0.5))), (11.5, V((0, 95, 0.5))), (11.9, V((0, 210, 0.5))), (12.5, V((0, 365, 2)))]
 FST = [(0.0, 0.05), (2.2, 0.05), (6.6, 0.04), (8.2, 0.08), (11.1, 0.08), (11.5, 0.4), (12.5, 0.4)]
 LENS = [(0.0, 17), (1.0, 30), (6.6, 30), (7.8, 22), (11.1, 22), (11.5, 26), (12.5, 28)]
 DISTK = [(0.0, 1.0), (12.0, 1.0)]
