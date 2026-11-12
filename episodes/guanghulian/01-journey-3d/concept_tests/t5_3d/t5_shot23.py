@@ -111,13 +111,15 @@ def ell_node(m, P0, d, l0):
     g = N.new('ShaderNodeNewGeometry'); sub = N.new('ShaderNodeVectorMath'); sub.operation = 'SUBTRACT'; sub.inputs[1].default_value = P0; L.new(g.outputs['Position'], sub.inputs[0])
     dt = N.new('ShaderNodeVectorMath'); dt.operation = 'DOT_PRODUCT'; dt.inputs[1].default_value = d; L.new(sub.outputs[0], dt.inputs[0])
     ad = N.new('ShaderNodeMath'); ad.operation = 'ADD'; ad.inputs[1].default_value = l0; L.new(dt.outputs['Value'], ad.inputs[0]); return ad.outputs[0]
-def mat_gold(name, P0, d, l0, emis=2.2):
-    """金（电）：金属底 + 自发光的消息；暗位 ≈ 亮位 20%，隙里不发光"""
-    m = mat(name, GOLD, 1.0, 0.22, rough_tex=ROUGH, rough_scale=0.08)
+def mat_gold(name, P0, d, l0, emis=9.0):
+    """金（电）：偏暗的金属底 + 饱和发光的消息（亮位强，暗位很弱，位间隙更弱）；发光进辉光遮罩"""
+    m = mat(name, (0.40, 0.21, 0.03), 1.0, 0.3, rough_tex=ROUGH, rough_scale=0.08)
     b = m.node_tree.nodes['Principled BSDF']; L = m.node_tree.links
     lvl, T = pattern_nodes(m, ell_node(m, P0, d, l0))
     b.inputs['Emission Color'].default_value = (*GOLD, 1)
-    mul = m.node_tree.nodes.new('ShaderNodeMath'); mul.operation = 'MULTIPLY'; mul.inputs[1].default_value = emis; L.new(lvl, mul.inputs[0]); L.new(mul.outputs[0], b.inputs['Emission Strength'])
+    pw = m.node_tree.nodes.new('ShaderNodeMath'); pw.operation = 'POWER'; pw.inputs[1].default_value = 3.0; L.new(lvl, pw.inputs[0])
+    mul = m.node_tree.nodes.new('ShaderNodeMath'); mul.operation = 'MULTIPLY'; mul.inputs[1].default_value = emis; L.new(pw.outputs[0], mul.inputs[0]); L.new(mul.outputs[0], b.inputs['Emission Strength'])
+    ao = m.node_tree.nodes.new('ShaderNodeOutputAOV'); ao.aov_name = 'lightmask'; ao.inputs['Value'].default_value = 1.0
     return m
 def mat_light(name, mode, emis=5.0, y_ell=None, soft=False):
     """光（青）：mode 'steady' 满亮；'msg' 全程带消息（y>Y_EXIT 才有图样，之前满亮）；'core' 同 msg × 耦合系数 cpl"""
@@ -288,7 +290,7 @@ for s in (-1, 1):
     # 驱动芯片（黑）+ 焊线 + 走线
     dx0, dx1 = sorted((s * 15, s * 21)); drv = box(f'driver_{s}', dx0, dx1, -11, -3, 1.0, 3.2, M['ic'], bev=0.12)
     P_start = Vector((s * 15.3, -7.0, 3.2)); P_end = Vector((s * 1.9, -1.0, 1.5)); d = (P_end - P_start); Ld = d.length; dn = d.normalized()
-    mw = mat_gold(f'gold_wire_{s}', P_start, dn, -1.0 - Ld, emis=2.6)
+    mw = mat_gold(f'gold_wire_{s}', P_start, dn, -1.0 - Ld, emis=9.0)
     arc = [P_start.lerp(P_end, k / 14) + Vector((0, 0, 2.4 * math.sin(math.pi * k / 14))) for k in range(15)]
     cu = bpy.data.curves.new(f'bond_{s}', 'CURVE'); cu.dimensions = '3D'; cu.bevel_depth = 0.14; cu.bevel_resolution = 3
     sp_ = cu.splines.new('POLY'); sp_.points.add(len(arc) - 1)
@@ -296,7 +298,7 @@ for s in (-1, 1):
     bo = bpy.data.objects.new(f'bond_{s}', cu); bo.data.materials.append(mw); link(bo)
     # 走线：从 x=±45 流向驱动器，ℓ 在 |x|=14 处为 -1.0-Ld-6
     l14 = -1.0 - Ld - 6.0 - 0.0
-    mt = mat_gold(f'gold_trace_{s}', Vector((s * 21, -7, 1)), Vector((-s, 0, 0)), l14, emis=2.2)
+    mt = mat_gold(f'gold_trace_{s}', Vector((s * 21, -7, 1)), Vector((-s, 0, 0)), l14, emis=9.0)
     box(f'trace_{s}', min(s * 21, s * 46), max(s * 21, s * 46), -7.4, -6.6, 1.0, 1.1, mt)
 # 光纤阵列：V 形槽块抵着芯片边缘，5 根光纤，中间那根带光（x 由 fiber_x 控制）
 FIB_R, CORE_R = 5.0, 1.0; PITCH = 14.0; FIB_Y1 = 350.0
