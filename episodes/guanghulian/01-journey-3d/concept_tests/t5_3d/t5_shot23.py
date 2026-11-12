@@ -18,7 +18,7 @@ W, H = [int(v) for v in opt('--res', '540x960').split('x')]
 SAMP = int(opt('--samples', '64')); GPU = '--gpu' in argv
 TIMES = [float(v) for v in opt('--times').split(',')] if opt('--times') else None
 FR = opt('--frames'); FRANGE = tuple(int(v) for v in FR.split('-')) if FR else None
-THREADS = int(opt('--threads', '2'))
+THREADS = int(opt('--threads', '2')); ANCH_ONLY = '--anchors' in argv       # --anchors：只写 anchors.json，不渲染（合成用）
 FPS = 30; DUR = 12.5; NF = round(DUR * FPS); F = lambda sec: 1 + round(sec * FPS)
 HERE = os.path.dirname(os.path.abspath(__file__))
 LAYOUT = os.path.join(HERE, 'assets', 't5_layout.png')
@@ -460,6 +460,7 @@ else:
     a, b = FRANGE if FRANGE else (1, NF); todo = [(f, f'f{f:04d}') for f in range(a, b + 1)]
 for f in range(1, NF + 1): anch[f] = anchors_for(f)
 json.dump({'fps': FPS, 'nf': NF, 'w': W, 'h': H, 'frames': anch}, open(os.path.join(OUT, 'anchors.json'), 'w'))
+if ANCH_ONLY: print('ANCHORS_DONE', os.path.join(OUT, 'anchors.json')); sys.exit(0)
 for f, name in todo:
     path = os.path.join(OUT, name + '.png')
     if os.path.exists(path) and not TIMES: continue
