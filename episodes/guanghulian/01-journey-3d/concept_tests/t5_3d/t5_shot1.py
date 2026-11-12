@@ -101,7 +101,7 @@ C.animate_camera(cam, tgt, cam_fn, shot)
 
 # ---------- --anchors：只出屏幕坐标，不渲染（合成用） ----------
 if args.anchors:
-    S.write_anchors(shot, cam, {'gpu_a': G_A, 'gpu_b': G_B, 'module_a': mod['W']((LANE_X, SD + 0.02, PORT_Z))}, args.out)
+    S.write_anchors(shot, cam, {'gpu_a': G_A, 'gpu_b': G_B, 'module_a': mod['W']((LANE_X, SD + 0.02, PORT_Z))}, args.out, args.res)
     sys.exit(0)
 
 # ---------- 渲染 ----------

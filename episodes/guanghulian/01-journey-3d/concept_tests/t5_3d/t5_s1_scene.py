@@ -279,12 +279,12 @@ def setup_render(args, exposure=0.0, look='AgX - Punchy'):
     return dev
 
 
-def write_anchors(shot, cam, pts, out, W=540, H=960):
-    """--anchors：只算每帧屏幕坐标（像素，左上为原点，z>0 表示在相机前方），写 <out>/anchors.json，不渲染。pts: {名字: 世界坐标}"""
+def write_anchors(shot, cam, pts, out, res='540x960'):
+    """--anchors：只算每帧屏幕坐标（像素，左上为原点，第三个数 z>0 表示在相机前方，是到相机的距离），写 <out>/anchors.json，不渲染。pts: {名字: 世界坐标}"""
     from bpy_extras.object_utils import world_to_camera_view
     import json
-    sc = bpy.context.scene; W, H = [int(v) for v in (sc.render.resolution_x, sc.render.resolution_y)]
-    sc.render.resolution_percentage = 100; frames = {}
+    sc = bpy.context.scene; W, H = [int(v) for v in res.split('x')]
+    sc.render.resolution_x, sc.render.resolution_y = W, H; sc.render.resolution_percentage = 100; frames = {}
     for f in range(shot.f0, shot.f1 + 1):
         sc.frame_set(f); bpy.context.view_layer.update(); fr = {}
         for k, p in pts.items():
