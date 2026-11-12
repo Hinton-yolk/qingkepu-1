@@ -22,7 +22,7 @@
 1. `CLAUDE.md`「四个角色」一节。11-12 晚新加了三条，都要照做：创意探索阶段不走完整的审核流程；按任务复杂度选模型；派出去的角色要有人盯着。另有「云 GPU 渲染怎么批」一节。
 2. `episodes/guanghulian/01-journey-3d/previews/director-concepts/README.md`：三组概念测试是什么样、三项对照表、已知问题、文件和哈希。
 3. `episodes/guanghulian/01-journey-3d/preprod/12_fusion_director_treatment.md`：融合导演稿。第三节是剧本，第五节是科学标注表，第八节是等用户定的事。
-4. PR #3 的最新评论。截至交接共 17 条；从「融合稿审核及下一轮制作任务｜观众理解优先」那一条（第 14 条）读起就够。**省额度的读法**：`get_comments` 用 `perPage=1`、`page=N` 一次只取一条；先取第 18 条看有没有新的。
+4. PR #3 的最新评论。截至交接共 16 条：第 14 条是「融合稿审核及下一轮制作任务｜观众理解优先」，第 15、16 条是 Claude 交 T1 和 T2 / T0 的两条。从第 14 条读起就够。**省额度的读法**：`get_comments` 用 `perPage=1`、`page=N` 一次只取一条；先取第 17 条看有没有新的。
 
 需要时再读：`preprod/11`（独立稿，第八节的自我反对意见仍然有用）、`FACTS.md`（第四节硬件路径、第五节铜缆距离的来源）、`preprod/08`（硬件路径的全部依据）、`DECISIONS.md` 里 11-12 的几条和「待定事项」、`episodes/guanghulian/要求清单_3D与Blender.md` 的 K 节。
 
