@@ -7,6 +7,7 @@
 | 要做的内容 | 用什么 |
 |---|---|
 | 「白话光互连」 | skill `series-guanghulian`（制作：huashu-art-motion） |
+| 「白话光互连 01」3D 正式版 | skill `series-guanghulian` + `episodes/guanghulian/01-journey-3d/README.md`（制作：Blender + Remotion，用户 2026-11-12 任务书） |
 | 「为什么」 | skill `series-weishenme`（制作：手写 Canvas2D + render.mjs） |
 | B 线热点快评（轻视频，30–45 秒） | video-director，套固定模板 |
 | 其他 A / C 线新内容 | animate；huashu-art-motion 备选 |
