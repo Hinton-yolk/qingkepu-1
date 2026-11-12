@@ -89,6 +89,7 @@ blender -b --python-exit-code 1 --python blender/s02_gpu_package.py -- <输出�
 - 淡出到 0 以后关渲染（s01 的 `fade_out()`）；`transparent_max_bounces` 默认调高。
 
 ## 交接
+- 2026-11-12 下午（三）：用户在 PR #3 确认用方案 A（Google Drive 独立文件夹，只限低清审核预览，「知道链接可查看」）。把现有预演转码成 2 829 521 字节的审核版（没有重新渲染），用 Drive 连接器传进「kepu-studio_审核预览」；Claude 侧不登录下载、哈希、抽帧都通过；直链和 Manifest 已回复到 PR #3。**等 ChatGPT 独立验收，验收前不写长期规范。** 没有改任何共享权限。记录在 `preprod/07` 第八节；直链不进仓库。
 - 2026-11-12 下午（二）：PR #3 评论要求每个视频节点给出 ChatGPT 能直接下载的 MP4。实测：仓库私有，PR 附件不登录是 403，仓库文件是 404；用 Drive 连接器上传 5.36 MB 的预演失败（每次调用约 3.1 MB 上限）。用户决定先不上传，只要方案对比：见 `preprod/07_预览视频交接方案与实测.md`。**现在是阻塞状态，没有任何 ChatGPT 可直接下载的视频地址**；长期规范等方案选定并由 ChatGPT 实测通过后再写。用户 Drive 的共享文件夹里留了一个空的子文件夹「kepu-studio_审核预览」。
 - 2026-11-12 下午：按 Issue #2 做阶段 A 交接：重跑检查并记录（`preprod/06_阶段A交接与检查记录.md`），预演抽帧进仓库（`previews/S01-S03_animatic_v0/`），开 Draft PR（doityj335-prog/kepu-studio#3，https://github.com/doityj335-prog/kepu-studio/pull/3，用户确认前不合并）。外部审阅（ChatGPT）通过 GitHub 进行；不订阅 PR 动态、不建触发器；关键帧审核前不启动付费渲染。Issue 列的七条优先修正（S02 灰屏、23 秒接缝、S03 结尾、资产可信度、一致性和可读性等）**都还没开始改**。
 - 2026-11-12：S01–S03 低清动态预演（0–39 秒，无声，Blender 画面 270×480、10 fps）已出。审核（Sonnet）：发给用户「通过」，条件是说明里写明粗模预演和已知问题；监督：没有硬性违反。观众（Codex）没看过。预演文件不进仓库。
