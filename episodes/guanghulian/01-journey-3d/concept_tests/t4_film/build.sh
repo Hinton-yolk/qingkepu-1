@@ -4,7 +4,7 @@
 # 并行：每个版本拆成 4 个 Chromium 进程；试听版只重渲「字幕条正在显示」的帧，其余帧复制自静音版。
 set -euo pipefail
 OUT="$1"; HERE="$(cd "$(dirname "$0")" && pwd)"; mkdir -p "$OUT"
-N=930; K=4; T0=$(date +%s)
+N=990; K=4; T0=$(date +%s)
 rm -rf "$OUT/fr_silent" "$OUT/fr_sound"; mkdir -p "$OUT/fr_silent" "$OUT/fr_sound"
 for w in $(seq 0 $((K-1))); do node "$HERE/render_par.cjs" "$HERE/t4.html" "$OUT/fr_silent" '{"captions":false}' $N $w $K & done; wait
 T1=$(date +%s); echo "静音版 $N 帧渲染用时 $((T1-T0)) 秒"

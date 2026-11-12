@@ -35,7 +35,8 @@ def buzz(f, amp, tau, L):
 
 def main():
     ev = json.load(open(sys.argv[1])); out = sys.argv[2]
-    DUR = max(e['t'] for e in ev) + 1.1
+    endev = [e['t'] for e in ev if e['kind'] == 'end']
+    DUR = endev[0] if endev else max(e['t'] for e in ev) + 1.1
     buf = np.zeros(int(DUR * SR) + 3 * SR)
     def add(t0, s):
         i = int(round(t0 * SR)); buf[i:i + len(s)] += s
@@ -55,7 +56,7 @@ def main():
     pad = (np.sin(2 * np.pi * 392 * t) + 0.45 * np.sin(2 * np.pi * 784 * t) + 0.2 * np.sin(2 * np.pi * 1176 * t))
     buf += 0.13 * pad * smooth((t - padOn) / 0.3) * smooth((padOff + 0.6 - t) / 0.5) * (1 - 0.8 * duck)
     # D / E：轻的和弦底
-    end = max(e['t'] for e in ev)
+    end = DUR - 0.9
     chordpad = sum(np.sin(2 * np.pi * f * t) * a for f, a in [(131, 1), (196, 0.7), (262, 0.5), (330, 0.3)])
     buf += 0.035 * chordpad * smooth((t - firstD) / 0.8) * smooth((end + 0.9 - t) / 0.6)
     for e in ev:
