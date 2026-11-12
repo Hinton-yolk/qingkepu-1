@@ -1,0 +1,534 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>T4 整合概念短片</title>
+<style>
+  html, body { margin: 0; background: #000; }
+  canvas { display: block; width: 540px; height: 960px; }
+</style>
+<canvas id="c" width="540" height="960"></canvas>
+<script>
+// T4 整合概念短片（约 31 秒）。二维示意，不是成片画面。时间、文字、颜色以 导演分镜_T4.md 为准。
+// window.renderFrame(t, {captions:true|false})  画出第 t 秒的一帧
+// window.t4Events()                             全部声音事件 [{t, kind, ...}]，时间由画面用的同一套函数算出
+// window.t4CapActive(t)                         此刻是否有字幕条（给并行渲染挑帧用）
+// 段：A 0–4 开场；B 4–11 铜；C 11–19.5 电控制光；D 19.5–26.5 光；E 26.5–31 抵达 + 回扣
+const W = 540, H = 960;
+const FONT = '"WenQuanYi Zen Hei", "Noto Sans CJK SC", sans-serif';
+const CYAN = [86, 232, 240], GOLD = [255, 190, 70], CORAL = [255, 122, 107];
+const PATTERN = [1, 1, 0, 1, 0, 0, 1, 0];     // 亮亮暗亮暗暗亮暗
+const DARK = 0.28;                            // 暗不是全黑
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const smooth = x => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+const lerp = (a, b, k) => a + (b - a) * k;
+const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${clamp(a, 0, 1)})`;
+const mix = (c, k) => c.map(v => Math.round(v * clamp(k, 0, 1)));
+const mod = (n, m) => ((n % m) + m) % m;
+
+// ---------- 走廊（B、D 共用；A 的结尾、E 的开头也落在它上面）----------
+const U_B0 = 4.0, U_D0 = 19.7;      // 走廊本地时间 u = t - U0。B 的 u=0.6 是 4.6 秒，D 的 u=0.6 是 20.3 秒
+const U_S = 0.6;                    // 第一位发出的时刻（本地）
+const BITS = 22, FLOW = 0.28;       // 整条路 22 位长；每秒走全程的 0.28
+const BF = BITS * FLOW;             // 每秒发出的位数
+const X0 = 270, Y_NEAR = 650, Y_FAR = 185, K = 1.6, CAM_Y = 320;
+const sc = d => 1 / (1 + K * d);
+const yOf = d => Y_NEAR - (Y_NEAR - Y_FAR) * (1 - sc(d)) / (1 - sc(1));
+const bandW = d => 28 + 62 * (sc(d) - sc(1)) / (1 - sc(1));
+// 同一个相机函数：B 和 D 都用它（唯一的一套）
+const camZ = u => 1 + 0.2 * smooth((u - 0.6) / 4.6) + 0.006 * Math.max(0, u);
+const T_PANEL = 4.6;                             // 「收到」面板开始出现（本地）
+const cellT = i => 4.9 + 0.07 * i;               // 收到的第 i 格点亮（本地）
+const T_MARK = 5.45;                             // 结果标记出现（本地）
+const WRONG = [2, 5];                            // 铜线：这两格本该暗，却认成了亮
+const T_B_EXIT = 6.4;                            // B：面板开始淡出（本地，即 10.4 秒）
+const T_D_EXIT = 26.5;                           // D：面板开始缩回芯片（绝对）
+
+// 位置 q（单位：位）上的图样值：emission 编号 m = floor((u-U_S)*BF - q)，m<0（还没发到那里）用 pre
+function bitAt(d, u, bw, pre) {
+  let s = 0; const n = 9;
+  for (let i = 0; i < n; i++) {
+    const q = d * BITS + bw * ((i / (n - 1)) * 2 - 1);
+    const m = Math.floor((u - U_S) * BF - q);
+    s += m < 0 ? pre : PATTERN[m % 8];
+  }
+  return s / n;
+}
+const bwCopper = d => 0.03 + 2.0 * Math.pow(d, 1.3);                  // 铜：越远边越虚（单位：位）
+const contrastCopper = d => Math.exp(-4.5 * Math.pow(d, 1.25));
+function levelCopper(d, u) {
+  const b = bitAt(d, u, bwCopper(d), 0.4);
+  return (0.5 + (b - 0.5) * contrastCopper(d)) * (1 - 0.35 * d);
+}
+function levelLight(d, u) {
+  const ripple = 1 - 0.10 * (0.5 + 0.5 * Math.sin(d * BITS * 0.9 - 5 * u));
+  return bitAt(d, u, 0.03, ripple) * (1 - 0.2 * d);                    // 边一直分明，远处约 80%
+}
+const focusD = u => 0.15 + 0.75 * smooth((u - 0.6) / 4.6);              // 声音「虚」的程度和这个位置的画面虚同一个函数
+const smearAt = u => clamp(bwCopper(focusD(u)) / bwCopper(0.9), 0, 1);
+
+function label(ctx, text, x, y, align = 'left', size = 22, alpha = 0.92) {
+  if (alpha <= 0.01) return;
+  ctx.font = `${size}px ${FONT}`; ctx.textAlign = align; ctx.textBaseline = 'middle';
+  ctx.fillStyle = `rgba(4,16,24,${0.62 * alpha})`;
+  const w = ctx.measureText(text).width, pad = 7;
+  const x0 = align === 'left' ? x - pad : align === 'right' ? x - w - pad : x - w / 2 - pad;
+  ctx.beginPath(); ctx.roundRect(x0, y - size * 0.72, w + pad * 2, size * 1.44, 6); ctx.fill();
+  ctx.fillStyle = `rgba(232,244,248,${alpha})`; ctx.fillText(text, x, y + 1);
+}
+function caption(ctx, text, alpha) {
+  if (alpha <= 0) return;
+  ctx.font = `34px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const lines = text.split('\n'), lh = 46, y0 = 922 - (lines.length - 1) * lh / 2;
+  const w = Math.max(...lines.map(l => ctx.measureText(l).width));
+  ctx.fillStyle = `rgba(6,18,26,${0.84 * alpha})`;
+  ctx.beginPath(); ctx.roundRect(W / 2 - w / 2 - 18, y0 - 30, w + 36, lines.length * lh + 14, 12); ctx.fill();
+  ctx.fillStyle = `rgba(255,250,235,${alpha})`;
+  lines.forEach((l, i) => ctx.fillText(l, W / 2, y0 + i * lh));
+}
+const CAPS = [
+  [4.3, 8.4, '如果还走铜线：\n路一远，电信号越走越糊'], [8.6, 10.6, '到了对面，认错了'],
+  [11.1, 13.0, '换个办法：\n先有一束稳稳的光'], [13.2, 16.9, '电信号一到\n出来的光就暗一下'], [17.1, 19.4, '电没有变成光：\n是电在控制光'],
+  [19.8, 23.8, '换成光，走同一条路'], [24.3, 26.4, '到了对面，还认得出'],
+  [26.7, 28.4, '消息送到了'],
+];
+const capAlpha = (t, a, b) => Math.min(smooth((t - a) / 0.2), smooth((b - t) / 0.2));
+window.t4CapActive = t => CAPS.some(([a, b]) => t > a && t < b);
+
+function chipDraw(ctx, cx, y0, w, h, glow) {
+  if (glow > 0.01) {
+    const g = ctx.createRadialGradient(cx, y0 + h / 2, 4, cx, y0 + h / 2, 110);
+    g.addColorStop(0, rgba(CYAN, 0.65 * glow)); g.addColorStop(1, rgba(CYAN, 0));
+    ctx.fillStyle = g; ctx.fillRect(cx - 120, y0 - 100, 240, 260);
+  }
+  ctx.fillStyle = glow > 0.01 ? `rgb(${Math.round(22 + 40 * glow)},${Math.round(50 + 90 * glow)},${Math.round(64 + 90 * glow)})` : '#16323f';
+  ctx.strokeStyle = glow > 0.01 ? rgba([200, 250, 255], 0.55 + 0.4 * glow) : 'rgba(150,210,230,0.6)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(cx - w / 2, y0, w, h, 6); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = 'rgba(150,210,230,0.28)';
+  for (let i = 0; i < 4; i++) ctx.fillRect(cx - w / 2 + 8 + i * (w - 16) / 4, y0 - 4, (w - 16) / 4 - 6, 4);
+  for (let i = 0; i < 4; i++) ctx.fillRect(cx - w / 2 + 8 + i * (w - 16) / 4, y0 + h, (w - 16) / 4 - 6, 4);
+}
+
+// 走廊场景。o: {aCop, aLight, rowA, rowCol, ez, ecx, ecy, chipFlash, labA, row}
+// 返回 世界坐标→屏幕坐标 的函数
+function corridor(ctx, u, o) {
+  ctx.save();
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#103646'); g.addColorStop(0.55, '#0c2a3a'); g.addColorStop(1, '#0a2030');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const ez = o.ez || 1, ecx = o.ecx || 270, ecy = o.ecy || 420;
+  ctx.translate(ecx, ecy); ctx.scale(ez, ez); ctx.translate(-ecx, -ecy);
+  const z = camZ(u);
+  ctx.translate(W / 2, CAM_Y); ctx.scale(z, z); ctx.translate(-W / 2, -CAM_Y);
+  const M = ctx.getTransform();
+  // 路两旁的机柜轮廓
+  for (const d of [0.08, 0.3, 0.55, 0.8]) {
+    const s = sc(d), y = yOf(d), w = 70 * s, h = 150 * s;
+    for (const side of [-1, 1]) {
+      const cx = X0 + side * (112 * s + w / 2);
+      ctx.fillStyle = 'rgba(22,62,80,0.55)'; ctx.strokeStyle = 'rgba(150,210,230,0.28)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.roundRect(cx - w / 2, y - h, w, h, 3); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = 'rgba(150,210,230,0.14)';
+      for (let k = 1; k < 5; k++) { ctx.beginPath(); ctx.moveTo(cx - w / 2 + 3, y - h + h * k / 5); ctx.lineTo(cx + w / 2 - 3, y - h + h * k / 5); ctx.stroke(); }
+    }
+  }
+  // 路：切成很多横向小片，亮度由「这个位置此刻的图样」决定
+  const N = 300;
+  const trap = (d0, d1, wf) => {
+    const y0 = yOf(d0), y1 = yOf(Math.min(d1, 1)), w0 = bandW(d0) * wf / 2, w1 = bandW(Math.min(d1, 1)) * wf / 2;
+    ctx.beginPath(); ctx.moveTo(X0 - w0, y0); ctx.lineTo(X0 + w0, y0); ctx.lineTo(X0 + w1, y1 - 0.6); ctx.lineTo(X0 - w1, y1 - 0.6); ctx.closePath(); ctx.fill();
+  };
+  if (o.aLight > 0.01) {
+    ctx.globalAlpha = o.aLight;
+    ctx.fillStyle = 'rgba(170,215,230,0.10)'; trap(0, 1, 1);                      // 很淡的玻璃丝
+    ctx.strokeStyle = 'rgba(190,230,240,0.24)'; ctx.lineWidth = 1.5;
+    for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(X0 + sd * bandW(0) / 2, yOf(0)); ctx.lineTo(X0 + sd * bandW(1) / 2, yOf(1)); ctx.stroke(); }
+    for (let i = 0; i < N; i++) {
+      const d0 = i / N, d1 = (i + 1.3) / N, dm = (d0 + d1) / 2;
+      const k = DARK + (1 - DARK) * levelLight(dm, u);
+      ctx.fillStyle = rgba(CYAN, 0.26 * k); trap(d0, d1, 0.62);                    // 光约束在芯里：很窄的光晕
+      const col = [0, 1, 2].map(j => Math.round((CYAN[j] * 0.7 + 255 * 0.3 * 0.7) * k));
+      ctx.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`; trap(d0, d1, 0.30);
+    }
+    ctx.globalAlpha = 1;
+  }
+  if (o.aCop > 0.01) {
+    ctx.globalAlpha = o.aCop;
+    ctx.fillStyle = 'rgba(110,80,35,0.6)'; trap(0, 1, 1);
+    for (let i = 0; i < N; i++) {
+      const d0 = i / N, d1 = (i + 1.3) / N, dm = (d0 + d1) / 2;
+      const k = DARK + (1 - DARK) * levelCopper(dm, u), col = mix(GOLD, k);
+      ctx.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`; trap(d0, d1, 0.94);
+    }
+    ctx.globalAlpha = 1;
+  }
+  // 两颗芯片
+  chipDraw(ctx, X0, 124, 100, 50, o.chipFlash || 0);
+  chipDraw(ctx, X0, 706, 150, 44, 0);
+  // 下面「发出」的八格（在 GPU A 上方）
+  if (o.rowA > 0.01) {
+    const colr = o.rowCol, cur = u >= U_S ? Math.floor((u - U_S) * BF) % 8 : -1;
+    ctx.globalAlpha = o.rowA;
+    for (let i = 0; i < 8; i++) {
+      const x = X0 + (i - 3.5) * 34, b = PATTERN[i];
+      ctx.fillStyle = rgba(colr, 0.18); ctx.beginPath(); ctx.roundRect(x - 17, 661, 34, 36, 5); ctx.fill();
+      const c = mix(colr, DARK + (1 - DARK) * b);
+      ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`; ctx.beginPath(); ctx.roundRect(x - 14, 664, 28, 30, 4); ctx.fill();
+      if (i === cur) { ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(x - 16, 662, 32, 34, 5); ctx.stroke(); }
+    }
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+  return (x, y) => [M.a * x + M.c * y + M.e, M.b * x + M.d * y + M.f];
+}
+
+// ---------- 画 ✓ ✗ ----------
+function drawCross(ctx, cx, cy, s, col) {
+  ctx.strokeStyle = col; ctx.lineWidth = s * 0.22; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(cx - s / 2, cy - s / 2); ctx.lineTo(cx + s / 2, cy + s / 2); ctx.moveTo(cx + s / 2, cy - s / 2); ctx.lineTo(cx - s / 2, cy + s / 2); ctx.stroke();
+}
+function drawCheck(ctx, cx, cy, s, col) {
+  ctx.strokeStyle = col; ctx.lineWidth = s * 0.22; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(cx - s / 2, cy + s * 0.02); ctx.lineTo(cx - s * 0.12, cy + s * 0.4); ctx.lineTo(cx + s / 2, cy - s * 0.4); ctx.stroke();
+}
+
+// ---------- 「收到」面板（B、D 完全同一个函数）----------
+// a：出现程度 0..1（从 GPU B 处放大到画面上部正中）；kind：'copper' | 'light'
+function panel(ctx, u, kind, a) {
+  if (a <= 0.01) return;
+  const cx = 270, cy = lerp(150, 246, a), s = 0.2 + 0.8 * a;
+  ctx.save();
+  ctx.globalAlpha = clamp(a * 1.5, 0, 1);
+  ctx.translate(cx, cy); ctx.scale(s, s); ctx.translate(-270, -246);
+  ctx.fillStyle = 'rgba(5,16,24,0.88)'; ctx.strokeStyle = 'rgba(180,225,240,0.45)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(78, 124, 384, 246, 14); ctx.fill(); ctx.stroke();
+  const colr = kind === 'copper' ? GOLD : CYAN;
+  ctx.font = `18px ${FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(232,244,248,0.92)'; ctx.fillText('发出（参考）', 90, 146); ctx.fillText('收到', 90, 222);
+  for (let i = 0; i < 8; i++) {
+    const x = 90 + 45 * i, b = PATTERN[i];
+    const cr = mix(colr, DARK + (1 - DARK) * b);                       // 参考行：发出的
+    ctx.fillStyle = `rgb(${cr[0]},${cr[1]},${cr[2]})`; ctx.beginPath(); ctx.roundRect(x, 160, 40, 34, 4); ctx.fill();
+    ctx.fillStyle = rgba(colr, 0.16); ctx.beginPath(); ctx.roundRect(x, 236, 40, 52, 4); ctx.fill();   // 收到的底座
+    const lit = smooth((u - cellT(i)) / 0.1);
+    if (lit > 0.01) {
+      let c;
+      if (kind === 'copper') {
+        if (WRONG.includes(i)) { const br = 0.78 + 0.22 * Math.sin((u - cellT(i)) * 8); c = mix(CORAL, br); }
+        else c = mix(GOLD, 0.42 + 0.10 * Math.sin(u * 7 + i * 1.3));       // 糊：差不多的暗金色
+      } else c = mix(CYAN, (DARK + (1 - DARK) * b) * 0.92);                 // 和发出的一样（略暗，有一点损耗）
+      ctx.globalAlpha = clamp(a * 1.5, 0, 1) * lit;
+      ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`; ctx.beginPath(); ctx.roundRect(x, 236, 40, 52, 4); ctx.fill();
+      ctx.globalAlpha = clamp(a * 1.5, 0, 1);
+    }
+  }
+  const mk = smooth((u - T_MARK) / 0.25);
+  if (mk > 0.01) {
+    ctx.globalAlpha = clamp(a * 1.5, 0, 1) * mk;
+    const txt = kind === 'copper' ? '认错了' : '和发出的一样';
+    ctx.font = `bold 36px ${FONT}`; ctx.textAlign = 'left';
+    const w = ctx.measureText(txt).width, total = 40 + 12 + w, x = 270 - total / 2;
+    const br = 1 + 0.06 * Math.sin((u - T_MARK) * 5);
+    if (kind === 'copper') { drawCross(ctx, x + 20, 330, 26 * br, rgba(CORAL, 1)); ctx.fillStyle = rgba(CORAL, 1); }
+    else { drawCheck(ctx, x + 20, 330, 28 * br, 'rgb(140,250,255)'); ctx.fillStyle = 'rgb(225,255,255)'; }
+    ctx.lineJoin = 'round'; ctx.fillText(txt, x + 52, 331);
+  }
+  ctx.restore();
+}
+const panelA = (t, kind) => {
+  const u = kind === 'copper' ? t - U_B0 : t - U_D0, ap = smooth((u - T_PANEL) / 0.7);
+  return kind === 'copper' ? ap * (1 - smooth((u - T_B_EXIT) / 0.6)) : ap * (1 - smooth((t - T_D_EXIT) / 1.8));
+};
+
+// ---------- 大特写：玻璃丝（A 的开头和 E 的结尾共用）----------
+const AXIS = -0.45;                       // 玻璃丝倾斜角（流向右上）
+const CAB_W = 70, FIB_W = 9.3, CORE_W = 0.9, EDGE = 3.5, CP = 6.5, SA = 26;
+function glassFiber(ctx, v, alpha, L) {
+  const g = ctx.createLinearGradient(0, v - FIB_W / 2, 0, v + FIB_W / 2);
+  g.addColorStop(0, 'rgba(200,240,250,0.62)'); g.addColorStop(0.2, 'rgba(160,215,230,0.22)');
+  g.addColorStop(0.5, 'rgba(120,190,215,0.10)'); g.addColorStop(0.8, 'rgba(160,215,230,0.22)'); g.addColorStop(1, 'rgba(200,240,250,0.62)');
+  ctx.globalAlpha = alpha; ctx.fillStyle = g; ctx.fillRect(-L, v - FIB_W / 2, 2 * L, FIB_W);
+  ctx.fillStyle = 'rgba(235,252,255,0.9)'; ctx.fillRect(-L, v - FIB_W / 2, 2 * L, 0.28); ctx.fillRect(-L, v + FIB_W / 2 - 0.28, 2 * L, 0.28);
+  ctx.globalAlpha = 1;
+}
+const zHigh = t => t < 10 ? 5 + Math.min(t, 2) : 5 + 0.16 * Math.max(0, t - 28.5);
+// p：0 = 缩到走廊那条线，1 = 大特写；返回屏幕映射
+function macro(ctx, t, p, alpha) {
+  if (alpha <= 0.004) return;
+  ctx.save(); ctx.globalAlpha = alpha;
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#123a4a'); g.addColorStop(0.55, '#0d2d3d'); g.addColorStop(1, '#0a2231');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const zh = zHigh(t), z = 0.14 * Math.pow(zh / 0.14, p);
+  const ang = lerp(-Math.PI / 2, AXIS, p), cx = 270, cy = lerp(420, 560, p);
+  ctx.translate(cx, cy); ctx.scale(z, z); ctx.rotate(ang);
+  const R = Math.min(1100 / z, 2600);
+  const XS = SA * t;
+  // 旁边的线缆：虚、略暗，只是背景
+  ctx.save(); ctx.filter = 'blur(5px)';
+  for (const v0 of [-200, -100, 100, 200]) {
+    ctx.fillStyle = '#cfc23a'; ctx.fillRect(-R, v0 - CAB_W / 2, 2 * R, CAB_W);
+    ctx.fillStyle = '#a69a20'; ctx.fillRect(-R, v0 + CAB_W / 2 - 14, 2 * R, 14);
+    ctx.strokeStyle = 'rgba(120,108,20,0.85)'; ctx.lineWidth = 1.5; ctx.strokeRect(-R, v0 - CAB_W / 2, 2 * R, CAB_W);
+  }
+  ctx.restore();
+  // 焦点线缆：外皮变没，里面是深青蓝，两侧只剩窄边
+  const cg = ctx.createLinearGradient(0, -CAB_W / 2, 0, CAB_W / 2);
+  cg.addColorStop(0, '#0b2a3b'); cg.addColorStop(0.5, '#10384b'); cg.addColorStop(1, '#0b2a3b');
+  ctx.fillStyle = cg; ctx.fillRect(-R, -CAB_W / 2, 2 * R, CAB_W);
+  ctx.save(); ctx.filter = 'blur(3px)';
+  glassFiber(ctx, -34, 0.5, R); glassFiber(ctx, 34, 0.5, R);
+  ctx.restore();
+  glassFiber(ctx, 0, 1, R);
+  for (const s of [-1, 1]) {
+    ctx.fillStyle = '#e2d63a'; ctx.fillRect(-R, s < 0 ? -CAB_W / 2 : CAB_W / 2 - EDGE, 2 * R, EDGE);
+    ctx.fillStyle = '#a69a20'; ctx.fillRect(-R, s < 0 ? -CAB_W / 2 + EDGE - 0.6 : CAB_W / 2 - EDGE, 2 * R, 0.6);
+  }
+  // 走光的芯：一段亮一段暗，往右上流；光约束在玻璃丝里
+  const kmin = Math.floor((-R - XS) / CP), kmax = Math.ceil((R - XS) / CP);
+  for (let k = kmin; k <= kmax; k++) {
+    const on = PATTERN[mod(k, 8)], u = XS + k * CP;
+    ctx.fillStyle = rgba(CYAN, on ? 0.45 : 0.10); ctx.fillRect(u, -0.95, CP, 1.9);
+    if (on) { ctx.fillStyle = rgba(CYAN, 0.22); ctx.fillRect(u, -1.6, CP, 3.2); }
+    ctx.fillStyle = on ? 'rgba(235,255,255,1)' : rgba(CYAN, 0.28); ctx.fillRect(u, -CORE_W / 2, CP, CORE_W);
+  }
+  const m = ctx.getTransform();
+  ctx.restore();
+  return (u, v) => [m.a * u + m.c * v + m.e, m.b * u + m.d * v + m.f];
+}
+function macroLabels(ctx, sp, t) {
+  const lab = (text, a, u, v, lead) => {
+    const al = smooth((t - a) / 0.25) * (1 - smooth((t - 2.6) / 0.4)); if (al <= 0.01) return;
+    const [x, y] = sp(u, v);
+    ctx.save(); ctx.globalAlpha = al;
+    if (lead) { const [x2, y2] = sp(u, 0); ctx.strokeStyle = 'rgba(235,250,255,0.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.stroke(); ctx.fillStyle = '#eaffff'; ctx.beginPath(); ctx.arc(x2, y2, 3.5, 0, 7); ctx.fill(); }
+    ctx.font = `28px ${FONT}`; const w = ctx.measureText(text).width;
+    label(ctx, text, clamp(x - w / 2, 14, W - w - 22), y, 'left', 28);
+    ctx.restore();
+  };
+  lab('玻璃丝', 0.7, -12, 30, false);
+  lab('光', 1.2, 20, -30, true);
+}
+
+// ---------- ★ 大字 ----------
+function bigLines(ctx, lines, sizes, yTop, alpha, dy = 0) {
+  if (alpha <= 0.01) return;
+  ctx.font = `bold ${Math.max(...sizes)}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  let wmax = 0; lines.forEach((l, i) => { ctx.font = `bold ${sizes[i]}px ${FONT}`; wmax = Math.max(wmax, ctx.measureText(l).width); });
+  const hs = sizes.map(s => s * 1.3), h = hs.reduce((a, b) => a + b, 0) + 22;
+  ctx.fillStyle = `rgba(5,16,24,${0.82 * alpha})`;
+  ctx.beginPath(); ctx.roundRect(W / 2 - wmax / 2 - 22, yTop + dy, wmax + 44, h, 14); ctx.fill();
+  let y = yTop + dy + 11;
+  lines.forEach((l, i) => {
+    ctx.font = `bold ${sizes[i]}px ${FONT}`; const yy = y + hs[i] / 2; y += hs[i];
+    ctx.lineJoin = 'round'; ctx.lineWidth = 6; ctx.strokeStyle = `rgba(5,16,24,${alpha})`; ctx.strokeText(l, W / 2, yy);
+    ctx.fillStyle = i === lines.length - 1 && sizes[i] >= 46 ? `rgba(255,250,235,${alpha})` : `rgba(210,236,244,${alpha})`; ctx.fillText(l, W / 2, yy);
+  });
+}
+
+// ---------- C：电控制光 ----------
+const XB = 270, Y_LASER = 800, Y_TOP = 40, YB0 = 690, YB1 = 330;
+const BX = XB - 96, BW = 192, BY = YB1 - 6, BH = YB0 - YB1 + 12;      // 调制器盒子
+const EL_X = BX + BW, EL_W = 26, EL_Y0 = 478, EL_Y1 = 562, YC = 520;  // 短电极片（盒子右侧中部）
+const PULSE_LEN = 46, HIT_DT = 0.25, SPD = (W - (EL_X + EL_W)) / HIT_DT;
+const VL = 400, DIMC = 0.2, RISE = 0.05;
+const fq = x => Math.round(x * 30) / 30;                              // 碰撞时刻取整到帧，让「同一帧」成立
+const PULSES = [];                                                    // {hit, dur, set}
+PATTERN.forEach((b, i) => { if (b) PULSES.push({ hit: fq(12.2 + 0.55 * i + HIT_DT), dur: 0.41, set: 1, i }); });
+PATTERN.forEach((b, i) => { if (b) PULSES.push({ hit: fq(17.0 + 0.30 * i + HIT_DT), dur: 0.22, set: 2, i }); });
+const gate = (tau, dur) => Math.max(0, smooth(tau / RISE) - smooth((tau - dur) / RISE));
+function dipAt(y, t) {            // 高度 y 处此刻「暗了多少」0..1；电极以下恒为 0
+  if (y > YC) return 0;
+  let g = 0; for (const p of PULSES) g = Math.max(g, gate(t - p.hit - (YC - y) / VL, p.dur));
+  return g;
+}
+window.cLightAt = (y, t) => 1 - (1 - DIMC) * dipAt(y, t);              // 给检查脚本用
+function beamSeg(ctx, x, y0, y1, inten) {
+  ctx.lineCap = 'round'; const k = Math.pow(inten, 1.4);
+  ctx.strokeStyle = rgba(CYAN, 0.12 * k); ctx.lineWidth = 24; ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke();
+  ctx.strokeStyle = rgba(CYAN, 0.30 * k); ctx.lineWidth = 14; ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke();
+  ctx.strokeStyle = rgba([205, 250, 255], 0.10 + 0.90 * k); ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y1); ctx.stroke();
+}
+function sceneC(ctx, t) {
+  ctx.save();
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#103646'); g.addColorStop(0.55, '#0c2a3a'); g.addColorStop(1, '#0a2030');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(140,200,220,0.07)'; ctx.lineWidth = 2;
+  for (const [x0, y0, x1, y1] of [[60, 0, 60, 960], [470, 120, 470, 960], [0, 250, 150, 250], [0, 700, 110, 700], [420, 860, 540, 860], [100, 120, 100, 300]]) { ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
+  // 通道本身
+  ctx.strokeStyle = 'rgba(120,170,190,0.22)'; ctx.lineWidth = 7; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(XB, Y_LASER); ctx.lineTo(XB, Y_TOP); ctx.stroke();
+  // 激光器
+  ctx.fillStyle = '#16323f'; ctx.strokeStyle = 'rgba(150,210,230,0.55)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(XB - 36, Y_LASER - 4, 72, 44, 6); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = rgba(CYAN, 0.9); ctx.fillRect(XB - 5, Y_LASER - 6, 10, 8);
+  // 调制器盒子（半透明，看得见里面的光）
+  ctx.fillStyle = 'rgba(20,62,80,0.55)'; ctx.beginPath(); ctx.roundRect(BX, BY, BW, BH, 14); ctx.fill();
+  // 光：一小段一小段，亮度看位置和时刻
+  for (let y = Y_LASER - 6; y > Y_TOP; y -= 6) beamSeg(ctx, XB, y, Math.max(y - 6, Y_TOP), 1 - (1 - DIMC) * dipAt(y - 3, t));
+  const FL = 56, off = ((VL * t) % FL + FL) % FL;
+  ctx.lineCap = 'round'; ctx.lineWidth = 3;
+  for (let y = Y_LASER - 10 - off; y > Y_TOP; y -= FL) {
+    ctx.strokeStyle = `rgba(255,255,255,${0.5 * Math.pow(1 - (1 - DIMC) * dipAt(y, t), 1.4)})`;
+    ctx.beginPath(); ctx.moveTo(XB, y); ctx.lineTo(XB, y - 12); ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(150,215,235,0.75)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.roundRect(BX, BY, BW, BH, 14); ctx.stroke();
+  // 电碰到电极片：这一帧起，电极片和盒子靠电极的一侧泛金色
+  let gh = 0; for (const p of PULSES) if (t >= p.hit) gh = Math.max(gh, Math.exp(-(t - p.hit) / 0.14));
+  if (gh > 0.02) {
+    const gg = ctx.createLinearGradient(BX + BW, 0, BX + BW - 90, 0);
+    gg.addColorStop(0, rgba(GOLD, 0.6 * gh)); gg.addColorStop(1, rgba(GOLD, 0));
+    ctx.fillStyle = gg; ctx.beginPath(); ctx.roundRect(BX, BY, BW, BH, 14); ctx.fill();
+  }
+  // 信号线（右侧水平接过来）和电极片
+  ctx.fillStyle = 'rgba(150,110,50,0.55)'; ctx.fillRect(EL_X + EL_W, YC - 6, W - EL_X - EL_W, 12);
+  for (const p of PULSES) {
+    const front = EL_X + EL_W + (p.hit - t) * SPD, a = Math.max(front, EL_X + EL_W), b = Math.min(front + PULSE_LEN, W);
+    if (b - a < 1) continue;
+    ctx.fillStyle = rgba(GOLD, 0.28); ctx.fillRect(a, YC - 12, b - a, 24);
+    ctx.fillStyle = rgba([255, 214, 120], 1); ctx.fillRect(a, YC - 6, b - a, 12);
+  }
+  ctx.fillStyle = `rgb(${Math.round(90 + 165 * gh)},${Math.round(68 + 120 * gh)},${Math.round(36 + 60 * gh)})`;
+  ctx.strokeStyle = rgba([255, 205, 110], 0.7 + 0.3 * gh); ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.rect(EL_X, EL_Y0, EL_W, EL_Y1 - EL_Y0); ctx.fill(); ctx.stroke();
+  // 第一个脉冲：「电到 → 光暗」
+  const h0 = PULSES[0].hit, mk = smooth((t - h0) / 0.1) * (1 - smooth((t - h0 - 0.65) / 0.15));
+  if (mk > 0.01) {
+    ctx.save(); ctx.globalAlpha = mk; ctx.strokeStyle = rgba([255, 214, 120], 1); ctx.fillStyle = rgba([255, 214, 120], 1); ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(EL_X + 13, EL_Y0 - 6); ctx.lineTo(EL_X + 13, 452); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(EL_X + 13, 440); ctx.lineTo(EL_X + 5, 454); ctx.lineTo(EL_X + 21, 454); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    label(ctx, '电到 → 光暗', EL_X + 26, 420, 'left', 21, mk);
+  }
+  // 标签
+  label(ctx, '激光器', XB + 48, Y_LASER + 18);
+  label(ctx, '电信号', W - 12, YC + 36, 'right', 22, smooth((t - 11.6) / 0.4));
+  label(ctx, '调制器', BX + 4, BY - 22, 'left', 22);
+  label(ctx, '光', XB - 22, Y_TOP + 40, 'right', 22);
+  label(ctx, '示意：调制器里实际是电改变了光的步调；暗不是全灭', 14, 872, 'left', 15, 0.9);
+  ctx.restore();
+}
+
+// ---------- 场景组合 ----------
+// 开场 / 结尾的缩放进度 p：0 = 走廊那条线，1 = 玻璃丝大特写
+const pOf = t => t < 2 ? 1 : t < 4 ? 1 - smooth((t - 2) / 2) : t < 28.5 ? 0 : smooth((t - 28.5) / 1.6);
+const uOf = t => t < U_D0 - 0.2 ? t - U_B0 : t - U_D0;
+
+function renderFrame(t, opt) {
+  const caps = !!opt.captions;
+  const ctx = document.getElementById('c').getContext('2d');
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.filter = 'none';
+  const p = pOf(t);
+  const ez = Math.pow(4, p);                       // 缩放转场时走廊额外推近
+  const macroA = smooth((p - 0.3) / 0.45);
+  let sp = null;                                   // 走廊的世界→屏幕映射（贴标签用）
+
+  if (t < U_B0 + 0.0001 + 0 && t < 4) {
+    // ===== A =====
+    if (macroA < 0.999) sp = corridor(ctx, t - U_B0, { aLight: 1, aCop: 0, rowA: 0, rowCol: GOLD, ez, ecx: 270, ecy: 420 });
+    const mp = macro(ctx, t, p, macroA);
+    if (mp) macroLabels(ctx, mp, t);
+    const ta = (t - 3.3) / 0.5;
+    if (sp && ta > 0) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      let [x, y] = sp(270, 752); label(ctx, 'GPU A', x, y + 12, 'center', 20, smooth(ta) * (1 - macroA));
+      [x, y] = sp(270, 120); label(ctx, 'GPU B', x, y - 4, 'center', 20, smooth(ta) * (1 - macroA));
+    }
+    const al = Math.min(0.75 + 0.25 * smooth(t / 0.3), 1 - smooth((t - 3.0) / 0.6));
+    bigLines(ctx, ['AI 芯片之间', '为什么靠光传话？'], [32, 54], 62, al, (1 - smooth(t / 0.3)) * 10);
+  } else if (t < 11.0 + 0.3) {
+    if (t < 11.0) {
+      // ===== B =====
+      const u = t - U_B0, ex = smooth((u - 6.4) / 0.6);
+      const o = { aLight: 1 - smooth(u / 0.6), aCop: smooth(u / 0.6), rowA: smooth((u + 0.1) / 0.5), rowCol: GOLD, ez: 1 + 1.1 * ex * ex, ecx: 270, ecy: 740 };
+      sp = corridor(ctx, u, o);
+      panel(ctx, u, 'copper', panelA(t, 'copper'));
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      let [x, y] = sp(270, 752); label(ctx, 'GPU A', x, y + 12, 'center', 20);
+      [x, y] = sp(270, 120); label(ctx, 'GPU B', x, y - 4, 'center', 20, 1 - smooth((u - 4.4) / 0.4) * (panelA(t, 'copper') > 0.3 ? 1 : 0));
+      const la = smooth((u - 0.1) / 0.3) * (1 - smooth((u - 6.0) / 0.4));
+      [x, y] = sp(222, 470); label(ctx, '假设：还走铜线', x, y, 'right', 22, la);
+      label(ctx, '示意：高速、不带中继芯片的铜线；不是突然断掉，是越来越糊', 14, 872, 'left', 15, smooth((u - 0.4) / 0.4) * (1 - smooth((u - 6.0) / 0.4)));
+      ctx.fillStyle = `rgba(4,12,18,${ex})`; ctx.fillRect(0, 0, W, H);
+    } else {
+      sceneC(ctx, t);
+      ctx.fillStyle = `rgba(4,12,18,${1 - smooth((t - 11.0) / 0.3)})`; ctx.fillRect(0, 0, W, H);
+    }
+  } else if (t < 19.5) {
+    // ===== C =====
+    sceneC(ctx, t);
+  } else {
+    // ===== D、E =====
+    const u = t - U_D0;
+    const whip = t < 20.3 ? smooth((t - 19.5) / 0.8) : 1;
+    const blur = t < 20.3 ? 7 * Math.sin(Math.PI * whip) : 0;
+    ctx.save();
+    if (blur > 0.3) ctx.filter = `blur(${blur}px)`;
+    ctx.translate(0, -H * (1 - whip));
+    const flash = t < 27.9 ? 0 : smooth((t - 27.9) / 0.35) * (1 - smooth((t - 28.5) / 0.7));
+    sp = corridor(ctx, u, { aLight: 1, aCop: 0, rowA: smooth((u + 0.1) / 0.5), rowCol: CYAN, ez, ecx: 270, ecy: 420, chipFlash: flash });
+    ctx.restore();
+    if (t < 20.3) {
+      ctx.save();
+      if (blur > 0.3) ctx.filter = `blur(${blur}px)`;
+      ctx.translate(0, H * whip); sceneC(ctx, t); ctx.restore();
+    }
+    ctx.filter = 'none';
+    const pa = panelA(t, 'light');
+    if (t >= 24) panel(ctx, u, 'light', pa);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const lab = 1 - macroA;
+    let [x, y] = sp(270, 752); label(ctx, 'GPU A', x, y + 12, 'center', 20, lab * smooth((t - 20.2) / 0.4));
+    [x, y] = sp(270, 120); label(ctx, 'GPU B', x, y - 4, 'center', 20, lab * (pa > 0.3 && t < 27 ? 0 : 1) * smooth((t - 20.2) / 0.4));
+    [x, y] = sp(222, 470); label(ctx, '换成光：同一条路', x, y, 'right', 22, lab * smooth((u - 0.2) / 0.3) * (1 - smooth((u - 6.0) / 0.4)));
+    [x, y] = sp(X0 + 60, 380); label(ctx, '光也有一点损耗', x, y, 'left', 22, lab * smooth((u - 1.4) / 0.4) * (1 - smooth((u - 5.0) / 0.4)));
+    if (t >= 28.5) { const mp = macro(ctx, t, p, macroA); }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // E 结尾大字
+    const ea = smooth((t - 29.35) / 0.35);
+    bigLines(ctx, ['路一远，电会糊', '光，还认得出'], [46, 54], 70, ea, (1 - ea) * 10);
+    label(ctx, '不是因为光更快', 270, 292, 'center', 26, smooth((t - 29.9) / 0.3));
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.filter = 'none'; ctx.globalAlpha = 1;
+  ctx.font = `15px ${FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = 'rgba(220,235,240,0.55)';
+  ctx.fillText('概念测试 T4 · 二维粗样 · 非成片 · 示意', 14, 12);
+  if (caps) for (const [a, b, text] of CAPS) caption(ctx, text, capAlpha(t, a, b));
+}
+window.renderFrame = renderFrame;
+
+// ---------- 声音事件：时间都由上面画面用的同一套常数和函数算出 ----------
+window.t4Events = function () {
+  const ev = [];
+  // A：玻璃丝里每一段亮光经过画面中心
+  for (let j = 0; ; j++) {
+    const t = (j + 0.5) * CP / SA; if (t > 2.9) break;
+    if (PATTERN[mod(-(j + 1), 8)]) ev.push({ t, kind: 'glass', amp: 0.8, seg: 'A' });
+  }
+  ev.push({ t: 2.0, kind: 'whoosh', dir: 'up', dur: 2.0 });
+  const corr = (seg, U0, kindLabel, tEnd) => {
+    for (let m = 0; ; m++) {
+      const t = U0 + U_S + m / BF; if (t > tEnd) break;
+      const b = PATTERN[m % 8];
+      ev.push({ t, kind: 'bit', seg, m, b, smear: seg === 'B' ? smearAt(t - U0) : 0 });
+    }
+    ev.push({ t: U0 + T_PANEL, kind: 'panel', seg });
+    for (let i = 0; i < 8; i++) ev.push({ t: U0 + cellT(i), kind: 'cell', seg, i, b: PATTERN[i], wrong: seg === 'B' && WRONG.includes(i) });
+    ev.push({ t: U0 + T_MARK, kind: 'verdict', seg, ok: seg === 'D' });
+  };
+  corr('B', U_B0, '', U_B0 + T_B_EXIT);
+  ev.push({ t: U_B0 + T_B_EXIT, kind: 'whoosh', dir: 'down', dur: 0.25 });
+  corr('D', U_D0, '', T_D_EXIT);
+  // C：电脉冲碰到电极片
+  ev.push({ t: 11.0, kind: 'padOn' });
+  for (const p of PULSES) ev.push({ t: p.hit, kind: 'zap', dur: p.dur, set: p.set, i: p.i });
+  ev.push({ t: PULSES[0].hit, kind: 'cue' });
+  ev.push({ t: 19.5, kind: 'whoosh', dir: 'up', dur: 0.8 });
+  ev.push({ t: 19.5, kind: 'padOff' });
+  // E
+  ev.push({ t: T_D_EXIT, kind: 'shrink', dur: 1.8 });
+  ev.push({ t: 27.9, kind: 'chip' });
+  ev.push({ t: 28.5, kind: 'whoosh', dir: 'down', dur: 1.6 });
+  ev.push({ t: 29.95, kind: 'glass', amp: 1.0, seg: 'E', final: true });
+  ev.sort((a, b) => a.t - b.t);
+  return ev;
+};
+</script>
