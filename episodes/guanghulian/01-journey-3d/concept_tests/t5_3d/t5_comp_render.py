@@ -42,10 +42,14 @@ class Source:
         return self.cache[k]
 
 def base_frame(n, S):
-    seg = TL.seg_of(n); f = n - TL.OFF[seg]; img = S[seg].get(f)
+    seg = TL.seg_of(n)
+    if seg == 'shot1':                                         # 剪掉暗段：前 4 帧与段后 4 帧交叉溶解（像一次快甩）
+        f, g = TL.shot1_src(n); img = S[seg].get(f)
+        if g: k = (n - TL.CUT_A + 1) / (TL.CUT_XF + 1.0); img = img * (1 - k) + S[seg].get(g) * k
+    else: img = S[seg].get(n - TL.OFF[seg])
     a, b = TL.SEGS['shot23']
     if a <= n < a + 6:                                           # 第 1 拍 → 第 2 拍：6 帧交叉溶解（第 1 拍末帧定格淡出，第 2 拍照常走，时间不错位）
-        k = (n - a + 1) / 7.0; img = S['shot1'].get(TL.SEGS['shot1'][1]) * (1 - k) + img * k
+        k = (n - a + 1) / 7.0; img = S['shot1'].get(TL.SHOT1_OLD) * (1 - k) + img * k
     a2, _ = TL.SEGS['arrive']
     if a2 <= n < a2 + 4:                                         # 第 3 拍 → 结尾：4 帧快速溶解 + 白闪
         k = (n - a2 + 1) / 5.0; img = S['shot23'].get(TL.SEGS['shot23'][1] - TL.OFF['shot23']) * (1 - k) + img * k
@@ -111,7 +115,7 @@ def overlay(img_f32, n, A, labels, sound):
         al = TL.alpha_win(t, a + 0.1, b - 0.1, 0.3)
         if al > 0: draw_pill(frame, 16 + text_size(s, 18)[0] / 2 + 10, 58, [s], [18], [(225, 235, 240)], al, pad=(10, 4), bg=(8, 12, 22, 120), radius=8, stroke=1)
     # 开头大字
-    al = TL.alpha_win(t, *TL.TITLE, 0.2)
+    al = TL.alpha_win(t, *TL.TITLE, 0.2, fade_in=False)
     if al > 0:
         draw_pill(frame, W / 2, 238, ['AI 芯片之间', '这串数据，', '怎么送到对面？'], [26, 46, 46], [(150, 235, 245), (255, 255, 255), (255, 255, 255)], al, pad=(22, 14), bg=(8, 12, 22, 170), anchor='t', min_w=480, gap=4, radius=16)
     # 标签
@@ -157,7 +161,7 @@ def main():
     rng = (1, TL.N_FRAMES)
     if '--frames' in a: lo, hi = a[a.index('--frames') + 1].split('-'); rng = (int(lo), int(hi))
     dump = a[a.index('--dump-dir') + 1] if '--dump-dir' in a else None
-    log = []; S = {k: Source(root, k, TL.SEGS[k][1] - TL.SEGS[k][0] + 1, log) for k in TL.SEGS}
+    log = []; S = {k: Source(root, k, TL.SHOT1_OLD if k == 'shot1' else TL.SEGS[k][1] - TL.SEGS[k][0] + 1, log) for k in TL.SEGS}
     A = TL.load_anchors(adir); labels = TL.resolve_labels(A)
     for lb in labels: log.append(f"标签 {lb['text']}: " + (f"{lb['t0']:.2f}–{lb['t1']:.2f} s" if lb['t0'] is not None else lb.get('note', '无')))
     procs = {}

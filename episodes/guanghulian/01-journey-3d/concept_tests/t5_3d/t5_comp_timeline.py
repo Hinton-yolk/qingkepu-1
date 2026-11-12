@@ -4,9 +4,26 @@
 全片时间 T（秒）= 帧号 (n-1)/30，n = 1..645。"""
 import re, os, json, math
 HERE = os.path.dirname(os.path.abspath(__file__))
-FPS = 30; N_FRAMES = 645; W, H = 540, 960
-SEGS = {'shot1': (1, 195), 'shot23': (196, 570), 'arrive': (571, 645)}     # 全片帧号范围（含）
-OFF = {k: v[0] - 1 for k, v in SEGS.items()}                                # 脚本内帧号 = 全片帧号 - OFF
+FPS = 30; W, H = 540, 960
+# ---------- 第 1 拍剪掉的暗段（穿机箱侧壁，整帧平均亮度 < 0.12；由 t5_comp_measure_cut.py 量出，记在 t5_comp_cut.json） ----------
+CUT = json.load(open(os.path.join(HERE, 't5_comp_cut.json'), encoding='utf-8'))
+CUT_A = CUT['dark_first'] - CUT['xf']                        # 交叉溶解的第一帧（新时间线上的第 1 拍帧号）
+CUT_XF = CUT['xf']                                           # 溶解帧数
+CUT_D = CUT['dark_last'] - CUT['dark_first'] + 1 + CUT_XF    # 溶解后的帧 = 原帧号 - CUT_D；溶解帧 j 混 原 j 与 原 j+CUT_D
+CUT_SEC = CUT_D / FPS                                        # 全片缩短的秒数
+SHOT1_OLD = 195                                              # 第 1 拍脚本原有帧数
+SEGS = {'shot1': (1, SHOT1_OLD - CUT_D), 'shot23': (SHOT1_OLD - CUT_D + 1, SHOT1_OLD - CUT_D + 375), 'arrive': (SHOT1_OLD - CUT_D + 376, SHOT1_OLD - CUT_D + 450)}
+N_FRAMES = SEGS['arrive'][1]
+OFF = {k: v[0] - 1 for k, v in SEGS.items()}                                # 脚本内帧号 = 全片帧号 - OFF（第 1 拍除外，见 local_frame）
+def shot1_src(n):
+    """新时间线第 1 拍帧 n → (脚本内原帧号, 溶解对象原帧号或 None)"""
+    if n < CUT_A: return n, None
+    if n < CUT_A + CUT_XF: return n, n + CUT_D
+    return n + CUT_D, None
+def local_frame(seg, n): return shot1_src(n)[0] if seg == 'shot1' else n - OFF[seg]
+def old_t(t_old):           # 原时间线（无剪切的 0–21.5 s，用来写窗口）→ 新时间线；落在被剪掉的区间里的取剪切点
+    cut0 = (CUT_A - 1) / FPS
+    return t_old if t_old <= cut0 else max(cut0, t_old - CUT_SEC)
 def seg_of(n): return next(k for k, (a, b) in SEGS.items() if a <= n <= b)
 def T_of(seg, t_local): return OFF[seg] / FPS + t_local                    # 脚本内秒 → 全片秒
 def src(name): return open(os.path.join(HERE, name), encoding='utf-8').read()
@@ -45,7 +62,8 @@ def shot1_bits(dur=6.5):
         while int(nxt) > k_prev:                                    # 本步内跨过整位
             k_prev += 1; frac = (k_prev - acc) / (nxt - acc); out.append((tt + 0.25 * frac, PATTERN[(k_prev - 1) % 8]))
         acc = nxt; tt += 0.25
-    return [(t, b) for t, b in out if t <= dur]
+    c0 = (CUT_A - 1) / FPS; c1 = c0 + CUT_SEC       # 剪掉的区间 [c0, c1) 里的位不要，之后的前移
+    return [(t if t < c0 else t - CUT_SEC, b) for t, b in out if t <= dur and not (c0 <= t < c1)]
 
 # ---------- 第 2、3 拍的位（电极「嗡」/ 光的明暗） ----------
 ELEC_WIN = (0.5, 7.6)       # 脚本内秒：相机看着电极和焊线的时间
@@ -64,19 +82,19 @@ def light_gain_curve(t_full, bit_lo=0.38):
     return g * (coupling(fiber_dx(tl)) if tl >= OFF_A - 0.2 else 1.0)
 
 # ---------- 文字 / 标签 / 字幕（全片秒） ----------
-TITLE = (0.2, 2.6)
-CORNER = [((0.0, 6.5), '外壳透明化 · 结构为示意'), ((6.5, 19.0), '红外光，颜色为示意 · 结构为示意')]
+TITLE = (0.0, 2.6)       # 第 0 帧就完全不透明，只在结尾淡出；不随剪切前移（保证读得完）
+CORNER = [((0.0, old_t(6.5)), '外壳透明化 · 结构为示意'), ((old_t(6.5), old_t(19.0)), '红外光，颜色为示意 · 结构为示意')]
 LABEL_REQ = [   # 文字、锚点来源(段, 键)、请求窗口（全片秒）、最长显示秒数、可提前秒数（锚点不在屏幕上时会自动挑在屏幕上的那一段）
-    ('GPU A', 'shot1', 'gpu_a', (2.8, 5.2), 2.4, 0.0, 'edge'),
-    ('GPU B', 'shot1', 'gpu_b', (2.8, 5.2), 2.4, 0.0, 'ring'),
-    ('激光：一直亮着', 'shot23', 'laser_label', (7.6, 9.6), 1.4, 0.5, None),
-    ('电信号', 'shot23', 'electric_label', (8.8, 10.8), 1.6, 0.0, None),
+    ('GPU A', 'shot1', 'gpu_a', (old_t(2.8), old_t(5.2)), 2.4, 0.0, 'edge'),
+    ('GPU B', 'shot1', 'gpu_b', (old_t(2.8), old_t(5.2)), 2.4, 0.0, 'ring'),
+    ('激光：一直亮着', 'shot23', 'laser_label', (old_t(7.6), old_t(9.6)), 1.4, 0.5, None),
+    ('电信号', 'shot23', 'electric_label', (old_t(8.8), old_t(10.8)), 1.6, 0.0, None),
     ('偏一点，就进不去', 'shot23', 'offset_label', (T_of('shot23', OFF_B) - 0.1, T_of('shot23', BACK_A) + 0.5), 2.0, 0.0, None),
 ]
-SUBS = [(3.0, 5.6, '对面那台机器，在几十米外'), (9.0, 12.0, '光一直亮着，电让它照着电的样子一亮一暗'), (14.5, 17.5, '要对准一根比头发还细的芯，光才进得去')]
-CELLS_T0 = 19.7; CELLS_STEP = 0.09           # 八格依次点亮
+SUBS = [(old_t(a), old_t(b), s) for a, b, s in [(3.0, 5.6, '对面那台机器，在几十米外'), (9.0, 12.0, '光一直亮着，电让它照着电的样子一亮一暗'), (14.5, 17.5, '要对准一根比头发还细的芯，光才进得去')]]
+CELLS_T0 = old_t(19.7); CELLS_STEP = 0.09           # 八格依次点亮
 CHECK_T = T_of('arrive', T_ARR)               # ✓：消息头到达 B、标记亮起的那一刻
-END_PANEL = (19.6, 21.5)
+END_PANEL = (old_t(19.6), old_t(21.5))
 FADE = 0.15
 
 def load_anchors(adir):
@@ -86,7 +104,7 @@ def load_anchors(adir):
     return d
 def anchor_at(A, seg, key, n):
     """全片帧 n 在 seg 里的锚点 (x, y, z) 或 None"""
-    f = n - OFF[seg]; fr = A[seg].get(f)
+    f = local_frame(seg, n); fr = A[seg].get(f)
     return None if fr is None else fr[key]
 SAFE = (30, 120, 510, 880)    # 锚点在这个框里才算「看得见」
 def on_screen(p): return p is not None and p[2] > 0 and SAFE[0] <= p[0] <= SAFE[2] and SAFE[1] <= p[1] <= SAFE[3]
@@ -99,9 +117,9 @@ def resolve_labels(A):
         if not vis: out.append(dict(text=text, t0=None, t1=None, seg=seg, key=key, mode=mode, note='锚点始终不在屏幕上')); continue
         start = vis[0]; end = min(vis[-1], start + int(dur * FPS)); out.append(dict(text=text, t0=(start - 1) / FPS, t1=(end - 1) / FPS, seg=seg, key=key, mode=mode))
     return out
-def alpha_win(t, t0, t1, fade=FADE):
+def alpha_win(t, t0, t1, fade=FADE, fade_in=True):
     if t0 is None or t < t0 or t > t1: return 0.0
-    return min(1.0, (t - t0) / fade, (t1 - t) / fade)
+    return min(1.0, (t - t0) / fade if fade_in else 1.0, (t1 - t) / fade)
 
 # ---------- 声音事件 ----------
 def audio_events(A=None):
@@ -119,4 +137,5 @@ def audio_events(A=None):
 if __name__ == '__main__':
     print('VSPEED', VSPEED, 'BITLEN', BITLEN, 'BIT_P', round(BIT_P, 4), 'PATTERN', PATTERN)
     print('偏移 全片秒', [round(T_of('shot23', x), 2) for x in (OFF_A, OFF_B, BACK_A, BACK_B)], 'dx', DX)
+    print('剪掉原第 %d–%d 帧（暗段），溶解 %d 帧，全片缩短 %.2f s，共 %d 帧 = %.2f s' % (CUT['dark_first'], CUT['dark_last'], CUT_XF, CUT_SEC, N_FRAMES, N_FRAMES / FPS))
     print('第1拍位数', len(shot1_bits()), '| ✓ 全片秒', round(CHECK_T, 2))

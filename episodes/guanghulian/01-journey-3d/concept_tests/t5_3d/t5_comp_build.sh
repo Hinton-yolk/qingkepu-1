@@ -8,6 +8,7 @@ ROOT="${1:?帧根}"; OUT="${2:?输出目录}"; HERE="$(cd "$(dirname "${BASH_SOU
 BLENDER="${BLENDER:-/tmp/claude-0/-home-user-kepu-studio/4daddf6d-cedd-56c3-84f6-9e329c1f853a/scratchpad/blender/blender-5.2.3-linux-x64/blender}"
 THREADS="${THREADS:-2}"; MAXMB="${MAXMB:-2.9}"; mkdir -p "$OUT/anchors"
 SIL="$OUT/EP01_T5_preview_v1_silent_540x960_30fps.mp4"; SND="$OUT/EP01_T5_preview_v1_sound_540x960_30fps.mp4"
+DUR=$(python3 -c "import sys; sys.path.insert(0,'$HERE'); import t5_comp_timeline as T; print(T.N_FRAMES/T.FPS)")
 step() { echo "== $(date +%T) $*"; }
 
 step 锚点
@@ -18,6 +19,9 @@ gen() {  # <名字> <脚本>
   mv "$d/anchors.json" "$OUT/anchors/$1.json"; rm -rf "$d"
 }
 gen shot1 t5_shot1.py; gen shot23 t5_shot23.py; gen arrive t5_arrive.py
+
+step 量第 1 拍暗段（帧够才更新 t5_comp_cut.json）
+python3 "$HERE/t5_comp_measure_cut.py" "$ROOT"
 
 step 时间表
 python3 "$HERE/t5_comp_timeline.py"
@@ -32,9 +36,9 @@ enc() {  # <输入.mkv> <输出.mp4> [音频.wav]
   local crf=22 size
   while :; do
     if [ -n "${3:-}" ]; then
-      ffmpeg -y -loglevel error -i "$1" -i "$3" -map 0:v -map 1:a -t 21.5 -c:v libx264 -preset slow -crf $crf -pix_fmt yuv420p -r 30 -c:a aac -b:a 128k -ar 44100 -movflags +faststart "$2"
+      ffmpeg -y -loglevel error -i "$1" -i "$3" -map 0:v -map 1:a -t $DUR -c:v libx264 -preset slow -crf $crf -pix_fmt yuv420p -r 30 -c:a aac -b:a 128k -ar 44100 -movflags +faststart "$2"
     else
-      ffmpeg -y -loglevel error -i "$1" -t 21.5 -c:v libx264 -preset slow -crf $crf -pix_fmt yuv420p -r 30 -an -movflags +faststart "$2"
+      ffmpeg -y -loglevel error -i "$1" -t $DUR -c:v libx264 -preset slow -crf $crf -pix_fmt yuv420p -r 30 -an -movflags +faststart "$2"
     fi
     size=$(stat -c %s "$2"); echo "  crf=$crf size=$size"
     python3 -c "import sys; sys.exit(0 if $size < $MAXMB*1024*1024 else 1)" && break; crf=$((crf+2))
@@ -49,7 +53,7 @@ TP=-2.0
 for attempt in 1 2 3; do
   J=$(ffmpeg -hide_banner -nostats -i "$OUT/temp_audio_raw.wav" -af "loudnorm=I=-15:TP=$TP:LRA=7:print_format=json" -f null - 2>&1 | sed -n '/^{/,/^}/p')
   g() { echo "$J" | python3 -c "import sys,json; print(json.load(sys.stdin)['$1'])"; }
-  ffmpeg -y -loglevel error -i "$OUT/temp_audio_raw.wav" -af "loudnorm=I=-15:TP=$TP:LRA=7:measured_I=$(g input_i):measured_TP=$(g input_tp):measured_LRA=$(g input_lra):measured_thresh=$(g input_thresh):offset=$(g target_offset):linear=true,alimiter=limit=0.84:level=false,apad=whole_dur=21.5" -ar 44100 "$OUT/temp_audio_norm.wav"
+  ffmpeg -y -loglevel error -i "$OUT/temp_audio_raw.wav" -af "loudnorm=I=-15:TP=$TP:LRA=7:measured_I=$(g input_i):measured_TP=$(g input_tp):measured_LRA=$(g input_lra):measured_thresh=$(g input_thresh):offset=$(g target_offset):linear=true,alimiter=limit=0.84:level=false,apad=whole_dur=$DUR" -ar 44100 "$OUT/temp_audio_norm.wav"
   step "试听版编码（TP 目标 $TP）"; enc "$OUT/lossless_sound.mkv" "$SND" "$OUT/temp_audio_norm.wav"
   M=$(ffmpeg -hide_banner -nostats -i "$SND" -vn -af ebur128=peak=true -f null - 2>&1 | tail -14)
   PK=$(echo "$M" | grep -A1 'True peak' | grep Peak | awk '{print $2}')
