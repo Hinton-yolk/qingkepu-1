@@ -323,12 +323,14 @@ def setup_render(args, exposure=0.0, look=None, film_transparent=False, volume=F
         prefs = bpy.context.preferences.addons['cycles'].preferences
         for kind in ('OPTIX', 'CUDA'):
             try:
-                prefs.compute_device_type = kind; prefs.get_devices()
+                prefs.compute_device_type = kind
+                (prefs.refresh_devices if hasattr(prefs, 'refresh_devices') else prefs.get_devices)()   # 只调 get_devices() 在无界面的云主机上找不到显卡
                 got = [d for d in prefs.devices if d.type == kind]
                 if got:
                     for d in prefs.devices: d.use = d.type == kind
                     cy.device = 'GPU'; dev = kind + ':' + ','.join(d.name for d in got); break
             except Exception as e: print('GPU', kind, '不可用：', e)
+        if dev == 'CPU': raise SystemExit('要求用显卡（--gpu），但 OptiX 和 CUDA 都没找到设备：停下，不悄悄改用 CPU')
     sc.render.film_transparent = film_transparent
     sc.view_settings.view_transform = 'AgX'; sc.view_settings.exposure = exposure
     if look:
@@ -357,5 +359,6 @@ def render(args, shot, dev='CPU'):
         dt = round(time.time() - t, 2); log.append({'frame': f, 'sec': dt}); print('RENDERED', path, dt, 's', flush=True)
     meta = {'shot': shot.id, 'blender': bpy.app.version_string, 'device': dev, 'res': args.res, 'samples': args.samples, 'frames': log,
             'timeline_version': TL['meta']['version']}
-    lp = os.path.join(args.out, f'render_log_{shot.id}.json'); old = json.load(open(lp)) if os.path.exists(lp) else []
+    first = log[0]['frame'] if log else 0          # 文件名带上这一段的首帧号：分段、分机器渲时各写各的，不互相覆盖
+    lp = os.path.join(args.out, f'render_log_{shot.id}_{first:06d}.json'); old = json.load(open(lp)) if os.path.exists(lp) else []
     json.dump(old + [meta], open(lp, 'w'), ensure_ascii=False, indent=1)
