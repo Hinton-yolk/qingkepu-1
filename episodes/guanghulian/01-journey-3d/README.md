@@ -21,7 +21,7 @@
 
 ## 目录
 ```
-preprod/     00 任务书原文 · 01 旁白草案 · 02 分镜 · 03 科学审查表 · 04 资产清单 · 05 制作依赖 · 06 阶段 A 交接与检查记录 · 07 预览视频交接方案与实测 · 08 代表性硬件路径与五站映射 · 09 第二轮导演修订说明
+preprod/     00 任务书原文 · 01 旁白草案 · 02 分镜 · 03 科学审查表 · 04 资产清单 · 05 制作依赖 · 06 阶段 A 交接与检查记录 · 07 预览视频交接方案与实测 · 08 代表性硬件路径与五站映射 · 09 第二轮导演修订说明 · 10 第二轮复盘（耽误的事和改进）
 FACTS.md     每个数字和结构说法的来源
 timeline/    timeline.json（唯一的时间来源）· validate.py（检查镜头衔接、语速、标注越界）
 blender/     common.py（公共库）· s01_datacenter.py · s02_gpu_package.py · s03_serdes.py · beol_assets.py（S02 / S03 共用的连线层）· cloud_entry.py、cloud_stage.py（云端渲染）· fetch_assets.sh
