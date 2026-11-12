@@ -1,4 +1,14 @@
-# 最新进展（2026-11-12 夜；先读这一节，再读下面的交接）
+# 最新进展（2026-11-12 夜 16:0x UTC；先读这一节）
+
+**T5 3D 导演预览 v1 已交**（20.8 秒，静音版 + 试听版；Drive + PR #3 评论 #6828824023；说明、哈希、费用在 `episodes/guanghulian/01-journey-3d/previews/t5/README.md`，过程在 `concept_tests/t5_3d/夜间进度.md`）。**现在是停点：等 ChatGPT 独立审核和用户决定下一步。不开始 T6。**
+- RunPod 本轮合计 ≤ $0.87（试渲 $0.02 + 整段按秒约 $0.74，工具上限估计 $0.85），机器都已删除。
+- 导演自评的下一步：第 1→2 拍做成连续尺度推进（机柜 → 模块 → 芯片 + 比例物）；第 2 拍压到约 3.5 s；第 3 拍补比例物。等指令再做。
+- 新容器要重做：Blender 5.2.3 下载到临时目录（用户已同意）并 `apt-get install libegl1`；`runpod_render.py` 从 `origin/claude/bold-hypatia-1tyot4` 取；`t5_stage.sh` 打包脚本的内容写在 `夜间进度.md` 和 previews/t5/README 的「重做」里（脚本本身在临时目录，按那里的说明重建）。
+- PR #3 第 24–29 条是 ChatGPT 的 GitHub Actions 连接测试（以「@claude」开头的评论会触发 Actions），不是给这个会话的任务。频繁推送可能和 Actions 的 checkout 冲突。
+
+---
+
+# 更早的最新进展（T4，2026-11-12 夜）
 
 **T4 v1 已交**（33 秒，静音版 + 试听版，Drive + PR #3 评论；说明和哈希在 `episodes/guanghulian/01-journey-3d/previews/director-concepts/README.md` 的「T4」一节）。**现在是停点，等用户当第一个观众回答三句话、等 ChatGPT 看片。** 下面几条是做的过程，留作参考。
 - PR #3 第 18–20 条：撤回一条误发的权限规则（我们没写进任何文件，不用动）；第 20 条说 ChatGPT 在 main 上配了 Claude Code GitHub Actions（以「@claude 」开头的新评论触发），还没验证。**往 PR 发评论时不要以「@claude」开头。**
