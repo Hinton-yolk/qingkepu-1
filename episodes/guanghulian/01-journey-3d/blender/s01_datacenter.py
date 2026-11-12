@@ -3,11 +3,13 @@
 #       不对应具体机型；不能当最终科学结构交付。「光口在机箱后部」是推荐方案，用户还没确认：相关尺寸集中在下面「后部光口」几行，方便替换。
 # 坐标：冷通道沿 +X，中心线 y = 0，宽 1.2 m。A 排在 +Y（正面 y = +0.6），B 排在 −Y（正面 y = −0.6，整柜绕 Z 转 180°）。
 #       机柜 i 的中心 x = 0.3 + 0.6 i（i = −3 … 17，每排 21 个）。GPU A 在 A 排 i = 4 的第 2 台服务器（自下往上数），GPU B 在 B 排 i = 8 的同一层。
-# 机箱分区（机箱坐标，+Y 朝机箱后方）：前 = 风扇墙；中上 = GPU 托盘（8 个模组，4 列 × 2 排）；后段 = 主板（处理器散热器、内存）、电源、平放的网卡和后面板光口。
-# 镜头：一个连续镜头，第 0 帧就在动。0–4.5 s 在高机位（约 2 m）沿通道前推（约 0.4 m/s），越过柜顶能看到背面上方的线槽；4.5–7 s 转向 A 柜；
+# 机箱分区（机箱坐标，+Y 朝机箱后方）：前 = 风扇墙；中上 = GPU 托盘（8 个模组，4 列 × 2 排）；机箱中部（GPU 托盘后面）= 网卡；
+#       后段 = 主板（处理器散热器、内存）、后面板光口；电源在后段下层（托盘下面，镜头里看不到）。网卡到后面板光口之间是一段内部铜缆。
+#       依据：主 agent 转来的调研结论（参考机型的官方手册：网卡在机箱中部靠近中板，只有光口在后部，中间是内部双轴铜缆）。中板本身没有画。
+# 镜头：一个连续镜头，第 0 帧就在动。0–4.5 s 在高机位（约 2 m）沿通道前推（约 0.33 m/s），越过柜顶能看到背面上方的线槽；4.5–7 s 转向 A 柜；
 #       7–8.5 s 柜门、GPU A 那台服务器上方的全部设备、上盖淡出；8.5–13 s 从上方压到 GPU A，13.0 s 机位 = G + CAM_END_OFFSET（S02 首帧）。
 # 路径线（视觉隐喻，0.3–3.0 s 匀速画出，之后保持）：
-#       金（电）A：GPU A 封装 +Y 边 → 模组小板 → 底板（两排模组之间横移到列间通道）→ 主板 → 网卡芯片 → 后面板光口；
+#       金（电）A：GPU A 封装 +Y 边 → 模组小板 → 底板（两排模组之间横移到列间通道）→ 机箱中部的网卡芯片 → 贴着一根深色的内部铜缆 → 后面板光口；
 #       青（光）：后面板光口 → 机柜背面向上 → 翻进柜顶背面上方的线槽 → 沿线槽 → 过桥 → B 排线槽 → B 柜背面向下 → B 柜服务器后面板光口（全程贴着一根黄色跳线）；
 #       金（电）B：和 A 段镜像。
 # 运行：blender -b --python-exit-code 1 --python s01_datacenter.py -- <输出目录> [--times 0.1,1.5,3,5.5,8,10.5,12,12.97] [--res 270x480] [--samples 16] [--anchors] [--no-render]
@@ -30,7 +32,7 @@ U = 0.04445                             # 1U
 U0 = 0.10 + 2 * U                       # 最下面一台服务器的底（下面留 2U 盲板）
 SRV_PITCH = 9 * U                       # 8U 服务器 + 1U 盲板
 SRV_Z = [U0 + k * SRV_PITCH for k in range(4)]
-SRV_Y = 0.09                            # 服务器前面板在柜内的进深（柜门内侧留走线空间）
+SRV_Y = 0.09                            # 服务器前面板在柜内的进深
 SW, SH, SD = 0.447, 0.355, 0.9          # 服务器机箱：宽、高（8U）、深
 COLS = [(c - 1.5) * 0.106 for c in range(4)]; ROW_Y = (0.23, 0.49)     # GPU 模组：4 列 × 2 排，列距 106 mm，排距 260 mm
 ZM = 0.2724                             # 模组小电路板顶面（机箱内，示例：GPU 托盘在上层）
@@ -40,14 +42,15 @@ G_LOCAL = V((COLS[1], ROW_Y[0], ZM + 0.00253))       # GPU A 芯片顶面中心�
 LANE_X = (COLS[0] + COLS[1]) / 2        # 路径线在底板上走的列间通道（第 1、2 列模组之间），也是网卡芯片和光口所在的 x
 GAP_Y = (ROW_Y[0] + ROW_Y[1]) / 2       # 两排模组之间
 ZC = ZB + 0.008                         # 网卡板顶面（平放在主板上方，示例）
-NIC_Y = (0.792, 0.899); NIC_CX = LANE_X + 0.013; CHIP_Y = 0.822; CHIP = 0.025; CHIP_H = 0.003     # 网卡板前后沿、中心 x；网卡芯片位置、边长、高
-PORT_X = [LANE_X, LANE_X + 0.026]; PORT_Z = ZC + 0.00625; PORT_HERO = 0             # 后面板 2 个光口（网卡上的两个笼子）；路径线走第 1 个
+NIC_Y = (0.640, 0.736); NIC_CX = LANE_X + 0.014; CHIP_Y = 0.672; CHIP = 0.025; CHIP_H = 0.003     # 网卡在机箱中部（GPU 托盘后面）：板的前后沿、中心 x；网卡芯片位置、边长、高
+R_CABLE = 0.0035; CAGE_Y0 = SD - 0.049  # 内部铜缆（网卡 → 后面板光口的笼子）的半径；笼子的内端
+PORT_X = [LANE_X, LANE_X + 0.026]; PORT_Z = ZC + 0.00625; PORT_HERO = 0             # 后面板 2 个光口（两个光模块笼子）；路径线走第 1 个
 PORT_TIP = SD + 0.018                   # 光模块尾端（跳线插口）伸出后面板的位置
 FIN_LIFT = 0.0                          # 鳍片离底座的空隙。S02 现在的鳍片比底座高出 5.13 mm（疑似 S02 的小错，待它修）；要临时和 S02 现状对齐就填 0.00513
 NEIGHBOR_PARTS = True                   # 邻居模组上画不画供电器件。S02 现在的邻居只有小板和散热器；要临时和它对齐就填 False
 TRAY_Z = 2.40; TRAY_W = 0.30; TRAY_Y = 0.93     # 线槽底面高度、宽度；线槽在机柜背面上方（柜内坐标 y = 0.78 … 1.08，世界坐标 y = ±1.38 … ±1.68）
 X_CROSS = 3.9                           # 路径线过桥（跨通道的线槽）的位置
-CROSS = (0.3, 3.9, 7.5)
+CROSS = (-1.5, 3.9, 9.3)                # 过桥的位置：第一座在开场机位的身后，开场画面上方不压着一座近处的桥
 CEIL_Z = 3.2
 FOG = (0.034, 0.062, 0.105)             # 远处的雾色（也是相机直接看到的背景色）
 CAM_END_OFFSET = V((-0.0795, -0.1967, 0.2528))      # 13.0 s 相机相对 G（芯片顶面中心）的位置 = S02 首帧：330 mm，俯角 50°，方位 −112°
@@ -156,6 +159,8 @@ mk('glass', C.emit, color=(0.50, 0.72, 1.0), strength=1.6, aov=False)          #
 mk('lightbar', C.emit, color=(0.62, 0.80, 1.0), strength=9.0, aov=False)      # 顶部灯带：冷白偏蓝
 mk('pcb', C.pbr, color=(0.007, 0.036, 0.027), rough=0.40, coat=0.4)             # 电路板：素的深绿阻焊色，不画走线纹
 mk('mlcc', C.pbr, color=(0.50, 0.38, 0.25), rough=0.55)
+mk('nicpcb', C.pbr, color=(0.010, 0.012, 0.020), rough=0.38, coat=0.4)             # 网卡板：黑色阻焊（和绿色的主板分得开）
+mk('cable', C.pbr, color=(0.022, 0.022, 0.026), rough=0.5)                        # 内部铜缆的深色护套
 mk('substrate', C.pbr, color=(0.015, 0.085, 0.055), rough=0.42, coat=0.35)
 mk('silicon', C.pbr, color=(0.30, 0.32, 0.37), metallic=0.92, rough=0.14)
 mk('alu', C.pbr, color=(0.80, 0.81, 0.83), metallic=1.0, rough=0.34, noise_scale=300, noise_rough=0.1, stretch=(1, 1, 30))
@@ -238,7 +243,7 @@ def build_server():
                 for sz in (-1, 1): g['silver'].cyl(0.0022, 0.002, (fx + sx * 0.0365, -0.0065, fz + sz * 0.0365), rot=(PI / 2, 0, 0), seg=8)
             g['panel'].box((0.022, 0.004, 0.005), (fx, -0.008, fz - 0.0385))
             g['led'].box((0.003, 0.001, 0.003), (fx + 0.030, -0.0066, fz + 0.0385))
-    # 下面 2U：硬盘位、进风栅、I/O 区（4 个光模块端口等）
+    # 下面 2U：硬盘位、进风栅、管理口和按钮（v1：前面板不放光口）
     for i in range(8):
         dx = -0.2035 + i * 0.017
         g['drive'].box((0.0155, 0.005, 0.076), (dx, -0.0025, 0.046)); g['silver'].box((0.005, 0.003, 0.030), (dx, -0.0062, 0.030))
@@ -261,9 +266,13 @@ def build_server():
 # ---------- 服务器内部（实例源，只放在 A、B 两台里）：示例布局，按参考机型的大致分区 ----------
 # 前：风扇墙（在服务器外壳那个集合里）；中上：GPU 托盘，8 个模组 4 列 × 2 排；后段：主板（处理器散热器、内存）、电源、平放的网卡和后面板光口。
 # 模组上的器件尺寸和排布照 S02（散热器 96 × 96 底座 + 47 片鳍片、7 个电感、9 个铝壳电容、成排贴片电容），13.0 s 接缝两边才对得上。
+def cable_route():
+    """机箱坐标：内部铜缆的中心线。网卡后沿的连接器 → 落到主板上 → 沿列间通道向后 → 抬起来接进光模块笼子的内端"""
+    return [(LANE_X, NIC_Y[1] - 0.002, ZC + 0.003), (LANE_X, NIC_Y[1] + 0.010, ZC + 0.003), (LANE_X, NIC_Y[1] + 0.022, ZB + R_CABLE), (LANE_X, CAGE_Y0 - 0.018, ZB + R_CABLE),
+            (LANE_X, CAGE_Y0 - 0.005, PORT_Z), (LANE_X, CAGE_Y0 + 0.002, PORT_Z)]
 def build_internals():
     col = C.collection('SRC_服务器内部')
-    g = {k: C.Mesh() for k in ('steel', 'pcb', 'substrate', 'silicon', 'nickel', 'alu', 'ferrite', 'can', 'black', 'dimm', 'label', 'silver', 'mlcc')}
+    g = {k: C.Mesh() for k in ('steel', 'pcb', 'substrate', 'silicon', 'nickel', 'alu', 'ferrite', 'can', 'black', 'dimm', 'label', 'silver', 'mlcc', 'nicpcb')}
     g['steel'].box((SW - 0.004, SD - 0.066, 0.0015), (0, 0.066 + (SD - 0.066) / 2, ZB - 0.0038))        # 托盘钣金
     g['pcb'].box((0.432, 0.550, 0.003), (0, 0.345, ZB - 0.0015))                                          # GPU 底板
     for cx in COLS:
@@ -286,24 +295,29 @@ def build_internals():
             for sx in (-1, 1):                                                                            # 封装两侧的贴片电容
                 for k in range(-16, 17, 2):
                     for j in range(3): g['mlcc'].box((0.0016, 0.0008, 0.0008), (cx + sx * (0.042 + j * 0.0032), ry + k * 0.0022, ZM + 0.0004))
-    # 后段：主板、2 个处理器散热器、内存条排、电源、网卡（都是示例）。第 1、2 列之间的通道（x = LANE_X）一直通到网卡，不放东西
+    # 机箱中部和后段（都是示例）：网卡在 GPU 托盘后面；再往后是主板上的 2 个处理器散热器和内存条排；后沿是两个光模块笼子。
+    # 第 1、2 列之间的通道（x = LANE_X）一直通到后面板，网卡到笼子的内部铜缆沿这条通道走。
     g['pcb'].box((0.432, 0.268, 0.003), (0, 0.765, ZB - 0.0015))
     for sx in (-1, 1):
-        g['nickel'].box((0.090, 0.110, 0.005), (sx * 0.052, 0.715, ZB + 0.008))
-        for k in range(-17, 18): g['alu'].box((0.0006, 0.108, 0.034), (sx * 0.052 + k * 0.0025, 0.715, ZB + 0.0105 + 0.017))
+        g['nickel'].box((0.090, 0.110, 0.005), (sx * 0.052, 0.795, ZB + 0.008))
+        for k in range(-17, 18): g['alu'].box((0.0006, 0.108, 0.034), (sx * 0.052 + k * 0.0025, 0.795, ZB + 0.0105 + 0.017))
     for dx in [s * (0.130 + k * 0.0098) for s in (-1, 1) for k in range(8)]:
-        g['black'].box((0.0060, 0.142, 0.006), (dx, 0.715, ZB + 0.003)); g['dimm'].box((0.0014, 0.1333, 0.031), (dx, 0.715, ZB + 0.006 + 0.0155))
-        g['label'].box((0.0016, 0.050, 0.012), (dx, 0.705, ZB + 0.022))
-        for sy in (-1, 1): g['label'].box((0.0050, 0.006, 0.012), (dx, 0.715 + sy * 0.071, ZB + 0.008))
-    for k in range(4):                                                                                    # 电源：在后段 +X 一侧
-        px = 0.002 + k * 0.060; g['steel'].box((0.055, 0.085, 0.041), (px, 0.853, ZB + 0.0205)); g['black'].box((0.040, 0.002, 0.030), (px, 0.8095, ZB + 0.0205))
-    # 网卡：平放在后段 −X 一侧的一块小板，上面一颗芯片（示例；真实的网卡芯片上有散热片，这里省略），后沿两个光模块笼子伸到后面板
-    g['pcb'].box((0.076, NIC_Y[1] - NIC_Y[0], 0.0016), (NIC_CX, (NIC_Y[0] + NIC_Y[1]) / 2, ZC - 0.0008))
-    g['black'].box((0.060, 0.008, 0.0064), (NIC_CX, NIC_Y[0] + 0.010, ZB + 0.0032))                       # 板下的连接器
+        g['black'].box((0.0060, 0.142, 0.006), (dx, 0.795, ZB + 0.003)); g['dimm'].box((0.0014, 0.1333, 0.031), (dx, 0.795, ZB + 0.006 + 0.0155))
+        g['label'].box((0.0016, 0.050, 0.012), (dx, 0.785, ZB + 0.022))
+        for sy in (-1, 1): g['label'].box((0.0050, 0.006, 0.012), (dx, 0.795 + sy * 0.071, ZB + 0.008))
+    for k in range(4):                                                                                    # 电源：后段下层（托盘下面）
+        px = (k - 1.5) * 0.105; g['steel'].box((0.100, 0.200, 0.041), (px, SD - 0.101, 0.030))
+    # 网卡：平放的一块小板，上面一颗芯片（示例；真实的网卡芯片上有散热片，这里省略），后沿是接内部铜缆的连接器
+    g['nicpcb'].box((0.066, NIC_Y[1] - NIC_Y[0], 0.0016), (NIC_CX, (NIC_Y[0] + NIC_Y[1]) / 2, ZC - 0.0008))
+    g['black'].box((0.054, 0.008, 0.0064), (NIC_CX, NIC_Y[0] + 0.010, ZB + 0.0032))                       # 板下的连接器
     g['substrate'].box((CHIP, CHIP, 0.0012), (LANE_X, CHIP_Y, ZC + 0.0006)); g['silver'].box((CHIP - 0.006, CHIP - 0.006, CHIP_H - 0.0012), (LANE_X, CHIP_Y, ZC + 0.0012 + (CHIP_H - 0.0012) / 2))
+    g['black'].box((0.022, 0.012, 0.006), (LANE_X, NIC_Y[1] - 0.006, ZC + 0.003))                         # 铜缆连接器
+    g['pcb'].box((0.060, 0.055, 0.0016), (NIC_CX, SD - 0.0275, ZC - 0.0008))                              # 后面板的光口小板
     for px in PORT_X: g['silver'].box((0.0205, 0.049, 0.0125), (px, SD - 0.0245, PORT_Z))                 # 光模块笼子
     for sx in (-1, 1): g['black'].box((0.010, 0.76, 0.010), (sx * 0.2165, 0.50, ZB + 0.005))             # 两侧的供电线束（示意）
-    finish(g, col, '内部', bevel={'nickel': 0.0006, 'ferrite': 0.0008}); return col
+    finish(g, col, '内部', bevel={'nickel': 0.0006, 'ferrite': 0.0008})
+    o = tubes('内部铜缆', [fillet(cable_route(), 0.006)], R_CABLE, M['cable'], col, res=2); o['mkey'] = 'cable'      # 网卡 → 后面板光口：一根细的深色线缆（双轴铜缆，示意）
+    return col
 
 # ---------- 1U 交换机（实例源）：原点在端口面底边中点。v1：端口面朝机柜背面（和服务器后部光口同侧），在机柜里转 180° 放 ----------
 def build_switch():
@@ -321,6 +335,7 @@ def build_switch():
 SRV = build_server(); INTL = build_internals(); SWT = build_switch()
 
 # ---------- 机柜里的跳线走法（柜内坐标）：后面板光口 → 机柜背面的理线区 → 向上出柜顶 → 翻过线槽边沿 → 落到线槽里 ----------
+R_JUMPER = 0.0022                                      # 黄色跳线：多芯跳线（MPO），比双芯的略粗；护套黄色、不发光
 RISER_X = -0.250; Y_REAR = SRV_Y + PORT_TIP             # 竖向理线的位置（和光口同一侧，镜头从机箱上方能看到跳线从光口后面升上去）；光模块尾端在柜内的进深
 def jumper_route(px, z, lane, tail=0.35):
     y = 1.095 + lane * 0.003; yt = TRAY_Y - 0.13 + lane * 0.004         # 竖向这一段的进深；落进线槽后的位置（靠通道一侧）
@@ -391,8 +406,8 @@ def assemble_rack(col, hero=False, parent=None):
         for j in range(2): (lines_up if hero and k > K_HERO else lines).append(jumper_route(PORT_X[j], SRV_Z[k] + PORT_Z, lane)); lane += 1
     for j in (1, 4, 7, 10, 13):
         for u in (41, 40): (lines_up if hero else lines).append(jumper_route(0.185 - j * 0.0215, 0.10 + u * U + 0.030, lane, tail=0.3)); lane += 1
-    objs.append(tubes('跳线', lines, 0.0016, M['yellow'], col, res=1))
-    if lines_up: o = tubes('跳线_淡出', lines_up, 0.0016, MF('yellow'), col, res=1); objs.append(o); fd['upper'].append(o)     # 上方设备淡出时，它们的跳线一起淡出
+    objs.append(tubes('跳线', lines, R_JUMPER, M['yellow'], col, res=1))
+    if lines_up: o = tubes('跳线_淡出', lines_up, R_JUMPER, MF('yellow'), col, res=1); objs.append(o); fd['upper'].append(o)     # 上方设备淡出时，它们的跳线一起淡出
     # 柜内暖光（柜门和设备之间，从上往下擦着前面板）：给走廊画面一层暖色，和冷白的顶灯分开
     ld = bpy.data.lights.new('柜内暖光', 'AREA'); ld.energy = WARM_W; ld.color = (1.0, 0.56, 0.26); ld.shape = 'RECTANGLE'; ld.size = 0.42; ld.size_y = 0.03
     lo = C.link(bpy.data.objects.new('柜内暖光', ld), col); lo.location = (0, 0.05, 2.02); lo.visible_camera = False; objs.append(lo); fd['light'] = ld
@@ -472,15 +487,17 @@ for x in LIGHT_X:                                          # 顶部灯带：横�
 lb.obj('灯带', M['lightbar'], room); lf.obj('灯具', M['rack'], room)
 
 # ---------- 路径线：金 → 青 → 金（视觉隐喻，贴着真实走线） ----------
-R_GOLD = 0.00125                                           # 金线半径：在模组小板上宽约 2.5 mm（示意，不是真实走线宽度），往后渐宽到约 4 mm
+R_GOLD = 0.00125                                           # 金线半径：在模组小板上宽约 2.5 mm（示意，不是真实走线宽度），下到底板以后约 3 mm
 def gold_route():
     """机箱坐标，返回 (点列, 每点的半径倍数)。GPU A 封装 +Y 边 → 沿模组小板顶面到小板后沿 → 下到底板 → 在两排模组之间横移到列间通道
-    → 沿通道向后，上主板 → 爬上网卡板 → 越过网卡芯片 → 笼子顶面 → 后面板光口（光模块尾端）。"""
+    → 沿通道向后，上主板 → 爬上机箱中部的网卡板 → 越过网卡芯片 → 铜缆连接器 → 贴着内部铜缆的上沿走 → 笼子顶面 → 后面板光口（光模块尾端）。"""
     gx, gy = COLS[1], ROW_Y[0]; zt = ZM + 0.00053; zb = ZB + 0.0015; zc = ZC + 0.0016; zh = ZC + CHIP_H + 0.0016; zg = PORT_Z + 0.00625 + 0.0016
-    y0 = NIC_Y[0] - 0.003; c0 = CHIP_Y - CHIP / 2 - 0.002; c1 = CHIP_Y + CHIP / 2 + 0.002; g0 = SD - 0.049 - 0.002
+    y0 = NIC_Y[0] - 0.003; c0 = CHIP_Y - CHIP / 2 - 0.002; c1 = CHIP_Y + CHIP / 2 + 0.002; k0 = NIC_Y[1] - 0.014; dz = R_CABLE + 0.0012
+    cab = [(p[0], p[1], p[2] + dz) for p in cable_route()[1:5]]                                         # 铜缆上沿（中心线抬高一个半径）
     pts = fillet([(gx, gy + 0.036, zt), (gx, gy + 0.100, zt), (gx, gy + 0.10125, zt), (gx, gy + 0.10125, zb), (gx, GAP_Y, zb), (LANE_X, GAP_Y, zb), (LANE_X, y0, zb), (LANE_X, y0, zc),
-                  (LANE_X, c0, zc), (LANE_X, c0, zh), (LANE_X, c1, zh), (LANE_X, c1, zc), (LANE_X, g0, zc), (LANE_X, g0, zg), (LANE_X, SD + 0.001, zg), (LANE_X, PORT_TIP, PORT_Z)], 0.003, n=3)
-    rf = [C.lerp(1.0, 1.2, C.smooth(C.seg(p.y, gy + 0.100, GAP_Y))) + 0.4 * C.smooth(C.seg(p.y, 0.60, 0.66)) for p in pts]
+                  (LANE_X, c0, zc), (LANE_X, c0, zh), (LANE_X, c1, zh), (LANE_X, c1, zc), (LANE_X, k0, zc), (LANE_X, k0, ZC + 0.003 + dz)] + cab +
+                 [(LANE_X, CAGE_Y0 - 0.002, zg), (LANE_X, SD + 0.001, zg), (LANE_X, PORT_TIP, PORT_Z)], 0.003, n=3)
+    rf = [C.lerp(1.0, 1.2, C.smooth(C.seg(p.y, gy + 0.100, GAP_Y))) for p in pts]
     return pts, rf
 def resample(pts, n):
     """沿折线按弧长均匀取 n 个点（含两端）"""
@@ -503,9 +520,9 @@ ra = [to_world('A', I_A, p) for p in hero_route()]; rb = [to_world('B', I_B, p) 
 zt = ra[-1].z; ya = ra[-1].y; yb = rb[0].y; xk = X_CROSS - 0.10
 tray_run = fillet([ra[-1], (xk, ya, zt), (xk, yb, zt), rb[0]], 0.06, n=6)
 pc = ra[:-1] + tray_run + rb[1:]
-tubes('路径下的跳线', [pc], 0.0016, M['yellow'], room, res=1)       # 青色管里面的那根真实跳线（从 A 柜光口一直到 B 柜光口）
+tubes('路径下的跳线', [pc], R_JUMPER, M['yellow'], room, res=1)       # 青色管里面的那根真实跳线（从 A 柜光口一直到 B 柜光口）
 NIC_A = to_world('A', I_A, srv_to_rack((LANE_X, CHIP_Y, ZC + CHIP_H))); NIC_B = to_world('B', I_B, srv_to_rack((LANE_X, CHIP_Y, ZC + CHIP_H)))
-segs = [('路径_金A', 'e1', pa, R_GOLD, 'path_gold', grf), ('路径_青', 'o', pc, 0.0140, 'path_cyan', taper(pc, 0.3, 0.6)), ('路径_金B', 'e2', pb, R_GOLD, 'path_gold', grf[::-1])]
+segs = [('路径_金A', 'e1', pa, R_GOLD, 'path_gold', grf), ('路径_青', 'o', pc, 0.0180, 'path_cyan', taper(pc, 0.25, 0.6)), ('路径_金B', 'e2', pb, R_GOLD, 'path_gold', grf[::-1])]
 L_TOTAL = sum(plen(p) for _, _, p, _, _, _ in segs); T_P0, T_P1 = 0.3, 3.0; s0 = 0.0; PATH_T = {}
 for name, tag, pts, r, key, rf in segs:
     o = tubes(name, [(pts, rf)], r, M[key], None, res=3); cu = o.data; L = plen(pts)
@@ -528,14 +545,15 @@ def fade_out(objs, t0, t1):
     for o in objs:
         C.key_fade(o, [(shot.t0, 1), (t0, 1), (t1, 0)])
         o.hide_render = False; o.keyframe_insert('hide_render', frame=C.F(t1) - 1); o.hide_render = True; o.keyframe_insert('hide_render', frame=C.F(t1))
-fade_out(FD['door'], 7.0, 7.5); fade_out(FD['upper'], 7.0, 7.9); fade_out(FD['lid'], 7.4, 8.4)
+fade_out(FD['door'], 7.0, 7.5); fade_out(FD['upper'], 7.0, 7.9); fade_out(FD['lid'], 7.2, 8.2)
 
 # ---------- 相机 ----------
 E = G_A + CAM_END_OFFSET; UDIR = CAM_END_OFFSET.normalized(); D_END = CAM_END_OFFSET.length
 XL = xc(I_A) + LANE_X                                   # 列间通道所在的竖直面：8.5–11 s 机位留在这个面里，才能从散热器之间看到底板上的金线
-T_MID = to_world('A', I_A, srv_to_rack((-0.02, 0.47, ZM)))        # 机箱中部（转向 A 柜以后先看整台机箱）
+T_MID = to_world('A', I_A, srv_to_rack((-0.05, 0.47, ZM)))        # 机箱中部（转向 A 柜以后先看整台机箱）
 CAM_Z0 = 2.0                                            # 走廊段的机位高度：高于人眼、低于柜顶线槽，越过柜顶能看到背面上方的线槽
-KEYS = [(0.0, V((-0.30, 0, CAM_Z0))), (4.5, V((1.45, 0, CAM_Z0))), (7.0, V((2.48, -0.05, 1.78))), (8.5, V((XL, 0.40, 1.68))), (10.5, V((XL, 0.56, 1.42))),
+# 0–4.5 s 的推进速度约 0.33 m/s，并且起点靠后：GPU A（左前方）和 GPU B 在这一段要一直留在画面里，标签才贴得上
+KEYS = [(0.0, V((-1.10, 0, CAM_Z0))), (4.5, V((0.40, 0, CAM_Z0))), (7.0, V((2.15, -0.05, 1.83))), (8.5, V((XL, 0.40, 1.68))), (10.5, V((XL, 0.56, 1.42))),
         (12.0, G_A + UDIR * 0.50), (12.5, G_A + UDIR * 0.40), (13.0, E)]
 def cam_pos(t):
     """分段三次埃尔米特样条（切线取相邻关键点的差分）：速度连续，不在关键点上停顿。末端切线 = 沿入射方向、速度 V_END"""
@@ -591,9 +609,9 @@ BOX_LIGHTS = (('箱内暖逆光', (-0.180, 0.260, 0.240), 0.26, (1.0, 0.82, 0.62
               ('箱内顶光', (0.0, -0.020, 0.320), 0.20, (1.0, 1.0, 1.0), 0.7, 0.4), ('箱内环境替身', (0.0, -0.05, 0.50), 0.80, (0.85, 0.90, 1.0), 0.0, AMB_END))
 for name, off, size, color, e_mid, e_end in BOX_LIGHTS:
     o = no_cam(C.area_light(name, O_MOD + V(off), O_MOD, size, e_mid, color, col=lights))
-    key_energy(o.data, [(shot.t0, 0.0), (7.4, 0.0), (8.4, e_mid), (T_L0, e_mid), (T_L1, e_end)])
+    key_energy(o.data, [(shot.t0, 0.0), (7.2, 0.0), (8.2, e_mid), (T_L0, e_mid), (T_L1, e_end)])
 
-# ---------- 远处渐隐（v0 的替身：按相机距离把材质混向雾色；正式制作换体积雾或合成里的深度雾） ----------
+# ---------- 远处渐隐（粗模的替身：按相机距离把材质混向雾色；正式制作换体积雾或合成里的深度雾） ----------
 def add_fog(m, d0=3.5, scale=8.0):
     nt = m.node_tree; N = nt.nodes; L = nt.links; out = next((n for n in N if n.type == 'OUTPUT_MATERIAL'), None)
     if not out or not out.inputs['Surface'].is_linked: return
@@ -610,7 +628,7 @@ dev = C.setup_render(args, exposure=0.0)
 sc.cycles.transparent_max_bounces = 64                  # 淡出中的物体层数多（风扇格栅、叶片、面板……），16 层不够会出黑块
 ANCHORS = {'gpu_a': G_A, 'gpu_b': G_B, 'nic_a': NIC_A, 'nic_b': NIC_B, 'port_a': pa[-1], 'port_b': pb[0],
            'rack_a': to_world('A', I_A, (0, 0, 1.05)), 'rack_b': to_world('B', I_B, (0, 0, 1.05)), 'path_mid': PATH_MID,
-           'aisle_floor': V((KEYS[0][1].x + 3.0, 0, 0)), 'server_a': to_world('A', I_A, srv_to_rack((0, 0, SH / 2)))}
+           'aisle_floor': V((KEYS[0][1].x + 3.6, 0, 0)), 'server_a': to_world('A', I_A, srv_to_rack((0, 0, SH / 2)))}
 ANCHORS.update(PATH_PTS)
 print('G_A', tuple(round(v, 4) for v in G_A), '| G_B', tuple(round(v, 4) for v in G_B), '| CAM_END', tuple(round(v, 4) for v in cam_fn(13.0)['loc']), '| E', tuple(round(v, 4) for v in E))
 for t in (12.0, 12.5, 12.9, 12.99):

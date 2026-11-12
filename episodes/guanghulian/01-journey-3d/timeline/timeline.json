@@ -96,15 +96,15 @@
      "anchor": "gpu_b"
     },
     {
-     "t": 9.0,
-     "dur": 3.6,
+     "t": 8.8,
+     "dur": 3.8,
      "type": "label",
      "text": "GPU A",
      "anchor": "gpu_a"
     },
     {
-     "t": 10.2,
-     "dur": 2.6,
+     "t": 9.4,
+     "dur": 2.5,
      "type": "label",
      "text": "电的路：先到网卡，再沿铜缆到机箱后部的光口",
      "anchor": "nic_a"
