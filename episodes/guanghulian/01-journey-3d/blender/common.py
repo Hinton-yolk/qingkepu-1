@@ -216,7 +216,8 @@ def key_value(node_or_socket, keys, interp='LINEAR'):
     set_interp(sock.id_data, interp)
 
 def key_fade(obj, keys):
-    """物体淡入淡出：keys = [(全片秒, alpha), …]；alpha 为 0 的区间同时关掉渲染"""
+    """物体淡入淡出：keys = [(全片秒, alpha), …]。注意：alpha 到 0 以后物体仍参与渲染（只是全透明），
+    层数多时要调高 cycles.transparent_max_bounces，或像 s01 的 fade_out() 那样另打 hide_render 关键帧。"""
     for t, a in keys:
         obj.color = (1, 1, 1, a); obj.keyframe_insert('color', frame=F(t))
     set_interp(obj, 'LINEAR')

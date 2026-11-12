@@ -184,7 +184,7 @@ C.key_fade(die, [(13.0, 1), (17.5, 1), (19.3, 0.0)])
 # 相机：对数匀速推进。落点 P；俯角由 52° 压到 82°；方位缓慢转 22°。
 cam, tgt = C.add_camera('cam_S02', lens=50, fstop=1.0, clip=(0.0005, 5000))
 def dist_at(t):
-    if t < 15.2: return C.loglerp(330, 190, C.smooth(C.seg(t, 13.0, 15.2)))
+    if t < 15.2: return C.loglerp(330, 190, C.seg(t, 13.0, 15.2))      # 起步速度约 83 mm/s，接 S01 末端的 0.08 m/s
     if t < 18.5: return C.loglerp(190, 3.0, C.seg(t, 15.2, 18.5))
     return C.loglerp(3.0, 0.15, C.seg(t, 18.5, 22.4) ** 0.9 if t < 22.4 else 1.0)
 def cam_fn(t):
