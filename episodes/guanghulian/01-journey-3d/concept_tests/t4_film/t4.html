@@ -349,6 +349,7 @@ function beamSeg(ctx, x, y0, y1, inten) {
 }
 function sceneC(ctx, t) {
   ctx.save();
+  { const zc = 1 + 0.03 * clamp((t - 11) / 8.5, 0, 1); ctx.translate(270, 520); ctx.scale(zc, zc); ctx.translate(-270, -520); }
   const g = ctx.createLinearGradient(0, 0, 0, H);
   g.addColorStop(0, '#103646'); g.addColorStop(0.55, '#0c2a3a'); g.addColorStop(1, '#0a2030');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
@@ -365,12 +366,15 @@ function sceneC(ctx, t) {
   ctx.fillStyle = 'rgba(20,62,80,0.55)'; ctx.beginPath(); ctx.roundRect(BX, BY, BW, BH, 14); ctx.fill();
   // 光：一小段一小段，亮度看位置和时刻
   for (let y = Y_LASER - 6; y > Y_TOP; y -= 6) beamSeg(ctx, XB, y, Math.max(y - 6, Y_TOP), 1 - (1 - DIMC) * dipAt(y - 3, t));
-  const FL = 56, off = ((VL * t) % FL + FL) % FL;
-  ctx.lineCap = 'round'; ctx.lineWidth = 3;
+  const FL = 44, off = ((VL * t) % FL + FL) % FL;
+  ctx.lineCap = 'round'; ctx.lineWidth = 4;
   for (let y = Y_LASER - 10 - off; y > Y_TOP; y -= FL) {
-    ctx.strokeStyle = `rgba(255,255,255,${0.5 * Math.pow(1 - (1 - DIMC) * dipAt(y, t), 1.4)})`;
-    ctx.beginPath(); ctx.moveTo(XB, y); ctx.lineTo(XB, y - 12); ctx.stroke();
+    ctx.strokeStyle = `rgba(255,255,255,${0.9 * Math.pow(1 - (1 - DIMC) * dipAt(y, t), 1.4)})`;
+    ctx.beginPath(); ctx.moveTo(XB, y); ctx.lineTo(XB, y - 14); ctx.stroke();
   }
+  // 芯片表面的淡线缓缓漂（背景也在动）
+  ctx.strokeStyle = 'rgba(140,200,220,0.10)'; ctx.lineWidth = 2;
+  for (let k = 0; k < 5; k++) { const yy = ((k * 230 + t * 40) % 1150) - 100; ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(70, yy); ctx.moveTo(470, yy + 60); ctx.lineTo(540, yy + 60); ctx.stroke(); }
   ctx.strokeStyle = 'rgba(150,215,235,0.75)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.roundRect(BX, BY, BW, BH, 14); ctx.stroke();
   // 电碰到电极片：这一帧起，电极片和盒子靠电极的一侧泛金色
   let gh = 0; for (const p of PULSES) if (t >= p.hit) gh = Math.max(gh, Math.exp(-(t - p.hit) / 0.14));
@@ -520,7 +524,7 @@ window.t4Events = function () {
   corr('D', U_D0, '', T_D_EXIT);
   // C：电脉冲碰到电极片
   ev.push({ t: 11.0, kind: 'padOn' });
-  for (const p of PULSES) ev.push({ t: p.hit, kind: 'zap', dur: p.dur, set: p.set, i: p.i });
+  for (const p of PULSES) ev.push({ t: p.hit, kind: 'zap', dur: p.dur, rise: RISE, set: p.set, i: p.i });
   ev.push({ t: PULSES[0].hit, kind: 'cue' });
   ev.push({ t: 19.5, kind: 'whoosh', dir: 'up', dur: 0.8 });
   ev.push({ t: 19.5, kind: 'padOff' });
