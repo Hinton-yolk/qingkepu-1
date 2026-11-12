@@ -38,7 +38,7 @@ Z_BUMP = (Z_PAD0 + Z_FLOOR + 1.4) / 2     # 微凸点中心
 CLR = 36.0                                # 输出通孔和这一对微凸点周围清出的净空（示意：真实芯片这里同样布满连线，要加角注）
 BUS_X0 = -1100.0                          # 并排数据线从远处伸过来（毫米尺度上也看得见这一条）
 TILE = (520.0, 220.0); TILE_X0 = -330.0   # 环境连线的「瓦片」：x −330…190、y −110…110；瓦片之间是粗干线
-FIELD_X = (-1890.0, 1750.0); FIELD_Y = 1650.0   # 铺开的范围：S02 的「透视窗」最大半径 1.5 mm，都落在里面
+FIELD_X = (-2080.0, 1750.0); FIELD_Y = 1650.0   # 铺开的范围：S02 的「透视窗」最大半径 1.5 mm，都落在里面；−X 一头到芯片边缘（落点离边 2 mm）
 SEAM_X = -110.0                           # 23.0 秒相机对准的点（S02 的落点 P 就放在这里）
 
 M = {}
@@ -141,7 +141,7 @@ def build(t0, t1, name='连线层'):
 
     # --- 环境连线：瓦片按网格铺开（共享网格，省内存） ---
     tiles = {k: keep(_tile(k).obj('连线瓦片_' + k, M['wire'], col)) for k in 'ABC'}
-    ix0 = math.floor((FIELD_X[0] - TILE_X0) / TILE[0]); ix1 = math.ceil((FIELD_X[1] - TILE_X0) / TILE[0]); iy1 = math.ceil((FIELD_Y - TILE[1] / 2) / TILE[1])
+    ix0 = math.ceil((FIELD_X[0] - TILE_X0) / TILE[0]); ix1 = math.ceil((FIELD_X[1] - TILE_X0) / TILE[0]); iy1 = math.ceil((FIELD_Y - TILE[1] / 2) / TILE[1])
     for ix in range(ix0, ix1):
         for iy in range(-iy1, iy1 + 1):
             if (ix, iy) == (0, 0): continue
@@ -156,7 +156,7 @@ def build(t0, t1, name='连线层'):
             l3.box((pz0 - fx0, 5.0, 2.0), ((fx0 + pz0) / 2, y, Z_TOP + 1.0)); l3.box((fx1 - pz1, 5.0, 2.0), ((fx1 + pz1) / 2, y, Z_TOP + 1.0))
         else: l3.box((fx1 - fx0, 5.0, 2.0), ((fx0 + fx1) / 2, y, Z_TOP + 1.0))
     for iy in range(-iy1 - 1, iy1 + 1): l3.box((fx1 - fx0, 30.0, 2.0), ((fx0 + fx1) / 2, (iy + 0.5) * TILE[1], Z_TOP + 1.0))
-    for ix in range(ix0, ix1 + 1): l3.box((30.0, 2 * FIELD_Y, 2.0), (TILE_X0 + ix * TILE[0], 0, Z_TOP - 1.2))
+    for ix in range(ix0, ix1 + 1): l3.box((30.0, 2 * FIELD_Y, 2.0), (TILE_X0 + ix * TILE[0], 0, Z_TOP + 1.0))
     keep(l3.obj('上层电源线和干线', M['thick'], col))
     # --- 微凸点阵列（顶点实例）+ 中介层表面 ---
     pts = []; pts_cu = []
