@@ -35,7 +35,7 @@ class T5Shot:
         self.id = sid; self.t0 = 0.0; self.t1 = dur; self.f0 = 1; self.f1 = round(dur * FPS); self.data = {}
     def u(self, t): return (t - self.t0) / (self.t1 - self.t0)
 
-def build_scene(sid, dur):
+def build_scene(sid, dur, hero_b=False):
     """返回 dict：shot、args、ns（s01 截到路径线之前的全部变量）"""
     args = parse(); shot = T5Shot(sid, dur)
     C.parse_args = lambda: args; C.Shot = lambda _id: shot
@@ -51,7 +51,11 @@ def build_scene(sid, dur):
     patch("g['silver'].box((0.0183, 0.016, 0.0085), (px, SD + 0.009, PORT_Z))", "g['p0stub' if px == PORT_X[0] else 'silver'].box((0.0183, 0.040, 0.0085), (px, SD + 0.020, PORT_Z))")
     patch("'wire', 'silver', 'drive', 'label', 'led')}", "'wire', 'silver', 'p0stub', 'drive', 'label', 'led')}")
     patch("mk('wire',", "mk('p0stub', C.pbr, color=(0.70, 0.71, 0.73), metallic=1.0, rough=0.35)\nmk('wire',")
-    ns = {'__file__': path, '__name__': 's01_t5'}
+    patch("mk('yellow', C.pbr, color=(0.78, 0.88, 0.07), rough=0.48)", "mk('yellow', C.pbr, color=(0.30, 0.27, 0.085), rough=0.55)")
+    patch("mk('yellow2', C.pbr, color=(0.62, 0.72, 0.09), rough=0.55)", "mk('yellow2', C.pbr, color=(0.25, 0.225, 0.075), rough=0.6)")
+    patch("    C.instance_collection(RACK, f'B{i}', (xc(i), -0.6, 0), rot=(0, 0, PI), col=racks)",
+          "    if HERO_B and i == I_B:\n        heroB = C.empty('机柜B', (xc(I_B), -0.6, 0), racks); heroB.rotation_euler = (0, 0, PI); FDB = assemble_rack(racks, hero=True, parent=heroB)\n    else: C.instance_collection(RACK, f'B{i}', (xc(i), -0.6, 0), rot=(0, 0, PI), col=racks)")
+    ns = {'__file__': path, '__name__': 's01_t5', 'HERO_B': hero_b}
     t0 = time.time(); exec(compile(src, path, 'exec'), ns); print('S01_EXEC_SEC', round(time.time() - t0, 1), flush=True)
     return dict(shot=shot, args=args, ns=ns)
 
@@ -169,35 +173,66 @@ def optical_module(ns, row='A', idx=None):
     g['lens'].cyl(0.0014, 0.0030, (0, y0 + 0.0345, -0.0003), rot=(PI / 2, 0, 0), seg=16)
     objs = []
     for nm, m_ in g.items():
-        o = m_.obj('模块_' + nm, mats[nm], col, bevel=0.0003 if nm in ('shell', 'chip') else 0.0); o.location = W((x, 0, z)); objs.append(o)
+        o = m_.obj('模块_' + nm, mats[nm], col, bevel=0.0003 if nm in ('shell', 'chip') else 0.0); o.location = W((x, 0, z)); o.rotation_euler = (0, 0, PI if row == 'B' else 0); objs.append(o)
     return dict(objs=objs, W=W, chip_local=(x, y0 + 0.0290, z + 0.0004), y0=y0, y1=y1, x=x, z=z)
 
-# ---------- B 排的标记 ----------
-def b_marker(ns, strength=3.0):
-    """B 排 GPU B 那台服务器的柔和标记：门前一圈青白色的细框 + 很淡的底光 + 一盏柔光。"""
+# ---------- B 排的标记：从那台服务器里透出的一道青色柔光 ----------
+def b_marker(ns, strength=6.0):
+    """服务器前面板前面一条青色亮带（柜门的冲孔网挡在前面，光从孔里透出来）+ 一盏朝通道的柔光（照到地板上有反光）。
+    返回 dict(e1=亮带发光强度插口, light=柔光)。"""
     to_world = ns['to_world']; srv_to_rack = ns['srv_to_rack']; SH = ns['SH']; SW = ns['SW']; I_B = ns['I_B']
     c = to_world('B', I_B, srv_to_rack((0, 0, SH / 2)))
-    y = -0.600 + 0.012
-    w, h = SW + 0.040, SH + 0.040; t = 0.010
     col = C.collection('B标记')
     m = bpy.data.materials.new('b_marker'); m.use_nodes = True; N = m.node_tree.nodes; L = m.node_tree.links
     for n in list(N): N.remove(n)
-    e = N.new('ShaderNodeEmission'); e.inputs['Color'].default_value = (0.72, 1.0, 1.0, 1); e.inputs['Strength'].default_value = strength
+    e = N.new('ShaderNodeEmission'); e.inputs['Color'].default_value = (0.10, 0.85, 1.0, 1); e.inputs['Strength'].default_value = strength
     out = N.new('ShaderNodeOutputMaterial'); L.new(e.outputs[0], out.inputs[0])
-    fm = C.Mesh()
-    for sx in (-1, 1): fm.box((t, 0.006, h), (sx * (w / 2 - t / 2), 0, 0))
-    for sz in (-1, 1): fm.box((w, 0.006, t), (0, 0, sz * (h / 2 - t / 2)))
-    o = fm.obj('B标记框', m, col); o.location = (c.x, y, c.z)
-    m2 = bpy.data.materials.new('b_marker_fill'); m2.use_nodes = True; N2 = m2.node_tree.nodes; L2 = m2.node_tree.links
-    for n in list(N2): N2.remove(n)
-    e2 = N2.new('ShaderNodeEmission'); e2.inputs['Color'].default_value = (0.62, 0.95, 1.0, 1); e2.inputs['Strength'].default_value = strength * 0.18
-    tr = N2.new('ShaderNodeBsdfTransparent'); mx = N2.new('ShaderNodeMixShader'); mx.inputs['Fac'].default_value = 0.35
-    o2 = N2.new('ShaderNodeOutputMaterial'); L2.new(tr.outputs[0], mx.inputs[1]); L2.new(e2.outputs[0], mx.inputs[2]); L2.new(mx.outputs[0], o2.inputs[0])
-    fl = C.Mesh(); fl.box((w - 0.02, 0.003, h - 0.02), (0, 0, 0)); of = fl.obj('B标记底光', m2, col); of.location = (c.x, y + 0.002, c.z)
-    ld = bpy.data.lights.new('B标记柔光', 'AREA'); ld.energy = 0.0; ld.color = (0.60, 0.95, 1.0); ld.shape = 'RECTANGLE'; ld.size = w * 1.6; ld.size_y = h * 1.6
-    lo = C.link(bpy.data.objects.new('B标记柔光', ld), col); lo.location = (c.x, y + 0.15, c.z)
-    lo.rotation_euler = V((0, -1, 0)).to_track_quat('-Z', 'Y').to_euler(); lo.visible_camera = False
-    return dict(light=ld, center=c, e1=e, e2=e2, mix=mx, frame_obj=o, fill_obj=of)
+    av = N.new('ShaderNodeOutputAOV'); av.aov_name = 'lightmask'; av.inputs['Value'].default_value = 0.3        # 柔和的辉光
+    fm = C.Mesh(); fm.box((SW * 0.84, 0.004, 0.018), (0, 0, 0)); fm.box((SW * 0.84, 0.004, 0.006), (0, 0, 0.060)); fm.box((SW * 0.84, 0.004, 0.006), (0, 0, -0.060))
+    o = fm.obj('B标记亮带', m, col); o.location = (c.x, -0.672, c.z)
+    ld = bpy.data.lights.new('B标记柔光', 'AREA'); ld.energy = 0.0; ld.color = (0.25, 0.90, 1.0); ld.shape = 'RECTANGLE'; ld.size = SW * 0.84; ld.size_y = 0.05
+    lo = C.link(bpy.data.objects.new('B标记柔光', ld), col); lo.location = (c.x, -0.665, c.z)
+    lo.rotation_euler = V((0, 1, 0)).to_track_quat('-Z', 'Y').to_euler(); lo.visible_camera = False       # 朝 +Y（朝通道）
+    return dict(light=ld, center=c, e1=e, obj=o)
+
+# ---------- 很淡的青色虚线（暗示「要走的路」），亮度远低于消息 ----------
+def dash_material(name, color, strength=1.2, period=0.20):
+    m = bpy.data.materials.new(name); m.use_nodes = True; N = m.node_tree.nodes; L = m.node_tree.links
+    for n in list(N): N.remove(n)
+    uv = N.new('ShaderNodeUVMap'); uv.uv_map = 'UV'; sep = N.new('ShaderNodeSeparateXYZ'); L.new(uv.outputs['UV'], sep.inputs[0])
+    off = N.new('ShaderNodeValue'); off.name = 'dash_offset'
+    stv = N.new('ShaderNodeValue'); stv.name = 'dash_strength'; stv.outputs[0].default_value = strength
+    def mt(op, a, b):
+        n = N.new('ShaderNodeMath'); n.operation = op
+        for i, v in enumerate((a, b)):
+            if isinstance(v, (int, float)): n.inputs[i].default_value = v
+            else: L.new(v, n.inputs[i])
+        return n.outputs[0]
+    ph = mt('SUBTRACT', mt('DIVIDE', sep.outputs['X'], period), off.outputs[0])
+    f = mt('SUBTRACT', ph, mt('FLOOR', ph, 0.0)); on = mt('LESS_THAN', f, 0.45)
+    e = N.new('ShaderNodeEmission'); e.inputs['Color'].default_value = (*color, 1)
+    L.new(mt('MULTIPLY', on, stv.outputs[0]), e.inputs['Strength'])
+    out = N.new('ShaderNodeOutputMaterial'); L.new(e.outputs[0], out.inputs[0]); return m
+
+# ---------- 合成：只对「消息」加辉光（lightmask AOV 遮罩；只有消息材质写这个 AOV） ----------
+def setup_glare(size=6, strength=1.0, threshold=0.0):
+    sc = bpy.context.scene
+    ng = bpy.data.node_groups.new('t5_comp', 'CompositorNodeTree'); sc.compositing_node_group = ng
+    rl = ng.nodes.new('CompositorNodeRLayers'); rl.scene = sc; rl.layer = bpy.context.view_layer.name
+    names = [o.name for o in rl.outputs]; print('COMP RL outputs', names)
+    mask = rl.outputs['lightmask'] if 'lightmask' in names else None
+    mul = ng.nodes.new('ShaderNodeMix'); mul.data_type = 'RGBA'; mul.blend_type = 'MULTIPLY'; mul.inputs['Factor'].default_value = 1.0
+    ng.links.new(rl.outputs['Image'], mul.inputs['A'])
+    if mask is not None: ng.links.new(mask, mul.inputs['B'])
+    g = ng.nodes.new('CompositorNodeGlare'); ng.links.new(mul.outputs['Result'], g.inputs['Image'])
+    g.inputs['Threshold'].default_value = threshold; g.inputs['Strength'].default_value = strength
+    try: g.inputs['Size'].default_value = size / 9.0
+    except Exception as ex: print('glare size', ex)
+    add = ng.nodes.new('ShaderNodeMix'); add.data_type = 'RGBA'; add.blend_type = 'ADD'; add.inputs['Factor'].default_value = 1.0
+    ng.links.new(rl.outputs['Image'], add.inputs['A']); ng.links.new(g.outputs['Glare'], add.inputs['B'])
+    ng.interface.new_socket('Image', in_out='OUTPUT', socket_type='NodeSocketColor')
+    go = ng.nodes.new('NodeGroupOutput'); ng.links.new(add.outputs['Result'], go.inputs['Image'])
+    return g
 
 def key_sock(sock, keys):
     """keys = [(片内秒, 值)]，线性。sock 是节点输入 / 输出插口"""
@@ -236,8 +271,8 @@ def hermite(keys, t):
 def hermite_s(keys, t):
     return hermite([(a, V((b, 0, 0))) for a, b in keys], t).x
 
-def setup_render(args, exposure=0.0):
-    dev = C.setup_render(args, exposure=exposure)
+def setup_render(args, exposure=0.0, look='AgX - Punchy'):
+    dev = C.setup_render(args, exposure=exposure, look=look)
     sc = bpy.context.scene; sc.cycles.transparent_max_bounces = 48
     sc.render.use_motion_blur = True; sc.render.motion_blur_shutter = 0.4
     if args.threads and not args.gpu:

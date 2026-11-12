@@ -43,9 +43,9 @@ def radii(pts, r0, r_in):
     for p in pts:
         y = p[1]; k = C.smooth(C.seg(y, SD - 0.014, SD - 0.006)); out.append(C.lerp(r0, r_in, k))
     return out
-rl = radii(route, 0.0022, 0.0006)
-FAR_K = 6.0                                                             # 拉远时管的粗细倍数（形态键 far）
-msg_mat = S.message_material('msg_gold', S.GOLD_MSG, strength=3.5, cell=0.04)
+rl = radii(route, 0.0042, 0.0008)
+FAR_K = 4.5                                                             # 拉远时管的粗细倍数（形态键 far）
+msg_mat = S.message_material('msg_gold', (1.0, 0.50, 0.02), strength=9.0, cell=0.04)
 tube = S.sweep_tube('消息串_金', world, rl, msg_mat, sides=8, radius_far=[r * (FAR_K if r > 0.0008 else 2.0) for r in rl])
 print('STREAM 长度', round(tube['arc_len'], 3), 'm | 起点', tuple(round(v, 3) for v in world[0]), '| 终点', tuple(round(v, 3) for v in world[-1]))
 # 流速：每秒几位（物理量，随镜头尺度调：贴近时 4 位/秒，拉远后加快，让屏幕上看起来约每秒 3–4 位）
@@ -62,12 +62,19 @@ C.set_interp(tube.data.shape_keys, 'LINEAR')
 # ---------- 光模块（半透明） ----------
 mod = S.optical_module(ns, 'A')
 
-# ---------- B 排标记 ----------
-mk = S.b_marker(ns, strength=3.0)
-MK_ON = [(0.0, 0.0), (2.6, 0.0), (3.6, 1.0)]                                      # 标记在 2.6–3.6 s 柔和地亮起，之后保持
-S.key_sock(mk['e1'].inputs['Strength'], [(t, 0.0 if v == 0 else 3.0) for t, v in MK_ON])
-S.key_sock(mk['e2'].inputs['Strength'], [(t, 0.0 if v == 0 else 0.55) for t, v in MK_ON])
-S.key_energy(mk['light'], [(t, 0.0 if v == 0 else 60.0) for t, v in MK_ON])
+# ---------- B 排标记：服务器里透出的青色柔光；2.6–3.6 s 亮起 ----------
+mk = S.b_marker(ns, strength=6.0)
+S.key_sock(mk['e1'].inputs['Strength'], [(0.0, 0.0), (2.6, 0.0), (3.6, 40.0)])
+S.key_energy(mk['light'], [(0.0, 0.0), (2.6, 0.0), (3.6, 900.0)])
+# ---------- 很淡的青色虚线：沿线槽从 A 一侧指向 B ----------
+fillet = ns['fillet']; hero_route = ns['hero_route']; X_CROSS = ns['X_CROSS']; I_B = ns['I_B']
+ra = [to_world('A', I_A, p) for p in hero_route()]; rb = [to_world('B', I_B, p) for p in reversed(hero_route())]
+zt = ra[-1].z; ya = ra[-1].y; yb = rb[0].y; xk = X_CROSS - 0.10
+dpts = [V(p) + V((0, 0, 0.035)) for p in fillet([ra[-1], (xk, ya, zt), (xk, yb, zt), rb[0]], 0.06, n=6)]
+dmat = S.dash_material('dash_cyan', (0.15, 0.85, 1.0), strength=1.2, period=0.22)
+dash = S.sweep_tube('虚线_青', dpts, 0.012, dmat, sides=6)
+S.key_sock(dmat.node_tree.nodes['dash_strength'].outputs[0], [(0.0, 0.0), (2.8, 0.0), (3.8, 1.2)])
+S.key_sock(dmat.node_tree.nodes['dash_offset'].outputs[0], [(0.0, 0.0), (DUR, 2.2 * DUR)])
 
 # ---------- 灯光 ----------
 ns_ = ns; rad = math.radians
@@ -94,5 +101,6 @@ C.animate_camera(cam, tgt, cam_fn, shot)
 
 # ---------- 渲染 ----------
 dev = S.setup_render(args, exposure=0.0)
+S.setup_glare(size=7, strength=3.0)
 print('G_A', tuple(round(v, 4) for v in G_A), '| G_B', tuple(round(v, 4) for v in G_B), '| 光模块', tuple(round(v, 4) for v in mod['W']((LANE_X, SD + 0.02, PORT_Z))))
 C.render(args, shot, dev)

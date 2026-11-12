@@ -12,7 +12,7 @@ CAM_KEYS = [
     (6.5, V((2.61, 1.66, 1.12)), V((2.594, 1.60, 0.872))),
 ]
 LENS = [(0.0, 32), (3.0, 28), (5.0, 28), (5.85, 35), (6.5, 42)]
-FSTOP = [(0.0, 2.8), (3.0, 1.6), (4.6, 1.4), (5.2, 4.0), (5.85, 4.0), (6.5, 5.6)]
+FSTOP = [(0.0, 5.6), (1.5, 6.3), (2.4, 3.0), (3.0, 1.6), (4.6, 1.4), (5.2, 4.0), (5.85, 4.0), (6.5, 5.6)]
 def cam_fn(t):
     loc = S.hermite([(k[0], k[1]) for k in CAM_KEYS], t); tg = S.hermite([(k[0], k[2]) for k in CAM_KEYS], t)
     return dict(loc=loc, tgt=tg, lens=S.hermite_s(LENS, t), fstop=S.hermite_s(FSTOP, t))

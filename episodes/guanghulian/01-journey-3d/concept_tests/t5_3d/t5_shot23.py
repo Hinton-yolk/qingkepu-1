@@ -149,12 +149,12 @@ def mat_leak():
             else: L.new(x, n.inputs[i])
         return n.outputs[0]
     t = mn('DIVIDE', mn('SUBTRACT', sep.outputs['Y'], Y_FACE), 9.0)
-    ax = mn('POWER', mn('MAXIMUM', mn('SUBTRACT', 1.0, t), 0.0), 2.0)
+    ax = mn('MULTIPLY', mn('POWER', mn('MAXIMUM', mn('SUBTRACT', 1.0, t), 0.0), 2.0), mn('MINIMUM', mn('MAXIMUM', mn('DIVIDE', mn('SUBTRACT', sep.outputs['Y'], Y_FACE), 3.0), 0.0), 1.0))
     r = mn('POWER', mn('ADD', mn('POWER', sep.outputs['X'], 2.0), mn('POWER', mn('SUBTRACT', sep.outputs['Z'], 0.5), 2.0)), 0.5)
     R_ = mn('ADD', 1.4, mn('MULTIPLY', mn('SUBTRACT', sep.outputs['Y'], Y_FACE), 0.28))
     rad = mn('POWER', mn('MAXIMUM', mn('SUBTRACT', 1.0, mn('DIVIDE', r, R_)), 0.0), 2.0)
     lk = value_node(m, 'leak', 0.0)
-    st = mn('MULTIPLY', mn('MULTIPLY', ax, rad), mn('MULTIPLY', lk.outputs[0], 1.0)); L.new(st, e.inputs['Strength'])
+    st = mn('MULTIPLY', mn('MULTIPLY', ax, rad), mn('MULTIPLY', lk.outputs[0], 0.8)); L.new(st, e.inputs['Strength'])
     return m
 
 def add_vis(m, name='vis'):
@@ -297,7 +297,7 @@ for k in range(-2, 3):
 ribbon = box('ribbon', -62, 62, 150, 340, -9, 9, M['ribbon'], bev=0.5)
 mpo = box('mpo', -52, 52, 340, 420, -24, 24, M['mpo'], bev=1.0)
 leak_vol = None
-bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=True, segments=24, radius1=0.4, radius2=6.0, depth=10.0); me = bpy.data.meshes.new('leak_cone'); bm.to_mesh(me); bm.free()
+bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=True, segments=24, radius1=1.2, radius2=6.0, depth=10.0); me = bpy.data.meshes.new('leak_cone'); bm.to_mesh(me); bm.free()
 leak_vol = bpy.data.objects.new('leak_cone', me); leak_vol.data.materials.append(M['leak']); link(leak_vol)
 leak_vol.location = (0, Y_FACE + 5.0, 0.5); leak_vol.rotation_euler = (math.radians(-90), 0, 0)    # 锥尖在端面，向 +y 张开
 
