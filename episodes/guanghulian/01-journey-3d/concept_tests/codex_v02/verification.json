@@ -1,0 +1,38 @@
+{
+  "specification": "PASS",
+  "all_270_native_frames": true,
+  "source_frame_size": [
+    270,
+    480
+  ],
+  "delivery_size": [
+    540,
+    960
+  ],
+  "S3_camera_locked": true,
+  "cut_transform_deltas": {
+    "45": 0.0,
+    "90": 0.0,
+    "195": 0.0
+  },
+  "input_pixel_minmax_S3": [
+    88.88888888888889,
+    89.14814814814815
+  ],
+  "output_bit_probe_values": [
+    189.1851851851852,
+    64.55555555555556,
+    189.59259259259258,
+    188.66666666666666,
+    64.4074074074074,
+    64.55555555555556,
+    189.5185185185185,
+    65.18518518518519
+  ],
+  "output_bright_dark_ratio": 2.925984251968504,
+  "contrast_target_2_5": true,
+  "total_render_seconds_recorded": 225.67529702186584,
+  "sha256": "048ef47eb5d57c4e91f9e5c6f1f520b81d15fdd13eae6d3ed426bd903c61f4a4",
+  "first_look_humans": "NOT VERIFIED",
+  "director_approval": "NOT ASSESSED"
+}
