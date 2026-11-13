@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="846" height="1512" viewBox="0 0 846 1512" role="img" aria-label="Four Director Locked V0.2 composition and movement trajectory blocking diagrams for 9 second electro optic modulator">
+<defs>
+<linearGradient id="panelbg" x2="0" y2="1"><stop stop-color="#131c2a"/><stop offset="1" stop-color="#060d17"/></linearGradient>
+<linearGradient id="chip" x2=".8" y2="1"><stop stop-color="#263645"/><stop offset=".56" stop-color="#121d2a"/><stop offset="1" stop-color="#050a13"/></linearGradient>
+<filter id="glow"><feGaussianBlur stdDeviation="7"/></filter>
+<marker id="arrowW" orient="auto" markerWidth="6" markerHeight="6" refX="5" refY="3"><path d="M0 0 L6 3 L0 6 Z" fill="#f4f7ff"/></marker>
+<marker id="arrowG" orient="auto" markerWidth="6" markerHeight="6" refX="5" refY="3"><path d="M0 0 L6 3 L0 6 Z" fill="#ffd288"/></marker>
+<marker id="arrowC" orient="auto" markerWidth="6" markerHeight="6" refX="5" refY="3"><path d="M0 0 L6 3 L0 6 Z" fill="#9af7ff"/></marker>
+</defs>
+<rect width="846" height="1512" fill="#080b12"/>
+<text x="31" y="22" font-size="17" fill="#c4cedc" font-family="sans-serif">DIRECTOR-LOCKED V0.2 — COMPOSITION + SUBJECT TRAJECTORY — TECHNICAL BLOCKING, NOT RENDER</text>
+<g transform="translate(30,30)">
+<rect x="0" y="0" width="368" height="689" rx="15" fill="#080d17" stroke="#405168" stroke-width="2"/>
+<rect x="12" y="12" width="344" height="611" rx="9" fill="url(#panelbg)"/>
+<g clip-path="url(#unused)">
+</g>
+<polygon points="42,135 293,78 338,428 101,529" fill="url(#chip)" stroke="#526575" stroke-width="2"/>
+<g opacity="0.32" stroke="#7993a1" stroke-width="2">
+<path d="M 66 158 L 119 505"/><path d="M 97 151 L 147 501"/><path d="M 128 144 L 175 497"/><path d="M 159 137 L 203 493"/><path d="M 190 130 L 231 489"/><path d="M 221 123 L 259 485"/><path d="M 252 116 L 287 481"/>
+</g>
+<text x="25" y="51" fill="#e2eaf5" font-size="24" font-weight="700" font-family="sans-serif">S1  光已存在</text>
+<text x="25" y="82" fill="#a9b9c8" font-size="15" font-family="monospace">f000–044 / 0–1.50s</text>
+<path d="M 180 485 L 180 369 Q 180 346 162 329 L 126 293 L 126 200 Q 126 183 165 161 Q 194 150 194 122" stroke="#31dae6" stroke-width="9" opacity=".28" filter="url(#glow)" fill="none"/><path d="M 180 485 L 180 369 Q 180 346 162 329 L 126 293 L 126 200 Q 126 183 165 161 Q 194 150 194 122" stroke="#70f5ff" stroke-width="6" stroke-linecap="round" fill="none"/><path d="M 162 329 L 230 278 L 230 201 Q 230 185 194 165" stroke="#56dbe6" stroke-width="6" fill="none"/><path d="M 290 430 L 276 260 L 250 228" stroke="#7d572e" stroke-width="7" fill="none"/><path d="M 105 464 L 105 414" stroke="#f5f7ff" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#arrowW)" fill="none"/><text x="62" y="483" fill="#c9d4e5" font-size="13">K: ≤8%</text><circle cx="180" cy="461" r="10" fill="none" stroke="#b9fcff" stroke-width="2"/><text x="195" y="463" fill="#aaf9ff" font-size="13">CW IN</text>
+<rect x="13" y="631" width="342" height="44" rx="7" fill="#122235" />
+<text x="25" y="659" font-size="15" fill="#e7effb" font-family="sans-serif">C: (0.47,.79) → 分叉｜K: 慢推</text>
+</g>
+<g transform="translate(448,30)">
+<rect x="0" y="0" width="368" height="689" rx="15" fill="#080d17" stroke="#405168" stroke-width="2"/>
+<rect x="12" y="12" width="344" height="611" rx="9" fill="url(#panelbg)"/>
+<g clip-path="url(#unused)">
+</g>
+<polygon points="42,135 293,78 338,428 101,529" fill="url(#chip)" stroke="#526575" stroke-width="2"/>
+<g opacity="0.32" stroke="#7993a1" stroke-width="2">
+<path d="M 66 158 L 119 505"/><path d="M 97 151 L 147 501"/><path d="M 128 144 L 175 497"/><path d="M 159 137 L 203 493"/><path d="M 190 130 L 231 489"/><path d="M 221 123 L 259 485"/><path d="M 252 116 L 287 481"/>
+</g>
+<text x="25" y="51" fill="#e2eaf5" font-size="24" font-weight="700" font-family="sans-serif">S2  电正赶来</text>
+<text x="25" y="82" fill="#a9b9c8" font-size="15" font-family="monospace">f045–089 / 1.50–3.00s</text>
+<path d="M 180 485 L 180 369 Q 180 346 162 329 L 126 293 L 126 200 Q 126 183 165 161 Q 194 150 194 122" stroke="#31dae6" stroke-width="9" opacity=".28" filter="url(#glow)" fill="none"/><path d="M 180 485 L 180 369 Q 180 346 162 329 L 126 293 L 126 200 Q 126 183 165 161 Q 194 150 194 122" stroke="#70f5ff" stroke-width="6" stroke-linecap="round" fill="none"/><path d="M 162 329 L 230 278 L 230 201 Q 230 185 194 165" stroke="#56dbe6" stroke-width="6" fill="none"/><path d="M 290 430 L 276 260 L 250 228" stroke="#7d572e" stroke-width="7" fill="none"/><path d="M 290 430 L 285 368 L 278 307 L 268 257" stroke="#edb252" stroke-width="9" fill="none" stroke-linecap="round" filter="url(#glow)"/><path d="M 290 430 L 285 368 L 278 307 L 268 257" stroke="#f3b964" stroke-width="4" fill="none" stroke-dasharray="21 13" marker-end="url(#arrowG)"/><circle cx="266" cy="257" r="11" fill="none" stroke="#ffdc90" stroke-width="3"/><path d="M 82 540 L 130 540" stroke="#fff" stroke-width="2" fill="none" stroke-dasharray="6 5" marker-end="url(#arrowW)"/><text x="81" y="562" fill="#c9d4e5" font-size="13">K ≤30 px</text><text x="293" y="324" fill="#ffe0a6" font-size="13">G ↑</text>
+<rect x="13" y="631" width="342" height="44" rx="7" fill="#122235" />
+<text x="25" y="659" font-size="15" fill="#e7effb" font-family="sans-serif">G: 右下 → 作用点｜输入光不变</text>
+</g>
+<g transform="translate(30,766)">
+<rect x="0" y="0" width="368" height="689" rx="15" fill="#080d17" stroke="#405168" stroke-width="2"/>
+<rect x="12" y="12" width="344" height="611" rx="9" fill="url(#panelbg)"/>
+<g clip-path="url(#unused)">
+</g>
+<polygon points="42,135 293,78 338,428 101,529" fill="url(#chip)" stroke="#526575" stroke-width="2"/>
+<g opacity="0.32" stroke="#7993a1" stroke-width="2">
+<path d="M 66 158 L 119 505"/><path d="M 97 151 L 147 501"/><path d="M 128 144 L 175 497"/><path d="M 159 137 L 203 493"/><path d="M 190 130 L 231 489"/><path d="M 221 123 L 259 485"/><path d="M 252 116 L 287 481"/>
+</g>
+<text x="25" y="51" fill="#e2eaf5" font-size="24" font-weight="700" font-family="sans-serif">S3  因果高潮</text>
+<text x="25" y="82" fill="#a9b9c8" font-size="15" font-family="monospace">f090–194 / 3.00–6.50s</text>
+<path d="M 175 482 L 175 395 Q 175 364 147 343 L 118 309 L 118 226 Q 118 203 173 180 Q 193 170 193 134" stroke="#2fd8e2" stroke-width="11" fill="none" filter="url(#glow)" opacity=".65"/><path d="M 175 482 L 175 395 Q 175 364 147 343 L 118 309 L 118 226 Q 118 203 173 180 Q 193 170 193 134" stroke="#83faff" stroke-width="7" fill="none"/><path d="M 147 343 L 247 294 L 247 222 Q 247 204 173 180" stroke="#54cfda" stroke-width="7" fill="none"/><path d="M 294 425 L 281 312 L 270 257" stroke="#ecb160" stroke-width="10" fill="none" filter="url(#glow)"/><path d="M 294 425 L 281 312 L 270 257" stroke="#ffd288" stroke-width="5" fill="none" stroke-dasharray="18 9" marker-end="url(#arrowG)"/>
+<rect x="171" y="112" width="44" height="14" rx="7" fill="#4cf2fb" opacity=".85"/>
+<rect x="171" y="92" width="44" height="9" rx="4" fill="#2da1a7" opacity=".55"/>
+<text x="228" y="112" fill="#a6f8ff" font-size="14">OUTPUT</text>
+<text x="195" y="479" fill="#a6f8ff" font-size="14">STEADY</text>
+<circle cx="257" cy="260" r="16" stroke="#f6cd85" fill="none" stroke-width="2" stroke-dasharray="4 3"/>
+<text x="276" y="248" fill="#f6cd85" font-size="13">ACTION</text>
+<text x="31" y="560" fill="#f2f6fa" font-size="14">f096 G arrives → f100 C responds</text>
+<rect x="13" y="631" width="342" height="44" rx="7" fill="#122235" />
+<text x="25" y="659" font-size="15" fill="#e7effb" font-family="sans-serif">K: 锁机位｜金色先到，青色后变</text>
+</g>
+<g transform="translate(448,766)">
+<rect x="0" y="0" width="368" height="689" rx="15" fill="#080d17" stroke="#405168" stroke-width="2"/>
+<rect x="12" y="12" width="344" height="611" rx="9" fill="url(#panelbg)"/>
+<g clip-path="url(#unused)">
+</g>
+<polygon points="42,135 293,78 338,428 101,529" fill="url(#chip)" stroke="#526575" stroke-width="2"/>
+<g opacity="0.32" stroke="#7993a1" stroke-width="2">
+<path d="M 66 158 L 119 505"/><path d="M 97 151 L 147 501"/><path d="M 128 144 L 175 497"/><path d="M 159 137 L 203 493"/><path d="M 190 130 L 231 489"/><path d="M 221 123 L 259 485"/><path d="M 252 116 L 287 481"/>
+</g>
+<text x="25" y="51" fill="#e2eaf5" font-size="24" font-weight="700" font-family="sans-serif">S4  消息继续前进</text>
+<text x="25" y="82" fill="#a9b9c8" font-size="15" font-family="monospace">f195–269 / 6.50–9.00s</text>
+<path d="M 170 465 L 170 350 Q 170 315 193 295 Q 220 274 235 251 C 256 215 267 172 303 116" stroke="#29c6d9" stroke-width="15" fill="none" opacity=".7" filter="url(#glow)"/>
+<path d="M 170 465 L 170 350 Q 170 315 193 295 Q 220 274 235 251 C 256 215 267 172 303 116" stroke="#85f8ff" stroke-width="7" fill="none" marker-end="url(#arrowC)"/>
+<path d="M 141 412 L 151 335 Q 170 317 170 312" stroke="#45a6b4" stroke-width="4" fill="none"/>
+<path d="M 225 425 L 201 337 L 170 312" stroke="#45a6b4" stroke-width="4" fill="none"/>
+<path d="M 294 431 L 274 328" stroke="#ac7b43" stroke-width="7" fill="none" opacity=".32"/>
+<circle cx="170" cy="312" r="13" stroke="#adf9ff" fill="#0e1c24" stroke-width="3"/><text x="73" y="293" fill="#c2e3ee" font-size="13">same combiner</text>
+<path d="M 70 540 L 90 495" stroke="#f2f7ff" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#arrowW)"/><text x="78" y="558" fill="#eef5ff" font-size="14">K slight follow</text>
+<rect x="13" y="631" width="342" height="44" rx="7" fill="#122235" />
+<text x="25" y="659" font-size="15" fill="#e7effb" font-family="sans-serif">C: 合束 → 弯折输出｜G 到此为止</text>
+</g>
+<text x="31" y="1501" fill="#a5afbd" font-size="14" font-family="sans-serif">C = optical guided path   G = electrical drive path   K = camera movement     ● = same physical combiner</text>
+</svg>
