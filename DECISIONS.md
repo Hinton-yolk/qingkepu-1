@@ -136,7 +136,7 @@
 
 - 2026-11-14：**迁到新的 Claude 账号，环境重建**。用户 11-14 的决定：
   - 继续在 `claude/happy-goodall-o47ilg` 上工作；新建个人云环境「kepu-studio」（放行的主机和启动脚本见 `HANDOFF.md`）。
-  - 「项目之后将继续以 Claude 为主要执行 Agent，不再使用 Codex 制作动画」；观众角色「继续选择 codex 来当」（`CLAUDE.md`「四个角色」不变）。ChatGPT Codex Connector GitHub App 先停用。
+  - 「项目之后将继续以 Claude 为主要执行 Agent，不再使用 Codex 制作动画」；观众角色「继续选择 codex 来当」（`CLAUDE.md`「四个角色」不变）。ChatGPT Codex Connector GitHub App 和旧账号的 Drive 授权「先保持原样」。
   - GitHub Actions「删掉，以后有需要再加」：`main` 上的工作流和配置说明已删除（1706817）。
   - RunPod、Gemini、Fish Audio 的密钥重新配到新环境（旧密钥在旧账号的环境里，建议作废）。
   - 下一项制作（继续 T6 还是重做 V0.2）「暂时先不做」。

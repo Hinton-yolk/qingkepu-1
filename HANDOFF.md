@@ -22,8 +22,8 @@
 - 观众（Codex）：CLI 0.169.0。登录信息只存在当前容器里，**每个新容器都要重新** `codex login --device-auth`（后台运行，把网址和验证码发给用户）。
 - 云渲染工具 `tools/runpod_render.py` 仍在 `origin/claude/bold-hypatia-1tyot4`，取法见下文「更早的交接」第七节。
 - GitHub Actions：工作流已经从 `main` 删除（提交 1706817，用户 11-14 定「以后需要再加」）。要恢复就从 a3e5783 取回。仓库密钥 `CLAUDE_CODE_OAUTH_TOKEN` 由用户删除。
-- ChatGPT Codex Connector 这个 GitHub App 由用户停用；`@codex` 评论不再触发它。
-- Google Drive 连接器在新账号下重新授权过，用的还是原来那个 Google 账号；审核文件夹和权限不变。
+- ChatGPT Codex Connector 这个 GitHub App 保持原样（用户 11-14：先不动，ChatGPT 读 PR 可能要用它）。不要在 PR 里发以「@codex」开头的评论。
+- Google Drive 连接器在新账号下重新授权过，用的还是原来那个 Google 账号；审核文件夹和权限不变。旧账号的 Drive 授权保持原样（用户 11-14）。
 - 旧环境里那个「回合结束前不能有没提交改动」的钩子，新环境没有。照旧做：做到一半的文件也要提交。
 
 ---
