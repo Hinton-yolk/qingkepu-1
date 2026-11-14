@@ -1,3 +1,23 @@
+# 当前进度（2026-11-14 晚，先读这一节）
+
+分支 `claude/happy-goodall-o47ilg`。RunPod 上没有在跑的机器（20:22 UTC 查过）。
+
+## 今天做完的
+1. **环境**：新建个人环境 kepu-studio（启动脚本装 Blender 5.2.3、中文字体、Codex CLI、opencv、librosa）。网络密钥：RunPod、Fish Audio 已存在 Default 环境（只读接口 200）；Gemini 要用户在 Settings 手动加（`x-goog-api-key` 头）。RunPod 控制台的 Secret `hf_token` 已建，Hugging Face 账号已获得 LTX-2.5 和 Layout-To-Render LoRA 的权限。Codex 没登录。
+2. **LTX PoC 04**（插入动画，`experiments/ltx_poc04/`）：跑通。A100 15.4 分钟约 $0.56；前四次失败约 $0.48（都已修进 `runpod_ltx.py`）。用户看片：「V1更好看，V2可能细节更对」。
+3. **分工定了**（`DECISIONS.md` 11-14 最后一条）：Cycles 为主；LTX 只做细节对错不要紧的镜头。
+4. **远景 PoC 05**（数据中心冷通道，`experiments/farshot_poc05/`）：Cycles $0.36、LTX 两版 $0.62。结论（建议，**待用户定**）：这个远景里 LTX 没胜过 Cycles（V1 改了结构、交换机认不出 OSFP 口；V2 约等于复刻 Cycles）。用户授权这次 2 美元以内不用问，PoC 05 合计约 $0.98。
+
+## 等用户的
+- **V3 测试**：用 GPT 把灰模画成照片级关键帧，再喂给 LTX（LTX 的外观来自关键帧，用 Cycles 帧当关键帧就超不过 Cycles）。灰模三帧和提示词在 `experiments/farshot_poc05/deliver/gpt_input/`（`GPT_prompts.md`）。**等用户用 GPT 生成好图发过来。**
+- PoC 05 的结论要不要写进 `DECISIONS.md`（目前只在 README 里，标了待用户定）。
+
+## 注意
+- 本对话曾另起一个远景方案（用 S01 机房粗模，`s01_wide.py`），被另一个对话的 PoC 05 取代，没有提交。
+- 24 fps 的片子跑 `tools/motion_check.py` 会误报静止（它先补成 30 fps）；按原生帧率算。
+
+---
+
 # 环境更新（2026-11-14 晚，新对话；取代下面「二、环境」里关于环境和密钥的说法）
 - 用户在新对话里说「继续在happy-goodall上做」：仍在本分支工作。02 线（`claude/wonderful-lamport-vyi0q3`）没有并进来，免得混进 PR #3；两条线的合并版留在 `claude/determined-galileo-fx1123` 备查。
 - 这个账号下原先只有 Default 环境（网络 Unrestricted、没有启动脚本、**没有任何网络密钥**）；旧账号的「kepu-studio」环境这里看不到。
