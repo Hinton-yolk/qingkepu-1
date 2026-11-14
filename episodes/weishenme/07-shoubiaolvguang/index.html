@@ -18,6 +18,7 @@
   <canvas id="c" width="1080" height="1920"></canvas>
 </div>
 <script src="timeline.js"></script>
+<script src="assets/people/model.js"></script>
 <script>
 "use strict";
 // ============================================================================================
@@ -220,14 +221,16 @@ function aw(p) {                                                          // a p
   return [SH[0] + dx * c - dz * s, p[1], SH[1] + dx * s + dz * c];
 }
 const P3 = (K, p) => proj(K, ...aw(p));
-const armRy = (x) => lerp(26, 37, clamp(-x / 260));
-const armRz = (x) => 0.8 * armRy(x);
-const armTop = (x) => armRz(x);
+// v3: the forearm is a tube measured from the user's reference images (tools/model.py): width from the top view, thickness from the side view
+const AM = window.ARM_MODEL;
+function tubeAt(x) { const TB = AM.TUBE, x0 = TB[0][0], st = TB[1][0] - x0; x = clamp(x, x0, TB[TB.length - 1][0]); const i = Math.min(TB.length - 2, Math.floor((x - x0) / st)), u = (x - TB[i][0]) / st; return TB[i].map((v, k) => lerp(v, TB[i + 1][k], u)); }
+const armRy = (x) => tubeAt(x)[2], armRz = (x) => tubeAt(x)[4], armYc = (x) => tubeAt(x)[1], armZc = (x) => tubeAt(x)[3];
+const armTop = (x) => armZc(x) + armRz(x);
 // the outer edges of an elliptical cross-section (half-width ry across, half-height rz up) as seen at pitch θ
 function edgeOff(K, ry, rz) { const c = Math.cos(K.th), s = Math.sin(K.th), n = Math.hypot(ry * c, rz * s) || 1; return [ry * ry * c / n, -rz * rz * s / n]; }
-function bandPts(K, xs, ryF, rzF, zcF = () => 0) {
+function bandPts(K, xs, ryF, rzF, zcF = armZc, ycF = armYc) {
   const top = [], bot = [];
-  for (const x of xs) { const [oy, oz] = edgeOff(K, ryF(x), rzF(x)), zc = zcF(x); bot.push(P3(K, [x, oy, zc + oz])); top.push(P3(K, [x, -oy, zc - oz])); }
+  for (const x of xs) { const [oy, oz] = edgeOff(K, ryF(x), rzF(x)), zc = zcF(x), yc = ycF(x); bot.push(P3(K, [x, yc + oy, zc + oz])); top.push(P3(K, [x, yc - oy, zc - oz])); }
   return top.concat(bot.reverse());
 }
 function skinFill(P, lightTop = true) {
@@ -285,7 +288,9 @@ function drawHandSide(t, K, k) {
   return hp;
 }
 function drawRingGlow(t, K, k) {
-  const gl = win(t, T.ringGlow, T.back + 0.4, 0.3, 0.4) * k;              // the light inside the ring, palm side
+  const gl = win(t, T.ringGlow, T.back + 0.4, 0.3, 0.4) * k;
+  const mk = win(t, T.ringMark, T.ringGlow + 0.6, 0.25, 0.35) * k;              // v3 (audience v2 #3): see the ring before its light
+  if (mk > 0.01) { const c = P3(K, sideImgToWorld(...RING_IMG)), R = (16 + 3 * (1 - E.p3out(prog(t, T.ringMark, T.ringMark + 0.3)))) * K.A; ctx.save(); ctx.globalAlpha = mk; ctx.strokeStyle = C.acc; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(c[0], c[1], R, 0, TAU); ctx.stroke(); ctx.restore(); }              // the light inside the ring, palm side
   const p = P3(K, sideImgToWorld(...RING_PALM));
   if (gl > 0.01) {
     ctx.save(); ctx.globalCompositeOperation = "lighter";
@@ -335,16 +340,19 @@ function watchState(t) {
   const s = { xw: -18, lift: 0, roll: 0, wrap: 1, fing: 0 };
   s.xw = lerp(-18, -56, E.p2io(prog(t, T.move, T.moveEnd)));
   const bob = 3.2 * Math.sin(TAU * t / 1.6);
-  if (t < T.flipEnd) { const u = E.p2io(prog(t, T.flip, T.flipEnd)); s.lift = 40 * (1 - u) + bob * (1 - u); s.roll = Math.PI * (1 - u); }
+  if (t < T.flipEnd) {                                                 // v3: a small tilt first, then the roll and the drop overlap
+    const pre = 0.14 * E.smooth(prog(t, 1.55, T.flip)), r = E.p3io(prog(t, T.flip - 0.1, T.flipEnd)), d = E.p2io(prog(t, T.flip + 0.05, T.flipEnd));
+    s.lift = (40 + bob) * (1 - d); s.roll = (Math.PI - pre) * (1 - r);
+  }
   else if (t >= T.lift && t < T.flip3End) {
     const up = E.p2io(prog(t, T.lift, T.flip2)), r1 = E.p2io(prog(t, T.flip2, T.flip2End)), dn = E.p2io(prog(t, T.flip3, T.flip3End));
     s.lift = 40 * up * (1 - dn) + bob * up * (1 - dn); s.roll = Math.PI * r1 * (1 - dn);
   }
   s.wrap = s.lift > 0.5 ? 0 : 1;
-  if (t < T.flipEnd + 0.1) s.wrap = E.smooth(prog(t, T.flipEnd - 0.12, T.flipEnd + 0.1));
+  if (t < T.flipEnd + 0.25) s.wrap = E.smooth(prog(t, T.flipEnd - 0.15, T.flipEnd + 0.25));
   else if (t >= T.lift - 0.1 && t < T.flip3End + 0.1) s.wrap = 1 - E.smooth(prog(t, T.lift - 0.1, T.lift + 0.08)) + E.smooth(prog(t, T.flip3End - 0.12, T.flip3End + 0.1));
-  s.fing = t < T.releaseEnd ? 1 - E.p2in(prog(t, T.release, T.releaseEnd)) : t >= T.grab - 0.3 && t < T.flip3End + 0.6 ? E.p3out(prog(t, T.grab - 0.3, T.grab)) * (1 - E.p2in(prog(t, T.flip3End, T.flip3End + 0.55))) : 0;
-  s.out = t < T.releaseEnd ? E.p2in(prog(t, T.release, T.releaseEnd)) : t >= T.flip3End ? E.p2in(prog(t, T.flip3End, T.flip3End + 0.55)) : 1 - E.p3out(prog(t, T.grab - 0.3, T.grab));
+  s.fing = t < T.releaseEnd ? 1 - E.smooth(prog(t, T.release + 0.35, T.releaseEnd)) : t >= T.grab - 0.3 && t < T.flip3End + 0.6 ? E.p3out(prog(t, T.grab - 0.3, T.grab)) * (1 - E.p2in(prog(t, T.flip3End, T.flip3End + 0.55))) : 0;
+  s.out = t < T.releaseEnd ? E.p3io(prog(t, T.release, T.releaseEnd)) : t >= T.flip3End ? E.p2in(prog(t, T.flip3End, T.flip3End + 0.55)) : 1 - E.p3out(prog(t, T.grab - 0.3, T.grab));
   // running: the case slips a little on the skin (表在晃)
   s.slip = 2.6 * swingAmp(t) * Math.sin(swingPh(t) + 1.1);
   return s;
@@ -383,13 +391,16 @@ function drawStrap(t, K, s, F, part = "open") {
     ctx.restore();
   }
   if (part === "open" && s.wrap < 0.99) {
-    ctx.save(); ctx.globalAlpha = 1 - s.wrap; ctx.lineCap = "butt";
+    // v3: two soft straps that hang from the lugs (gravity), and roll in towards the case as it lands (no fade on the spot)
+    const L = 1 - E.smooth(s.wrap), hang = clamp(s.lift / 25);
+    if (L >= 0.04) {
+    ctx.save(); ctx.lineCap = "butt"; ctx.lineJoin = "round";
     for (const sg of [-1, 1]) {
-      const a = P3(K, LP(F, 0, sg * (WT.hy - 2), -1)), b = P3(K, LP(F, 0, sg * (WT.hy + 26), -3)), c = P3(K, v3.add(LP(F, 0, sg * (WT.hy + 34), -6), [0, 0, -16]));
-      ctx.strokeStyle = C.ink; ctx.lineWidth = 24 * K.A; ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.lineTo(...c); ctx.stroke();
-      ctx.strokeStyle = C.strap; ctx.lineWidth = 21 * K.A; ctx.stroke();
+      const pts = []; for (let i = 0; i <= 8; i++) { const u = i / 8 * L, v = sg * (WT.hy - 2 + 40 * u), w = -1.5 - 3 * u; pts.push(P3(K, v3.add(LP(F, 0, v, w), [0, 0, -26 * hang * u * u]))); }
+      const draw = (w, col) => { ctx.strokeStyle = col; ctx.lineWidth = w * K.A; ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(...p) : ctx.moveTo(...p))); ctx.stroke(); };
+      draw(24, C.ink); draw(21, C.strap); draw(9, "rgba(255,255,255,0.07)");
     }
-    ctx.restore();
+    ctx.restore(); }
   }
 }
 function drawWatch(t, K, s, o = {}) {
@@ -397,12 +408,24 @@ function drawWatch(t, K, s, o = {}) {
   drawStrap(t, K, s, F);
   // the case: hull of both outlines
   const P = []; for (const w of [-WT.th / 2, WT.th / 2]) for (const [u, v] of CASE_PTS) P.push(P3(K, LP(F, u, v, w)));
-  poly(hull(P)); { let y0 = 1e9, y1 = -1e9; for (const p of P) { y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); } const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, "#4A4E56"); g.addColorStop(0.3, C.caseD); g.addColorStop(1, "#15171B"); ctx.fillStyle = g; } ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = C.ink; ctx.stroke();
+  poly(hull(P)); { let y0 = 1e9, y1 = -1e9; for (const p of P) { y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); } const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, "#5A5F68"); g.addColorStop(0.25, "#33363D"); g.addColorStop(0.7, C.caseD); g.addColorStop(1, "#101114"); ctx.fillStyle = g; } ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = C.ink; ctx.stroke();
+  // v3: the body is rounded — two soft rim lines along its sides (where the light catches the curve)
+  for (const [w, a] of [[WT.th * 0.28, 0.22], [-WT.th * 0.2, 0.1]]) { const R = CASE_PTS.map(([u, v]) => P3(K, LP(F, u * 1.0, v * 1.0, w))); ctx.beginPath(); R.forEach((p, i) => (i ? ctx.lineTo(...p) : ctx.moveTo(...p))); ctx.closePath(); ctx.strokeStyle = `rgba(255,255,255,${a})`; ctx.lineWidth = 2; ctx.stroke(); }
+  // the crown and the side button (on the hand side of the case)
+  { const sideVis = Math.abs(Math.sin(K.th)) > 0.05 || true; if (sideVis) for (const [v, len, r, col] of [[5, 3.2, 3.4, "#4E535C"], [-7, 1.6, 1.6, "#3A3E46"]]) {
+      const A0 = P3(K, LP(F, WT.hx - 0.5, v, 0.6)), A1 = P3(K, LP(F, WT.hx + len, v, 0.6)), rr_ = r * K.A;
+      ctx.lineCap = "round"; ctx.strokeStyle = C.ink; ctx.lineWidth = 2 * rr_ + 3; ctx.beginPath(); ctx.moveTo(...A0); ctx.lineTo(...A1); ctx.stroke();
+      ctx.strokeStyle = col; ctx.lineWidth = 2 * rr_; ctx.stroke(); ctx.lineCap = "butt";
+  } }
   const faceUp = F.ez[1] * view[1] + F.ez[2] * view[2] > 0;
   if (faceUp) {
     faceT(K, F, WT.th / 2);
-    rr(-WT.hx, -WT.hy, 2 * WT.hx, 2 * WT.hy, WT.r); ctx.fillStyle = C.caseL; ctx.fill();
+    rr(-WT.hx, -WT.hy, 2 * WT.hx, 2 * WT.hy, WT.r); { const g = ctx.createLinearGradient(-WT.hx, -WT.hy, WT.hx, WT.hy); g.addColorStop(0, "#5C616A"); g.addColorStop(0.5, C.caseL); g.addColorStop(1, "#22252A"); ctx.fillStyle = g; } ctx.fill();
     rr(-WT.hx + 1.8, -WT.hy + 1.8, 2 * WT.hx - 3.6, 2 * WT.hy - 3.6, WT.r - 1.8); ctx.fillStyle = C.glass; ctx.fill();
+    // v3: a soft reflection across the glass (upper left), a thin bright edge
+    ctx.save(); rr(-WT.hx + 1.8, -WT.hy + 1.8, 2 * WT.hx - 3.6, 2 * WT.hy - 3.6, WT.r - 1.8); ctx.clip();
+    { const g = ctx.createLinearGradient(-WT.hx, -WT.hy, WT.hx * 0.2, WT.hy * 0.1); g.addColorStop(0, "rgba(255,255,255,0.16)"); g.addColorStop(0.55, "rgba(255,255,255,0.05)"); g.addColorStop(0.56, "rgba(255,255,255,0)"); ctx.fillStyle = g; ctx.fillRect(-WT.hx, -WT.hy, 2 * WT.hx, 2 * WT.hy); }
+    ctx.restore(); rr(-WT.hx + 1.8, -WT.hy + 1.8, 2 * WT.hx - 3.6, 2 * WT.hy - 3.6, WT.r - 1.8); ctx.lineWidth = 0.5; ctx.strokeStyle = "rgba(255,255,255,0.22)"; ctx.stroke();
     const on = t >= T.scrOn ? E.p3out(prog(t, T.scrOn, T.scrOn + 0.25)) : 0;
     if (on > 0.01) {
       const p = pulseAt(t, T.beat0), sc = 1 + 0.16 * p;
@@ -416,8 +439,11 @@ function drawWatch(t, K, s, o = {}) {
     faceT(K, F, -WT.th / 2);
     ctx.scale(1, -1);
     rr(-WT.hx, -WT.hy, 2 * WT.hx, 2 * WT.hy, WT.r); ctx.fillStyle = C.caseL; ctx.fill();
-    ctx.beginPath(); ctx.arc(0, 0, 15.5, 0, TAU); ctx.fillStyle = "#4A4F58"; ctx.fill();
-    ctx.beginPath(); ctx.arc(0, 0, 11.5, 0, TAU); ctx.fillStyle = C.glass; ctx.fill();
+    // v3: the sensor dome — a ring, a darker step, the glass with a soft highlight
+    ctx.beginPath(); ctx.arc(0, 0, 16, 0, TAU); { const g = ctx.createRadialGradient(-5, -5, 2, 0, 0, 16); g.addColorStop(0, "#666B74"); g.addColorStop(1, "#3E434B"); ctx.fillStyle = g; } ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, 13.2, 0, TAU); ctx.fillStyle = "#2A2E35"; ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, 11.5, 0, TAU); { const g = ctx.createRadialGradient(-4, -4, 1, 0, 0, 11.5); g.addColorStop(0, "#1C2027"); g.addColorStop(1, C.glass); ctx.fillStyle = g; } ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, 10.5, 3.6, 4.6); ctx.lineWidth = 0.9; ctx.strokeStyle = "rgba(255,255,255,0.25)"; ctx.stroke();
     ctx.lineWidth = 0.5; ctx.strokeStyle = "rgba(241,240,236,0.25)"; ctx.stroke();
     for (const [x, y] of [[-6.8, -6.2], [6.8, -6.2], [-6.8, 6.2], [6.8, 6.2]]) { rr(x - 1.6, y - 1.6, 3.2, 3.2, 0.6); ctx.fillStyle = C.pd; ctx.fill(); ctx.fillStyle = "rgba(241,240,236,0.35)"; ctx.fillRect(x - 1.1, y - 1.1, 1.1, 0.8); }
     const fl = flick(t);
@@ -438,22 +464,31 @@ function capsule(P, w, fill, edge) {                                     // a jo
   ctx.beginPath(); P.forEach((p, i) => (i ? ctx.lineTo(...p) : ctx.moveTo(...p)));
   ctx.strokeStyle = edge; ctx.lineWidth = w + 4; ctx.stroke(); ctx.strokeStyle = fill; ctx.lineWidth = w; ctx.stroke();
 }
-const PINCH = { L: [436, 930], R: [805, 980] };                               // hand-pinch.webp: the thumb pad and the index pad (inner edges)
+const PINCH = { L: [436, 930], R: [805, 980] };                               // the pinch outline: the thumb pad and the index pad (inner edges)
 function drawFingertips(t, K, s, F) {
   if (s.fing <= 0.01) return;
-  const pL = P3(K, LP(F, -(WT.hx + 1.5), 0, 0)), pR = P3(K, LP(F, WT.hx + 1.5, 0, 0)), up = s.out * 150 * K.A;
-  // a similarity map: the two pads onto the two ends of the case (the hand comes down from the top)
-  const S0 = PINCH.L, S1 = PINCH.R, D0 = [pL[0], pL[1] - up], D1 = [pR[0], pR[1] - up];
-  const sv = [S1[0] - S0[0], S1[1] - S0[1]], dv = [D1[0] - D0[0], D1[1] - D0[1]];
-  const S2 = [S0[0] - sv[1], S0[1] + sv[0]], D2 = [D0[0] - dv[1], D0[1] + dv[0]];
   const fa = s.fing * (1 - E.smooth(clamp((sideK(K) - 0.15) / 0.25)));       // only from above: not while the camera is still turning from the side
   if (fa <= 0.01) return;
-  drawPinned(IMG.pinch, affine([S0, S1, S2], [D0, D1, D2]), fa, 2400);
+  const pL = P3(K, LP(F, -(WT.hx + 1.5), 0, 0)), pR = P3(K, LP(F, WT.hx + 1.5, 0, 0));
+  // letting go: the hand rises towards the camera and away up-right (no fade-out on the spot)
+  const up = s.out * 190 * K.A, side = s.out * 70 * K.A, grow = 1 + 0.18 * s.out;
+  const mid = [(pL[0] + pR[0]) / 2, (pL[1] + pR[1]) / 2];
+  const D0 = [mid[0] + (pL[0] - mid[0]) * grow + side, mid[1] + (pL[1] - mid[1]) * grow - up], D1 = [mid[0] + (pR[0] - mid[0]) * grow + side, mid[1] + (pR[1] - mid[1]) * grow - up];
+  const S0 = PINCH.L, S1 = PINCH.R, sv = [S1[0] - S0[0], S1[1] - S0[1]], dv = [D1[0] - D0[0], D1[1] - D0[1]];
+  const M = affine([S0, S1, [S0[0] - sv[1], S0[1] + sv[0]]], [D0, D1, [D0[0] - dv[1], D0[1] + dv[0]]]);
+  ctx.save(); ctx.globalAlpha = fa;
+  // the wrist goes on up out of frame
+  // the outline runs along the image's top edge from (595, 0) to (917, 0): put the forearm going on up out of frame there
+  const PP = AM.pinch.pts, iT = PP.findIndex((p, i) => p[1] < 4 && PP[(i + 1) % PP.length][1] < 4);
+  const Pfull = PP.slice(0, iT + 1).concat([[PP[iT][0] - 40, -2400], [PP[(iT + 1) % PP.length][0] + 40, -2400]], PP.slice(iT + 1));
+  drawPart(Pfull, M, skinGrad(mapPt(M, [300, 500]), mapPt(M, [1100, 500])));
+  drawDetails(AM.pinch, M, 1);
   // green on the pads (only while the back faces up)
-  if (!faceUpNow(K, F)) { ctx.save(); ctx.globalAlpha = fa; ctx.globalCompositeOperation = "lighter"; for (const p of [D0, D1]) {
-    const g = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], 16 * K.A); g.addColorStop(0, `rgba(61,240,138,${0.35 * flick(t)})`); g.addColorStop(1, "rgba(61,240,138,0)");
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p[0], p[1], 16 * K.A, 0, TAU); ctx.fill();
-  } ctx.restore(); }
+  if (!faceUpNow(K, F)) { ctx.globalCompositeOperation = "lighter"; for (const p of [D0, D1]) {
+    const g = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], 11 * K.A); g.addColorStop(0, `rgba(40,230,120,${0.42 * flick(t)})`); g.addColorStop(1, "rgba(40,230,120,0)");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p[0], p[1], 11 * K.A, 0, TAU); ctx.fill();
+  } }
+  ctx.restore();
 }
 
 // ---------------------------------------------------------------- keys and the camera
@@ -464,12 +499,12 @@ const KH = key([55, 0, 6], [540, 1000], 4.2, 90);                    // the hand
 const KW = key([-110, 0, 0], [560, 1010], 2.35, 0);                   // the tip: elbow ← wrist
 function cam(t) {
   if (t < T.pitch) { const z = 8.2 * Math.pow(10.4 / 8.2, t / T.pitch); return key([-18 + 6 * (t / T.pitch), 0, armTop(-18) + 12 + 22 * (1 - E.p2io(prog(t, T.flip, T.flipEnd)))], [540 - 10 * Math.sin(t * 0.9), 1080], z, 0); }
-  if (t < T.unflood) {                                                  // turn to the side, into the gap
-    const u = E.p2io(prog(t, T.pitch, T.pitchEnd)), g = E.p3in(prog(t, T.gap, T.gapEnd + 0.25));
-    const F = [-12, 0, lerp(armTop(-18) + 5.5, GAP(-18)[2], u)], z = 10.4 * Math.pow(48 / 10.4, 0.25 * u + 0.75 * g);
-    return key(F, [540, lerp(1080, 1000, u)], z, 90 * u);
+  if (t < T.unflood) {                                                  // v3: tilt to 72° while pushing in to the gap under the case; the iris opens from it
+    const u = E.p3io(prog(t, T.pitch, T.pitchEnd)), g = E.p3io(prog(t, T.gap - 0.25, T.gapEnd + 0.4));
+    const F = [lerp(-18 + 6, -18, u), 0, lerp(armTop(-18) + 12, GAP(-18)[2], E.smooth(u))], z = 10.4 * Math.pow(26 / 10.4, 0.35 * u + 0.65 * g);
+    return key(F, [540 - 10 * Math.sin(T.pitch * 0.9) * (1 - u), lerp(1080, 728, E.smooth(u))], z, 72 * u);
   }
-  if (t < T.slide) { const u = E.p3io(prog(t, T.pullOut, T.pullOutEnd)); return interp(key(GAP(-18), [540, 1000], 30, 90), KR, u); }
+  if (t < T.slide) { const u = E.p3io(prog(t, T.pullOut, T.pullOutEnd)); return interp(key(GAP(-18), [540, 728], 26, 72), KR, u); }
   if (t < T.back) { const u = E.p3io(prog(t, T.slide, T.slideEnd)); return interp(KR, KH, u); }
   if (t < T.wide) {
     const u = E.p3io(prog(t, T.back, T.backEnd)), s = watchState(t);
@@ -487,11 +522,10 @@ function cam(t) {
 
 // ---------------------------------------------------------------- the light world
 function flood(t) { return t < T.flood ? 0 : t < T.floodEnd ? E.p2io(prog(t, T.flood, T.floodEnd)) : t < T.unflood ? 1 : 1 - E.p2io(prog(t, T.unflood, T.unfloodEnd)); }
-// ---------------------------------------------------------------- the arm and hands: GPT images (user, 2026-11-14), placed in the world
-// v3: the hand-drawn arm was rejected (「建模不通过，手指小臂这些都太假」). Each image is pinned to the world by three points,
-// so the camera's pitch, zoom and the running swing (aw) move it exactly like the old geometry.
-const IMG = {};
-function loadImg(k, src) { return new Promise((res, rej) => { const im = new Image(); im.onload = () => { IMG[k] = im; res(); }; im.onerror = () => rej(new Error("image " + src)); im.src = src; }); }
+// ---------------------------------------------------------------- the arm and hands, drawn (v3)
+// User 2026-11-14: 「手尽可能还是按照图片的建模来修改」 — like the feet of EP.05, the film draws the arm and hands itself.
+// The model comes from the user's four reference images (assets/people/*.webp → tools/trace.py, creases.py, nails.py, model.py):
+// outlines, finger gaps, knuckle folds and nails in image px, mapped into the world by three points.
 function affine(S, D) {                                                     // the 2D affine map taking the image points S[0..2] to the screen points D[0..2]
   const [a, b, c] = S, [A, B, Cc] = D;
   const d = (b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]);
@@ -500,29 +534,76 @@ function affine(S, D) {                                                     // t
   const m21 = (B[1] - A[1]) * i11 + (Cc[1] - A[1]) * i21, m22 = (B[1] - A[1]) * i12 + (Cc[1] - A[1]) * i22;
   return [m11, m21, m12, m22, A[0] - m11 * a[0] - m12 * a[1], A[1] - m21 * a[0] - m22 * a[1]];
 }
-// image → world anchors
-const TOPI = { s: 4.37, u0: 1150, v0: 370, z: 22 };                          // arm-top.webp: the wrist (world x −6) at (1150, 370); +v = +y (little-finger side)
-const SIDEI = { s: 4.1, w0: [1040, 541], d: [0.956, -0.296] };              // arm-side-*.webp: the wrist at w0, the forearm along d (tilted 17° in the image)
-const SIDEN = [SIDEI.d[1], -SIDEI.d[0]];                                     // "up" in the image
+const mapPt = (M, p) => [M[0] * p[0] + M[2] * p[1] + M[4], M[1] * p[0] + M[3] * p[1] + M[5]];
+const TOPI = { ...AM.TOPI, z: 18 };                                         // top view: the wrist (world x −6) at image (1150, 370); the back of the hand at z ≈ 18 mm
+const SIDEI = AM.SIDEI;                                                     // side view: the wrist at w0, the forearm along d (tilted 17° in the image)
+const SIDEN = [SIDEI.d[1], -SIDEI.d[0]];
 function sideImgToWorld(u, v) { const du = u - SIDEI.w0[0], dv = v - SIDEI.w0[1]; return [-6 + (du * SIDEI.d[0] + dv * SIDEI.d[1]) / SIDEI.s, 0, (du * SIDEN[0] + dv * SIDEN[1]) / SIDEI.s]; }
-const RING_IMG = [1288, 376], RING_PALM = [1292, 410];                      // the ring on arm-side-open-ring.webp (centre; palm side)
-function drawPinned(im, M, a, stretchUp = 0) {
-  if (!im || a <= 0.005) return;
-  ctx.save(); ctx.globalAlpha *= a; ctx.setTransform(...M);
-  ctx.drawImage(im, 0, 0);
-  if (stretchUp) ctx.drawImage(im, 0, 0, im.width, 3, 0, -stretchUp, im.width, stretchUp + 1.5);   // the sleeve / wrist goes on out of frame
+const RING_IMG = [1288, 376], RING_PALM = [1294, 412];                      // the ring on the open hand (centre; palm side)
+// the top-view hand: the outline from the wrist on (u ≥ 1095), clipped once
+function clipU(P, u0) { const out = []; for (let i = 0; i < P.length; i++) { const a = P[i], b = P[(i + 1) % P.length], ia = a[0] >= u0, ib = b[0] >= u0; if (ia) out.push(a); if (ia !== ib) { const k = (u0 - a[0]) / (b[0] - a[0]); out.push([u0, a[1] + k * (b[1] - a[1])]); } } return out; }
+const TOPHAND = clipU(AM.top.pts, 1095);
+const SKIN_STOPS = [[0, "#E3BE97"], [0.24, "#F8E6CF"], [0.5, "#F0D4B2"], [0.82, "#E2BA92"], [1, "#D3A77E"]];
+function skinGrad(A, B) { const g = ctx.createLinearGradient(A[0], A[1], B[0], B[1]); for (const [o, c] of SKIN_STOPS) g.addColorStop(o, c); return g; }
+function pathPts(P, M) { ctx.beginPath(); P.forEach((p, i) => { const q = M ? mapPt(M, p) : p; i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }); ctx.closePath(); }
+// one drawn body part: skin fill, a soft inner rim (volume), the outline; then creases and nails (all in screen px)
+function drawPart(P, M, grad, o = {}) {
+  pathPts(P, M); ctx.fillStyle = grad; ctx.fill();
+  ctx.save(); pathPts(P, M); ctx.clip(); ctx.filter = "blur(7px)"; ctx.lineJoin = "round"; ctx.strokeStyle = "rgba(176,118,78,0.32)"; ctx.lineWidth = 22; pathPts(P, M); ctx.stroke(); ctx.restore();
+  ctx.lineJoin = "round"; ctx.strokeStyle = "rgba(120,78,44,0.55)"; ctx.lineWidth = o.edge ?? 2.6; pathPts(P, M); ctx.stroke();
+}
+function drawDetails(D, M, a = 1, filt = null) {
+  if (a <= 0.01) return;
+  ctx.save(); ctx.globalAlpha *= a; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  for (const c of D.creases) { if (filt && !filt(c[0])) continue; ctx.beginPath(); c.forEach((p, i) => { const q = mapPt(M, p); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }); ctx.strokeStyle = "rgba(160,104,66,0.42)"; ctx.lineWidth = 2.2; ctx.stroke(); }
+  for (const n of D.nails) {
+    if (filt && !filt(n[0])) continue;
+    pathPts(n, M); ctx.fillStyle = "#F2D6C6"; ctx.fill(); ctx.strokeStyle = "rgba(176,116,92,0.6)"; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.save(); pathPts(n, M); ctx.clip(); ctx.filter = "blur(2px)"; ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 3; pathPts(n, M); ctx.stroke(); ctx.restore();
+  }
   ctx.restore();
 }
+// the tube gradient: across the forearm at the wrist (light side up / towards the thumb, as the photos are lit)
+function tubeGrad(K) { const x = -18, yc = armYc(x), zc = armZc(x), [oy, oz] = edgeOff(K, armRy(x), armRz(x)); return skinGrad(P3(K, [x, yc - oy, zc - oz]), P3(K, [x, yc + oy, zc + oz])); }
 function drawArmTop(K, a) {
-  const T0 = TOPI, z = T0.z;
-  const M = affine([[T0.u0, T0.v0], [T0.u0 + 100 * T0.s, T0.v0], [T0.u0, T0.v0 + 100 * T0.s]], [P3(K, [-6, 0, z]), P3(K, [94, 0, z]), P3(K, [-6, 100, z])]);
-  drawPinned(IMG.top, M, a);
+  if (a <= 0.005) return;
+  ctx.save(); ctx.globalAlpha *= a;
+  const xs = []; for (let x = -470; x <= 6; x += 6) xs.push(x);
+  const g = tubeGrad(K);
+  drawPart(bandPts(K, xs, armRy, armRz), null, g);
+  const z = TOPI.z, s = TOPI.s, u0 = TOPI.u0, v0 = TOPI.v0;
+  const M = affine([[u0, v0], [u0 + 100 * s, v0], [u0, v0 + 100 * s]], [P3(K, [-6, 0, z]), P3(K, [94, 0, z]), P3(K, [-6, 100, z])]);
+  drawPart(TOPHAND, M, g);
+  drawDetails(AM.top, M, 1, (p) => p[0] >= 1110);
+  ctx.restore();
+}
+function sideM(K) {
+  const w0 = SIDEI.w0, D = SIDEI.d, N = SIDEN, L = 100 * SIDEI.s;
+  return affine([w0, [w0[0] + D[0] * L, w0[1] + D[1] * L], [w0[0] + N[0] * L, w0[1] + N[1] * L]], [P3(K, [-6, 0, 0]), P3(K, [94, 0, 0]), P3(K, [-6, 0, 100])]);
 }
 function drawArmSide(K, a, k) {
-  const w0 = SIDEI.w0, D = SIDEI.d, N = SIDEN, L = 100 * SIDEI.s;
-  const M = affine([w0, [w0[0] + D[0] * L, w0[1] + D[1] * L], [w0[0] + N[0] * L, w0[1] + N[1] * L]], [P3(K, [-6, 0, 0]), P3(K, [94, 0, 0]), P3(K, [-6, 0, 100])]);
-  drawPinned(IMG.open, M, a, 1400);
-  if (k < 0.999) drawPinned(IMG.fist, M, a * (1 - k), 1400);
+  if (a <= 0.005) return null;
+  const M = sideM(K);
+  ctx.save(); ctx.globalAlpha *= a;
+  // fist ↔ open: the same arm; the hand outline morphs (both resampled to the same points by tools/model.py)
+  const P = AM.MORPH.fist.map((p, i) => { const q = AM.MORPH.open[i]; return [lerp(p[0], q[0], k), lerp(p[1], q[1], k)]; });
+  const x = -18, zc = armZc(x), rz = armRz(x);
+  drawPart(P, M, skinGrad(P3(K, [x, 0, zc + rz]), P3(K, [x, 0, zc - rz])));
+  // the sleeve (the grey of the photos), going on up out of frame
+  const SL = AM.fist.sleeve; if (SL) {
+    let xmin = 1e9, xmax = -1e9; for (const p of SL) if (p[1] < 4) { xmin = Math.min(xmin, p[0]); xmax = Math.max(xmax, p[0]); }
+    pathPts([[xmin, 2], [xmax, 2], [xmax + 60, -1600], [xmin - 260, -1600]], M); ctx.fillStyle = C.shirt; ctx.fill();
+    pathPts(SL, M); const gs = ctx.createLinearGradient(...mapPt(M, [200, 0]), ...mapPt(M, [560, 0])); gs.addColorStop(0, "#8E96A1"); gs.addColorStop(1, "#6A717C"); ctx.fillStyle = gs; ctx.fill();
+    ctx.strokeStyle = "rgba(40,44,50,0.45)"; ctx.lineWidth = 2.2; ctx.stroke();
+  }
+  drawDetails(AM.fist, M, 1 - k, (p) => p[1] > 120);
+  drawDetails(AM.open, M, k, (p) => p[1] > 120);
+  if (k > 0.02) {                                                        // the ring, on the index finger (a plain black band)
+    ctx.save(); ctx.globalAlpha *= E.smooth(clamp((k - 0.4) / 0.5)); ctx.setTransform(...M); ctx.translate(...RING_IMG); ctx.rotate(-0.2);
+    rr(-21, -38, 42, 76, 12); const gr = ctx.createLinearGradient(-21, 0, 21, 0); gr.addColorStop(0, "#1A1C20"); gr.addColorStop(0.45, "#4C515A"); gr.addColorStop(0.6, "#2A2D33"); gr.addColorStop(1, "#141518"); ctx.fillStyle = gr; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = "#0E0F11"; ctx.stroke(); ctx.restore();
+  }
+  ctx.restore();
   return M;
 }
 function drawLight(t, K) {
@@ -532,7 +613,7 @@ function drawLight(t, K) {
   const side = sideK(K), s = watchState(t);
   ctx.save(); ctx.globalAlpha = 1 - endFade;
   // the arm: the top-view photo ↔ the side-view photo (cross-fade while the camera turns), on its own layer with the strap and the case's shadow
-  const k = openK(t), sw = E.smooth(clamp((side - 0.35) / 0.3));
+  const k = openK(t), sw = E.smooth(clamp((K.th / RAD - 78) / 10));    // v3: the drawn tube serves every angle; the side outline (elbow, sleeve, fist) only near a true side view
   const mainCtx = ctx; ARMX.setTransform(1, 0, 0, 1, 0, 0); ARMX.globalAlpha = 1; ARMX.globalCompositeOperation = "source-over"; ARMX.clearRect(0, 0, W, H); ctx = ARMX;
   drawArmTop(K, 1 - sw);
   if (sw > 0.005) drawArmSide(K, sw, k);
@@ -849,10 +930,22 @@ function overlays(t, K, LW) {
     const led = secPt(t, SEC.led, SEC.y0 - 4), pd = secPt(t, SEC.pd, SEC.y0 - 4);
     if (t >= T.ledLab && t < T.a3 + 0.3) { const k = E.p3out(prog(t, T.ledLab + 0.1, T.ledLab + 0.45)), fo = 1 - prog(t, T.a3, T.a3 + 0.3); ID(); ctx.save(); ctx.globalAlpha = fo; leader(250, 668, led[0] - 10, led[1] - 8, "rgba(241,240,236,0.8)", k); ctx.restore(); label(COPY.led, 96, 658, 44, "rgba(241,240,236,0.95)", t, T.ledLab, T.a3 + 0.3, { alpha: fo }); }
     if (t >= T.pd && t < T.q4 + 0.3) { const k = E.p3out(prog(t, T.pdOn, T.pdOn + 0.35)), fo = 1 - prog(t, T.q4, T.q4 + 0.3); ID(); ctx.save(); ctx.globalAlpha = fo; leader(800, 668, pd[0] + 14, pd[1] - 8, "rgba(241,240,236,0.8)", k); ctx.restore(); label(COPY.pdName, 984, 658, 44, "rgba(241,240,236,0.95)", t, T.pd, T.q4 + 0.3, { align: "right", alpha: fo }); }
-    const note = (a, b) => { pill(COPY.note, 984, 1050, 44, t, a, b, { align: "right", weight: 700 }); };
+    const note = (a, b) => { pill(COPY.note, 118, 1050, 44, t, a, b, { weight: 700 }); };   // v3: left, clear of the light meter
     if (t >= T.eat && t < T.pd) note(T.eat, T.pd);
     if (t >= T.q5 && t < T.rate) note(T.q5, T.rate);
     if (t >= T.term && t < T.q6) pill(COPY.term, 984, 1050, 44, t, T.term, T.q6, { align: "right", weight: 700 });
+    // v3 (audience v2 #1): a meter tied to the light eye — how much light it caught; it drops on every beat, with the dip of the trace
+    const mk = win(t, T.b1 - 0.4, T.rate + 0.4, 0.35, 0.4);
+    if (mk > 0.01) {
+      const pu = pulseAt(t, T.pulseOn), pd = secPt(t, SEC.pd, SEC.y0 - 4), n = 6, lit = n * (0.97 - 0.66 * Math.min(1, pu));
+      const px = clamp(pd[0] + 70, 0, 900), py = pd[1] + 70, pw = 104, ph = 34 * n + 30;
+      ID(); ctx.save(); ctx.globalAlpha = mk;
+      ctx.strokeStyle = "rgba(241,240,236,0.6)"; ctx.lineWidth = 3; ctx.setLineDash([8, 8]); line(pd[0] + 26, pd[1] + 8, px + 10, py + 12); ctx.setLineDash([]);
+      rr(px, py, pw, ph, 18); ctx.fillStyle = "rgba(23,25,28,0.9)"; ctx.fill();
+      for (let i = 0; i < n; i++) { const y = py + ph - 22 - i * 34, on = clamp(lit - i); rr(px + 16, y - 20, pw - 32, 20, 6); ctx.fillStyle = "rgba(241,240,236,0.12)"; ctx.fill(); if (on > 0.01) { ctx.globalAlpha = mk * on; ctx.fillStyle = C.green; ctx.fill(); ctx.globalAlpha = mk; } }
+      ctx.restore();
+      pill(COPY.caught, px + pw / 2, py + ph + 62, 40, t, T.b1 - 0.4, T.rate + 0.4, { align: "center", weight: 700 });
+    }
   }
   // the tip: the wrist bone and the elbow side, named
   if (t >= T.wideEnd - 0.3 && t < T.tipOut) {
@@ -870,7 +963,7 @@ function overlays(t, K, LW) {
 function pill(str, x, y, size, t, t0, t1, o = {}) {                       // small text on a dark pill (readable on any tissue)
   if (t < t0 || t >= t1) return;
   ID(); const font = `${o.weight ?? 700} ${size}px ${UI}`, wv = mw(font, str), k = E.p3out(prog(t, t0, t0 + 0.25)), e = 1 - prog(t, t1 - 0.15, t1);
-  const left = o.align === "right" ? x - wv : x;
+  const left = o.align === "right" ? x - wv : o.align === "center" ? x - wv / 2 : x;
   ctx.save(); ctx.globalAlpha = k * e; rr(left - 22, y - size - 6, wv + 44, size + 26, (size + 26) / 2); ctx.fillStyle = "rgba(23,25,28,0.88)"; ctx.fill();
   ctx.font = font; ctx.fillStyle = C.paper; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillText(str, left, y); ctx.restore();
 }
@@ -890,13 +983,15 @@ const IRIS = [540, 1000];
 function irisOf(t) {
   const fl = flood(t); if (fl <= 0.001 || fl >= 0.999) return null;
   const into = flood(t + 0.02) > fl, k = into ? fl : 1 - fl;
-  return { into, R: 40 + 2300 * k };
+  return { into, R: 6 + 2300 * k * k * (3 - 2 * k) };
 }
-function irisClip(ir, inside) { const p = new Path2D(); if (!inside) p.rect(0, 0, W, H); p.arc(IRIS[0], IRIS[1], ir.R, 0, TAU); ID(); ctx.clip(p, inside ? "nonzero" : "evenodd"); }
+let IRISC = IRIS;
+function irisClip(ir, inside) { const p = new Path2D(); if (!inside) p.rect(0, 0, W, H); p.arc(IRISC[0], IRISC[1], ir.R, 0, TAU); ID(); ctx.clip(p, inside ? "nonzero" : "evenodd"); }
 let TXF = null;
 function frame(t) {
   ctx.reset(); ID();
   const K = cam(t), fl = flood(t), ir = irisOf(t);
+  if (ir) { ALPHA = 0; const g = P3(K, GAP(-18)); IRISC = [clamp(g[0], 200, 880), clamp(g[1], 500, 1300)]; }
   let LW = null;
   const light = () => { LW = drawLight(t, K); };
   if (ir) {
@@ -906,8 +1001,8 @@ function frame(t) {
   if (!LW) { ALPHA = armAngle(t); const s = watchState(t); LW = { F: watchFrame(t, s), ringP: null }; }
   // the trace card, with its leader to the light eye (section) or to the device (outside)
   const inSec = fl > 0.5;
-  let target = inSec ? secPt(t, SEC.pd, SEC.y0 - 4) : P3(K, LW.F.c);
-  if (!inSec && t >= T.curveSlide && LW.ringP) { const u = E.p2io(prog(t, T.curveSlide, T.curveSlideEnd)); const r = [770, 760 + 205]; target = [lerp(target[0], r[0], u), lerp(target[1], r[1], u)]; }
+  let target = inSec ? null : P3(K, LW.F.c);   // v3: no dashed leader across the skin in the section (it read as a light path)
+  if (target && t >= T.curveSlide && LW.ringP) { const u = E.p2io(prog(t, T.curveSlide, T.curveSlideEnd)); const r = [770, 760 + 205]; target = [lerp(target[0], r[0], u), lerp(target[1], r[1], u)]; }
   drawCard(t, !inSec, target);
   scrim(t);
   accMag(t, K, LW.F);
@@ -922,7 +1017,7 @@ function frame(t) {
 }
 
 // ---------------------------------------------------------------- motion blur: temporal supersampling where things move fast
-const BLUR = [[1.95, 2.65, 12], [5.25, 7.3, 10], [26.0, 27.6, 10], [27.6, 40.6, 5], [44.0, 45.6, 10], [46.2, 46.95, 12], [49.5, 50.6, 10], [51.2, 52.05, 8], [53.5, 54.15, 12]];
+const BLUR = [[1.9, 3.35, 10], [5.25, 7.3, 10], [26.0, 27.6, 10], [27.6, 40.6, 5], [44.0, 45.6, 10], [46.2, 46.95, 12], [49.5, 50.6, 10], [51.2, 52.05, 8], [53.5, 54.15, 12]];
 const SHUTTER = 0.5 / FPS;
 window.seek = function seek(t) {
   t = clamp(t, 0, DUR - 1e-6);
@@ -943,7 +1038,6 @@ window.addEventListener("hf-seek", (e) => window.seek(e.detail.time));
 window.ready = false;
 window.whenReady = Promise.all([
   document.fonts.load(`100px ${DISPLAY}`, "手表背面的绿光在看什么"), document.fonts.load(`700 50px ${UI}`, "光甩手每秒闪几百次"), document.fonts.load(`400 50px ${UI}`, "这种测法叫光电容积描记"),
-  loadImg("top", "assets/people/arm-top.webp"), loadImg("open", "assets/people/arm-side-open-ring.webp"), loadImg("fist", "assets/people/arm-side-fist.webp"), loadImg("pinch", "assets/people/hand-pinch.webp"),
 ]).then(() => document.fonts.ready).then(() => { MEASURE.clear(); window.seek(0); window.ready = true; });
 </script>
 </body>
