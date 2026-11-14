@@ -12,6 +12,16 @@
 - 「为什么」系列的两条分支（`adoring-sagan`、`relaxed-brahmagupta`）不在本对话范围，没有合并。
 - 01 3D 线的交接写「继续在 `claude/happy-goodall-o47ilg` 上工作」；本对话被系统分配的是 `claude/determined-galileo-fx1123`。往哪个分支推，问过用户再定。
 
+## 环境（11-14 本对话，取代下面「01 3D 线 · 二、环境」里的说法）
+- 这个账号下原先只有 Default 环境（网络 Unrestricted、没有启动脚本、**没有任何网络密钥**）；下文说的「kepu-studio」环境在旧账号里，这里看不到。
+- 本对话新建了个人环境 **kepu-studio**，用户已批准：放行 download.blender.org、dl.polyhaven.org、api.polyhaven.com、drive.usercontent.google.com、rest.runpod.io、generativelanguage.googleapis.com、api.fish.audio、auth.openai.com、chatgpt.com、api.openai.com、github.com、objects / release-assets.githubusercontent.com；包管理器放行。
+  - 启动脚本：libegl1 等 Blender 依赖、思源黑体 / 霞鹜文楷（apt）、得意黑 v2.0.1（GitHub release）、Blender 5.2.3 → `/opt/blender/…`（链接 `/usr/local/bin/blender`）、`opencv-python-headless`、`librosa`、Codex CLI。在本对话的容器里跑过两遍（第二遍 6 秒），Cycles 后台渲一帧通过。
+  - RunPod 的 pod 传输地址 `*.proxy.runpod.net` 是通配符，agent 加不了，要用户在 Settings 里加，或把这个环境改成 Unrestricted。
+  - 本对话自己仍在 Default 上（没切过去）；下一个对话请在环境菜单里选 kepu-studio。
+- 本对话的容器已经装好上面全部工具。
+- 网络密钥（Fish Audio、RunPod、Gemini）**这个账号下都还没配**，要用的时候再向用户要（`request_credential`；Gemini 的 `x-goog-api-key` 头表单不支持，要用户在 Settings 里手动加）。
+- 观众（Codex）：CLI 0.169.0 已装，没登录；派观众之前后台跑 `codex login --device-auth`。
+
 ---
 
 # 01 3D 线
