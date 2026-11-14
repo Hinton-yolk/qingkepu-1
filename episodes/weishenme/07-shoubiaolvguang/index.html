@@ -390,7 +390,7 @@ function ledGlow(K, F, a, w = 1) {
 function drawStrap(t, K, s, F, part = "open") {
   // wrapped: a band round the arm under the case (drawn on the arm layer, clipped to the photo); open: two straps hanging off the case
   if (part === "wrap" && s.wrap > 0.01) {
-    ctx.save(); ctx.globalAlpha = s.wrap * (t >= T.pitch && t < T.unflood ? 1 - 0.85 * E.smooth(prog(t, T.pitch + 0.4, T.pitch + 0.95)) : 1);   // v4: the strap goes see-through so the camera can follow the green under it
+    ctx.save(); ctx.globalAlpha = s.wrap * (t >= T.pitch && t < T.unflood ? 1 - 0.95 * E.smooth(prog(t, T.pitch + 0.2, T.flood)) : 1);   // v4: the strap goes see-through so the camera can follow the green under it
     const xs = [s.xw + s.slip - 11, s.xw + s.slip + 11];
     const P = bandPts(K, [xs[0], xs[0] + 7, xs[1] - 7, xs[1]], (x) => armRy(x) + 1.6, (x) => armRz(x) + 0.4);
     poly(P); let y0 = 1e9, y1 = -1e9; for (const p of P) { y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); }
@@ -1036,10 +1036,13 @@ function scrim(t) {
   scrimOf(t, Math.max(flood(t), diveDark(t)));
 }
 // v4: during the dive the case fills the top of the frame — the caption band turns dark with it (no grey veil over the case)
+let DIVE_T0 = null;
 function diveDark(t) {
   if (t < T.pitch || t >= T.floodEnd + 0.5) return 0;
-  const K = cam(t), top = proj(K, LEDW[0], 0, LEDW[2] + WT.th)[1];       // the top of the case on screen
-  return E.smooth(clamp((640 - top) / 140));                             // dark once the case is under the captions
+  if (DIVE_T0 === null) {                                                // v7.1: when does the top of the case first reach the captions?
+    DIVE_T0 = T.floodEnd; for (let u = T.pitch; u < T.floodEnd; u += 0.01) { const top = proj(cam(u), LEDW[0], 0, LEDW[2] + WT.th)[1]; if (top < 640) { DIVE_T0 = u; break; } }
+  }
+  return E.smooth(clamp((t - DIVE_T0) / 0.45));                          // then a 0.45 s fade, not a cut
 }
 function scrimOf(t, fl) {
   const STOPS = [[0, 1], [0.66, 1], [0.74, 0.86], [0.82, 0.56], [0.9, 0.24], [1, 0]];
