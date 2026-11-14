@@ -555,8 +555,11 @@ function drawLight(t, K) {
   drawFingertips(t, K, s, F);
     if (endFade > 0) {                                                   // the badge: the watch as an outline
     ctx.save(); ctx.globalAlpha = endFade; ID(); ctx.fillStyle = C.ground; const fp = P3(K, LP(F, 0, 0, 0));
-    // v2: no ground-coloured disc behind the badge (it cut a hard-edged window out of the fading photo); the arm layer fades as a whole
+    // v2: no ground-coloured disc behind the badge (it cut a hard-edged window out of the fading photo); the arm layer fades as a whole.
+    // The badge is emptied by filling only its own shape (case + the two strap stubs) with the ground colour.
     faceT(K, F, WT.th / 2);
+    rr(-WT.hx - 2, -WT.hy - 2, 2 * WT.hx + 4, 2 * WT.hy + 4, WT.r + 2); ctx.fill();
+    for (const sg of [-1, 1]) { ctx.beginPath(); ctx.rect(-11, sg > 0 ? WT.hy : -WT.hy - 16, 22, 16); ctx.fill(); }
     for (const sg of [-1, 1]) { ctx.beginPath(); ctx.rect(-11, sg > 0 ? WT.hy : -WT.hy - 16, 22, 16); ID(); ctx.lineWidth = 4.5; ctx.strokeStyle = C.ink; ctx.stroke(); faceT(K, F, WT.th / 2); }
     rr(-WT.hx, -WT.hy, 2 * WT.hx, 2 * WT.hy, WT.r); ID(); ctx.lineWidth = 9; ctx.stroke(); faceT(K, F, WT.th / 2);
     rr(-WT.hx + 4, -WT.hy + 4, 2 * WT.hx - 8, 2 * WT.hy - 8, WT.r - 4); ID(); ctx.lineWidth = 4.5; ctx.stroke();
