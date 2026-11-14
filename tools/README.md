@@ -37,6 +37,23 @@ python3 tools/gemini_watch.py "<YouTube 链接或本地视频文件>" -q "问题
 - **只用标准库**，不用装依赖。
 - Gemini 的回答是它对视频的描述，**不是核实过的事实**；要引用进脚本或 FACTS.md 的数字，先对照原视频。
 
+## heartbeat_watch.sh：心跳监视
+派出去的角色或后台任务可能中途停下而不发通知。把它放在后台跑，盯着若干文件或目录；超过设定的时间没有变化就退出并说明是谁停了，主 agent 会被叫醒。
+
+```bash
+tools/heartbeat_watch.sh <名字> <停滞秒数> <路径> [路径…] [-- <进程关键字>]
+```
+
+- 给了进程关键字时，那个进程正常结束它就安静退出（退出码 0）；停滞时退出码 3。
+- 它只在本次会话里跑，不是定时任务。
+
+## preview_manifest.py：视频审核交付的规格表
+把预览视频交给外部审阅时，PR 里「视频审核交付」一节要写文件大小、sha256、时长、宽高、帧率、音轨和对应提交。这个脚本读本地文件生成那张表，不上传任何东西。
+
+```bash
+python3 tools/preview_manifest.py <视频文件> --commit <生成视频时的代码提交> [--url 直链] [--row 键=值 …] [--note 说明]
+```
+
 ## frame_stats.py：画面亮度和色度
 「3D 镜头语法」里「微观世界的样子」「工序台的样子」两条的色度阈值用它测。
 
@@ -69,3 +86,23 @@ python3 tools/flicker_check.py <视频或 PNG 目录> <输出目录> [--step 1] 
 - 合成样本试过：干净序列 0.23，加了成团逐帧噪声的 1.58（单位：亮度的 1/255）。
 - 判读门槛（< 0.6 基本看不出，> 1.2 手机上也看得到）是〔建议〕值，没用真实渲染校准过，以亲眼看放大图为准。
 - mp4 压缩会抹掉一部分闪烁，有 PNG 序列时优先测 PNG。依赖：`numpy`、`opencv-python-headless`、`ffmpeg`。
+
+## polyhaven.py / polyhaven_blender.py：Poly Haven 素材（HDRI、贴图、模型）
+用户 2026-11-14：「为了更高效的让你借助 blender 建模，请你接入 poly haven 的 API」。
+
+```bash
+python3 tools/polyhaven.py search textures metal          # 按关键词搜（hdris / textures / models）
+python3 tools/polyhaven.py info metal_plate                # 详情和可下载的贴图
+python3 tools/polyhaven.py get studio_small_09 --res 2k    # 下载（HDRI / 贴图 / 模型都用 get）
+```
+Blender 脚本里：
+```python
+import sys; sys.path.insert(0, '<仓库>/tools'); import polyhaven_blender as ph
+ph.set_world_hdri('studio_small_09', res='2k', strength=0.1, camera_sees=(0.004, 0.005, 0.007))
+mat = ph.pbr_material('metal_plate', res='2k')     # 按素材标注的真实尺寸平铺
+objs = ph.import_model('<模型id>', res='1k')
+```
+- API 不需要 key。条款要求请求带能标识软件名的 User-Agent，脚本固定用 `kepu-studio-asset-fetch/1.0`，不带个人信息；两次请求至少间隔 0.25 秒，资产列表缓存 24 小时。
+- 素材是 CC0，用在视频里不需要署名。条款只对「在产品里实时展示 API 内容」要求注明来源，我们不涉及。
+- 下载到 `assets/polyhaven/<类型>/<id>/<分辨率>/`（不进仓库），核对 md5，旁边写 `manifest.json`（许可、作者、来源链接）。新容器要重新下载。
+- 局限：Poly Haven 几乎没有电子硬件模型（光模块、电路板要自己建），主要用它的 HDRI、金属和地面贴图。

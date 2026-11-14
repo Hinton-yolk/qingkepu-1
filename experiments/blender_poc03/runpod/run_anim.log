@@ -1,0 +1,104 @@
+  pod 0: 2 个任务，90 单位
+  pod 1: 2 个任务，90 单位
+预计墙钟 18 分钟；GPU 总时长 0.61 小时；按每卡每小时 $0.89 估约 $0.54（含每台约 2 分钟装环境；按秒计费）
+场景包 4.8 MB
+Community Cloud 没空卡，改用 Secure Cloud
+建好 pod 0: 2l65axc6a0vbrx  每小时 $0.89  NVIDIA GeForce RTX 4090  SECURE
+Community Cloud 没空卡，改用 Secure Cloud
+建好 pod 1: mid6s1fwxz9pug  每小时 $0.89  NVIDIA GeForce RTX 4090  SECURE
+[  0.0 分] 2l65axc6a0vbrx 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+[  0.0 分] mid6s1fwxz9pug 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+[  0.3 分] 2l65axc6a0vbrx 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+[  0.3 分] mid6s1fwxz9pug 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+[  0.5 分] 2l65axc6a0vbrx 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+mid6s1fwxz9pug 场景已上传
+[  0.6 分] mid6s1fwxz9pug download_blender  已拉回 0
+2l65axc6a0vbrx 场景已上传
+[  0.9 分] 2l65axc6a0vbrx download_blender  已拉回 0
+[  0.9 分] mid6s1fwxz9pug rendering 1/2 已拉回 0
+[  1.1 分] 2l65axc6a0vbrx rendering 1/2 已拉回 0
+[  1.1 分] mid6s1fwxz9pug rendering 1/2 已拉回 0
+[  1.4 分] 2l65axc6a0vbrx rendering 1/2 已拉回 0
+[  1.4 分] mid6s1fwxz9pug rendering 1/2 已拉回 1
+[  1.7 分] 2l65axc6a0vbrx rendering 1/2 已拉回 1
+[  1.7 分] mid6s1fwxz9pug rendering 1/2 已拉回 3
+[  2.0 分] 2l65axc6a0vbrx rendering 1/2 已拉回 4
+[  2.1 分] mid6s1fwxz9pug rendering 1/2 已拉回 6
+[  2.4 分] 2l65axc6a0vbrx rendering 1/2 已拉回 6
+[  2.4 分] mid6s1fwxz9pug rendering 1/2 已拉回 8
+[  2.8 分] 2l65axc6a0vbrx rendering 1/2 已拉回 9
+[  2.8 分] mid6s1fwxz9pug rendering 1/2 已拉回 10
+[  3.1 分] 2l65axc6a0vbrx rendering 1/2 已拉回 12
+[  3.1 分] mid6s1fwxz9pug rendering 1/2 已拉回 12
+[  3.4 分] 2l65axc6a0vbrx rendering 1/2 已拉回 14
+[  3.5 分] mid6s1fwxz9pug rendering 1/2 已拉回 15
+[  3.8 分] 2l65axc6a0vbrx rendering 1/2 已拉回 17
+[  3.8 分] mid6s1fwxz9pug rendering 1/2 已拉回 17
+[  4.1 分] 2l65axc6a0vbrx rendering 1/2 已拉回 19
+[  4.2 分] mid6s1fwxz9pug rendering 1/2 已拉回 19
+[  4.5 分] 2l65axc6a0vbrx rendering 1/2 已拉回 22
+[  4.5 分] mid6s1fwxz9pug rendering 1/2 已拉回 21
+[  4.8 分] 2l65axc6a0vbrx rendering 1/2 已拉回 24
+[  4.9 分] mid6s1fwxz9pug rendering 1/2 已拉回 23
+[  5.2 分] 2l65axc6a0vbrx rendering 1/2 已拉回 27
+[  5.3 分] mid6s1fwxz9pug rendering 1/2 已拉回 26
+[  5.6 分] 2l65axc6a0vbrx rendering 1/2 已拉回 30
+[  5.6 分] mid6s1fwxz9pug rendering 1/2 已拉回 28
+[  5.9 分] 2l65axc6a0vbrx rendering 1/2 已拉回 32
+[  5.9 分] mid6s1fwxz9pug rendering 1/2 已拉回 30
+[  6.2 分] 2l65axc6a0vbrx rendering 1/2 已拉回 35
+[  6.3 分] mid6s1fwxz9pug rendering 1/2 已拉回 32
+[  6.6 分] 2l65axc6a0vbrx rendering 1/2 已拉回 37
+[  6.6 分] mid6s1fwxz9pug rendering 1/2 已拉回 34
+[  7.1 分] 2l65axc6a0vbrx rendering 1/2 已拉回 41
+[  7.2 分] mid6s1fwxz9pug rendering 1/2 已拉回 38
+[  7.5 分] 2l65axc6a0vbrx rendering 1/2 已拉回 44
+[  7.5 分] mid6s1fwxz9pug rendering 1/2 已拉回 40
+[  7.8 分] 2l65axc6a0vbrx rendering 2/2 已拉回 45
+[  7.8 分] mid6s1fwxz9pug rendering 1/2 已拉回 42
+[  8.1 分] 2l65axc6a0vbrx rendering 2/2 已拉回 46
+[  8.1 分] mid6s1fwxz9pug rendering 1/2 已拉回 44
+[  8.4 分] 2l65axc6a0vbrx rendering 2/2 已拉回 48
+[  8.5 分] mid6s1fwxz9pug rendering 2/2 已拉回 45
+[  8.8 分] 2l65axc6a0vbrx rendering 2/2 已拉回 50
+[  8.8 分] mid6s1fwxz9pug rendering 2/2 已拉回 46
+[  9.1 分] 2l65axc6a0vbrx rendering 2/2 已拉回 53
+[  9.1 分] mid6s1fwxz9pug rendering 2/2 已拉回 48
+[  9.5 分] 2l65axc6a0vbrx rendering 2/2 已拉回 55
+[  9.5 分] mid6s1fwxz9pug rendering 2/2 已拉回 50
+[  9.8 分] 2l65axc6a0vbrx rendering 2/2 已拉回 58
+[  9.9 分] mid6s1fwxz9pug rendering 2/2 已拉回 52
+[ 10.2 分] 2l65axc6a0vbrx rendering 2/2 已拉回 60
+[ 10.2 分] mid6s1fwxz9pug rendering 2/2 已拉回 54
+[ 10.5 分] 2l65axc6a0vbrx rendering 2/2 已拉回 63
+[ 10.5 分] mid6s1fwxz9pug rendering 2/2 已拉回 57
+[ 10.8 分] 2l65axc6a0vbrx rendering 2/2 已拉回 65
+[ 10.9 分] mid6s1fwxz9pug rendering 2/2 已拉回 59
+[ 11.2 分] 2l65axc6a0vbrx rendering 2/2 已拉回 68
+[ 11.2 分] mid6s1fwxz9pug rendering 2/2 已拉回 61
+[ 11.5 分] 2l65axc6a0vbrx rendering 2/2 已拉回 70
+[ 11.6 分] mid6s1fwxz9pug rendering 2/2 已拉回 63
+[ 11.9 分] 2l65axc6a0vbrx rendering 2/2 已拉回 73
+[ 11.9 分] mid6s1fwxz9pug rendering 2/2 已拉回 65
+[ 12.2 分] 2l65axc6a0vbrx rendering 2/2 已拉回 75
+[ 12.2 分] mid6s1fwxz9pug rendering 2/2 已拉回 67
+[ 12.5 分] 2l65axc6a0vbrx rendering 2/2 已拉回 78
+[ 12.6 分] mid6s1fwxz9pug rendering 2/2 已拉回 70
+[ 12.9 分] 2l65axc6a0vbrx rendering 2/2 已拉回 80
+[ 12.9 分] mid6s1fwxz9pug rendering 2/2 已拉回 72
+[ 13.2 分] 2l65axc6a0vbrx rendering 2/2 已拉回 83
+[ 13.3 分] mid6s1fwxz9pug rendering 2/2 已拉回 74
+[ 13.6 分] 2l65axc6a0vbrx rendering 2/2 已拉回 85
+[ 13.6 分] mid6s1fwxz9pug rendering 2/2 已拉回 76
+[ 13.9 分] 2l65axc6a0vbrx rendering 2/2 已拉回 88
+[ 13.9 分] mid6s1fwxz9pug rendering 2/2 已拉回 78
+[ 14.2 分] 2l65axc6a0vbrx done 2/2 已拉回 90
+2l65axc6a0vbrx 完成，已删除
+[ 14.3 分] mid6s1fwxz9pug rendering 2/2 已拉回 80
+[ 14.6 分] mid6s1fwxz9pug rendering 2/2 已拉回 82
+[ 14.9 分] mid6s1fwxz9pug rendering 2/2 已拉回 84
+[ 15.2 分] mid6s1fwxz9pug rendering 2/2 已拉回 86
+[ 15.4 分] mid6s1fwxz9pug rendering 2/2 已拉回 88
+[ 15.7 分] mid6s1fwxz9pug done 2/2 已拉回 90
+mid6s1fwxz9pug 完成，已删除
+全部完成：墙钟 16.0 分钟，约 $0.48（上限估计，按秒计费，以 RunPod 账单为准）
