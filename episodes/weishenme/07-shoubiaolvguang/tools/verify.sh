@@ -3,7 +3,7 @@
 # and determinism (frames rendered on their own must match the full render byte for byte).
 set -e
 cd "$(dirname "$0")/.."
-F=out/ep06-shoubiaolvguang.mp4
+F=out/ep07-shoubiaolvguang.mp4
 ffprobe -v error -show_entries stream=codec_name,pix_fmt,width,height,r_frame_rate,nb_frames:format=duration,size -of compact "$F"
 ffmpeg -hide_banner -nostats -i "$F" -map 0:a -af ebur128=peak=true:framelog=quiet -f null - 2>&1 | grep -E "^\s+(I|Peak):"
 echo "black frames:"; ffmpeg -hide_banner -nostats -i "$F" -vf blackdetect=d=0.05:pix_th=0.06 -an -f null - 2>&1 | grep -c black_start || true

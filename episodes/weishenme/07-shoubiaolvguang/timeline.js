@@ -1,5 +1,5 @@
 // timeline.js — the single source of truth for picture (index.html) and sound (music/score.mjs).
-// EP.06 手表绿光 — 手表背面的绿光，在看什么？ script v2 (script.md 「逐句脚本 v2（定稿）」, 2026-11-14).
+// EP.07 手表绿光 — 手表背面的绿光，在看什么？ script v2 (script.md 「逐句脚本 v2（定稿）」, 2026-11-14).
 // One forearm (world units: mm; x along the arm towards the hand, y across it, z up), a watch on the wrist.
 //   0      手表背面的绿光，在看什么？    (fingertips hold the watch back-up over the wrist; 2.0 it rolls over and lands)
 //   2.75   它又没摸你的脉，怎么知道你的心跳？ (♥ 80 on the face, a beat every 0.75 s)
@@ -68,7 +68,7 @@
     // small text (terms and notes only as small text)
     led: "每秒闪几百次", note: "示意", pdName: "光电二极管", term: "这种测法叫光电容积描记",
     rowLight: "光", rowSwing: "甩手", elbow: "手肘", bone: "腕骨", tattoo: "有些纹身会挡光，可能测不准",
-    end: ["你每天都在用，", "但你不知道", "它[怎么工作]"], epNum: "EP.06", epName: "手表绿光",
+    end: ["你每天都在用，", "但你不知道", "它[怎么工作]"], epNum: "EP.07", epName: "手表绿光",
   };
   const HR_REST = 80, HR_RUN = 120;                     // the only two numbers in the film (plus 每秒闪几百次)
   const P_REST = 60 / HR_REST, P_RUN = 60 / HR_RUN;     // 0.75 s, 0.5 s: three and two 16ths of the 120 BPM grid

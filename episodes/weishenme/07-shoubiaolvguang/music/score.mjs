@@ -1,7 +1,7 @@
 // music/score.mjs — the original score + every sound effect, synthesized from scratch (no samples) and locked to
 // ../timeline.js, so each hit lands on its frame.
 //   node music/score.mjs   ->  music/score-C.wav (48 kHz stereo, peak-normalised; loudness is set in the mix step)
-// EP.06 手表绿光 — same sound as the series (the same synths and drum kit, 120 BPM straight 16ths, the question cue, the hook
+// EP.07 手表绿光 — same sound as the series (the same synths and drum kit, 120 BPM straight 16ths, the question cue, the hook
 // mi-sol-la → mi-sol-DO), a new piece:
 //   · A major (new for the series). The watch's own wake-up chime is the hook: mi-sol-la (C#7 E7 F#7) when the face lights;
 //     on the closing landing it resolves: mi-sol-DO (C#7 E7 A7).
