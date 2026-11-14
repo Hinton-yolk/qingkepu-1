@@ -17,7 +17,11 @@ import sys
 import bpy
 from mathutils import Vector
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'tools'))
+for _t in (os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tools'),                       # 云端打包后的目录
+           os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'tools')):  # 仓库里
+    if os.path.exists(os.path.join(_t, 'polyhaven_blender.py')):
+        sys.path.insert(0, _t)
+        break
 import polyhaven_blender as ph  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -579,6 +583,17 @@ def build(res=540, spp=64):
     r = sc.render
     r.engine = 'CYCLES'
     sc.cycles.device = 'CPU'
+    if '--gpu' in sys.argv:            # 云端：用 OPTIX；找不到显卡直接报错，不悄悄退回 CPU
+        pr = bpy.context.preferences.addons['cycles'].preferences
+        pr.compute_device_type = 'OPTIX'
+        pr.get_devices()
+        gpus = [d for d in pr.devices if d.type == 'OPTIX']
+        if not gpus:
+            raise SystemExit('要求用 GPU，但没找到 OPTIX 设备')
+        for d in pr.devices:
+            d.use = d.type == 'OPTIX'
+        sc.cycles.device = 'GPU'
+        print('GPU:', [d.name for d in gpus])
     sc.cycles.samples = spp
     sc.cycles.use_denoising = True
     sc.cycles.max_bounces = 8
