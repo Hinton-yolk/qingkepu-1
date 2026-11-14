@@ -4,7 +4,7 @@
 
 用法（在本目录运行）：
   blender -b --factory-startup --python-exit-code 1 --python build_scene.py -- save            # 只建场景，存 scene.blend
-  blender -b --factory-startup --python-exit-code 1 --python build_scene.py -- stills 1,37,82,127,180
+  blender -b --factory-startup --python-exit-code 1 --python build_scene.py -- stills 1,37,52,82,121,180
   blender -b --factory-startup --python-exit-code 1 --python build_scene.py -- anim             # 180 帧 PNG 到 out/frames/
 
 单位：1 BU = 1 cm（尺寸只取大致比例，不是精确产品尺寸）。
@@ -28,25 +28,24 @@ def t_of(frame):
 
 
 # ---------- 几何尺寸 ----------
-# 笼子：外形 2.10 宽 × 1.10 高 × 5.00 长，壁厚 0.08；入口朝 +Y，在 y = 0；后端封闭在 y = -5。
-CAGE_W, CAGE_H, CAGE_L, WALL = 2.10, 1.10, 5.00, 0.08
+# 笼子：外形 2.10 宽 × 1.10 高 × 6.00 长，壁厚 0.08；入口朝 +Y，在 y = 0；后端封闭在 y = -6。
+CAGE_W, CAGE_H, CAGE_L, WALL = 2.10, 1.10, 6.00, 0.08
 # 模块：1.85 宽 × 0.86 高 × 7.20 长，比笼子内腔（1.94 × 0.94）略小，沿笼子轴线运动。
 MOD_W, MOD_H, MOD_L = 1.85, 0.86, 7.20
 MOD_Z = WALL + 0.01 + MOD_H / 2            # 模块底面离笼子底板 0.01
-# 模块后端面（朝笼子的一端）的 y：起点在入口外 1.0，终点插进 4.6（前端外露 2.6）。
-MOD_BACK_Y0, MOD_BACK_Y1 = 1.00, -4.60
-F_INS0, F_INS1 = 37, 127                  # 1.2 s 开始插入，4.2 s 停止
-
-# ---------- 摄影机路径（相机位置 P，注视点 L），三段二次 Bezier 拼成一条连续曲线 ----------
-CAM_P = [Vector((4.8, 18.2, 8.7)),        # 0.0 s 斜前右上方，中近景：插入方向在竖屏里大致上下走向
-         Vector((3.9, 13.6, 6.5)),        # 1.2 s 只轻微前移
-         Vector((2.6, 9.8, 4.3)),         # 4.2 s 向左（朝插入轴线）侧移 + 靠近，产生视差
-         Vector((2.0, 7.0, 2.7))]         # 6.0 s 落在模块前端面斜前方，笼子入口仍在画面里
-CAM_L = [Vector((0.8, 2.4, 0.30)),
-         Vector((0.6, 2.8, 0.30)),
-         Vector((0.2, 1.5, 0.45)),
-         Vector((0.1, 1.8, 0.50))]        # 模块前端面中心最终在 y = 2.6
+# 模块后端面（朝笼子的一端）的 y：起点在入口外 1.0；终点 -5.80（离后壁内面 0.12），前端外露 1.40 供接光纤。
+MOD_BACK_Y0, MOD_BACK_Y1 = 1.00, -5.80
+F_INS0, F_INS1 = 37, 121                  # 1.2 s 开始插入，4.0 s 到位停止
 LENS = 25.0
+
+# ---------- 摄影机 ----------
+# 相机 = 注视点 T + 距离 D × 方向(方位角 AZ, 仰角 EL)。AZ 从 +Y 轴向 +X 量（相机在模块右前方），EL 为俯视角。
+# 四个阶段：
+#   0.0–1.2 s  前推（D 17.6 → 14.7，到 1.2 s 速度降到接近 0）
+#   1.2–1.7 s  相对稳定观察插入开始（D 只漂移 0.15，注视点不动）
+#   1.7–4.0 s  注视点跟随模块外露段的中点，相机缓慢跟随、靠近，并向右侧平移产生视差
+#   4.0–6.0 s  模块已静止，相机继续推向前端面，最后减速（不完全停死）
+T_HOLD0, T_HOLD1, T_END = 1.2, 1.7, 5.967
 
 
 def smootherstep(x):
@@ -54,35 +53,79 @@ def smootherstep(x):
     return x * x * x * (x * (x * 6 - 15) + 10)
 
 
-def cam_progress():
-    """相机沿路径的进度 s(t) ∈ [0, 1]。速度：开头以约 85% 起步，中段匀速，4.2 s 后余弦减速到约 30%（不完全停死）。"""
-    n = F_END - F_START + 1
-    v = []
-    for i in range(n):
-        t = i / FPS
-        if t < 1.2:
-            vel = 0.85 + 0.15 * (0.5 - 0.5 * math.cos(math.pi * t / 1.2))
-        elif t < 4.2:
-            vel = 1.0
-        else:
-            u = (t - 4.2) / (5.967 - 4.2)
-            vel = 0.30 + 0.70 * (0.5 + 0.5 * math.cos(math.pi * min(u, 1.0)))
-        v.append(vel)
-    s = [0.0]
-    for i in range(1, n):
-        s.append(s[-1] + 0.5 * (v[i - 1] + v[i]))
-    return [x / s[-1] for x in s]
+def smoothstep(x):
+    x = min(max(x, 0.0), 1.0)
+    return x * x * (3 - 2 * x)
 
 
-def path_point(pts, s):
-    """经过四个控制点的分段 Catmull-Rom（均匀参数），保证在关键点处切线连续，不会在 1.2 s / 4.2 s 停顿。"""
-    seg = min(int(s * 3), 2)
-    u = s * 3 - seg
-    p0 = pts[max(seg - 1, 0)]
-    p1, p2 = pts[seg], pts[seg + 1]
-    p3 = pts[min(seg + 2, 3)]
-    u2, u3 = u * u, u * u * u
-    return 0.5 * ((2 * p1) + (-p0 + p2) * u + (2 * p0 - 5 * p1 + 4 * p2 - p3) * u2 + (-p0 + 3 * p1 - 3 * p2 + p3) * u3)
+def lerp(a, b, k):
+    return a + (b - a) * k
+
+
+def insert_progress(frame):
+    """模块插入进度 0→1。速度为梯形：约 0.3 s 余弦加速、匀速、最后约 0.9 s 余弦减速到 0（停稳）。
+    这样相机稳定观察的 1.2–1.7 s 里，模块已经明显在往笼子里进。"""
+    a, d = 0.3, 0.9
+    T = (F_INS1 - F_INS0) / FPS
+    def vel(t):
+        if t <= 0 or t >= T:
+            return 0.0
+        if t < a:
+            return 0.5 - 0.5 * math.cos(math.pi * t / a)
+        if t > T - d:
+            return 0.5 + 0.5 * math.cos(math.pi * (t - (T - d)) / d)
+        return 1.0
+    def integ(t, n=400):
+        if t <= 0:
+            return 0.0
+        h = t / n
+        return sum(vel((i + 0.5) * h) for i in range(n)) * h
+    total = integ(T)
+    t = (frame - F_INS0) / FPS
+    return min(max(integ(min(max(t, 0.0), T)) / total, 0.0), 1.0)
+
+
+def module_back_y(frame):
+    return lerp(MOD_BACK_Y0, MOD_BACK_Y1, insert_progress(frame))
+
+
+def cam_at(frame):
+    t = t_of(frame)
+    front = module_back_y(frame) + MOD_L
+    # 注视点 y：插入开始前固定在 4.4（同时框住笼子入口和整根模块）；1.7 s 起平滑过渡到「外露段中点 + 0.3」。
+    track = 0.5 * front + 0.3
+    w = smootherstep((t - T_HOLD1) / 0.6)
+    ty = lerp(4.4, track, w)
+    k_late = smoothstep((t - T_HOLD1) / (T_END - T_HOLD1))
+    tx = lerp(0.6, 0.15, k_late)
+    tz = lerp(0.35, 0.50, k_late)
+    # 距离 D
+    # 0–1.2 s 推进 2.9，到 1.2 s 速度降到起步时的约 30%；1.2–1.7 s 再线性减速到接近 0（推进 0.31），
+    # 两段速度连续，相机在模块起步时「相对稳定」，但不会和模块起步前的空档叠成一段死静。
+    if t < T_HOLD0:
+        u = t / T_HOLD0
+        d = 17.6 - 2.9 * (2 * u - 0.7 * u * u) / 1.3
+    elif t < T_HOLD1:
+        u = (t - T_HOLD0) / (T_HOLD1 - T_HOLD0)
+        v0 = 2.9 * 0.6 / 1.3 / T_HOLD0 * (T_HOLD1 - T_HOLD0)   # 1.2 s 时的速度 × 0.5 s
+        d = 14.7 - v0 * (u - 0.5 * 0.92 * u * u)
+    else:
+        u = (t - T_HOLD1) / (T_END - T_HOLD1)
+        prog = 0.8 * smoothstep(u) + 0.2 * u         # 缓起；结尾减速但留约 20% 的余速
+        d = lerp(14.7 - 2.9 * 0.6 / 1.3 / T_HOLD0 * (T_HOLD1 - T_HOLD0) * 0.54, 6.2, prog)
+        # 0–1.2 s 斜向推进（方位角 11 → 13.3、俯角 27 → 24.7，减速到 1.2 s）；1.2–1.7 s 只再漂移 0.1°
+    if t < T_HOLD0:
+        u = t / T_HOLD0
+        e = (2 * u - 0.7 * u * u) / 1.3
+        az0, el0 = lerp(11.0, 13.3, e), lerp(27.0, 24.7, e)
+    else:
+        e = min((t - T_HOLD0) / (T_HOLD1 - T_HOLD0), 1.0)
+        az0, el0 = lerp(13.3, 13.4, e), lerp(24.7, 24.6, e)
+    az = math.radians(az0 + 8.0 * k_late)
+    el = math.radians(el0 - 6.0 * k_late)
+    T = Vector((tx, ty, tz))
+    P = T + d * Vector((math.sin(az) * math.cos(el), math.cos(az) * math.cos(el), math.sin(el)))
+    return P, T
 
 
 # ---------- 场景 ----------
@@ -122,8 +165,8 @@ def build():
     m_mod = mat('Module_blue', (0.08, 0.28, 0.85))
     m_bg = mat('Background_dark', (0.025, 0.026, 0.03))
 
-    # A — PCB：固定，上表面 z = 0。比笼子大很多，向 +Y 延伸到模块起点之外，给出地面。
-    box('A_PCB', (16.0, 26.0, 0.16), (0.0, 1.0, -0.08), m_pcb)
+    # A — PCB：固定，上表面 z = 0。比笼子大很多，向 +Y 延伸到相机下方，画面里看不到板边。
+    box('A_PCB', (20.0, 40.0, 0.16), (0.0, 4.0, -0.08), m_pcb)
 
     # B — 笼子：中空长方体，五面（底、顶、左、右、后），入口 +Y 敞开。固定在 PCB 上。
     cage = bpy.data.objects.new('B_Cage', None)
@@ -146,8 +189,7 @@ def build():
     mod.data.materials.append(m_mod)
     mod.color = m_mod.diffuse_color
     for f in range(F_START, F_END + 1):
-        k = smootherstep((f - F_INS0) / (F_INS1 - F_INS0))
-        mod.location = (0.0, MOD_BACK_Y0 + (MOD_BACK_Y1 - MOD_BACK_Y0) * k, MOD_Z)
+        mod.location = (0.0, module_back_y(f), MOD_Z)
         mod.keyframe_insert('location', frame=f)
 
     # D — 背景：竖直深色平面，放在笼子后方；世界背景也设成近黑。
@@ -175,10 +217,10 @@ def build():
     trk = cam.constraints.new('TRACK_TO')
     trk.target = target
     trk.track_axis, trk.up_axis = 'TRACK_NEGATIVE_Z', 'UP_Y'
-    prog = cam_progress()
-    for i, f in enumerate(range(F_START, F_END + 1)):
-        cam.location = path_point(CAM_P, prog[i])
-        target.location = path_point(CAM_L, prog[i])
+    for f in range(F_START, F_END + 1):
+        P, T = cam_at(f)
+        cam.location = P
+        target.location = T
         cam.keyframe_insert('location', frame=f)
         target.keyframe_insert('location', frame=f)
     for o in (cam, target, mod):
