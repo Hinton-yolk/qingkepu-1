@@ -135,8 +135,8 @@ def make_materials():
     m, b = principled('Nickel_cage', (0.74, 0.73, 0.70), 1.0, 0.22, aniso=0.3)
     brushed(m, b, 0.16, 0.30, scale=1400.0)
     M['nickel'] = m
-    m, b = principled('Pulltab_lime', (0.42, 0.72, 0.06), 0.0, 0.48, spec=0.4)
-    b.inputs['Subsurface Weight'].default_value = 0.35
+    m, b = principled('Pulltab_lime', (0.36, 0.74, 0.015), 0.0, 0.46, spec=0.4)
+    b.inputs['Subsurface Weight'].default_value = 0.12
     b.inputs['Subsurface Scale'].default_value = 0.0015
     M['tab'] = m
     M['mpo'] = principled('MPO_darkplastic', (0.02, 0.021, 0.024), 0.0, 0.6, spec=0.3)[0]
@@ -205,25 +205,45 @@ def make_materials():
 
 
 # ---------- 几何工具 ----------
-def box(name, x0, x1, y0, y1, z0, z1, mat, bevel=0.0, parent=None):
-    """按 mm 范围建方块，可选倒角（mm）。"""
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=((x0 + x1) / 2 * MM, (y0 + y1) / 2 * MM, (z0 + z1) / 2 * MM))
-    o = bpy.context.active_object
-    o.name = name
-    o.scale = ((x1 - x0) * MM, (y1 - y0) * MM, (z1 - z0) * MM)
-    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-    if mat:
-        o.data.materials.append(mat)
+_MESH_CACHE = {}
+
+
+def _box_mesh(dx, dy, dz, bevel, mat):
+    """同尺寸、同倒角、同材质的方块只生成一份网格（倒角直接烘进网格），所有同类零件共用。"""
+    key = (round(dx, 4), round(dy, 4), round(dz, 4), round(bevel, 4), mat.name if mat else None)
+    me = _MESH_CACHE.get(key)
+    if me is not None:
+        return me
+    import bmesh
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=1.0)
+    bmesh.ops.scale(bm, vec=(dx * MM, dy * MM, dz * MM), verts=bm.verts)
     if bevel > 0:
-        bv = o.modifiers.new('bevel', 'BEVEL')
-        bv.width = bevel * MM
-        bv.segments = 3
-        bv.limit_method = 'ANGLE'
-        bv.harden_normals = False
+        bw = min(bevel, 0.45 * min(dx, dy, dz)) * MM
+        bmesh.ops.bevel(bm, geom=list(bm.edges), offset=bw, segments=3, profile=0.5, affect='EDGES', clamp_overlap=True)
+    me = bpy.data.meshes.new('box')
+    bm.to_mesh(me)
+    bm.free()
+    for p in me.polygons:
+        p.use_smooth = True
+    try:
+        me.set_sharp_from_angle(angle=math.radians(35))
+    except Exception:
+        pass
+    if mat:
+        me.materials.append(mat)
+    _MESH_CACHE[key] = me
+    return me
+
+
+def box(name, x0, x1, y0, y1, z0, z1, mat, bevel=0.0, parent=None):
+    """按 mm 范围建方块，可选倒角（mm）。不用 bpy.ops：直接建物体、共用网格，几千个零件也很快。"""
+    me = _box_mesh(x1 - x0, y1 - y0, z1 - z0, bevel, mat)
+    o = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(o)
+    o.location = ((x0 + x1) / 2 * MM, (y0 + y1) / 2 * MM, (z0 + z1) / 2 * MM)
     if parent:
         o.parent = parent
-    for p in o.data.polygons:
-        p.use_smooth = True
     return o
 
 
@@ -473,6 +493,8 @@ def build_board(M):
 
 # ---------- 环境、光、相机 ----------
 def build_env(M, hdri_strength=0.07):
+    if '--nohdri' in sys.argv:
+        hdri_strength = 0.0
     sc = bpy.context.scene
     box('desk', -600.0, 600.0, -900.0, 600.0, -3.0, -1.6, M['desk'], 0)
     bpy.ops.mesh.primitive_plane_add(size=1.0, location=(0, -0.9, 0.3), rotation=(math.radians(90), 0, 0))
@@ -529,19 +551,25 @@ def area(name, loc, target, size, power, color):
 
 def lights():
     tgt = (0, MOD_FRONT_Y * MM * 0.3, 0.008)
-    area('key_cool', (-0.12, -0.16, 0.16), tgt, 0.10, 3.0, (0.86, 0.93, 1.0))
-    top = area('top_soft', (0.02, -0.03, 0.22), (0, -0.03, 0), 0.22, 2.2, (0.9, 0.95, 1.0))   # 大面积顶光：只给金属高光
+    area('key_cool', (-0.12, -0.16, 0.16), tgt, 0.10, 1.6, (0.86, 0.93, 1.0))
+    top = area('top_soft', (0.02, -0.03, 0.22), (0, -0.03, 0), 0.22, 0.35, (0.9, 0.95, 1.0))   # 大面积顶光：只给金属高光
     top.visible_diffuse = False      # 不照亮台面、电路板这类漫反射面，只在金属上留下光泽
     area('fill_warm', (0.14, 0.26, 0.05), (0, MOD_FRONT_Y * MM, 0.007), 0.12, 0.25, (1.0, 0.78, 0.55))
     area('rim_cool', (0.16, -0.20, 0.07), tgt, 0.06, 0.8, (0.6, 0.8, 1.0))
     sp = bpy.data.lights.new('beam', 'SPOT')
-    sp.energy = 55.0
+    sp.energy = 0.0 if '--nobeam' in sys.argv else 60.0
     sp.spot_size = math.radians(16)
     sp.spot_blend = 0.7
     sp.shadow_soft_size = 0.004
     sp.color = (0.82, 0.9, 1.0)
     o = bpy.data.objects.new('beam', sp)
     bpy.context.scene.collection.objects.link(o)
+    # 灯光链接：这束光只照背景里的雾（出光柱和氛围），不照模块、笼子、台面，避免金属顶面过曝
+    haze = bpy.data.objects.get('haze')
+    if haze is not None:
+        rc = bpy.data.collections.new('beam_receivers')
+        rc.objects.link(haze)
+        o.light_linking.receiver_collection = rc
     o.location = (-0.16, -0.70, 0.24)   # 从后方斜着逆光，穿过散热器那一带的雾
     o.rotation_euler = (Vector((0.02, -0.10, 0.0)) - Vector(o.location)).to_track_quat('-Z', 'Y').to_euler()
 
@@ -570,6 +598,8 @@ def camera(az=16.0, el=17.0, dist=0.155, lens=60.0, fstop=8.0, dof=True):
 
 
 def build(res=540, spp=64):
+    import time as _time
+    _t0 = _time.time()
     bpy.ops.wm.read_factory_settings(use_empty=True)
     sc = bpy.context.scene
     sc.unit_settings.length_unit = 'MILLIMETERS'
@@ -580,6 +610,7 @@ def build(res=540, spp=64):
     build_env(M)
     lights()
     camera(dof='--nodof' not in sys.argv)
+    print(f'[timing] 搭场景 {_time.time() - _t0:.1f} 秒，物体 {len(bpy.data.objects)} 个，网格 {len(bpy.data.meshes)} 份', flush=True)
     r = sc.render
     r.engine = 'CYCLES'
     sc.cycles.device = 'CPU'
@@ -607,7 +638,7 @@ def build(res=540, spp=64):
         sc.view_settings.look = 'AgX - Medium High Contrast'
     except Exception:
         pass
-    sc.view_settings.exposure = 0.0
+    sc.view_settings.exposure = -0.4
     r.image_settings.file_format = 'PNG'
     return sc
 
@@ -623,7 +654,10 @@ def main():
     if argv[0] == 'still':
         os.makedirs(os.path.dirname(os.path.join(HERE, out)), exist_ok=True)
         sc.render.filepath = os.path.join(HERE, out)
+        import time as _time
+        _t1 = _time.time()
         bpy.ops.render.render(write_still=True)
+        print(f'[timing] 渲染 {_time.time() - _t1:.1f} 秒', flush=True)
 
 
 main()
