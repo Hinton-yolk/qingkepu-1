@@ -727,6 +727,31 @@ def main():
     out = opt('--out', os.path.join('out', 'hero.png'))
     sc = build(res, spp)
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(HERE, 'scene_hero.blend'), compress=True)
+    if argv[0] == 'clay':
+        # LTX Layout-To-Render 的灰模输入：同一场景、同一相机运动，Workbench 统一灰色，不要雾、散景、景深、动态模糊
+        animate(sc)
+        for o in bpy.data.objects:
+            if o.name == 'haze' or (o.type == 'MESH' and o.data.materials and o.data.materials[0].name.startswith('bokeh')):
+                o.hide_render = True
+        sc.render.engine = 'BLENDER_WORKBENCH'
+        sh = sc.display.shading
+        sh.light = 'STUDIO'
+        sh.color_type = 'SINGLE'
+        sh.single_color = (0.62, 0.62, 0.62)
+        sh.show_cavity = True
+        sh.cavity_type = 'WORLD'
+        sh.show_shadows = True
+        sh.shadow_intensity = 0.4
+        sh.background_type = 'WORLD'
+        sc.world.color = (0.05, 0.05, 0.055)
+        sc.display.render_aa = '8'
+        sc.render.use_motion_blur = False
+        sc.camera.data.dof.use_dof = False
+        sc.view_settings.view_transform = 'Standard'
+        sc.view_settings.exposure = 0.0
+        sc.render.resolution_x, sc.render.resolution_y = opt('--w', 1088), opt('--h', 1920)
+        sc.render.filepath = os.path.join(HERE, out)
+        bpy.ops.render.render(animation=True)
     if argv[0] in ('anim', 'frames'):
         animate(sc)
         bpy.ops.wm.save_as_mainfile(filepath=os.path.join(HERE, 'scene_hero_anim.blend'), compress=True)
