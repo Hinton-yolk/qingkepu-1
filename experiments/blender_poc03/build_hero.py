@@ -726,6 +726,8 @@ def main():
     res, spp = opt('--res', 540), opt('--spp', 64)
     out = opt('--out', os.path.join('out', 'hero.png'))
     sc = build(res, spp)
+    if '--w' in argv:                        # 指定精确尺寸（例如 LTX 要 1088×1920，关键帧和灰模必须同尺寸、同视场）
+        sc.render.resolution_x, sc.render.resolution_y = opt('--w', 1088), opt('--h', 1920)
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(HERE, 'scene_hero.blend'), compress=True)
     if argv[0] == 'clay':
         # LTX Layout-To-Render 的灰模输入：同一场景、同一相机运动，Workbench 统一灰色，不要雾、散景、景深、动态模糊
