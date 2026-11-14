@@ -12,7 +12,7 @@ N_ = np.array([SIDE["d"][1], -SIDE["d"][0]])                       # "up" in the
 def alpha(f): return np.array(Image.open(f"assets/people/{f}"))[:, :, 3] > 128
 At, As = alpha("arm-top.webp"), alpha("arm-side-fist.webp")
 tube = []
-for x in range(-285, 16, 5):
+for x in range(-285, 66, 5):
     u = TOP["u0"] + (x + 6) * TOP["s"]; ui = int(round(min(max(u, 0), At.shape[1] - 1)))
     ys = np.where(At[:, ui])[0]; yc = ((ys[0] + ys[-1]) / 2 - TOP["v0"]) / TOP["s"]; ry = (ys[-1] - ys[0]) / 2 / TOP["s"]
     p = SIDE["w0"] + SIDE["d"] * (x + 6) * SIDE["s"]
@@ -28,6 +28,10 @@ for x in range(-285, 16, 5):
 T = np.array(tube, float)
 for i in range(len(T)):
     if T[i, 0] < -125: T[i, 3] = T[T[:, 0] == -125][0, 3]; T[i, 4] = 0.78 * T[i, 2]
+# past the wrist (x > 0) the tube is the base of the hand, seen only under a tilt: it flattens (palm ≈ 14 mm at x = 60), its back stays level
+top0 = T[T[:, 0] == 0][0, 3] + T[T[:, 0] == 0][0, 4]
+for i in range(len(T)):
+    if T[i, 0] > 0: u = T[i, 0] / 60; T[i, 4] = (1 - u) * T[T[:, 0] == 0][0, 4] + u * 14; T[i, 3] = top0 - T[i, 4]
 # smooth
 for c in (1, 2, 3, 4):
     v = T[:, c].copy(); T[:, c] = np.convolve(np.pad(v, 3, mode="edge"), np.ones(7) / 7, mode="valid")
