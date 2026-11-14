@@ -68,6 +68,7 @@ description: 制作「为什么」系列（你每天都在用，但你不知道�
 - 镜头：相似变换相机 `key(F, anchor, Z, phi)`，对数螺线插值。运动模糊：只在 BLUR 时间窗里做 6 次子采样。
 - 渲染：`node render.mjs`（`--stills` / `--sheet` / `--strip` / `--encode` / `--from`），Playwright 逐帧截图。
 - 输出：1080×1920，30 fps，libx264 yuv420p CRF 16，AAC 256k。
+- **交付顺序**（用户 2026-11-11）：成片最终确认前只出一个视频（1080×1920）；观众过了、用户确认视频没问题，再出两张封面、小红书全屏版和 `publish.md`。见仓库 `CLAUDE.md`「交付顺序」。
   小红书全屏版 1080×2340：把每帧顶部 24 行模糊拉伸成 420 px 补在上方。
 - 每集一个项目目录：`index.html`、`timeline.js`、`render.mjs`、`music/score.mjs`、`tools/`（master.sh、beatcheck.mjs、motion.py、fonts.py、verify.sh）、`assets/fonts/`、`SPEC.md`、`REVIEW.md`、`FACTS.md`。
 - 试过但被否掉的：animate 的变形转场样例（「转场太硬」）；three.js 拆解（每帧 21–34 秒，太慢）。用户：「我比较 prefer 现有版本」。

@@ -20,6 +20,9 @@ const JOBS = [
   ["../../../episodes/weishenme/05-tizhicheng", "ep05-hero-dy", 2.4, "key([0, -20, 120], [540, 1230], 2.2, 50)", "CALF"],
   ["../../../episodes/weishenme/05-tizhicheng", "ep05-hero-xhs", 2.4, "key([0, -20, 120], [540, 930], 1.9, 50)", "CALF"],
   ["../../../episodes/weishenme/05-tizhicheng", "ep05-inset", 17.6, null, null],   // the calf cut the anchor points at: fat ring outside, muscle inside
+  ["../../../episodes/weishenme/06-renlianjiesuo", "ep06-hero", 1.9, null, null],     // her profile, lipstick on, the phone unlocking (no drift); anchor set in make.mjs
+  ["../../../episodes/weishenme/06-renlianjiesuo", "ep06-mask", 44.6, null, null],     // the closing: the mask on (for the second, small inset)
+  ["../../../episodes/weishenme/06-renlianjiesuo", "ep06-inset", 13.0, null, null],   // the dots and the lines of equal height on the face
 ];
 const ONLY = process.argv[2];                                   // node shots.mjs ep04 → only the jobs whose name starts with ep04
 const browser = await chromium.launch();
@@ -35,6 +38,8 @@ for (const [dir, name, t, camExpr, anchor] of JOBS.filter((j) => !ONLY || j[1].s
     if (typeof window.microOverlays === "function") window.microOverlays = () => {};
     for (const f of ["displayMag", "calfMag"]) if (typeof window[f] === "function") window[f] = () => {};   // EP.05: no in-film magnifiers on the cover art
     if (name.startsWith("ep05") && typeof window.overlays === "function") window.overlays = () => {};   // EP.05 inset: no label leaders cut off by the circle
+    if (typeof window.driftZ === "function") window.driftZ = () => ({ s: 1, tx: 0, ty: 0 });   // EP.06: no drift on the cover art
+    if (typeof window.tag === "function" && name.startsWith("ep06")) window.tag = () => {};          // EP.06: no small tags on the cover art
     if (camExpr) { const K = eval(camExpr); window.cam = () => K; }
     if (camExpr && typeof window.sweeping === "function" && typeof window.drawPhone === "function") {
       // EP.01: the phone half seen through — the board above an orange scan line, the screen below it

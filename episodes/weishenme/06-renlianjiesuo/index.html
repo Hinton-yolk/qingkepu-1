@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1080">
+<title>EP.06 人脸解锁</title>
+<style>
+  @font-face { font-family: "Smiley"; src: url("assets/fonts/smiley.woff2") format("woff2"); }
+  @font-face { font-family: "NotoSC"; font-weight: 700; src: url("assets/fonts/noto-sc-bold.woff2") format("woff2"); }
+  @font-face { font-family: "NotoSC"; font-weight: 400; src: url("assets/fonts/noto-sc-regular.woff2") format("woff2"); }
+  html, body { margin: 0; background: #ECEBE6; }
+  #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="53" data-width="1080" data-height="1920">
+  <canvas id="c" width="1080" height="1920"></canvas>
+</div>
+<script src="timeline.js"></script>
+<script src="assets/mesh/face.js"></script>
+<script src="face.js"></script>
+<script>
+"use strict";
+// ============================================================================================
+// EP.06 人脸解锁 — a pure function of time. window.seek(t) paints frame t.
+// Two worlds, as in the series: the light one (the person, the phone) and the dark one (inside: the dot projector,
+// the dots on the face, the depth map), joined by a circular opening. The face is MediaPipe's canonical face mesh
+// (Apache-2.0), drawn by a small CPU rasteriser (face.js): as skin outside, as plaster / depth map / infrared photo inside.
+// No timers, no rAF, no state between frames (the context is reset every frame); seeded noise only.
+// ============================================================================================
+const { T, COPY, W, H, DUR, FPS, S16 } = TL;
+const cv = document.getElementById("c");
+const MAIN = cv.getContext("2d");
+let ctx = MAIN;
+const LAY = document.createElement("canvas"); LAY.width = W; LAY.height = H; const LAYX = LAY.getContext("2d");   // a layer (the depth map grown from the dots)
+
+const C = {
+  ground: "#ECEBE6", ink: "#141414", acc: "#FF4A1C", paper: "#F1F0EC", dark: "#17191C",
+  skin: "#EBCBA5", skinD: "#D6AD84", skinL: "#F4DEC3",
+  phone: "#1A1B1E", bezel: "#0B0C0E", screen: "#23262B", screenL: "#3A4048", lip: "#C2303A", tube: "#2A2A2E", gold: "#C9A86A",
+  dot: "#DDE2E8", line: "rgba(241,240,236,0.55)", card: "#202328",
+};
+const DISPLAY = "Smiley", UI = "NotoSC";
+
+// ---------------------------------------------------------------- math
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const TAU = Math.PI * 2, RAD = Math.PI / 180;
+const E = {
+  sine: (x) => 0.5 - 0.5 * Math.cos(Math.PI * x),
+  p2io: (x) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2),
+  p3io: (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2),
+  p2in: (x) => x * x, p3in: (x) => x * x * x,
+  p2out: (x) => 1 - (1 - x) * (1 - x), p3out: (x) => 1 - Math.pow(1 - x, 3), p4out: (x) => 1 - Math.pow(1 - x, 4),
+};
+function spring(x, w = 15, z = 0.72) {
+  if (x <= 0) return 0;
+  const wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * x) * (Math.cos(wd * x) + ((z * w) / wd) * Math.sin(wd * x));
+}
+function slamScale(u) { if (u <= 0) return 1.55; if (u < 0.09) return lerp(1.55, 0.94, E.p2in(u / 0.09)); if (u < 0.17) return lerp(0.94, 1.0, E.p3out((u - 0.09) / 0.08)); return 1; }
+function mulberry32(a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const hexRGB = (h) => [0, 1, 2].map((i) => parseInt(h.slice(1 + 2 * i, 3 + 2 * i), 16));
+const mixHex = (a, b, k) => { const p = hexRGB(a), q = hexRGB(b); return `rgb(${[0, 1, 2].map((i) => Math.round(lerp(p[i], q[i], k))).join(",")})`; };
+const rgba = (h, a) => { const p = hexRGB(h); return `rgba(${p[0]},${p[1]},${p[2]},${a})`; };
+const ID = () => ctx.setTransform(1, 0, 0, 1, 0, 0);
+const RAWSET = CanvasRenderingContext2D.prototype.setTransform;
+const FIXED = () => RAWSET.call(ctx, 1, 0, 0, 1, 0, 0);          // screen space, outside the drift and the pushes (corner notes stay put)
+
+// ---------------------------------------------------------------- text (the series' caption band, as in EP.05)
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+const MEASURE = new Map();
+function mw(font, s) { const k = font + "|" + s; let v = MEASURE.get(k); if (v === undefined) { ctx.font = font; v = ctx.measureText(s).width; MEASURE.set(k, v); } return v; }
+function parse(str) { const out = []; let a = 0; for (const ch of str) { if (ch === "[") { a = 1; continue; } if (ch === "]") { a = 0; continue; } out.push({ ch, a }); } return out; }
+const plain = (str) => str.replace(/[\[\]]/g, "");
+function fitSize(str, size, maxW, face = DISPLAY, wt = "") { const f = `${wt} ${size}px ${face}`.trim(), w = mw(f, plain(str)); return w > maxW ? Math.floor(size * maxW / w) : size; }
+function lines(L, t, t0, t1, o = {}) {
+  if (t < t0 || t >= t1) return;
+  const x = o.x ?? 96, ys = o.ys ?? (L.length === 3 ? [300, 420, 540] : [330, 472]), face = o.face ?? DISPLAY, wt = o.weight ?? "";
+  const col = o.col ?? C.ink, acc = o.acc ?? C.acc, style = o.style ?? "blur";
+  const stag = o.stag ?? 0.055, lineGap = o.lineGap ?? 0.16, exitDur = o.exit ?? 0.16, maxW = o.maxW ?? 900;
+  ID();
+  L.forEach((str, i) => {
+    const size = fitSize(str, Array.isArray(o.size) ? o.size[i] : (o.size ?? (L.length === 3 ? 96 : 112)), maxW, face, wt);
+    const font = `${wt} ${size}px ${face}`.trim();
+    const chars = parse(str), ls = t0 + i * lineGap;
+    if (t < ls) return;
+    let pre = "";
+    ctx.save();
+    if (style === "slam") { const sc = slamScale(t - ls), cy = ys[i] - size * 0.35; ctx.translate(x, cy); ctx.scale(sc, sc); ctx.translate(-x, -cy); }
+    ctx.font = font; ctx.textBaseline = "alphabetic";
+    chars.forEach((c, j) => {
+      const cx = x + mw(font, pre); pre += c.ch;
+      const lt = t - (ls + j * stag);
+      let a = 1, blur = 0;
+      if (style === "blur") { const k = clamp(lt / 0.13); a = k; blur = 9 * (1 - k); }
+      else if (style === "type") { a = lt >= 0 ? 1 : 0; }
+      if (t > t1 - exitDur) { const e = clamp((t - (t1 - exitDur)) / exitDur); a *= 1 - e; blur = Math.max(blur, 10 * e); }
+      if (a <= 0.003) return;
+      ctx.globalAlpha = a; ctx.filter = blur > 0.3 ? `blur(${blur.toFixed(1)}px)` : "none";
+      ctx.fillStyle = c.a ? acc : col; ctx.fillText(c.ch, cx, ys[i]);
+    });
+    ctx.restore(); ctx.filter = "none"; ctx.globalAlpha = 1;
+  });
+}
+function label(str, x, y, size, col, t, t0, t1, o = {}) {
+  if (t < t0 || t >= t1) return;
+  ID(); const font = `${o.weight ?? 700} ${size}px ${o.face ?? UI}`; const wv = mw(font, str);
+  const k = E.p3out(prog(t, t0, t0 + 0.28)), e = prog(t, t1 - 0.15, t1);
+  ctx.save(); ctx.font = font; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  const left = o.align === "right" ? x - wv : o.align === "center" ? x - wv / 2 : x;
+  ctx.beginPath(); ctx.rect(left - 4, y - size * 1.2, (wv + 8) * k, size * 1.6); ctx.clip();
+  ctx.globalAlpha = (o.alpha ?? 1) * (1 - e); if (e > 0) ctx.filter = `blur(${(8 * e).toFixed(1)}px)`;
+  ctx.fillStyle = col; ctx.fillText(str, left, y); ctx.restore(); ctx.filter = "none";
+}
+function underline(str, prefix, word, lineIdx, t, t0, t1, ys = [330, 472], size0 = 112) {
+  if (t < t0 || t >= t1) return;
+  const size = fitSize(str, size0, 900), f = `${size}px ${DISPLAY}`;
+  const x0 = 96 + mw(f, plain(prefix)), wv = mw(f, word), k = E.p3out(prog(t, t0, t0 + 0.3)), fo = 1 - prog(t, t1 - 0.16, t1);
+  ID(); ctx.globalAlpha = fo; ctx.fillStyle = C.acc; ctx.fillRect(x0 - 4, ys[lineIdx] + 20, (wv + 8) * k, 11); ctx.globalAlpha = 1;
+}
+function tag(txt, x, y, a, o = {}) {                                  // a small pill (术语 / 注释 are small text, ≥ 44 px)
+  if (a <= 0.01) return;
+  (o.fixed ? FIXED : ID)(); const size = o.size ?? 44, font = `700 ${size}px ${UI}`, wv = mw(font, txt), pad = 18, hh = size + 22;
+  const left = o.align === "center" ? x - (wv + 2 * pad) / 2 : o.align === "right" ? x - wv - 2 * pad : x;
+  ctx.save(); ctx.globalAlpha = a;
+  rr(left, y - hh / 2, wv + 2 * pad, hh, hh / 2); ctx.fillStyle = o.bg ?? "rgba(241,240,236,0.12)"; ctx.fill();
+  if (o.stroke) { ctx.lineWidth = 2.5; ctx.strokeStyle = o.stroke; ctx.stroke(); }
+  ctx.font = font; ctx.fillStyle = o.col ?? C.paper; ctx.textBaseline = "middle"; ctx.fillText(txt, left + pad, y + 2);
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- the worlds: dark from the dive until the way out
+function flood(t) { if (t < T.flood) return 0; if (t < T.floodEnd) return prog(t, T.flood, T.floodEnd); if (t < T.out) return 1; return 1 - prog(t, T.out, T.out + 0.5); }
+function irisAt(t) { if (t >= 30) return [540, 1060]; const Z = openZoom(t); return [OPEN.isl[0] * Z.s + Z.tx, OPEN.isl[1] * Z.s + Z.ty]; }
+function irisOf(t) {
+  const fl = flood(t); if (fl <= 0.001 || fl >= 0.999) return null;
+  const into = t < 30, k = into ? fl : 1 - fl;
+  return { into, R: 30 + 2300 * E.p2in(k), c: irisAt(t) };
+}
+function irisClip(ir, inside) { const p = new Path2D(); if (!inside) p.rect(0, 0, W, H); p.arc(ir.c[0], ir.c[1], ir.R, 0, TAU); ID(); ctx.clip(p, inside ? "nonzero" : "evenodd"); }
+
+// ---------------------------------------------------------------- the pictures (the person and the hand: generated with GPT by
+// the user from 图片prompt.md, prepared by tools/people.py; 1024 × 1536 each, transparent)
+const IMG = {};
+let NOSTRETCH = false;                                 // on the dark ground the pictures fade out at the bottom instead
+const PEOPLE = ["base", "makeup", "contour", "mask", "lipstick", "hand", "lipstick-hand", "mask-layer"];
+const SCREEN = { x: 281, y: 235, w: 457, h: 902 }, PHONE_C = [510, 686], ISLAND = [512, 265], PHONE_W = 480;
+function loadImg(src) { return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; }); }
+function pic(name, x, y, s, a = 1, fade = null) {     // a picture with its top-left at (x, y), scale s. On the light ground the bottom row
+  const im = IMG[name]; if (!im || a <= 0.003) return;   // is stretched to the frame's bottom; on the dark one (fade = colour) it fades out instead
+  ID(); ctx.save(); ctx.globalAlpha *= a;
+  ctx.drawImage(im, x, y, 1024 * s, 1536 * s);
+  const yb = y + 1536 * s - 1;
+  if (!fade && !NOSTRETCH && yb < H) ctx.drawImage(im, 0, 1535, 1024, 1, x, yb, 1024 * s, H - yb + 2);
+  ctx.restore();
+  if (fade) {
+    const y0 = y + 1536 * s * 0.8, g = ctx.createLinearGradient(0, y0, 0, yb);
+    g.addColorStop(0, rgba(fade, 0)); g.addColorStop(1, rgba(fade, a));
+    ID(); ctx.save(); ctx.fillStyle = g; ctx.fillRect(x - 2, y0, 1024 * s + 4, yb - y0 + 1); ctx.globalAlpha = a; ctx.fillStyle = fade; if (yb < H) ctx.fillRect(x - 2, yb, 1024 * s + 4, H - yb); ctx.restore();
+  }
+}
+// the phone in the hand: (cx, cy) is the phone's centre on screen, w its width; st: unlock, glow, shake, dim, keys
+const PHC = document.createElement("canvas"); PHC.width = 1024; PHC.height = 1536; const PHX = PHC.getContext("2d");
+function handPhone(cx, cy, w, st = {}) {
+  const s = w / PHONE_W, x = cx - PHONE_C[0] * s, y = cy - PHONE_C[1] * s;
+  pic("hand", x, y, s);
+  // the screen's content, drawn in the picture's own coordinates, then cut to the screen's shape
+  const prev = ctx; ctx = PHX; ctx.reset();
+  const un = st.unlock ?? 0, g = ctx.createLinearGradient(0, SCREEN.y, 0, SCREEN.y + SCREEN.h);
+  g.addColorStop(0, mixHex("#2E3036", "#8FA3B8", un * 0.9)); g.addColorStop(1, mixHex("#1D1E22", "#D9C7B4", un * 0.85));
+  ctx.fillStyle = g; ctx.fillRect(SCREEN.x - 4, SCREEN.y - 4, SCREEN.w + 8, SCREEN.h + 8);
+  if (st.keys != null) phoneKeys(PHONE_C[0], PHONE_C[1], PHONE_W, 920, st);
+  else lockIcon(PHONE_C[0], SCREEN.y + SCREEN.h * 0.2, PHONE_W * 0.13, un, st.shake ?? 0, st.dim ?? 0);
+  if ((st.glow ?? 0) > 0) { ctx.globalAlpha = st.glow; rr(ISLAND[0] - 64, ISLAND[1] - 24, 128, 48, 24); ctx.strokeStyle = "rgba(255,74,28,0.6)"; ctx.lineWidth = 6; ctx.stroke(); ctx.globalAlpha = 1; }
+  ctx.globalCompositeOperation = "destination-in"; ctx.drawImage(IMG.screenMask, 0, 0); ctx.globalCompositeOperation = "source-over";
+  ctx = prev;
+  ID(); ctx.drawImage(PHC, x, y, 1024 * s, 1536 * s);
+  return { isl: [x + ISLAND[0] * s, y + ISLAND[1] * s] };
+}
+function lockIcon(cx, cy, s, un, shake, dim) {
+  const dx = shake * 14 * Math.sin(shake * 40);
+  ctx.save(); ctx.translate(cx + dx, cy);
+  ctx.strokeStyle = ctx.fillStyle = `rgba(241,240,236,${0.92 - dim * 0.5})`; ctx.lineWidth = s * 0.16; ctx.lineCap = "round";
+  // the shackle lifts and swings open
+  const lift = un * s * 0.42;
+  ctx.save(); ctx.translate(s * 0.32, -lift); ctx.rotate(-un * 0.55); ctx.translate(-s * 0.32, 0);
+  ctx.beginPath(); ctx.moveTo(-s * 0.32, -s * 0.1); ctx.lineTo(-s * 0.32, -s * 0.42); ctx.arc(0, -s * 0.42, s * 0.32, Math.PI, 0); ctx.lineTo(s * 0.32, -s * 0.1); ctx.stroke();
+  ctx.restore();
+  rr(-s * 0.5, -s * 0.12, s, s * 0.78, s * 0.14); ctx.fill();
+  ctx.restore();
+}
+function phoneKeys(cx, cy, w, h, st) {
+  const n = 6, gap = w * 0.085, y = cy - h * 0.22;
+  ctx.font = `700 ${Math.round(w * 0.12)}px ${UI}`; ctx.fillStyle = C.paper; ctx.textAlign = "center"; ctx.fillText(COPY.pass, cx, y - w * 0.13);
+  for (let i = 0; i < n; i++) {
+    const x = cx + (i - (n - 1) / 2) * gap, k = clamp(st.keys - i);
+    ctx.beginPath(); ctx.arc(x, y, w * 0.022, 0, TAU); ctx.strokeStyle = C.paper; ctx.lineWidth = 3; ctx.stroke();
+    if (k > 0) { ctx.globalAlpha = k; ctx.fillStyle = C.paper; ctx.fill(); ctx.globalAlpha = 1; }
+  }
+  // a keypad, faint (no digits: only the dots matter)
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) {
+    if (r === 3 && c !== 1) continue;
+    const x = cx + (c - 1) * w * 0.24, yy = cy - h * 0.02 + r * w * 0.22, hit = st.keys > 0 && st.keys < 6 && ((Math.floor(st.keys * 1.7) + r * 3 + c) % 7 === 0);
+    ctx.beginPath(); ctx.arc(x, yy, w * 0.085, 0, TAU); ctx.fillStyle = hit ? "rgba(241,240,236,0.45)" : "rgba(241,240,236,0.16)"; ctx.fill();
+  }
+}
+// ---------------------------------------------------------------- the opening (and the closing): the person and the phone
+const OPEN = { phone: [880, 1080, 300] };
+OPEN.isl = [OPEN.phone[0] + (ISLAND[0] - PHONE_C[0]) * OPEN.phone[2] / PHONE_W, OPEN.phone[1] + (ISLAND[1] - PHONE_C[1]) * OPEN.phone[2] / PHONE_W];
+function openZoom(t) {                               // a screen-space push towards the island (2.75–6.5)
+  let s = 1;
+  if (t >= T.toTop) s = lerp(1, 2.5, E.p3io(prog(t, T.toTop, T.toTopEnd)));
+  if (t >= T.toTopEnd) s = lerp(2.5, 2.8, prog(t, T.toTopEnd, T.dive));
+  if (t >= T.dive) s = 2.8 * Math.pow(30, E.p2in(prog(t, T.dive, T.diveEnd)));
+  const k = clamp((s - 1) / 1.5), tx = lerp(0, 540 - OPEN.isl[0] * s, k) + (1 - k) * (OPEN.isl[0] - OPEN.isl[0] * s), ty = lerp(0, 1000 - OPEN.isl[1] * s, k) + (1 - k) * (OPEN.isl[1] - OPEN.isl[1] * s);
+  return { s, tx, ty };
+}
+const FACECAM = { eye: [12, -3.0, 58], target: [1.8, -3.4, 0], fov: 24 };
+const PERS = { x: -381, y: 70, s: 1.15 };                 // the person picture in the opening (her nose near x 640, eye near y 760)
+function personScene(t, o = {}) {                     // o.fin: the closing (the mask on)
+  const fin = !!o.fin, Z = o.Z || { s: 1, tx: 0, ty: 0 };
+  const [pcx, pcy, pw] = OPEN.phone;
+  const up = fin ? E.p3out(prog(t, T.out + 0.05, T.outEnd)) : E.p3out(prog(t, T.rise, T.riseEnd));
+  const y = lerp(pcy + 1500, pcy, up) + 6 * Math.sin(TAU * t / 3.1);
+  const un = fin ? E.p3out(prog(t, T.ka, T.ka + 0.3)) : E.p3out(prog(t, T.ka0, T.ka0 + 0.3));
+  const glow = fin ? 0.6 * Math.sin(Math.PI * prog(t, T.outEnd, T.ka)) : 0.6 * Math.sin(Math.PI * prog(t, T.scan, T.ka0)) + (t >= T.glow && t < T.dive ? 0.5 + 0.3 * Math.sin(TAU * (t - T.glow) * 1.5) : 0);
+  const nod = 3 * Math.sin(TAU * t / 3.7);                    // she breathes: a slow, small drift (never a shake)
+  withZoom(Z, () => {
+    if (Z.s < 3.2) {
+      const px = PERS.x, py = PERS.y + nod;
+      if (fin) pic("mask", px, py, PERS.s);
+      else {
+        pic("makeup", px, py, PERS.s);
+        // the lipstick: the last stroke along the lower lip, then the hand goes down and away
+        const u = E.p2io(prog(t, T.stroke, T.strokeEnd)), away = E.p2in(prog(t, T.lipOut, T.lipOutEnd));
+        if (away < 1) pic("lipstick-hand", px + (lerp(-10, 6, u) - 60 * away) * PERS.s, py + (lerp(3, -2, u) + 620 * away) * PERS.s, PERS.s, 1 - 0.2 * away);
+      }
+    }
+    if (!o.noPhone) handPhone(pcx, y, pw, { unlock: un, glow: Math.max(0, glow) });
+  });
+}
+function withZoom(Z, fn) {                          // run a screen-space drawing function under the push (ID → zoom)
+  const prevID = ctx.setTransform; const c = ctx;
+  c.setTransform = function (a, b, cc, d, e, f) { if (arguments.length === 1) return prevID.call(c, a); return prevID.call(c, a * Z.s, b * Z.s, cc * Z.s, d * Z.s, e * Z.s + Z.tx, f * Z.s + Z.ty); };
+  try { fn(); } finally { c.setTransform = prevID; }
+}
+// ---------------------------------------------------------------- inside: the projector and the infrared camera
+function partsScene(t) {
+  const k = E.p3out(prog(t, T.floodEnd - 0.3, T.diveEnd + 0.3)), z = 1 + 0.04 * prog(t, T.diveEnd, T.a3);
+  const leave = E.p3io(prog(t, T.turn, T.turnEnd));
+  ID(); ctx.save(); ctx.translate(540, 1020 + 520 * leave); ctx.scale(z * (1 - 0.55 * leave), z * (1 - 0.55 * leave));
+  ctx.globalAlpha = 1 - 0.6 * leave;
+  // a soft light on the area, so the parts stand out from the dark
+  const gl = ctx.createRadialGradient(0, 0, 40, 0, 0, 520); gl.addColorStop(0, "rgba(120,130,145,0.22)"); gl.addColorStop(1, "rgba(120,130,145,0)"); ctx.fillStyle = gl; ctx.fillRect(-560, -520, 1120, 1040);
+  // the island (black, rounded) holding the dot projector; the infrared camera beside it
+  rr(-60, -95, 430, 190, 95); ctx.fillStyle = "#1B1E23"; ctx.fill(); ctx.strokeStyle = "rgba(241,240,236,0.45)"; ctx.lineWidth = 4; ctx.stroke();
+  module(170, 0, 64, "proj", t); module(-250, 0, 58, "cam", t);
+  // the orange rings: each part is ringed as it is named
+  [[170, 64, T.parts], [-250, 58, T.parts + 0.25]].forEach(([x, r, t0]) => { const q = E.p3out(prog(t, t0, t0 + 0.3)); if (q > 0) { ctx.globalAlpha = (1 - 0.6 * leave) * q; ctx.strokeStyle = C.acc; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(x, 0, (r + 22) * (1.3 - 0.3 * q), 0, TAU); ctx.stroke(); } });
+  ctx.restore();
+  if (leave < 0.5) {
+    label(COPY.proj, 540 + 170 * z, 1020 + 190, 52, C.paper, t, T.parts, T.turn + 0.3, { align: "center" });
+    label(COPY.ircam, 540 - 250 * z, 1020 + 190, 52, C.paper, t, T.parts + 0.25, T.turn + 0.3, { align: "center" });
+  }
+}
+function module(x, y, r, kind, t) {
+  ctx.save(); ctx.translate(x, y);
+  const m = ctx.createLinearGradient(-r, -r, r, r); m.addColorStop(0, "#9AA3AE"); m.addColorStop(0.5, "#565E69"); m.addColorStop(1, "#2C3138");
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fillStyle = m; ctx.fill();                       // a metal rim
+  ctx.lineWidth = 2; ctx.strokeStyle = "rgba(241,240,236,0.6)"; ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.74, 0, TAU); ctx.fillStyle = "#14161A"; ctx.fill();
+  if (kind === "proj") {                               // the projector's window: a faint, sparse grid of points (示意)
+    ctx.fillStyle = "rgba(221,226,232,0.8)";
+    for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) { if (i * i + j * j > 5) continue; ctx.beginPath(); ctx.arc(i * r * 0.2, j * r * 0.2, 3, 0, TAU); ctx.fill(); }
+  } else {                                             // the camera's lens
+    const g = ctx.createRadialGradient(-r * 0.2, -r * 0.2, 2, 0, 0, r * 0.7); g.addColorStop(0, "#8A94A3"); g.addColorStop(0.4, "#2A2F38"); g.addColorStop(1, "#0B0C0E");
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.64, 0, TAU); ctx.fillStyle = g; ctx.fill();
+    ctx.beginPath(); ctx.arc(-r * 0.22, -r * 0.22, r * 0.12, 0, TAU); ctx.fillStyle = "rgba(255,255,255,0.55)"; ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- the face in the dark: dots, heights, the depth map
+const DARKCAM = { eye: [0, -0.4, 44], target: [0, -0.4, 0], fov: 25 };
+function faceView(x, y, w, h) { return { x, y, w, h, cam: DARKCAM }; }
+function yawDots(t) { return 14 * Math.sin(TAU * (t - T.a3) / 6.5); }
+function dotsOn(t, view, face, k, fly, src) {        // the dot pattern on the face; fly: 0..1 travel from src
+  if (k <= 0.01) return;
+  const o = { ...view, face };
+  ID(); ctx.save();
+  const R = mulberry32(11);
+  for (let j = 0; j < FR.DOTS.length; j++) {
+    const i = FR.DOTS[j], p = FR.project(o, i);
+    if (p[6] < 0.12) { R(); continue; }
+    const d = R() * 0.45, ph = R(), u = E.p3out(clamp((fly - d) / 0.55));
+    if (u <= 0) continue;
+    const x = lerp(src[0], p[0], u), y = lerp(src[1], p[1], u);
+    ctx.globalAlpha = k * (0.35 + 0.55 * clamp(p[6] * 1.3)) * (u < 1 ? 0.7 : 0.7 + 0.3 * Math.sin(TAU * (t * 1.4 + ph)));   // the dots shimmer a little
+    ctx.fillStyle = C.dot; ctx.beginPath(); ctx.arc(x, y, 3.6, 0, TAU); ctx.fill();
+    if (u < 1) { ctx.globalAlpha *= 0.35; ctx.strokeStyle = C.dot; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(lerp(src[0], p[0], Math.max(0, u - 0.12)), lerp(src[1], p[1], Math.max(0, u - 0.12))); ctx.stroke(); }
+  }
+  ctx.restore();
+}
+function dotsScene(t) {                               // 7.75–14.25
+  const k = E.p3out(prog(t, T.turn, T.turnEnd)), leave = E.p3io(prog(t, T.top, T.topEnd));
+  if (k <= 0 || leave >= 1) return;
+  const view = faceView(90, 560, 900, 980), face = { yaw: yawDots(t), pitch: -3, s: lerp(0.9, 1, k) };
+  const iso = t < T.iso ? 0 : Math.sin(Math.PI * prog(t, T.iso, T.isoEnd + 0.4));
+  ID(); ctx.save(); ctx.globalAlpha = k * (1 - leave);
+  const lk = t < T.iso ? 0 : E.p2io(prog(t, T.iso, T.isoEnd));
+  FR.render({ ctx, ...view, scale: 0.5, face, ...LINES, fill: 0.1, lineK: lk, lineMin: lerp(8.5, -3, lk) });
+  ctx.restore();
+  ctx.globalAlpha = 1;
+  dotsOn(t, view, face, (1 - leave) * (1 - 0.3 * (t < T.iso ? 0 : E.p2io(prog(t, T.iso, T.isoEnd)))), prog(t, T.fire, T.fireEnd + 0.4), [540, 1700]);
+  if (t >= T.fire) tag(COPY.demo, 944, 1395, (1 - leave) * E.p3out(prog(t, T.fire, T.fire + 0.3)), { align: "right", fixed: true });
+}
+
+// ---------------------------------------------------------------- the top view: the same beam on the wall and on the nose
+// The side view (示意): her profile (the makeup picture) on the left, the phone edge-on in front of her face on the right,
+// the dot projector above and the infrared camera below on its edge (in the phone they sit side by side; drawn one above the
+// other so the geometry can be seen — said on screen). A wall (the reference plane) behind her head.
+const SV = { s: 0.62, P: [740, 880], Cm: [740, 1150], f: 120, wallX: 70, phoneTop: 820, phoneBot: 1290 };
+SV.x0 = 480 - 890 * SV.s; SV.y0 = 1000 - 740 * SV.s;
+const SVP = { nose: [890, 740], lips: [852, 825], chin: [816, 935] };              // profile points in the picture (rightmost skin)
+const svXY = (q) => [SV.x0 + q[0] * SV.s, SV.y0 + q[1] * SV.s];
+function svImg(Q) { return SV.Cm[1] + (SV.Cm[1] - Q[1]) * SV.f / (SV.Cm[0] - Q[0]); }          // where a point lands in the camera (a vertical strip right of it)
+function svBeam(name) {
+  const N = svXY(SVP[name]), dx = N[0] - SV.P[0], dy = N[1] - SV.P[1], kW = (SV.wallX - SV.P[0]) / dx;
+  return { N, W: [SV.wallX, SV.P[1] + dy * kW] };
+}
+function topScene(t) {                                   // (kept name) the side view, 14.25–20.75
+  const pz = 1 + 0.1 * prog(t, T.top - 0.5, T.back), Z = { s: pz, tx: 540 - 540 * pz, ty: 1050 - 1050 * pz };   // a steady push (the side view has no sideways drift)
+  withZoom(Z, () => sideIn(t));
+  const k = E.p3out(prog(t, T.top, T.topEnd)), A = k * (1 - E.p3io(prog(t, T.back, T.back + 0.35)));
+  if (t >= T.top) tag(COPY.topv, 96, 650, A * E.p3out(prog(t, T.top, T.top + 0.4)), { fixed: true });
+  if (t >= T.wall && t < T.a6) tag(COPY.sideNote, 96, 1405, A * E.p3out(prog(t, T.wall, T.wall + 0.3)) * (1 - prog(t, T.a6 - 0.2, T.a6)), { fixed: true });
+  if (t >= T.a6) shiftInset(t, A);
+}
+function sideIn(t) {
+  const k = E.p3out(prog(t, T.top, T.topEnd)), A = k * (1 - E.p3io(prog(t, T.back, T.back + 0.35)));
+  if (A <= 0) return;
+  // the floor grid (faint, wide)
+  ID(); ctx.save(); ctx.globalAlpha = A * 0.1; ctx.strokeStyle = C.paper; ctx.lineWidth = 3;
+  for (let x = -90; x <= 1170; x += 90) { ctx.beginPath(); ctx.moveTo(x, 600); ctx.lineTo(x, 1480); ctx.stroke(); }
+  for (let y = 630; y <= 1480; y += 90) { ctx.beginPath(); ctx.moveTo(-90, y); ctx.lineTo(1170, y); ctx.stroke(); }
+  ctx.restore();
+  // the wall behind her head (dashed, moving slowly)
+  ID(); ctx.save(); ctx.globalAlpha = A; ctx.setLineDash([16, 14]); ctx.lineDashOffset = -t * 30; ctx.strokeStyle = "rgba(241,240,236,0.5)"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(SV.wallX, 700); ctx.lineTo(SV.wallX, 1400); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+  // her profile: faint until the nose beat (first the beam runs to the wall as if there were no face), then solid
+  const fk = t < T.nose ? 0.18 : lerp(0.18, 1, E.p3out(prog(t, T.nose, T.nose + 0.4)));
+  ctx.save(); ctx.globalAlpha = A * fk; pic("makeup", SV.x0, SV.y0, SV.s); ctx.restore();
+  { const yb = SV.y0 + 1536 * SV.s, g = ctx.createLinearGradient(0, yb - 220, 0, yb); g.addColorStop(0, rgba(C.dark, 0)); g.addColorStop(1, rgba(C.dark, A)); ID(); ctx.fillStyle = g; ctx.fillRect(SV.x0 - 2, yb - 220, 1024 * SV.s + 4, 222); }   // her lower edge fades into the dark
+  // the phone, edge on; the projector and the camera on it, named
+  ID(); ctx.save(); ctx.globalAlpha = A;
+  rr(SV.P[0] - 14, SV.phoneTop, 28, SV.phoneBot - SV.phoneTop, 12); ctx.fillStyle = "#2A2E34"; ctx.fill(); ctx.strokeStyle = "rgba(241,240,236,0.55)"; ctx.lineWidth = 3; ctx.stroke();
+  ctx.save(); ctx.translate(SV.P[0], SV.P[1]); ctx.scale(0.42, 0.42); module(0, 0, 60, "proj", t); ctx.restore();
+  if (t < T.wall) for (let i = 0; i < 3; i++) {          // before the beam: the projector sends out faint rings (it is about to project)
+    const u = ((t - T.top) * 1.4 + i / 3) % 1; ctx.globalAlpha = A * 0.5 * (1 - u) * (1 - prog(t, T.wall - 0.3, T.wall));
+    ctx.strokeStyle = C.dot; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(SV.P[0], SV.P[1], 26 + 110 * u, 0, TAU); ctx.stroke();
+  }
+  ctx.globalAlpha = A;
+  ctx.save(); ctx.translate(SV.Cm[0], SV.Cm[1]); ctx.scale(0.42, 0.42); module(0, 0, 56, "cam", t); ctx.restore();
+  // the camera's image: a short strip just right of the camera
+  const sx = SV.Cm[0] + 52; ctx.strokeStyle = "rgba(241,240,236,0.45)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(sx, SV.Cm[1] - 120); ctx.lineTo(sx, SV.Cm[1] + 120); ctx.stroke();
+  ctx.restore();
+  label(COPY.proj, SV.P[0], SV.phoneTop - 26, 46, C.paper, t, T.top + 0.2, T.back + 0.3, { align: "center", alpha: A });
+  label(COPY.ircam, SV.Cm[0] - 40, SV.phoneBot + 60, 46, C.paper, t, T.top + 0.4, T.back + 0.3, { align: "center", alpha: A });
+  label(COPY.imgL, sx + 10, SV.Cm[1] - 140, 40, "rgba(241,240,236,0.85)", t, T.shift, T.back + 0.3, { align: "center", alpha: A });
+  label(COPY.wallL, SV.wallX + 14, 800, 44, "rgba(241,240,236,0.8)", t, T.wall, T.a6, { alpha: A });
+  // the beams
+  if (t >= T.beam && t < T.a6) svBeamDraw(t, "nose", A, 1, true, 0, 0);
+  if (t >= T.a6) { const B3 = [["nose", T.b1], ["lips", T.b2], ["chin", T.b3]]; B3.forEach(([nm, tb], i) => svBeamDraw(t, nm, A, t >= tb && (i === 2 || t < B3[i + 1][1]) ? 1 : 0.15, false, i, tb)); }
+}
+function svBeamDraw(t, name, A, lit, first, idx, tb) {
+  const { N, W } = svBeam(name), sx = SV.Cm[0] + 52;
+  const showWall = first ? E.p3out(prog(t, T.wall, T.wall + 0.35)) : 1;
+  const faceOn = first ? E.p3out(prog(t, T.nose, T.nose + 0.4)) : 1;
+  const beamIn = first ? E.p3out(prog(t, T.beam, T.beam + 0.5)) : E.p3out(prog(t, tb - 0.25, tb + 0.1));
+  const end = faceOn > 0.5 ? N : W;
+  ID(); ctx.save(); ctx.globalAlpha = A * (0.1 + 0.9 * lit);
+  ctx.strokeStyle = C.dot; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(SV.P[0], SV.P[1]); ctx.lineTo(lerp(SV.P[0], end[0], beamIn), lerp(SV.P[1], end[1], beamIn)); ctx.stroke();
+  if (beamIn > 0.2) { const u = ((t * 1.25 + idx * 0.33) % 1) * beamIn; ctx.fillStyle = C.dot; ctx.beginPath(); ctx.arc(lerp(SV.P[0], end[0], u), lerp(SV.P[1], end[1], u), 7, 0, TAU); ctx.fill(); }   // light travelling along the beam
+  if (faceOn > 0.5) { ctx.setLineDash([8, 10]); ctx.strokeStyle = "rgba(221,226,232,0.35)"; ctx.beginPath(); ctx.moveTo(N[0], N[1]); ctx.lineTo(W[0], W[1]); ctx.stroke(); ctx.setLineDash([]); }
+  // the wall point (hollow) and where the camera sees it (the three-beam stretch shows only the camera's hollow point, not the wall's)
+  if (showWall > 0) {
+    ctx.globalAlpha = A * showWall * (faceOn > 0.5 ? 0.45 : 1) * (0.15 + 0.85 * lit);
+    if (first) { ctx.strokeStyle = C.dot; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(W[0], W[1], 10, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = "rgba(221,226,232,0.25)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(W[0], W[1]); ctx.lineTo(SV.Cm[0], SV.Cm[1]); ctx.stroke(); }
+    if (lit > 0.5) ctx.globalAlpha = A * showWall;                // the camera's hollow point (where it would be without a face) stays bright: the start of the arrow
+    ctx.beginPath(); ctx.arc(sx, svImg(W), lit > 0.5 ? 14 : 10, 0, TAU); ctx.strokeStyle = C.dot; ctx.lineWidth = lit > 0.5 ? 4 : 3; ctx.stroke();
+  }
+  if (faceOn > 0) {
+    ctx.globalAlpha = A * faceOn * (0.15 + 0.85 * lit);
+    ctx.beginPath(); ctx.arc(N[0], N[1], 10, 0, TAU); ctx.fillStyle = C.dot; ctx.fill();
+    ctx.strokeStyle = lit > 0.5 ? C.acc : "rgba(221,226,232,0.5)"; ctx.lineWidth = lit > 0.5 ? 4 : 2; if (lit > 0.5) ctx.setLineDash([12, 8]);
+    ctx.beginPath(); ctx.moveTo(N[0], N[1]); ctx.lineTo(SV.Cm[0], SV.Cm[1]); ctx.lineTo(sx, svImg(N)); ctx.stroke(); ctx.setLineDash([]);   // the point → the camera → its place in the camera
+    ctx.beginPath(); ctx.arc(sx, svImg(N), 10, 0, TAU); ctx.fillStyle = C.dot; ctx.fill();
+    if (lit > 0.5) { ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(N[0], N[1], 20, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(sx, svImg(N), 20, 0, TAU); ctx.stroke(); }
+    // the shift in the camera, between the hollow (wall) and the solid (face) point: an orange bar along the strip
+    const sk = first ? E.p3out(prog(t, T.shift, T.shift + 0.45)) : E.p3out(prog(t, tb, tb + 0.35));
+    if (sk > 0 && lit > 0.5) {                        // an orange arrow in the camera: from the hollow (no face) to the solid (the face) point
+      const a0 = svImg(W), a1 = svImg(N), ae = lerp(a0, a1, sk), dir = Math.sign(a1 - a0) || 1, ax = sx + 30;
+      ctx.globalAlpha = A * sk; ctx.strokeStyle = C.acc; ctx.fillStyle = C.acc; ctx.lineWidth = 8; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(ax, a0); ctx.lineTo(ax, ae - dir * 10); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ax, ae + dir * 6); ctx.lineTo(ax - 13, ae - dir * 16); ctx.lineTo(ax + 13, ae - dir * 16); ctx.closePath(); ctx.fill();
+      ctx.lineWidth = 3; ctx.setLineDash([5, 6]); ctx.beginPath(); ctx.moveTo(sx + 14, a0); ctx.lineTo(ax, a0); ctx.moveTo(sx + 14, a1); ctx.lineTo(ax, a1); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+  ctx.restore();
+  if (!first && lit > 0.5) {                     // the name of the lit point only, on a dark pill, left of the point (off the beams)
+    const nm = [COPY.noseL, COPY.lipL, COPY.chinL][idx];
+    tag(nm, N[0] - 30, N[1], A * E.p3out(prog(t, tb, tb + 0.2)), { align: "right", bg: "rgba(10,11,13,0.82)" });
+  }
+}
+// the three shifts, enlarged side by side: one lights up at a time
+function shiftInset(t, A) {
+  const rows = [["nose", T.b1, COPY.noseL], ["lips", T.b2, COPY.lipL], ["chin", T.b3, COPY.chinL]].map(([nm, tb, lab]) => { const { N, W } = svBeam(nm); return { d: Math.abs(svImg(W) - svImg(N)), tb, nm: lab }; });
+  const dmax = rows[0].d, x0 = 230, w = 300, y0 = 1330;
+  FIXED(); ctx.save(); ctx.globalAlpha = A * E.p3out(prog(t, T.a6, T.a6 + 0.3));
+  rr(x0 - 150, y0 - 34, w + 180, 150, 18); ctx.fillStyle = "rgba(30,33,37,0.96)"; ctx.fill();
+  rows.forEach((r, i) => {
+    const lit = t >= r.tb ? 1 : 0.3, k = E.p3out(prog(t, r.tb, r.tb + 0.35)), y = y0 + i * 46;
+    ctx.globalAlpha = A * lit; ctx.font = `700 44px ${UI}`; ctx.fillStyle = C.paper; ctx.textBaseline = "middle"; ctx.fillText(r.nm, x0 - 130, y + 2);
+    ctx.strokeStyle = "rgba(241,240,236,0.25)"; ctx.lineWidth = 12; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + w, y); ctx.stroke();
+    if (k > 0) { ctx.strokeStyle = C.acc; ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + w * (r.d / dmax) * k, y); ctx.stroke(); }
+  });
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- the depth map, the infrared photo, the stored you
+const DEPTH = { depthRange: [-1.5, 7.8] };
+const LINES = { mode: "lines", depthRange: [-1.5, 7.8], fill: 0.22, isoStep: 0.9, lineW: 0.06 };
+function depthScene(t) {                            // 20.75–25.25
+  const k = E.p3out(prog(t, T.back + 0.25, T.backEnd)), leave = E.p3io(prog(t, T.q8, T.q8 + 0.3));
+  if (k <= 0 || leave >= 1) return;
+  const A = k * (1 - leave);
+  const sideK = E.p3io(prog(t, T.irPhoto, T.irPhoto + 0.6)), cmpK = E.p3io(prog(t, T.compare, T.compareEnd));
+  // the main face: centred, then to the left (the IR photo comes in on the right); then both lean towards the stored card
+  const bw = 900 - 400 * sideK, bh = 980 - 420 * sideK, cx = lerp(540, 300, sideK), cy = lerp(1050, 960, sideK) - 40 * cmpK;
+  const view = { x: cx - bw / 2, y: cy - bh / 2, w: bw, h: bh, cam: DARKCAM };
+  const face = { yaw: 4 * Math.sin(TAU * (t - T.q6) / 8), pitch: -3 };
+  const g = prog(t, T.grow, T.growEnd);
+  ID(); ctx.save(); ctx.globalAlpha = A;
+  FR.render({ ctx, ...view, scale: 0.5, face, ...LINES, fill: lerp(0.05, 0.22, g), lineK: lerp(0.45, 1, E.p2io(g)) });
+  ctx.restore();
+  dotsOn(t, view, face, A * lerp(1, 0.55, g), 1, [540, 1700]);
+  if (t >= T.a7) tag(COPY.depth + " · " + COPY.demo, view.x + view.w / 2, Math.min(view.y + view.h - 10, 1330), A * E.p3out(prog(t, T.a7, T.a7 + 0.3)), { align: "center" });
+  // the infrared photo: a flat grey picture, in a card
+  if (sideK > 0) {
+    const cw = 330, ch = 420, ccx = lerp(1250, 790, sideK), ccy = 960 - 40 * cmpK;
+    irCard(t, ccx, ccy, cw, ch, A, face, { mk: 0 });
+    tag(COPY.ir + " · " + COPY.demo, ccx, ccy + ch / 2 + 40, A * sideK, { align: "center" });
+    if (cmpK > 0) {                                   // both go to the stored card: two lines meet it
+      ID(); ctx.save(); ctx.globalAlpha = A * cmpK; ctx.strokeStyle = "rgba(241,240,236,0.5)"; ctx.lineWidth = 3; ctx.setLineDash([10, 10]);
+      ctx.beginPath(); ctx.moveTo(300, cy + bh / 2 + 10); ctx.lineTo(470, 1290); ctx.moveTo(ccx, ccy + ch / 2 + 75); ctx.lineTo(610, 1290); ctx.stroke(); ctx.restore();
+    }
+  }
+  // the stored you (one small card under them), and a tick when they match
+  if (t >= T.compare - 0.2) storedCard(t, 540, 1350, A * E.p3out(prog(t, T.compare - 0.2, T.compare + 0.2)), T.match1);
+}
+function irCard(t, cx, cy, w, h, A, face, o = {}) {      // o.mk: 0 = no makeup, 1 = makeup (a slight change in grey)
+  ID(); ctx.save(); ctx.globalAlpha = A;
+  rr(cx - w / 2, cy - h / 2, w, h, 22); ctx.fillStyle = "#26292E"; ctx.fill();
+  ctx.save(); rr(cx - w / 2, cy - h / 2, w, h, 22); ctx.clip();
+  const sc = h / 760, x = cx - 700 * sc, y = cy - 720 * sc;            // the face (around (700, 720) in the picture) in the middle
+  ctx.filter = o.mask ? "grayscale(1) contrast(0.8) brightness(1.08)" : "grayscale(1) contrast(0.7) brightness(0.92)";
+  const mk = o.mk ?? 0; pic(o.mask ? "mask" : "base", x, y, sc, 1); if (!o.mask && mk > 0) pic("makeup", x, y, sc, mk);
+  ctx.filter = "none";
+  const R = mulberry32(5 + Math.floor(t * 15)); ctx.fillStyle = "rgba(255,255,255,0.05)";
+  for (let i = 0; i < 160; i++) ctx.fillRect(cx - w / 2 + R() * w, cy - h / 2 + R() * h, 2, 2);
+  ctx.restore();
+  rr(cx - w / 2, cy - h / 2, w, h, 22); ctx.strokeStyle = "rgba(241,240,236,0.35)"; ctx.lineWidth = 3; ctx.stroke();
+  ctx.restore();
+}
+function storedCard(t, cx, cy, a, tMatch) {
+  if (a <= 0.01) return;
+  ID(); ctx.save(); ctx.globalAlpha = a;
+  const w = 290, h = 120;
+  rr(cx - w / 2, cy - h / 2, w, h, 20); ctx.fillStyle = "#2A2E34"; ctx.fill(); ctx.strokeStyle = "rgba(241,240,236,0.45)"; ctx.lineWidth = 3; ctx.stroke();
+  // a face outline (the stored data: an abstract mark)
+  ctx.strokeStyle = "rgba(241,240,236,0.8)"; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(cx - 52, cy, 26, 34, 0, 0, TAU); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx - 52, cy - 12); ctx.lineTo(cx - 52, cy + 6); ctx.lineTo(cx - 44, cy + 6); ctx.stroke();
+  ctx.font = `700 44px ${UI}`; ctx.fillStyle = C.paper; ctx.textBaseline = "middle"; ctx.fillText(COPY.stored, cx - 12, cy + 2);
+  if (t >= tMatch) {                                  // a tick: they match
+    const k = E.p3out(prog(t, tMatch, tMatch + 0.3)), x0 = cx + w / 2 + 34, y0 = cy;
+    ctx.strokeStyle = C.acc; ctx.lineWidth = 9; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.beginPath(); ctx.moveTo(x0 - 18, y0); ctx.lineTo(x0 - 4, y0 + 15 * Math.min(1, k * 2)); if (k > 0.5) ctx.lineTo(lerp(x0 - 4, x0 + 26, (k - 0.5) * 2), lerp(y0 + 15, y0 - 20, (k - 0.5) * 2)); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- makeup: colour changes; the heights hardly
+function makeupK(t) {
+  return { lips: E.p2io(prog(t, T.lips, T.lipsEnd)), blush: E.p2io(prog(t, T.blush, T.blushEnd)), shadow: E.p2io(prog(t, T.shadow, T.shadowEnd)), contour: E.p2io(prog(t, T.contour, T.contourEnd)) };
+}
+function makeupScene(t) {                           // 25.25–34
+  const k = E.p3out(prog(t, T.q8 + 0.15, T.q8 + 0.6)), leave = E.p3io(prog(t, T.q10, T.q10 + 0.5));
+  if (k <= 0 || leave >= 1) return;
+  const A = k * (1 - leave), sideK = E.p3io(prog(t, T.cards, T.cardsEnd)) * (1 - leave);
+  const mk = makeupK(t), face = { yaw: 10 * Math.sin(TAU * (t - T.q8) / 10) - 4, pitch: -3 };
+  const vw = lerp(860, 600, sideK), vh = lerp(940, 820, sideK), cx = lerp(540, 330, sideK), cy = 1030;
+  ID(); ctx.save(); ctx.globalAlpha = A;
+  personMakeup(t, cx, cy, vh / 1536 * 1.25, mk);
+  ctx.restore();
+  if (sideK > 0.01) {
+    // the depth map: the same before and after (a card, top right)
+    const dx = lerp(1250, 830, sideK), dy = 760, cw = 330, ch = 380;
+    ID(); ctx.save(); ctx.globalAlpha = A; rr(dx - cw / 2, dy - ch / 2, cw, ch, 22); ctx.fillStyle = "#1E2125"; ctx.fill();
+    ctx.save(); rr(dx - cw / 2, dy - ch / 2, cw, ch, 22); ctx.clip();
+    const dv = { x: dx - cw / 2, y: dy - ch / 2, w: cw, h: ch, cam: { eye: [3.2, 0.6, 60], target: [3.2, 0.6, 0], fov: 21 }, face: { yaw: 62, pitch: -2 } };
+    FR.render({ ctx, ...dv, scale: 0.5, ...LINES });
+    if (t >= T.prof) bridgeLine(t, dv);
+    ctx.restore(); rr(dx - cw / 2, dy - ch / 2, cw, ch, 22); ctx.strokeStyle = "rgba(241,240,236,0.35)"; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
+    const pk0 = t >= T.prof ? E.p3out(prog(t, T.prof, T.prof + 0.3)) : 0;
+    tag(COPY.depth, dx - cw / 2 + 4, dy + ch / 2 + 40, A * sideK * (1 - pk0), {});
+    tag(COPY.same, dx + cw / 2, dy + ch / 2 + 40, (1 - pk0) * A * E.p3out(prog(t, T.irTag, T.irTag + 0.3)), { align: "right", bg: "rgba(255,74,28,0.0)", stroke: "rgba(241,240,236,0.6)" });
+    // the infrared photo: changes a little (lips a touch darker)
+    const iy = 1185;
+    irCard(t, dx, iy, cw, 300, A, face, { mk: E.p2io(prog(t, T.cards, T.irTag)) });
+    tag(COPY.ir, dx - cw / 2 + 4, iy + 150 + 40, A * sideK, {});
+    tag(COPY.slight, dx + cw / 2, iy + 150 + 40, A * E.p3out(prog(t, T.irTag, T.irTag + 0.3)), { align: "right", bg: "rgba(255,74,28,0.0)", stroke: "rgba(241,240,236,0.6)" });
+    if (t >= T.prof) { const pk = E.p3out(prog(t, T.prof, T.prof + 0.3));
+      tag(COPY.before, dx - cw / 2 + 4, dy + ch / 2 + 40, A * pk, { align: "left" }); tag(COPY.after, dx + cw / 2, dy + ch / 2 + 40, A * pk * E.p3out(prog(t, T.prof + 0.2, T.profEnd)), { align: "right", col: C.acc, bg: "rgba(255,74,28,0.12)" }); }
+  }
+}
+// the nose bridge's profile (a side view of the depth map along the middle of the face): before (paper) and after (orange,
+// dashed) the contour — the same line
+const PROF = FR.profile(0, -0.8, 4.0, 36);
+function fadeBottom(x, y, s, a) {                    // the dark ground swallows the picture's lower edge
+  const yb = y + 1536 * s, y0 = y + 1536 * s * 0.8, g = ctx.createLinearGradient(0, y0, 0, yb);
+  g.addColorStop(0, rgba(C.dark, 0)); g.addColorStop(1, rgba(C.dark, a));
+  ID(); ctx.save(); ctx.fillStyle = g; ctx.fillRect(x - 2, y0, 1024 * s + 4, yb - y0); ctx.fillStyle = rgba(C.dark, a); if (yb < H) ctx.fillRect(x - 2, yb - 1, 1024 * s + 4, H - yb + 2); ctx.restore();
+}
+// 修容 on the nose: a soft shade down the side of the bridge and a light line along its top (the picture's own contour
+// sits on the cheek; the script's 「鼻梁两侧」 needs it on the nose). Picture coordinates: the bridge from (806, 616) to the tip (884, 726).
+function noseContour(x, y, s, a) {
+  if (a <= 0.01) return;
+  ID(); ctx.save(); ctx.translate(x, y); ctx.scale(s, s); ctx.globalAlpha = a; ctx.lineCap = "round";
+  ctx.filter = `blur(${Math.max(1, 9 * s).toFixed(1)}px)`;
+  ctx.strokeStyle = "rgba(120,78,55,0.9)"; ctx.lineWidth = 30; ctx.beginPath(); ctx.moveTo(794, 624); ctx.quadraticCurveTo(814, 676, 848, 722); ctx.stroke();
+  ctx.filter = `blur(${Math.max(1, 4 * s).toFixed(1)}px)`;
+  ctx.strokeStyle = "rgba(255,246,235,0.75)"; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(808, 618); ctx.quadraticCurveTo(840, 664, 878, 714); ctx.stroke();
+  ctx.restore(); ctx.filter = "none";
+}
+// the person getting her makeup: the base picture; the makeup picture shows through growing soft circles (lips, cheek, eye);
+// the contour picture over it for 修容. (cx, cy) is where the face's middle (700, 720 in the picture) lands.
+const MKC = document.createElement("canvas"); MKC.width = 1024; MKC.height = 1536; const MKX = MKC.getContext("2d");
+function personMakeup(t, cx, cy, s, mk, o = {}) {
+  const x = cx - 700 * s, y = cy - 720 * s + 5 * Math.sin(TAU * t / 3.7);
+  const prev = ctx; ctx = MKX; ctx.reset();
+  ctx.drawImage(IMG.makeup, 0, 0);
+  ctx.globalCompositeOperation = "destination-in";
+  const spots = [[[820, 850], 150, mk.lips], [[700, 730], 230, mk.blush], [[770, 600], 140, mk.shadow]];
+  ctx.fillStyle = "#000";
+  const m = new Path2D(); spots.forEach(([c, r, k]) => { if (k > 0) { m.moveTo(c[0] + r * k, c[1]); m.arc(c[0], c[1], r * k + 0.01, 0, TAU); } });
+  ctx.filter = "blur(18px)"; ctx.fill(m); ctx.filter = "none";
+  if (mk.lips >= 1 && mk.blush >= 1 && mk.shadow >= 1) { ctx.globalCompositeOperation = "source-over"; ctx.drawImage(IMG.makeup, 0, 0); }
+  ctx = prev;
+  pic("base", x, y, s, o.a ?? 1);
+  ID(); ctx.save(); ctx.globalAlpha = o.a ?? 1; ctx.drawImage(MKC, x, y, 1024 * s, 1536 * s); ctx.restore();
+  if (mk.contour > 0) { pic("contour", x, y, s, mk.contour * (o.a ?? 1)); noseContour(x, y, s, mk.contour * (o.a ?? 1)); }
+  fadeBottom(x, y, s, o.a ?? 1);
+  return { x, y, s };
+}
+function bridgeLine(t, dv) {
+  const k = E.p3out(prog(t, T.prof + 0.2, T.profEnd)), pts = MID.map((i) => FR.project(dv, i));
+  ID(); ctx.save(); ctx.lineJoin = "round"; ctx.lineCap = "round";
+  ctx.lineWidth = 7; ctx.strokeStyle = "rgba(241,240,236,0.95)"; ctx.globalAlpha = E.p3out(prog(t, T.prof, T.prof + 0.3));
+  ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0] + 6, p[1]) : ctx.moveTo(p[0] + 6, p[1]))); ctx.stroke();
+  ctx.globalAlpha = 1; ctx.setLineDash([14, 10]); ctx.lineWidth = 5; ctx.strokeStyle = C.acc;
+  const n = Math.max(2, Math.round(pts.length * k)); ctx.beginPath(); pts.slice(0, n).forEach((p, i) => (i ? ctx.lineTo(p[0] + 6, p[1]) : ctx.moveTo(p[0] + 6, p[1]))); ctx.stroke();
+  ctx.restore();
+}
+// the vertices down the middle of the face, from the brow to the nose tip (for the bridge line)
+const MID = (() => { const P = FR.FACE.P, out = []; for (let y = 3.6; y >= -0.6; y -= 0.15) { let bi = -1, bz = -1e9; for (let i = 0; i < FR.FACE.n; i++) if (Math.abs(P[i * 3]) < 0.12 && Math.abs(P[i * 3 + 1] - y) < 0.1 && P[i * 3 + 2] > bz) { bz = P[i * 3 + 2]; bi = i; } if (bi >= 0) out.push(bi); } return out; })();
+// ---------------------------------------------------------------- the mask: only the eyes
+function maskScene(t) {                             // 34–43
+  const k = E.p3out(prog(t, T.q10, T.q10 + 0.5));
+  if (k <= 0 || t >= T.out + 0.5) return;
+  const mk = { lips: 1, blush: 1, shadow: 1, contour: 1 };
+  const side = E.p3io(prog(t, T.toDepth, T.toDepthEnd));                 // the person moves left; the data comes in on the right
+  const ps = lerp(0.95, 0.8, side), px = lerp(560, 330, side), py = 1030;
+  const ox = px - 700 * ps, oy = py - 720 * ps + 5 * Math.sin(TAU * t / 3.7);
+  const mu = E.p3out(prog(t, T.mask, T.maskEnd)), full = prog(t, T.maskEnd - 0.1, T.maskEnd + 0.2);
+  ID(); ctx.save(); ctx.globalAlpha = k;
+  pic("contour", ox, oy, ps); noseContour(ox, oy, ps, 1);
+  if (full < 1) pic("mask-layer", ox, oy + (1 - mu) * 420 * ps, ps, mu);
+  if (full > 0) pic("mask", ox, oy, ps, full);
+  ctx.restore();
+  fadeBottom(ox, oy, ps, k);
+  // the face data: the lower half is just the mask (greyed); only the eye area is used
+  const ring = E.p2io(prog(t, T.ring, T.ringEnd));
+  if (side > 0.01) {
+    const swing = t >= T.swing ? 14 * Math.sin(TAU * prog(t, T.swing, T.swingEnd)) : 0;
+    const face = { yaw: swing + 3 * Math.sin(TAU * (t - T.q10) / 7), pitch: -3 };
+    const dx = lerp(1250, 815, side), dy = 870, cw = 380, ch = 400;
+    ID(); ctx.save(); ctx.globalAlpha = k; rr(dx - cw / 2, dy - ch / 2, cw, ch, 22); ctx.fillStyle = "#1E2125"; ctx.fill();
+    ctx.save(); rr(dx - cw / 2, dy - ch / 2, cw, ch, 22); ctx.clip();
+    FR.render({ ctx, x: dx - cw / 2, y: dy - ch / 2, w: cw, h: ch, scale: 0.5, cam: { eye: [0, -0.4, 56], target: [0, -0.4, 0], fov: 25 }, face, ...LINES, mask: 1, maskCut: 0, maskGrey: 1, eyesOnly: ring * 0.5 });
+    ctx.restore();
+    rr(dx - cw / 2, dy - ch / 2, cw, ch, 22); ctx.strokeStyle = "rgba(241,240,236,0.35)"; ctx.lineWidth = 3; ctx.stroke();
+    if (ring > 0) { ctx.globalAlpha = k * ring; ctx.strokeStyle = C.acc; ctx.lineWidth = 6; rr(dx - cw * 0.42, dy - ch * 0.3, cw * 0.84, ch * 0.3, 40); ctx.stroke(); }
+    ctx.restore();
+    tag(COPY.depth, dx - cw / 2 + 4, dy + ch / 2 + 40, k * side, {});
+    const iy = 1240, ih = 200;
+    irCard(t, dx, iy, cw, ih, k * side, face, { mask: true });
+    if (ring > 0) { const sc = ih / 760, ex = dx - 700 * sc + 760 * sc, ey = iy - 720 * sc + 600 * sc; ID(); ctx.save(); ctx.globalAlpha = k * ring; ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.beginPath(); ctx.ellipse(ex, ey, 70, 40, 0, 0, TAU); ctx.stroke(); ctx.restore(); }
+    tag(COPY.ir + " · " + COPY.demo, dx - cw / 2 + 4, iy + ih / 2 + 30, k * side, {});
+    if (ring > 0) { tag(COPY.hiL, dx + cw / 2 - 4, dy - ch * 0.15 - 2, k * ring, { align: "right", col: C.acc, bg: "rgba(10,11,13,0.8)" }); tag(COPY.lookL, dx + cw / 2 - 4, iy - ih / 2 + 34, k * ring, { align: "right", col: C.acc, bg: "rgba(10,11,13,0.8)" }); }
+  }
+  // the eye area, ringed on the person too
+  if (ring > 0) {
+    const e = [ox + 775 * ps, oy + 600 * ps];
+    ID(); ctx.save(); ctx.globalAlpha = k * ring; ctx.strokeStyle = C.acc; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.ellipse(e[0] - 20 * ps, e[1], 130 * ps, 95 * ps, -0.1, 0, TAU); ctx.stroke(); ctx.restore();
+  }
+  if (t >= T.maskEnd && t < T.a11) { const ka = E.p3out(prog(t, T.maskEnd, T.maskEnd + 0.3)) * (1 - prog(t, T.a11 - 0.3, T.a11));
+    tag(COPY.setting, 96, 1330, ka, { bg: "rgba(10,11,13,0.85)", stroke: C.acc, size: 44, fixed: true }); tag(COPY.setting2, 96, 1400, ka, { bg: "rgba(10,11,13,0.85)", stroke: C.acc, size: 44, fixed: true }); }
+  if (t >= T.a11 - 0.25) storedCard(t, 300, 1380, E.p3out(prog(t, T.a11 - 0.25, T.a11 + 0.1)), T.match2);
+}
+
+// ---------------------------------------------------------------- the tip: not recognised → the passcode → next time easier
+function tipScene(t) {
+  if (t < T.tip || t >= T.end + 0.6) return;
+  const k = E.p3out(prog(t, T.tip, T.tip + 0.45));
+  const s = 0.92, cx = 660, cy = 1150;
+  const keysN = 6 * prog(t, T.keys, T.keys + 0.75);
+  const un = E.p3out(prog(t, T.open2, T.open2 + 0.3));
+  const shake = t >= T.miss && t < T.miss + 0.4 ? 1 - prog(t, T.miss, T.miss + 0.4) : 0;
+  const morph = E.p3io(prog(t, T.end, T.endMorph));
+  ID(); ctx.save(); ctx.globalAlpha = 1 - morph;
+  const mv = E.p3io(prog(t, T.tip, T.tip + 0.45)), [ocx, ocy, ow] = OPEN.phone, oy = ocy + 6 * Math.sin(TAU * t / 3.1);
+  handPhone(lerp(ocx, cx, mv), lerp(oy, cy, mv), lerp(ow, 420 * s, mv), t < T.keys - 0.1 ? { unlock: 1 - E.p2io(prog(t, T.tip, T.tip + 0.25)), shake, dim: 0 } : t < T.open2 ? { keys: keysN } : { unlock: un });
+  ctx.restore();
+  if (t >= T.miss && t < T.keys) label(COPY.lockMiss, cx, cy - 860 * s * 0.08, 46, C.paper, t, T.miss, T.keys, { align: "center" });
+  // after the passcode: this time's face (a small snapshot) goes into the stored card — 补存
+  if (t >= T.tip2) {
+    const ka = E.p3out(prog(t, T.tip2, T.tip2 + 0.3)) * (1 - morph), fly = E.p3io(prog(t, T.tip2 + 0.5, T.tip2 + 1.3));
+    storedCardLight(t, 230, 1300, ka, T.tip2 + 1.3);
+    const sx0 = cx, sy0 = cy - 120, sx1 = 134, sy1 = 1300, sxx = lerp(sx0, sx1, fly), syy = lerp(sy0, sy1, fly) - 120 * Math.sin(Math.PI * fly), sc = lerp(1, 0.45, fly);
+    if (fly < 1) { ID(); ctx.save(); ctx.globalAlpha = ka; ctx.translate(sxx, syy); ctx.scale(sc, sc);
+      rr(-90, -110, 180, 220, 22); ctx.fillStyle = "#FFFFFF"; ctx.fill(); ctx.strokeStyle = C.acc; ctx.lineWidth = 6; ctx.stroke();
+      ctx.save(); rr(-90, -110, 180, 220, 22); ctx.clip(); ctx.drawImage(IMG.makeup, 560, 420, 420, 520, -90, -110, 180, 220); ctx.restore(); ctx.restore(); }
+    tag(COPY.tipCond, 96, 650, ka * E.p3out(prog(t, T.tip2 + 0.3, T.tip2 + 0.6)), { col: C.ink, bg: "rgba(20,20,20,0.1)", size: 44, fixed: true });
+  }
+}
+// the stored card on the light ground, with a small "+" when this time's face goes in
+function storedCardLight(t, cx, cy, a, tIn) {
+  if (a <= 0.01) return;
+  ID(); ctx.save(); ctx.globalAlpha = a;
+  const w = 300, h = 124;
+  rr(cx - w / 2, cy - h / 2, w, h, 22); ctx.fillStyle = "#FFFFFF"; ctx.fill(); ctx.strokeStyle = "rgba(20,20,20,0.25)"; ctx.lineWidth = 3; ctx.stroke();
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(cx - 96, cy, 26, 34, 0, 0, TAU); ctx.stroke();
+  ctx.font = `700 44px ${UI}`; ctx.fillStyle = C.ink; ctx.textBaseline = "middle"; ctx.fillText(COPY.stored, cx - 56, cy + 2);
+  if (t >= tIn) { const q = spring(t - tIn, 14, 0.55); ctx.save(); ctx.translate(cx - 96, cy - 50); ctx.scale(q, q); ctx.beginPath(); ctx.arc(0, 0, 24, 0, TAU); ctx.fillStyle = C.acc; ctx.fill();
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(-11, 0); ctx.lineTo(11, 0); ctx.moveTo(0, -11); ctx.lineTo(0, 11); ctx.stroke(); ctx.restore(); }
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- scrim, captions, end card
+function scrim(t) {
+  const ir = irisOf(t);
+  if (ir) { ctx.save(); irisClip(ir, false); scrimOf(t, ir.into ? 0 : 1); ctx.restore(); ctx.save(); irisClip(ir, true); scrimOf(t, ir.into ? 1 : 0); ctx.restore(); return; }
+  scrimOf(t, flood(t));
+}
+function scrimOf(t, fl) {
+  const STOPS = [[0, 1], [0.66, 1], [0.74, 0.86], [0.82, 0.56], [0.9, 0.24], [1, 0]];
+  if (fl > 0.02) { ID(); const g = ctx.createLinearGradient(0, 0, 0, 800); STOPS.forEach(([o, k]) => g.addColorStop(o, `rgba(23,25,28,${fl * k})`)); ctx.fillStyle = g; ctx.fillRect(0, 0, W, 800); }
+  const a = (1 - fl) * (t >= T.end ? 1 - prog(t, T.end, T.end + 0.3) : 1);
+  if (a <= 0.01) return;
+  ID(); const g = ctx.createLinearGradient(0, 0, 0, 800); STOPS.forEach(([o, k]) => g.addColorStop(o, `rgba(236,235,230,${a * k})`)); ctx.fillStyle = g; ctx.fillRect(0, 0, W, 800);
+}
+let TXF = null;
+function textBand(t) {
+  const fl = TXF ?? flood(t), L = C.ink, D = C.paper, M = mixHex(L, D, fl);
+  lines(COPY.h1, t, -1, T.h1Out + 0.16, { style: "none", col: L });
+  underline(COPY.h1[1], "为什么还", "认得", 1, t, T.underline, T.h1Out + 0.16);
+  lines(COPY.a2, t, T.a2, T.q3, { style: "slam", col: L, lineGap: 0.2 });
+  lines(COPY.q3, t, T.q3, T.a3, { style: "blur", col: M });
+  lines(COPY.a3, t, T.a3, T.q4, { style: "blur", col: D });
+  lines(COPY.q4, t, T.q4, T.a4, { style: "blur", col: D });
+  lines(COPY.a4, t, T.a4, T.q5, { style: "blur", col: D });
+  lines(COPY.q5, t, T.q5, T.a5, { style: "blur", col: D });
+  lines(COPY.a5, t, T.a5, T.a6, { style: "blur", col: D });
+  lines(COPY.a6, t, T.a6, T.q6, { style: "blur", col: D });
+  lines(COPY.q6, t, T.q6, T.a7, { style: "blur", col: D });
+  lines(COPY.a7, t, T.a7, T.q8, { style: "slam", col: D, lineGap: 0.25 });
+  lines(COPY.q8, t, T.q8, T.a8, { style: "blur", col: D });
+  lines(COPY.a8, t, T.a8, T.q9, { style: "blur", col: D });
+  lines(COPY.q9, t, T.q9, T.a9, { style: "blur", col: D });
+  lines(COPY.a9, t, T.a9, T.q10, { style: "slam", col: D, lineGap: 0.25 });
+  lines(COPY.q10, t, T.q10, T.a10, { style: "blur", col: D });
+  lines(COPY.a10, t, T.a10, T.q11, { style: "blur", col: D });
+  lines(COPY.q11, t, T.q11, T.a11, { style: "blur", col: D });
+  lines(COPY.a11, t, T.a11, T.fin, { style: "blur", col: D });
+  lines(COPY.fin, t, T.fin, T.finOut, { style: "slam", col: M, lineGap: 0.25 });
+  label(COPY.tipTag, 98, 176, 46, C.acc, t, T.tip, T.tipOut, { weight: 700 });
+  lines(COPY.tip, t, T.tip, T.tip2, { style: "blur", col: L, lineGap: 0.25 });
+  lines(COPY.tip2, t, T.tip2, T.tipOut, { style: "blur", col: L, lineGap: 0.2, ys: [300, 420, 540], size: 96 });
+  // 以 iPhone 面容 ID 为例 (a corner note while the measuring is introduced)
+  if (t >= T.note && t < T.noteOut) tag(COPY.note, 96, 585, E.p3out(prog(t, T.note, T.note + 0.3)) * (1 - prog(t, T.noteOut - 0.3, T.noteOut)), { align: "left", col: mixHex(L, D, fl), bg: fl > 0.5 ? "rgba(241,240,236,0.14)" : "rgba(20,20,20,0.08)", size: 50, fixed: true });
+  if (t >= T.a3 && t < T.q4) tag(COPY.irNote, 96, 585, E.p3out(prog(t, T.a3 + 0.3, T.a3 + 0.6)) * (1 - prog(t, T.q4 - 0.2, T.q4)), { align: "left", size: 50, fixed: true, bg: "rgba(241,240,236,0.14)" });
+}
+function endCard(t) {
+  if (t < T.end) return;
+  // the phone shrinks into an outline badge
+  const m = E.p3io(prog(t, T.end, T.endMorph)), bx = lerp(540, 232, m), by = lerp(1060, 560, m), s = lerp(1, 0.32, m);
+  ID(); ctx.save(); ctx.translate(bx, by); ctx.scale(s, s);
+  ctx.globalAlpha = m; rr(-210, -430, 420, 860, 68); ctx.lineWidth = 14 / Math.max(s, 0.32); ctx.strokeStyle = C.ink; ctx.stroke();
+  rr(-68, -398, 136, 40, 20); ctx.fillStyle = C.ink; ctx.fill();
+  ctx.restore();
+  lines(COPY.end, t, T.title1, DUR + 1, { style: "type", col: C.ink, ys: [905, 1045, 1185], size: 124, stag: 0.045, lineGap: 0.3 });
+  lines([COPY.epNum], t, T.ep, DUR + 1, { style: "slam", col: C.ink, x: 400, ys: [520], size: 150 });
+  lines([COPY.epName], t, T.ep + 0.25, DUR + 1, { style: "blur", col: C.ink, x: 404, ys: [668], size: 112 });
+  if (t >= T.sting) {
+    const sc = spring(t - T.sting, 16, 0.5);
+    ID(); ctx.save(); ctx.translate(232, 560); ctx.scale(sc, sc); ctx.font = `200px ${DISPLAY}`; ctx.fillStyle = C.acc; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("?", 6, 0); ctx.restore();
+  }
+}
+
+// ---------------------------------------------------------------- frame
+function drawLight(t) {
+  NOSTRETCH = false;
+  ID(); ctx.fillStyle = C.ground; ctx.fillRect(0, 0, W, H);
+  if (t < T.out) personScene(t, { Z: openZoom(t) });
+  else if (t < T.tip + 0.45) { const fo = 1 - E.p3io(prog(t, T.tip, T.tip + 0.45)); ctx.save(); ctx.globalAlpha = fo; personScene(t, { fin: true, noPhone: t >= T.tip }); ctx.restore(); }
+  tipScene(t);
+}
+function drawDark(t) {
+  NOSTRETCH = true;
+  ID(); ctx.fillStyle = C.dark; ctx.fillRect(0, 0, W, H);
+  if (t < T.a3 + 1.0) partsScene(t);
+  if (t >= T.a3 && t < T.topEnd + 0.1) dotsScene(t);
+  if (t >= T.top && t < T.backEnd + 0.1) topScene(t);
+  if (t >= T.back && t < T.q8 + 0.7) depthScene(t);
+  if (t >= T.q8 && t < T.q10 + 0.6) makeupScene(t);
+  if (t >= T.q10) maskScene(t);
+}
+// a slow, continuous drift of the whole picture (never a shake: < 1 px a frame), so no stretch of the film parks
+const DRIFT = { z: 0.05, x: 26, y: 10 };
+function driftZ(t) {
+  if (t >= T.end) return { s: 1, tx: 0, ty: 0 };
+  const side = prog(t, T.top - 0.5, T.top) * (1 - prog(t, T.back, T.back + 0.5));   // the side view keeps clear of the platform's right-hand column: no sideways drift there
+  const s = 1 + DRIFT.z + DRIFT.z * Math.sin(TAU * t / 9), dx = DRIFT.x * (1 - side) * Math.sin(TAU * t / 6.7 + 0.7), dy = DRIFT.y * (1 + 1.6 * side) * Math.sin(TAU * t / 7.9 + 2.1);
+  return { s, tx: 540 - 540 * s + dx, ty: 1400 - 1400 * s + dy };
+}
+function frame(t) {
+  ctx.reset(); ID();
+  const fl = flood(t), ir = irisOf(t);
+  const DZ = driftZ(t), L = () => withZoom(DZ, () => drawLight(t)), D = () => withZoom(DZ, () => drawDark(t));
+  ID(); ctx.fillStyle = fl > 0.5 ? C.dark : C.ground; ctx.fillRect(0, 0, W, H);
+  if (ir) {
+    if (ir.into) { L(); ctx.save(); irisClip(ir, true); ctx.fillStyle = C.dark; ctx.fillRect(0, 0, W, H); D(); ctx.restore(); }
+    else { D(); ctx.save(); irisClip(ir, true); ctx.fillStyle = C.ground; ctx.fillRect(0, 0, W, H); L(); ctx.restore(); }
+  } else if (fl > 0.5) D(); else L();
+  scrim(t);
+  if (ir) { const nw = ir.into ? 1 : 0; ctx.save(); irisClip(ir, false); TXF = 1 - nw; textBand(t); ctx.restore(); ctx.save(); irisClip(ir, true); TXF = nw; textBand(t); ctx.restore(); TXF = null; }
+  else textBand(t);
+  endCard(t);
+}
+window.seek = function seek(t) { t = clamp(t, 0, DUR - 1e-6); ctx = MAIN; frame(t); };
+window.DUR = DUR; window.FPS = FPS;
+window.addEventListener("hf-seek", (e) => window.seek(e.detail.time));
+window.ready = false;
+window.whenReady = Promise.all([
+  ...PEOPLE.map((n) => loadImg(`assets/people/${n}.webp`).then((im) => { IMG[n] = im; })), loadImg("assets/people/screen-mask.png").then((im) => { IMG.screenMask = im; }),
+  document.fonts.load(`100px ${DISPLAY}`, "化了妆手机为什么还认得你"), document.fonts.load(`700 50px ${UI}`, "点阵投影器红外镜头"), document.fonts.load(`400 50px ${UI}`, "示意"),
+]).then(() => document.fonts.ready).then(() => { MEASURE.clear(); window.seek(0); window.ready = true; });
+</script>
+</body>
+</html>

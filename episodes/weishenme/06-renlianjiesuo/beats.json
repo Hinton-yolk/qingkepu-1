@@ -1,0 +1,644 @@
+{
+ "source": "/home/user/kepu-studio/episodes/weishenme/06-renlianjiesuo/audio/mix.wav",
+ "measuredBy": "npx hyperframes beats",
+ "detectorBpm": 120,
+ "bpm": 120.006,
+ "period": 0.4999768595311184,
+ "inlierShare": 0.933,
+ "offsetSec": 0.0079,
+ "beats": [
+  0.515,
+  1.005,
+  1.505,
+  2.005,
+  2.515,
+  3.015,
+  3.525,
+  4.005,
+  4.515,
+  5.005,
+  5.505,
+  6.005,
+  6.505,
+  7.005,
+  7.505,
+  8.005,
+  8.505,
+  9.005,
+  9.505,
+  10.005,
+  10.505,
+  11.005,
+  11.505,
+  12.005,
+  12.505,
+  13.005,
+  13.505,
+  14.005,
+  14.515,
+  15.005,
+  15.515,
+  16.005,
+  16.505,
+  17.005,
+  17.505,
+  18.005,
+  18.515,
+  19.005,
+  19.505,
+  20.005,
+  20.505,
+  21.005,
+  21.515,
+  22.005,
+  22.385,
+  22.755,
+  23.265,
+  23.765,
+  24.265,
+  24.765,
+  25.265,
+  26.005,
+  26.505,
+  27.005,
+  27.505,
+  28.005,
+  28.505,
+  29.005,
+  29.505,
+  30.005,
+  30.505,
+  31.005,
+  31.505,
+  32.005,
+  32.505,
+  33.005,
+  33.505,
+  34.005,
+  34.505,
+  35.005,
+  35.505,
+  36.005,
+  36.505,
+  37.015,
+  37.515,
+  38.005,
+  38.505,
+  39.005,
+  39.505,
+  40.005,
+  40.505,
+  41.005,
+  41.505,
+  42.005,
+  42.505,
+  43.015,
+  43.515,
+  44.005,
+  44.515,
+  45.015,
+  45.515,
+  46.015,
+  46.515,
+  47.005,
+  47.505,
+  48.005,
+  48.515,
+  49.015,
+  49.515,
+  50.005,
+  50.495,
+  50.985,
+  51.485,
+  51.995,
+  52.505
+ ],
+ "hits": [
+  {
+   "name": "stroke",
+   "t": 0,
+   "nearest16th": 0.008,
+   "errMs": -7.9,
+   "frames": -0.24
+  },
+  {
+   "name": "rise",
+   "t": 0.75,
+   "nearest16th": 0.758,
+   "errMs": -7.8,
+   "frames": -0.23
+  },
+  {
+   "name": "scan",
+   "t": 1.25,
+   "nearest16th": 1.258,
+   "errMs": -7.8,
+   "frames": -0.23
+  },
+  {
+   "name": "ka0",
+   "t": 1.5,
+   "nearest16th": 1.508,
+   "errMs": -7.8,
+   "frames": -0.23
+  },
+  {
+   "name": "underline",
+   "t": 2,
+   "nearest16th": 2.008,
+   "errMs": -7.8,
+   "frames": -0.23
+  },
+  {
+   "name": "a2",
+   "t": 2.75,
+   "nearest16th": 2.758,
+   "errMs": -7.7,
+   "frames": -0.23
+  },
+  {
+   "name": "toTop",
+   "t": 2.75,
+   "nearest16th": 2.758,
+   "errMs": -7.7,
+   "frames": -0.23
+  },
+  {
+   "name": "glow",
+   "t": 4.25,
+   "nearest16th": 4.258,
+   "errMs": -7.7,
+   "frames": -0.23
+  },
+  {
+   "name": "q3",
+   "t": 5.25,
+   "nearest16th": 5.258,
+   "errMs": -7.6,
+   "frames": -0.23
+  },
+  {
+   "name": "dive",
+   "t": 5.25,
+   "nearest16th": 5.258,
+   "errMs": -7.6,
+   "frames": -0.23
+  },
+  {
+   "name": "flood",
+   "t": 5.75,
+   "nearest16th": 5.758,
+   "errMs": -7.6,
+   "frames": -0.23
+  },
+  {
+   "name": "parts",
+   "t": 6.5,
+   "nearest16th": 6.508,
+   "errMs": -7.6,
+   "frames": -0.23
+  },
+  {
+   "name": "parts",
+   "t": 6.75,
+   "nearest16th": 6.758,
+   "errMs": -7.6,
+   "frames": -0.23
+  },
+  {
+   "name": "a3",
+   "t": 7.75,
+   "nearest16th": 7.758,
+   "errMs": -7.5,
+   "frames": -0.23
+  },
+  {
+   "name": "fire",
+   "t": 8.25,
+   "nearest16th": 8.257,
+   "errMs": -7.5,
+   "frames": -0.22
+  },
+  {
+   "name": "fire",
+   "t": 8.5,
+   "nearest16th": 8.507,
+   "errMs": -7.5,
+   "frames": -0.22
+  },
+  {
+   "name": "fire",
+   "t": 8.75,
+   "nearest16th": 8.757,
+   "errMs": -7.5,
+   "frames": -0.22
+  },
+  {
+   "name": "fire",
+   "t": 9,
+   "nearest16th": 9.007,
+   "errMs": -7.5,
+   "frames": -0.22
+  },
+  {
+   "name": "q4",
+   "t": 10.25,
+   "nearest16th": 10.257,
+   "errMs": -7.4,
+   "frames": -0.22
+  },
+  {
+   "name": "a4",
+   "t": 12,
+   "nearest16th": 12.007,
+   "errMs": -7.3,
+   "frames": -0.22
+  },
+  {
+   "name": "iso",
+   "t": 12.25,
+   "nearest16th": 12.257,
+   "errMs": -7.3,
+   "frames": -0.22
+  },
+  {
+   "name": "q5",
+   "t": 14.25,
+   "nearest16th": 14.257,
+   "errMs": -7.2,
+   "frames": -0.22
+  },
+  {
+   "name": "top",
+   "t": 14.25,
+   "nearest16th": 14.257,
+   "errMs": -7.2,
+   "frames": -0.22
+  },
+  {
+   "name": "beam",
+   "t": 15,
+   "nearest16th": 15.007,
+   "errMs": -7.2,
+   "frames": -0.22
+  },
+  {
+   "name": "a5",
+   "t": 16.25,
+   "nearest16th": 16.257,
+   "errMs": -7.1,
+   "frames": -0.21
+  },
+  {
+   "name": "wall",
+   "t": 16.25,
+   "nearest16th": 16.257,
+   "errMs": -7.1,
+   "frames": -0.21
+  },
+  {
+   "name": "nose",
+   "t": 16.75,
+   "nearest16th": 16.757,
+   "errMs": -7.1,
+   "frames": -0.21
+  },
+  {
+   "name": "shift",
+   "t": 17.25,
+   "nearest16th": 17.257,
+   "errMs": -7.1,
+   "frames": -0.21
+  },
+  {
+   "name": "a6",
+   "t": 18.75,
+   "nearest16th": 18.757,
+   "errMs": -7,
+   "frames": -0.21
+  },
+  {
+   "name": "beams",
+   "t": 19,
+   "nearest16th": 19.007,
+   "errMs": -7,
+   "frames": -0.21
+  },
+  {
+   "name": "beams",
+   "t": 19.5,
+   "nearest16th": 19.507,
+   "errMs": -7,
+   "frames": -0.21
+  },
+  {
+   "name": "beams",
+   "t": 20,
+   "nearest16th": 20.007,
+   "errMs": -6.9,
+   "frames": -0.21
+  },
+  {
+   "name": "q6",
+   "t": 20.75,
+   "nearest16th": 20.757,
+   "errMs": -6.9,
+   "frames": -0.21
+  },
+  {
+   "name": "grow",
+   "t": 21.25,
+   "nearest16th": 21.257,
+   "errMs": -6.9,
+   "frames": -0.21
+  },
+  {
+   "name": "stop1",
+   "t": 22.5,
+   "nearest16th": 22.507,
+   "errMs": -6.8,
+   "frames": -0.2
+  },
+  {
+   "name": "a7",
+   "t": 22.75,
+   "nearest16th": 22.757,
+   "errMs": -6.8,
+   "frames": -0.2
+  },
+  {
+   "name": "irPhoto",
+   "t": 23.25,
+   "nearest16th": 23.257,
+   "errMs": -6.8,
+   "frames": -0.2
+  },
+  {
+   "name": "compare",
+   "t": 24,
+   "nearest16th": 24.007,
+   "errMs": -6.8,
+   "frames": -0.2
+  },
+  {
+   "name": "match1",
+   "t": 24.75,
+   "nearest16th": 24.757,
+   "errMs": -6.7,
+   "frames": -0.2
+  },
+  {
+   "name": "q8",
+   "t": 25.25,
+   "nearest16th": 25.257,
+   "errMs": -6.7,
+   "frames": -0.2
+  },
+  {
+   "name": "makeup",
+   "t": 25.25,
+   "nearest16th": 25.257,
+   "errMs": -6.7,
+   "frames": -0.2
+  },
+  {
+   "name": "makeup",
+   "t": 25.75,
+   "nearest16th": 25.757,
+   "errMs": -6.7,
+   "frames": -0.2
+  },
+  {
+   "name": "makeup",
+   "t": 26.25,
+   "nearest16th": 26.257,
+   "errMs": -6.7,
+   "frames": -0.2
+  },
+  {
+   "name": "a8",
+   "t": 26.75,
+   "nearest16th": 26.757,
+   "errMs": -6.6,
+   "frames": -0.2
+  },
+  {
+   "name": "cards",
+   "t": 26.75,
+   "nearest16th": 26.757,
+   "errMs": -6.6,
+   "frames": -0.2
+  },
+  {
+   "name": "irTag",
+   "t": 27.75,
+   "nearest16th": 27.757,
+   "errMs": -6.6,
+   "frames": -0.2
+  },
+  {
+   "name": "q9",
+   "t": 29.25,
+   "nearest16th": 29.257,
+   "errMs": -6.5,
+   "frames": -0.2
+  },
+  {
+   "name": "contour",
+   "t": 29.5,
+   "nearest16th": 29.507,
+   "errMs": -6.5,
+   "frames": -0.2
+  },
+  {
+   "name": "contour",
+   "t": 30,
+   "nearest16th": 30.006,
+   "errMs": -6.5,
+   "frames": -0.19
+  },
+  {
+   "name": "a9",
+   "t": 31.75,
+   "nearest16th": 31.756,
+   "errMs": -6.4,
+   "frames": -0.19
+  },
+  {
+   "name": "prof",
+   "t": 31.75,
+   "nearest16th": 31.756,
+   "errMs": -6.4,
+   "frames": -0.19
+  },
+  {
+   "name": "q10",
+   "t": 34,
+   "nearest16th": 34.006,
+   "errMs": -6.3,
+   "frames": -0.19
+  },
+  {
+   "name": "mask",
+   "t": 34.25,
+   "nearest16th": 34.256,
+   "errMs": -6.3,
+   "frames": -0.19
+  },
+  {
+   "name": "toDepth",
+   "t": 35,
+   "nearest16th": 35.006,
+   "errMs": -6.2,
+   "frames": -0.19
+  },
+  {
+   "name": "a10",
+   "t": 36.5,
+   "nearest16th": 36.506,
+   "errMs": -6.2,
+   "frames": -0.19
+  },
+  {
+   "name": "ring",
+   "t": 36.5,
+   "nearest16th": 36.506,
+   "errMs": -6.2,
+   "frames": -0.19
+  },
+  {
+   "name": "q11",
+   "t": 39,
+   "nearest16th": 39.006,
+   "errMs": -6.1,
+   "frames": -0.18
+  },
+  {
+   "name": "a11",
+   "t": 41,
+   "nearest16th": 41.006,
+   "errMs": -6,
+   "frames": -0.18
+  },
+  {
+   "name": "match2",
+   "t": 41.5,
+   "nearest16th": 41.506,
+   "errMs": -5.9,
+   "frames": -0.18
+  },
+  {
+   "name": "fin",
+   "t": 43,
+   "nearest16th": 43.006,
+   "errMs": -5.9,
+   "frames": -0.18
+  },
+  {
+   "name": "out",
+   "t": 43,
+   "nearest16th": 43.006,
+   "errMs": -5.9,
+   "frames": -0.18
+  },
+  {
+   "name": "stop",
+   "t": 43.75,
+   "nearest16th": 43.756,
+   "errMs": -5.8,
+   "frames": -0.18
+  },
+  {
+   "name": "ka",
+   "t": 44,
+   "nearest16th": 44.006,
+   "errMs": -5.8,
+   "frames": -0.17
+  },
+  {
+   "name": "tip",
+   "t": 46,
+   "nearest16th": 46.006,
+   "errMs": -5.7,
+   "frames": -0.17
+  },
+  {
+   "name": "miss",
+   "t": 46.25,
+   "nearest16th": 46.256,
+   "errMs": -5.7,
+   "frames": -0.17
+  },
+  {
+   "name": "keys",
+   "t": 46.75,
+   "nearest16th": 46.756,
+   "errMs": -5.7,
+   "frames": -0.17
+  },
+  {
+   "name": "keys",
+   "t": 46.875,
+   "nearest16th": 46.881,
+   "errMs": -5.7,
+   "frames": -0.17
+  },
+  {
+   "name": "keys",
+   "t": 47,
+   "nearest16th": 47.006,
+   "errMs": -5.7,
+   "frames": -0.17
+  },
+  {
+   "name": "keys",
+   "t": 47.125,
+   "nearest16th": 47.131,
+   "errMs": -5.7,
+   "frames": -0.17
+  },
+  {
+   "name": "keys",
+   "t": 47.25,
+   "nearest16th": 47.256,
+   "errMs": -5.7,
+   "frames": -0.17
+  },
+  {
+   "name": "keys",
+   "t": 47.375,
+   "nearest16th": 47.381,
+   "errMs": -5.7,
+   "frames": -0.17
+  },
+  {
+   "name": "open2",
+   "t": 48,
+   "nearest16th": 48.006,
+   "errMs": -5.6,
+   "frames": -0.17
+  },
+  {
+   "name": "endType",
+   "t": 51.25,
+   "nearest16th": 51.255,
+   "errMs": -5.5,
+   "frames": -0.16
+  },
+  {
+   "name": "ep",
+   "t": 52,
+   "nearest16th": 52.005,
+   "errMs": -5.5,
+   "frames": -0.16
+  },
+  {
+   "name": "sting",
+   "t": 52.5,
+   "nearest16th": 52.505,
+   "errMs": -5.4,
+   "frames": -0.16
+  }
+ ],
+ "worstHitErrorFrames": 0.24
+}

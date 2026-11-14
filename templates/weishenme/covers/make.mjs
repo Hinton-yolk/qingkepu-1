@@ -6,7 +6,7 @@ const { chromium } = createRequire(import.meta.url)("playwright");
 const HERE = path.dirname(new URL(import.meta.url).pathname);
 const A = JSON.parse(fs.readFileSync(path.join(HERE, "art/anchors.json"), "utf8"));
 const SMILEY = "file://" + path.join(HERE, "../assets/fonts/SmileySans-Oblique.ttf");
-const NOTO = "file:///usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc";
+const NOTO = process.env.NOTO_FILE ? "file://" + process.env.NOTO_FILE : "file:///usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc";   // NOTO_FILE: another Noto Sans SC Bold if the system one is missing
 const SERIES = "你每天都在用，但你不知道它怎么工作";
 
 const COVERS = [
@@ -40,6 +40,14 @@ const COVERS = [
   { out: "ep05-xiaohongshu", W: 1080, H: 1440, ep: "EP.05", title: ["体脂秤怎么知道，", "你有多少<b>脂肪</b>？"],
     hero: "ep05-hero-xhs", heroDy: 0, anchor: A["ep05-hero-xhs"], inset: { img: "ep05-inset", cx: 480, cy: 1080, src: 360, x: 870, y: 900, r: 170 }, tag: "电穿过身体",
     ser: 108, t1: 252, t2: 398, size: 120, wash: 480 },
+  { out: "ep06-douyin", W: 1080, H: 1920, ep: "EP.06", title: ["化了妆、戴了口罩，", "手机为什么还<b>认得</b>你？"],
+    hero: "ep06-hero", heroDy: 130, anchor: [640, 912], inset: { img: "ep06-inset", cx: 540, cy: 1020, src: 380, x: 840, y: 1350, r: 200 }, tag: "红外光点量出高低",
+    inset2: { img: "ep06-mask", cx: 440, cy: 800, src: 300, x: 220, y: 1380, r: 160, tag: "戴口罩只看眼周" },
+    ser: 300, t1: 452, t2: 602, size: 104, wash: 760 },
+  { out: "ep06-xiaohongshu", W: 1080, H: 1440, ep: "EP.06", title: ["化了妆、戴了口罩，", "手机为什么还<b>认得</b>你？"],
+    hero: "ep06-hero", heroDy: -200, anchor: [640, 912], inset: { img: "ep06-inset", cx: 540, cy: 1020, src: 380, x: 885, y: 1060, r: 170 }, tag: "红外光点量出高低",
+    inset2: { img: "ep06-mask", cx: 440, cy: 800, src: 300, x: 170, y: 1150, r: 115, tag: "戴口罩只看眼周" },
+    ser: 108, t1: 252, t2: 398, size: 100, wash: 500 },
 ];
 const ONLY = process.argv[2];                                   // node make.mjs ep04 → only those covers
 
@@ -71,6 +79,10 @@ function html(c) {
     background: #17191C url("art/${i.img}.png") no-repeat; background-size: ${1080 * k}px ${1920 * k}px; background-position: ${-(i.cx - i.src) * k}px ${-(i.cy - i.src) * k}px;
     box-shadow: 0 0 0 10px #141414, 0 24px 50px rgba(20,20,20,0.28); }
   svg { position: absolute; left: 0; top: 0; }
+  .inset2 { display: ${c.inset2 ? "block" : "none"}; position: absolute; left: ${c.inset2 ? c.inset2.x - c.inset2.r : 0}px; top: ${c.inset2 ? c.inset2.y - c.inset2.r : 0}px; width: ${c.inset2 ? 2 * c.inset2.r : 0}px; height: ${c.inset2 ? 2 * c.inset2.r : 0}px; border-radius: 50%;
+    background: #ECEBE6 url("art/${c.inset2 ? c.inset2.img : ""}.png") no-repeat; background-size: ${c.inset2 ? 1080 * c.inset2.r / c.inset2.src : 0}px ${c.inset2 ? 1920 * c.inset2.r / c.inset2.src : 0}px; background-position: ${c.inset2 ? -(c.inset2.cx - c.inset2.src) * c.inset2.r / c.inset2.src : 0}px ${c.inset2 ? -(c.inset2.cy - c.inset2.src) * c.inset2.r / c.inset2.src : 0}px;
+    box-shadow: 0 0 0 8px #141414, 0 18px 40px rgba(20,20,20,0.25); }
+  .itag2 { position: absolute; left: ${c.inset2 ? c.inset2.x : 0}px; top: ${c.inset2 ? c.inset2.y + c.inset2.r + 18 : 0}px; transform: translateX(-50%); font: 700 38px "NotoSC"; color: #F1F0EC; background: #141414; padding: 6px 16px 8px; border-radius: 24px; white-space: nowrap; }
   .itag { position: absolute; left: ${i.x}px; top: ${i.y + i.r + 22}px; transform: translateX(-50%); font: 700 40px "NotoSC"; color: #F1F0EC; background: #141414; padding: 6px 18px 8px; border-radius: 26px; white-space: nowrap; }
   </style></head><body><div id="cv">
   <div class="hero"></div>
@@ -81,7 +93,7 @@ function html(c) {
   <div class="ser">${SERIES}<i>${c.ep}</i></div>
   <div class="t" style="top:${c.t1 - c.size * 0.86}px">${c.title[0]}</div>
   <div class="t" style="top:${c.t2 - c.size * 0.86}px">${c.title[1]}</div>
-  <div class="inset"></div>${c.tag ? `<div class="itag">${c.tag}</div>` : ""}
+  <div class="inset"></div>${c.tag ? `<div class="itag">${c.tag}</div>` : ""}${c.inset2 ? `<div class="inset2"></div><div class="itag2">${c.inset2.tag}</div>` : ""}
   </div></body></html>`;
 }
 
