@@ -17,9 +17,9 @@
   const T = {
     // 0–5.25 · the phenomenon: the back of the watch, green; it rolls over and lands; the face: ♥ 80
     underline: 1.5, flip: 2, flipEnd: 2.5, land: 2.5, release: 2.5, releaseEnd: 3.3, h1Out: 2.59,
-    q2: 2.75, scrOn: 2.75, beat0: 3,
+    q2: 2.75, scrOn: 2.75, beat0: 2.75,
     // 5.25–9.5 · one take in: the camera turns to the side, goes into the gap under the watch, the section (dark)
-    a1: 5, pitch: 5, pitchEnd: 5.9, gap: 5.25, gapEnd: 6, flood: 5.5, floodEnd: 6.25, ledLab: 6.25,
+    a1: 5, pitch: 5, pitchEnd: 5.5, gap: 5.2, gapEnd: 5.85, flood: 5.6, floodEnd: 6.25, ledLab: 6.25,
     q3: 6.5, push1: 6.25, push1End: 8.5,
     // 9.5–14.5 · blood eats green light; what comes back is caught by the light eye
     a3: 8.5, photons: 8.5, eat: 8.75, pd: 11, pdOn: 11.25, meterOn: 12.25,
