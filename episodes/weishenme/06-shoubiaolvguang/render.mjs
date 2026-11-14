@@ -88,7 +88,7 @@ async function main() {
     console.log(`rendered ${NF} frames in ${sec.toFixed(1)} s`);
   }
   const audio = path.join(HERE, arg("audio", "audio/mix.wav"));
-  const out = path.join(HERE, arg("out", "out/ep02-microwave.mp4"));
+  const out = path.join(HERE, arg("out", "out/ep06-shoubiaolvguang.mp4"));
   const args = ["-framerate", String(FPS), "-i", path.join(frames, "%05d.png")];
   if (fs.existsSync(audio)) args.push("-i", audio);
   args.push("-c:v", "libx264", "-preset", "slow", "-crf", "16", "-pix_fmt", "yuv420p", "-profile:v", "high", "-r", String(FPS), "-movflags", "+faststart");
