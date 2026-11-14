@@ -4,3 +4,4 @@ out/
 ltx_in/*.png
 ltx_in/*.mp4
 ltx_out/
+ltx_run.log
