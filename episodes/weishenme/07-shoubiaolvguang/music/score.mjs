@@ -12,7 +12,7 @@
 //     (EP.01/03: IV–V–iii–vi in C; EP.02: vi–IV–I–V in G; EP.04 in D; EP.05: I–V6–vi–iii6–IV… in F.)
 //   · Three textures: opening = chime, light pulse, 8th plucks; explanation = the heart thump + soft 8th stabs + a 16th
 //     "photon" shimmer; reveal = four on the floor, off-beat open hats, octave bass, the lead. Half-beat stops before 心率,
-//     before 减掉甩手 and before the closing line. The three loudest hits: 5.25 用光看血, 23.25 心率, 46.25 the closing line.
+//     before 减掉甩手 and before the closing line. The three loudest hits: 5.25 用光看血, 23.25 心率, 45.75 the closing line.
 import { createRequire } from "node:module";
 import { writeFileSync } from "node:fs";
 const require = createRequire(import.meta.url);
@@ -117,8 +117,8 @@ const PROG = [[0, "Fsm"], [1, "D"], [2, "Esus"], [2.5, "E"], [T.q2, "A"], [4, "D
   [27, "Fsm"], [28, "D"], [29, "A"], [30, "E"], [31, "Fsm"], [32, "D"], [33, "Bm"], [34, "E"], [35, "Fsm"], [36, "E"],
   [T.sub, "A"], [38, "D"], [39, "E"],
   [T.q8, "Fsm"], [40.5, "D"], [41.5, "A"], [42.5, "E"], [43.25, "D"],
-  [T.q9, "Bm"], [45, "Esus"], [T.fin, "A"], [47, "Csm"], [48, "D"], [49, "E"],
-  [T.tip, "A"], [50.5, "Fsm"], [51.5, "D"], [52.5, "E"], [T.end, "A"]];
+  [T.q9, "Bm"], [T.flip2, "Esus"], [T.fin, "A"], [T.fin + 0.75, "Csm"], [T.fin + 1.75, "D"], [T.fin + 2.25, "E"],
+  [T.tip, "A"], [T.tip + 1, "Fsm"], [T.tip + 2, "D"], [T.tip + 3, "E"], [T.end, "A"]];
 const chordAt = (t) => { let c = PROG[0][1]; for (const [a, ch] of PROG) if (t >= a - 1e-6) c = ch; return c; };
 const SECS = [[0, "hook"], [T.a1, "ans"], [T.flood, "dive"], [T.q3, "dig"], [T.q4, "mech"], [T.rate, "name"], [T.q6, "out"], [T.r1, "run"],
   [T.acc, "acc"], [T.sub, "name"], [T.q8, "ring"], [T.q9, "build"], [T.fin, "payoff"], [T.tip, "tip"], [T.end, "end"]];
@@ -196,7 +196,7 @@ play(T.fin + 2.0, [[0, 90, 2], [2, 93, 2], [4, 90, 4], [8, 88, 2], [10, 85, 2]],
 
 // ------------------------------------------------------------------ sound effects on picture events
 const ask = (t) => { blip(t, 88, 0.55, -0.15); blip(t + 0.125, 93, 0.6, 0.15); };       // every question: the same rising 4th (E6 → A6)
-[T.q3, T.q4, T.q5, T.q6, T.q7, T.q8, T.q9].forEach(ask);
+[T.q3, T.q4, T.q5, T.q6, T.q7, T.q8].forEach(ask);
 // the heart, wherever the picture shows it
 THUMPS.forEach((t) => heart(t, t >= T.run && t < T.stopEnd ? 0.8 : 1));
 // 1 the phenomenon: the green glows (a faint shimmer); the underline; the watch rolls over and lands; the face wakes (mi-sol-la)

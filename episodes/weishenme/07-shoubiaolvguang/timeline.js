@@ -8,10 +8,10 @@
 //   14.5–26 它怎么数心跳？ → 血多一点 → 弹回来的光呢？ → 暗一下就是一次心跳 → 按一分钟算 → 80
 //   26–39.5 可你一跑起来呢？ (out, side view, the arm swings) → 光乱了 → 哪下是甩手？ → 加速度计 → 减掉甩手 → 120
 //   39.5–44 那戒指那么小？ (the hand opens, a ring; its section: green light into the finger)
-//   44–53.5 现在知道它在看什么了吗？ → the watch off, back up, on again (closing) → 小提示 (strap, towards the elbow)
-// 120 BPM: 1 beat = 0.5 s = 15 frames at 30 fps, 1 bar = 2 s; 57.25 s. Hearts: 80 / min (0.75 s) at rest, 120 / min (0.5 s) running.
+//   44–52.5 the watch off, back up (green), on again + 它不是在摸你的脉… (closing) → 小提示 (strap, towards the elbow)
+// 120 BPM: 1 beat = 0.5 s = 15 frames at 30 fps, 1 bar = 2 s; 56.25 s. Hearts: 80 / min (0.75 s) at rest, 120 / min (0.5 s) running.
 (function (root) {
-  const BPM = 120, BEAT = 60 / BPM, BAR = 4 * BEAT, FPS = 30, DUR = 57.25;
+  const BPM = 120, BEAT = 60 / BPM, BAR = 4 * BEAT, FPS = 30, DUR = 56.25;
   const W = 1080, H = 1920;
 
   const T = {
@@ -35,11 +35,12 @@
     q8: 39.5, stop: 39.5, stopEnd: 40.5, slide: 39.75, slideEnd: 41.0, open: 40.0, openEnd: 40.9, ringGlow: 40.5,
     ringA: 41.75, rmag: 41.75, rmagEnd: 42.15, curveSlide: 42.0, curveSlideEnd: 42.75,
     // 44–53.5 · back to the start; the closing line; the tip
-    q9: 44.0, back: 44.0, backEnd: 45.0, grab: 44.5, lift: 44.75, flip2: 45.0, flip2End: 45.5,
-    stop2: 45.75, fin: 46.25, flip3: 46.25, flip3End: 46.75, ka: 46.75, finOut: 49.5,
-    tip: 49.5, wide: 49.5, wideEnd: 50.5, tighten: 50.75, move: 51.25, moveEnd: 52.0, tipOut: 53.35,
-    // 53.5–57.25 end card
-    end: 53.5, endMorph: 54.1, title1: 54.25, ep: 55.0, sting: 55.5,
+    // v3 (2026-11-14, audience #3 adopted): the question 「现在知道，它在看什么了吗？」 is cut; the closing line comes straight after the ring
+    q9: 44.0, back: 44.0, backEnd: 44.75, grab: 44.25, lift: 44.5, flip2: 44.75, flip2End: 45.25,
+    stop2: 45.25, fin: 45.75, flip3: 45.75, flip3End: 46.25, ka: 46.25, finOut: 48.5,
+    tip: 48.5, wide: 48.5, wideEnd: 49.5, tighten: 49.75, move: 50.25, moveEnd: 51.0, tipOut: 52.35,
+    // 52.5–56.25 end card
+    end: 52.5, endMorph: 53.1, title1: 53.25, ep: 54.0, sting: 54.5,
   };
 
   const COPY = {
@@ -62,7 +63,6 @@
     sub: ["减掉甩手，", "剩下的才是[心跳]"],
     q8: ["那戒指那么小，", "怎么测[心跳]？"],
     ringA: ["同一招：", "把灯搬到了[手指]上"],
-    q9: ["现在知道，", "它在[看]什么了吗？"],
     fin: ["它不是在[摸]你的脉，", "是在用光[看]你的血"],
     tipTag: "小提示：", tip: ["表带贴紧，", "戴在腕骨[靠手肘]那边"],
     // small text (terms and notes only as small text)
@@ -93,7 +93,7 @@
     q6: [T.q6], unflood: [T.unflood], run: [T.run], r1: [T.r1], q7: [T.q7], qmark: [T.qmark],
     acc: [T.acc], mag: [T.mag], chipOn: [T.chipOn], acc2: [T.acc2], sub: [T.sub], num120: [T.num120],
     q8: [T.q8], stop: [T.stop], ringGlow: [T.ringGlow], ringA: [T.ringA], rmag: [T.rmag],
-    q9: [T.q9], grab: [T.grab], flip2: [T.flip2], stop2: [T.stop2], fin: [T.fin], ka: [T.ka],
+    grab: [T.grab], flip2: [T.flip2], stop2: [T.stop2], fin: [T.fin], ka: [T.ka],
     tip: [T.tip], tighten: [T.tighten], move: [T.move],
     endType: [T.title1], ep: [T.ep], sting: [T.sting],
     thumps: THUMPS, swings: SWINGS,

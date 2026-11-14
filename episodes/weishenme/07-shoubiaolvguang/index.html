@@ -14,7 +14,7 @@
 </style>
 </head>
 <body>
-<div id="root" data-composition-id="main" data-start="0" data-duration="57.25" data-width="1080" data-height="1920">
+<div id="root" data-composition-id="main" data-start="0" data-duration="56.25" data-width="1080" data-height="1920">
   <canvas id="c" width="1080" height="1920"></canvas>
 </div>
 <script src="timeline.js"></script>
@@ -203,7 +203,8 @@ function win(t, a, b, fi = 0.25, fo = 0.25) { return E.p3out(prog(t, a, a + fi))
 
 // ---------------------------------------------------------------- the heart and the swing (shared by the picture and the trace)
 function beatShape(u) { if (u < 0) return 0; if (u < 0.12) return E.smooth(u / 0.12); return Math.exp(-(u - 0.12) * 6.5); }
-function pulseAt(t, from = -1) { let s = 0; for (const b of BEATS) { if (b < from) continue; if (b > t) break; s += beatShape(t - b); } return Math.min(1, s); }
+function beatShapeE(u) { if (u < 0) return 0; if (u < 0.16) return E.smooth(u / 0.16); return Math.exp(-(u - 0.16) * 4.2); }   // v3: the explained beats (16–23.5) swell longer
+function pulseAt(t, from = -1) { let s = 0; for (const b of BEATS) { if (b < from) continue; if (b > t) break; s += (b >= T.b1 - 0.01 && b < T.rate + 0.25 ? beatShapeE : beatShape)(t - b); } return Math.min(1, s); }
 function swingAmp(t) { return E.smooth(prog(t, T.run, T.run + 0.6)) * (1 - E.smooth(prog(t, T.stop, T.stopEnd))); }
 function swingPh(t) { return TAU * (t - T.run); }                        // one swing a second
 function armAngle(t) { return 0.3 * swingAmp(t) * Math.sin(swingPh(t)); }
@@ -537,7 +538,10 @@ function faceUpNow(K, F) { return F.ez[1] * Math.sin(K.th) + F.ez[2] * Math.cos(
 const SEC = { y0: 700, epi: 738, derm: 1095, led: 390, pd: 690, vy: 868, vr: 11 };
 function secPush(t) { return 0.86 * Math.pow(1.42 / 0.86, prog(t, T.flood, T.q6)); }
 function secDX(t) { return 34 * Math.sin((t - T.flood) * 0.55); }
-function secT(t) { const s = secPush(t), cx = 540, cy = 900; ctx.setTransform(s, 0, 0, s, cx - s * cx + secDX(t), cy - s * cy); }
+function secEmp(t) { return win(t, T.b1 - 0.5, T.rate + 0.75, 0.75, 0.75); }   // v3: lean in while 「血多 → 光少」 is explained
+function secS(t) { return secPush(t) * (1 + 0.32 * E.smooth(secEmp(t))); }
+function secCY(t) { return 900 - 110 * E.smooth(secEmp(t)); }
+function secT(t) { const s = secS(t), cx = 540, cy = secCY(t); ctx.setTransform(s, 0, 0, s, cx - s * cx + secDX(t), cy - s * cy); }
 const vesselY = (x) => SEC.vy + 10 * Math.sin(x / 170 + 0.6);
 const CAPS = [[300, 820, 9], [770, 800, 8], [905, 990, 10], [180, 985, 9]];
 const PHOT = (() => {
@@ -555,6 +559,7 @@ function drawSection(t, a) {
   ID(); ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = C.dark; ctx.fillRect(0, 0, W, H);
   secT(t);
   const pu = t >= T.pulseOn ? pulseAt(t, T.pulseOn) : 0;
+  const emp = win(t, T.b1 - 0.25, T.rate + 0.5, 0.4, 0.5);   // v3 (audience #1): 「血多 → 回来的光少」 has to be seen, not read
   // tissue
   const YB = 2300, f = (y) => (y - SEC.y0) / (YB - SEC.y0);
   let g = ctx.createLinearGradient(0, SEC.y0, 0, YB);
@@ -567,14 +572,15 @@ function drawSection(t, a) {
   ctx.strokeStyle = "rgba(150,90,60,0.35)"; ctx.lineWidth = 2; line(-300, SEC.epi, W + 300, SEC.epi);
   // capillary loops under the skin and the small vessels (they swell with each beat — 示意)
   ctx.lineCap = "round";
-  for (const x of [380, 520, 660, 240, 820]) { ctx.strokeStyle = C.blood; ctx.lineWidth = 5 * (1 + 0.25 * pu); ctx.beginPath(); ctx.moveTo(x - 9, SEC.epi + 110); ctx.lineTo(x - 9, SEC.epi + 22); ctx.arc(x, SEC.epi + 22, 9, Math.PI, 0); ctx.lineTo(x + 9, SEC.epi + 110); ctx.stroke(); }
-  const vr = SEC.vr * (1 + 0.6 * pu);
+  for (const x of [380, 520, 660, 240, 820]) { ctx.strokeStyle = C.blood; ctx.lineWidth = 5 * (1 + (0.25 + 0.75 * emp) * pu); ctx.beginPath(); ctx.moveTo(x - 9, SEC.epi + 110); ctx.lineTo(x - 9, SEC.epi + 22); ctx.arc(x, SEC.epi + 22, 9, Math.PI, 0); ctx.lineTo(x + 9, SEC.epi + 110); ctx.stroke(); }
+  const vr = SEC.vr * (1 + (0.6 + 1.1 * emp) * pu);
   ctx.beginPath(); for (let x = -300; x <= W + 300; x += 12) { const y = vesselY(x) - vr; x === -300 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); } for (let x = W + 300; x >= -300; x -= 12) ctx.lineTo(x, vesselY(x) + vr); ctx.closePath();
   g = ctx.createLinearGradient(0, SEC.vy - 20, 0, SEC.vy + 20); g.addColorStop(0, "#D85660"); g.addColorStop(0.5, C.blood); g.addColorStop(1, C.bloodD); ctx.fillStyle = g; ctx.fill();
   ctx.strokeStyle = C.bloodD; ctx.lineWidth = 3; ctx.stroke();
   ctx.strokeStyle = "rgba(142,42,51,0.8)"; ctx.lineWidth = 9; ctx.beginPath(); for (let x = -300; x <= W + 300; x += 12) { const y = 1010 + 8 * Math.sin(x / 140 + 2); x === -300 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); } ctx.stroke();
-  for (const [x, y, r] of CAPS) { ctx.beginPath(); ctx.arc(x, y, r * (1 + 0.3 * pu), 0, TAU); ctx.fillStyle = C.blood; ctx.fill(); ctx.strokeStyle = C.bloodD; ctx.lineWidth = 2.5; ctx.stroke(); }
+  for (const [x, y, r] of CAPS) { ctx.beginPath(); ctx.arc(x, y, r * (1 + (0.3 + 0.5 * emp) * pu), 0, TAU); ctx.fillStyle = C.blood; ctx.fill(); ctx.strokeStyle = C.bloodD; ctx.lineWidth = 2.5; ctx.stroke(); }
   ctx.lineCap = "butt";
+  if (emp * pu > 0.01) { const gb = ctx.createLinearGradient(0, SEC.epi, 0, SEC.vy + 60); gb.addColorStop(0, `rgba(200,50,62,${0.22 * emp * pu})`); gb.addColorStop(1, `rgba(200,50,62,${0.32 * emp * pu})`); ctx.fillStyle = gb; ctx.fillRect(-300, SEC.epi, W + 600, SEC.vy + 60 - SEC.epi); }
   // the light: a soft fan first, then single photons on curved paths (the deep ones end in the blood)
   const fan = E.p3out(prog(t, T.flood, T.floodEnd + 0.3)) * (1 - 0.65 * E.smooth(prog(t, T.photons, T.photons + 1)));
   if (fan > 0.01) {
@@ -588,7 +594,7 @@ function drawSection(t, a) {
     for (const p of PHOT) {
       const P = photPath(p);
       let uEnd = 1; if (p.deep) { for (let u = 0.05; u < 0.5; u += 0.01) { const q = bez(P, u); if (q[1] >= vesselY(q[0]) - vr) { uEnd = u; break; } } }
-      const back = !p.deep, dim = back ? 1 - 0.75 * pu * clamp((p.d - 70) / 80) : 1;
+      const back = !p.deep, eatK = back ? clamp((0.75 + 0.25 * emp) * pu * lerp(clamp((p.d - 70) / 80), clamp((p.d - 40) / 45), emp)) : 0, dim = 1 - eatK;
       // the path, faint (示意: light wanders and scatters)
       ctx.strokeStyle = `rgba(61,240,138,${0.16 * ph * dim})`; ctx.lineWidth = 3; ctx.beginPath(); for (let u = 0; u <= uEnd + 1e-6; u += 0.04) { const q = bez(P, Math.min(u, uEnd)); u === 0 ? ctx.moveTo(...q) : ctx.lineTo(...q); } ctx.stroke();
       const T0 = (t - T.photons) * p.sp + p.ph * 3; const u = ((T0 % 1.1) + 1.1) % 1.1 / 1.1 * (p.deep ? uEnd / 0.98 : 1);
@@ -599,6 +605,7 @@ function drawSection(t, a) {
       ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(X, q[1], r * 2.6, 0, TAU); ctx.fill();
       ctx.fillStyle = `rgba(61,240,138,${al})`; ctx.beginPath(); ctx.arc(X, q[1], r, 0, TAU); ctx.fill();
       ctx.fillStyle = `rgba(220,255,232,${0.8 * al})`; ctx.beginPath(); ctx.arc(X - 3, q[1] - 3, r * 0.38, 0, TAU); ctx.fill();
+      if (back && eatK > 0.15 && u > 0.35 && u < 0.65) { ctx.fillStyle = `rgba(255,110,110,${0.55 * eatK * ph})`; ctx.beginPath(); ctx.arc(q[0], q[1], 13, 0, TAU); ctx.fill(); }
       if (p.deep && u > uEnd - 0.06) { ctx.fillStyle = `rgba(255,120,120,${0.35 * (1 - fade)})`; ctx.beginPath(); ctx.arc(q[0], q[1], 10, 0, TAU); ctx.fill(); }
     }
     ctx.restore();
@@ -608,15 +615,15 @@ function drawSection(t, a) {
   ctx.fillStyle = C.glass; ctx.beginPath(); ctx.moveTo(300, SEC.y0); ctx.quadraticCurveTo(540, SEC.y0 + 6, 780, SEC.y0); ctx.lineTo(780, SEC.y0 - 26); ctx.lineTo(300, SEC.y0 - 26); ctx.closePath(); ctx.fill();
   const fl = flick(t);
   rr(SEC.led - 28, SEC.y0 - 18, 56, 16, 4); ctx.fillStyle = mixHex("#1F6B40", C.green, fl); ctx.fill();
-  const pdB = t >= T.pdOn ? E.p3out(prog(t, T.pdOn, T.pdOn + 0.3)) * (0.85 - 0.6 * pu) : 0;
+  const pdB = t >= T.pdOn ? E.p3out(prog(t, T.pdOn, T.pdOn + 0.3)) * (0.9 - (0.6 + 0.3 * emp) * Math.min(1, pu)) : 0;
   rr(SEC.pd - 30, SEC.y0 - 20, 60, 18, 3); ctx.fillStyle = mixHex(C.pd, C.green, 0.35 * pdB); ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "rgba(241,240,236,0.5)"; ctx.stroke();
   ctx.save(); ctx.globalCompositeOperation = "lighter";
   g = ctx.createRadialGradient(SEC.led, SEC.y0 - 8, 0, SEC.led, SEC.y0 - 8, 90); g.addColorStop(0, `rgba(61,240,138,${0.6 * fl})`); g.addColorStop(1, "rgba(61,240,138,0)"); ctx.fillStyle = g; ctx.fillRect(SEC.led - 90, SEC.y0 - 100, 180, 190);
-  if (pdB > 0.01) { g = ctx.createRadialGradient(SEC.pd, SEC.y0 - 10, 0, SEC.pd, SEC.y0 - 10, 80); g.addColorStop(0, `rgba(61,240,138,${0.3 * pdB})`); g.addColorStop(1, "rgba(61,240,138,0)"); ctx.fillStyle = g; ctx.fillRect(SEC.pd - 80, SEC.y0 - 90, 160, 170); }
+  if (pdB > 0.01) { g = ctx.createRadialGradient(SEC.pd, SEC.y0 - 10, 0, SEC.pd, SEC.y0 - 10, 80 + 50 * emp); g.addColorStop(0, `rgba(61,240,138,${(0.3 + 0.4 * emp) * pdB})`); g.addColorStop(1, "rgba(61,240,138,0)"); ctx.fillStyle = g; ctx.fillRect(SEC.pd - 130, SEC.y0 - 140, 260, 270); }
   ctx.restore();
   ID(); ctx.restore();
 }
-function secPt(t, x, y) { const s = secPush(t); return [540 + s * (x - 540) + secDX(t), 900 + s * (y - 900)]; }
+function secPt(t, x, y) { const s = secS(t), cy = secCY(t); return [540 + s * (x - 540) + secDX(t), cy + s * (y - cy)]; }
 
 // ---------------------------------------------------------------- the trace card (screen space, under the picture)
 const CARD = { x0: 72, x1: 1008, y0: 1110, y1: 1390, px0: 210, px1: 790, win: 3.0 };
@@ -625,7 +632,7 @@ function twoRows(t) { return E.p2io(prog(t, T.swing - 0.3, T.swing + 0.2)) * (1 
 function swingTerm(tau) { const a = swingAmp(tau); return a * (1.15 * Math.sin(swingPh(tau) + 0.6) + 0.28 * Math.sin(TAU * tau * 2.7 + 1.3) + 0.18 * (vnoise(tau * 6) - 0.5)); }
 function greenVal(tau, t) {
   const heart = tau >= T.pulseOn ? pulseAt(tau, T.pulseOn) : 0, m = 1 - E.p2io(prog(t, T.sub, T.subEnd));
-  return 0.5 * heart + m * swingTerm(tau) + 0.04 * (vnoise(tau * 9) - 0.5);
+  return 0.5 * (1 + 0.5 * E.smooth(secEmp(t))) * heart + m * swingTerm(tau) + 0.04 * (vnoise(tau * 9) - 0.5);
 }
 function drawCard(t, light, target) {
   const a = cardK(t); if (a <= 0.01) return;
@@ -795,7 +802,6 @@ function textBand(t) {
   lines(COPY.sub, t, T.sub, T.q8, { style: "blur", col: L });
   lines(COPY.q8, t, T.q8, T.ringA, { style: "blur", col: L });
   lines(COPY.ringA, t, T.ringA, T.q9, { style: "blur", col: L });
-  lines(COPY.q9, t, T.q9, T.stop2 + 0.15, { style: "blur", col: L });
   lines(COPY.fin, t, T.fin, T.finOut, { style: "slam", col: L, lineGap: 0.25 });
   label(COPY.tipTag, 98, 206, 46, C.acc, t, T.tip, T.tipOut, { weight: 700 });
   lines(COPY.tip, t, T.tip + 0.15, T.tipOut, { style: "blur", col: L, lineGap: 0.3 });
