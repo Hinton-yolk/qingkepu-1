@@ -1,3 +1,6 @@
 assets_dl/
 out/
 *.blend1
+ltx_in/*.png
+ltx_in/*.mp4
+ltx_out/
