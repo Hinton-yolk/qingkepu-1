@@ -1,4 +1,4 @@
-# EP.06 手表绿光 · FACTS（白话版阶段，2026-11-14）
+# EP.06 手表绿光 · FACTS（脚本 v2 定稿，2026-11-14）
 
 来源等级：〔官〕厂商官方文档；〔综〕综述 / 论文；〔厂〕厂商宣传，未经独立验证；〔待〕还没找到可靠来源，进脚本前要补。
 脚本定稿时由审核用最强模型做事实核查。
@@ -14,8 +14,8 @@
 | 7 | 戒指用的是同一招 | Oura：PPG，LED 打光、光电二极管读反射光；每秒采样 250 次；LED 放在手指两侧 | 〔厂〕https://ouraring.com/blog/ring-technology/ |
 | 8 | （不进片，备查）戒指 / 夜里用红外 | Oura 称用红外光，比绿光穿得深；Apple 支持页称新款手表在睡眠时段改用红外 LED | 〔厂〕同 7；〔官〕同 1 |
 | 9 | （不进片，备查）手指信号更好 | Oura 博客引 2019 年六部位对比研究：手指可分析波形比例最高 | 〔厂〕https://ouraring.com/blog/accuracy-of-finger-worn-wearables/ ；〔待〕找原文 |
-| 10 | 医院夹手指的血氧仪，也是用光看血 | 指夹式血氧仪用红光（约 660 nm）和红外光穿过手指，比较两者吸收算血氧；脉率来自随心跳变化的那部分吸收 | 〔官〕FDA 510(k) 摘要 https://510k.innolitics.com/device/K212300 ；MedlinePlus https://magazine.medlineplus.gov/article/getting-an-accurate-read-on-pulse-oximeters |
-| 11 | 表带戴紧、戴在腕骨上面、别晃 | Garmin 手册：戴在腕骨上方，贴合但舒适，跑步时不要移动；Apple：「snug but comfortable」 | 〔官〕Garmin 手册（「above your wrist bone」「snug but comfortable」）https://www8.garmin.com/manuals/webhelp/venu/EN-US/GUID-F2E7E0A9-FB44-4297-BF4D-D0C31C400C45.html ；Apple https://support.apple.com/zh-cn/118234 ：「舒适贴合」「戴在腕骨以上（靠近肘部，而不是手部）」「锻炼时可以收紧，结束后放松」。**注意：「戴在腕骨上面」会被读成压在腕骨上，正是官方要纠正的戴法** |
+| 10 | （v2 已不进片）医院夹手指的血氧仪，也是用光看血 | 指夹式血氧仪用红光（约 660 nm）和红外光穿过手指，比较两者吸收算血氧；脉率来自随心跳变化的那部分吸收 | 〔官〕FDA 510(k) 摘要 https://510k.innolitics.com/device/K212300 ；MedlinePlus https://magazine.medlineplus.gov/article/getting-an-accurate-read-on-pulse-oximeters |
+| 11 | 表带贴紧，戴在腕骨靠手肘那边（v2 字幕） | Garmin 手册：戴在腕骨上方，贴合但舒适，跑步时不要移动；Apple：「snug but comfortable」 | 〔官〕Garmin 手册（「above your wrist bone」「snug but comfortable」）https://www8.garmin.com/manuals/webhelp/venu/EN-US/GUID-F2E7E0A9-FB44-4297-BF4D-D0C31C400C45.html ；Apple https://support.apple.com/zh-cn/118234 ：「舒适贴合」「戴在腕骨以上（靠近肘部，而不是手部）」「锻炼时可以收紧，结束后放松」。**注意：「戴在腕骨上面」会被读成压在腕骨上，正是官方要纠正的戴法** |
 | 12 | 深色纹身可能测不准 | Apple 2015 年支持页：部分纹身的墨水、图案、饱和度会挡住传感器的光；实测深色实心墨水影响最大 | 〔官〕Apple 现行 https://support.apple.com/zh-cn/105002 ：「一些纹身所使用的色料、图案和饱和度可能会阻碍传感器检测到相应的光线」。官方没说「大面积深色」——「深色实心影响最大」出自 2015 年媒体实测（Engadget 转引 https://www.engadget.com/2015-05-01-apple-watch-tattoo-confirmation.html ）；片中小字用官方口径「有些纹身会挡光」 |
 | 13 | 戒指内圈两侧的小灯亮绿光（画面） | Oura 官方：Ring 4「Green and infrared LEDs … alternate to measure heart rate and HRV 24/7」，红光 + 红外测睡眠血氧；LED 在手指两侧 → 画面画内圈两侧的绿光有依据。各品牌不同，不点名 | 〔厂〕https://ouraring.com/blog/smart-sensing/ ；同 7（ring-technology 页只提红外，是旧说法） |
 | 14 | 读数 80 / 120（v2，示意；心跳间隔 0.75 / 0.5 秒对齐 120 BPM） | 示意数字，不代表任何人的标准值 | — |
@@ -26,4 +26,4 @@
 ## 注意
 - 「一亮一暗」是简化：真实信号是在一个很大的不变底上叠一点点随心跳的起伏，画面上要放大起伏，并加注「起伏放大示意」。
 - 不写具体型号（Series 几、Ultra 几），也不点评哪个牌子准。
-- 心率 72 是示意数字。
+- 心率 80 / 120 是示意数字。
