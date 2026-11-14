@@ -11,7 +11,7 @@
 //   44–52.5 the watch off, back up (green), on again + 它不是在摸你的脉… (closing) → 小提示 (strap, towards the elbow)
 // 120 BPM: 1 beat = 0.5 s = 15 frames at 30 fps, 1 bar = 2 s; 56.25 s. Hearts: 80 / min (0.75 s) at rest, 120 / min (0.5 s) running.
 (function (root) {
-  const BPM = 120, BEAT = 60 / BPM, BAR = 4 * BEAT, FPS = 30, DUR = 56.25;
+  const BPM = 120, BEAT = 60 / BPM, BAR = 4 * BEAT, FPS = 30, DUR = 56.0;
   const W = 1080, H = 1920;
 
   const T = {
@@ -37,10 +37,10 @@
     // 44–53.5 · back to the start; the closing line; the tip
     // v3 (2026-11-14, audience #3 adopted): the question 「现在知道，它在看什么了吗？」 is cut; the closing line comes straight after the ring
     q9: 44.0, back: 44.0, backEnd: 44.75, grab: 44.25, lift: 44.5, flip2: 44.75, flip2End: 45.25,
-    stop2: 45.25, fin: 45.75, flip3: 45.75, flip3End: 46.25, ka: 46.25, finOut: 48.5,
-    tip: 48.5, wide: 48.5, wideEnd: 49.5, tighten: 49.75, move: 50.25, moveEnd: 51.0, tipOut: 52.35,
+    stop2: 45.25, fin: 45.75, flip3: 45.75, flip3End: 46.25, ka: 46.25, finOut: 48.25,
+    tip: 48.25, wide: 48.25, wideEnd: 49.25, tighten: 49.5, move: 50.0, moveEnd: 50.75, tipOut: 52.1,
     // 52.5–56.25 end card
-    end: 52.5, endMorph: 53.1, title1: 53.25, ep: 54.0, sting: 54.5,
+    end: 52.25, endMorph: 52.85, title1: 53.0, ep: 53.75, sting: 54.25,
   };
 
   const COPY = {
