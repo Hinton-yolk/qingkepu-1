@@ -86,7 +86,7 @@ nvidia-smi >>/w/setup.log 2>&1
 st install_ltx
 pip install -q uv >>/w/setup.log 2>&1
 git clone --depth 1 https://github.com/Lightricks/LTX-2 /w/LTX-2 >>/w/setup.log 2>&1
-cd /w/LTX-2 && uv sync --frozen --extra videoseal --extra audioseal >>/w/setup.log 2>&1 || { st install_failed; sleep infinity; }
+cd /w/LTX-2 && uv sync --extra videoseal --extra audioseal >>/w/setup.log 2>&1 || { st install_failed; sleep infinity; }
 st download_weights
 T0=$(date +%s)
 uv run python - >>/w/setup.log 2>&1 <<'PY' || { echo download_failed > /w/stage; }

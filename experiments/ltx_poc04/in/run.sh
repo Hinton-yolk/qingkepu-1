@@ -29,8 +29,8 @@ run() {   # $1 名字，其余是额外参数；显存不够时自动加 --offlo
 }
 
 nvidia-smi --query-gpu=name,memory.total --format=csv
-run v1_first --image /w/in/kf_first.png -1 1.0
-run v2_keys  --image /w/in/kf_first.png -1 1.0 --image /w/in/kf_mid.png 72 1.0 --image /w/in/kf_last.png 144 1.0
+run v1_first --image /w/in/kf_first.png 0 1.0
+run v2_keys  --image /w/in/kf_first.png 0 1.0 --image /w/in/kf_mid.png 72 1.0 --image /w/in/kf_last.png 144 1.0
 
 # 检测隐形标记是否嵌入
 uv run python - <<'PY'
