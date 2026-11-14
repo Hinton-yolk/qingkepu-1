@@ -766,7 +766,7 @@ function secCY(t) { return 900 - 110 * E.smooth(secEmp(t)); }
 // v6 (user 11-14: 「真正的原理部分画面很小，下边用不到的地方占比太大」): the band from just above the case line (670) to below the
 // vessel (938) fills y 560–1090; a slow push keeps it alive; nothing below the card is shown
 const STAGE = { y0: 670, sy: 560, s: 2.16 };
-function secMapOwn(t) { const s = STAGE.s * (1 + 0.05 * prog(t, T.floodEnd, T.q6)), dx = 18 * Math.sin((t - T.flood) * 0.55); return [s, 540 - s * 540 + dx, STAGE.sy + 8 - s * STAGE.y0]; }
+function secMapOwn(t) { const s = STAGE.s * (1 + 0.05 * prog(t, T.floodEnd, T.q6) + 0.025 * Math.sin((t - T.flood) * 0.9)), dx = 34 * Math.sin((t - T.flood) * 0.6), dy = 10 * Math.sin((t - T.flood) * 0.75 + 1); return [s, 540 - s * 540 + dx, STAGE.sy + 8 + dy - s * STAGE.y0]; }   // v6: a slow, constant drift (motion check)
 function secMap(t) {                                                       // v4: [scale, ox, oy]: screen = (ox + s·X, oy + s·Y)
   const own = secMapOwn(t); if (t >= T.floodEnd + 0.8) return own;
   const tt = Math.min(t, T.floodEnd), K = cam(tt), p = proj(K, ...LEDW), sd = K.A / SECPX, dive = [sd, p[0] - sd * SEC.led, p[1] - sd * SEC.y0];
@@ -834,7 +834,7 @@ function drawSection(t, a) {
       const T0 = (t - T.photons) * p.sp + p.ph * 3; const u = ((T0 % 1.1) + 1.1) % 1.1 / 1.1 * (p.deep ? uEnd / 0.98 : 1);
       if (u > uEnd) continue;
       const q = bez(P, u), w = 3.5 * Math.sin(u * 9 + p.wob), fade = p.deep ? 1 - E.p2in(clamp((u - uEnd + 0.08) / 0.08)) : 1;
-      const al = ph * fade * dim, r = 7, X = q[0] + w;
+      const al = ph * fade * dim, r = 8.5, X = q[0] + w;
       const gg = ctx.createRadialGradient(X, q[1], 0, X, q[1], r * 2.6); gg.addColorStop(0, `rgba(61,240,138,${0.45 * al})`); gg.addColorStop(1, "rgba(61,240,138,0)");
       ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(X, q[1], r * 2.6, 0, TAU); ctx.fill();
       ctx.fillStyle = `rgba(61,240,138,${al})`; ctx.beginPath(); ctx.arc(X, q[1], r, 0, TAU); ctx.fill();
