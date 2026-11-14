@@ -9,9 +9,9 @@
 //   26–39.5 可你一跑起来呢？ (out, side view, the arm swings) → 光乱了 → 哪下是甩手？ → 加速度计 → 减掉甩手 → 120
 //   39.5–44 那戒指那么小？ (the hand opens, a ring; its section: green light into the finger)
 //   44–52.5 the watch off, back up (green), on again + 它不是在摸你的脉… (closing) → 小提示 (strap, towards the elbow)
-// 120 BPM: 1 beat = 0.5 s = 15 frames at 30 fps, 1 bar = 2 s; 56.25 s. Hearts: 80 / min (0.75 s) at rest, 120 / min (0.5 s) running.
+// 120 BPM: 1 beat = 0.5 s = 15 frames at 30 fps, 1 bar = 2 s; 56.0 s. Hearts: 80 / min (0.75 s) at rest, 120 / min (0.5 s) running.
 (function (root) {
-  const BPM = 120, BEAT = 60 / BPM, BAR = 4 * BEAT, FPS = 30, DUR = 56.25;
+  const BPM = 120, BEAT = 60 / BPM, BAR = 4 * BEAT, FPS = 30, DUR = 56.0;
   const W = 1080, H = 1920;
 
   const T = {
@@ -37,10 +37,10 @@
     // 44–53.5 · back to the start; the closing line; the tip
     // v3 (2026-11-14, audience #3 adopted): the question 「现在知道，它在看什么了吗？」 is cut; the closing line comes straight after the ring
     q9: 44.0, back: 44.0, backEnd: 44.75, grab: 44.25, lift: 44.5, flip2: 44.75, flip2End: 45.25,
-    stop2: 45.25, fin: 45.75, flip3: 45.75, flip3End: 46.25, ka: 46.25, finOut: 48.5,
-    tip: 48.5, wide: 48.5, wideEnd: 49.5, tighten: 49.75, move: 50.25, moveEnd: 51.0, tipOut: 52.35,
-    // 52.5–56.25 end card
-    end: 52.5, endMorph: 53.1, title1: 53.25, ep: 54.0, sting: 54.5,
+    stop2: 45.25, fin: 45.75, flip3: 45.75, flip3End: 46.25, ka: 46.25, finOut: 48.25,
+    tip: 48.25, wide: 48.25, wideEnd: 49.25, tighten: 49.5, move: 50.0, moveEnd: 50.75, tipOut: 52.1,
+    // 52.25–56.0 end card
+    end: 52.25, endMorph: 52.85, title1: 53.0, ep: 53.75, sting: 54.25,
   };
 
   const COPY = {
@@ -66,7 +66,7 @@
     fin: ["它不是在[摸]你的脉，", "是在用光[看]你的血"],
     tipTag: "小提示：", tip: ["表带贴紧，", "戴在腕骨[靠手肘]那边"],
     // small text (terms and notes only as small text)
-    led: "每秒闪几百次", caught: "接住的光", note: "示意", pdName: "光电二极管", term: "这种测法叫光电容积描记",
+    led: "每秒闪几百次", caught: "接住的光", dim: "暗＝接到的光变少", simple: "简化示意", note: "示意", pdName: "光电二极管", term: "这种测法叫光电容积描记",
     rowLight: "光", rowSwing: "甩手", elbow: "手肘", bone: "腕骨", tattoo: "有些纹身会挡光，可能测不准",
     end: ["你每天都在用，", "但你不知道", "它[怎么工作]"], epNum: "EP.07", epName: "手表绿光",
   };
