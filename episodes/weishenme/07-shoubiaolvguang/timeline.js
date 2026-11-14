@@ -22,7 +22,7 @@
     a1: 5.25, pitch: 5.25, pitchEnd: 6.5, gap: 5.75, gapEnd: 6.75, flood: 6.25, floodEnd: 7.25, ledLab: 7.25,
     q3: 7.5, push1: 7.25, push1End: 9.5,
     // 9.5–14.5 · blood eats green light; what comes back is caught by the light eye
-    a3: 9.5, photons: 9.5, eat: 9.75, pd: 12.0, pdOn: 12.25,
+    a3: 9.5, photons: 9.5, eat: 9.75, pd: 12.0, pdOn: 12.25, meterOn: 13.25,
     // 14.5–26 · how does it count? the trace; the vessel swells; the answer; the ticks; 80
     q4: 14.5, curve: 14.5, curveEnd: 15.25, b1: 16.25, pulseOn: 16.25,
     q5: 18.5, ans5: 19.0, b2: 21.0, ticks: 21.0, rate: 23.25, gather: 23.25, gatherEnd: 23.75, num80: 23.75, term: 24.25,
@@ -66,7 +66,7 @@
     fin: ["它不是在[摸]你的脉，", "是在用光[看]你的血"],
     tipTag: "小提示：", tip: ["表带贴紧，", "戴在腕骨[靠手肘]那边"],
     // small text (terms and notes only as small text)
-    led: "每秒闪几百次", caught: "接住的光", dim: "暗＝接到的光变少", simple: "简化示意", note: "示意", pdName: "光电二极管", term: "这种测法叫光电容积描记",
+    led: "每秒闪几百次", caught: "接住的光", vessel: "血管", dim: "暗＝接到的光变少", simple: "简化示意", note: "示意", pdName: "光电二极管", term: "这种测法叫光电容积描记",
     rowLight: "光", rowSwing: "甩手", elbow: "手肘", bone: "腕骨", tattoo: "有些纹身会挡光，可能测不准",
     end: ["你每天都在用，", "但你不知道", "它[怎么工作]"], epNum: "EP.07", epName: "手表绿光",
   };
