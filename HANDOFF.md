@@ -12,8 +12,9 @@
 - 反复出现的 P0：电控光的「因」看不出来（T4、T5、V0.2 都是）。其余见 PR #3 第 31–38 条评论。
 
 ## 二、环境（新账号）
+- 网络：用户在设置里把环境改成了 Unrestricted（为了放行 `*.proxy.runpod.net`），下面列的放行主机现在不起限制作用。
 - 云环境「kepu-studio」（个人）。放行的主机：download.blender.org、dl.polyhaven.org、drive.usercontent.google.com、rest.runpod.io、generativelanguage.googleapis.com、api.fish.audio、auth.openai.com、chatgpt.com、api.openai.com；包管理器默认放行。
-- 启动脚本：安装 libegl1 和 xz-utils，把 Blender 5.2.3 装到 `/opt/blender/blender-5.2.3-linux-x64/`（链接到 `/usr/local/bin/blender`），装 Codex CLI。11-14 在本会话里手动跑过两遍（第二遍验证可以重复运行），Blender 后台 Cycles 渲一帧通过；新容器上还没验证。
+- 启动脚本（11-14 发现被清空过，已重存）：安装 libegl1、xz-utils 和三种中文字体（思源黑体 `Noto Sans CJK SC`，只有 Regular / Bold；霞鹜文楷 `LXGW WenKai`；得意黑 `Smiley Sans`），把 Blender 5.2.3 装到 `/opt/blender/blender-5.2.3-linux-x64/`（链接到 `/usr/local/bin/blender`），装 Codex CLI。11-14 在本会话里手动跑过两遍（第二遍验证可以重复运行），Blender 后台 Cycles 渲一帧通过；新容器上还没验证。
 - **不再用** `/tmp/blender/`：Blender 已经在 `/opt/blender`。
 - 网络密钥由代理注入，脚本里写占位值即可：
   - Fish Audio：已存，只读接口返回 200。
@@ -25,6 +26,10 @@
 - ChatGPT Codex Connector 这个 GitHub App 保持原样（用户 11-14：先不动，ChatGPT 读 PR 可能要用它）。不要在 PR 里发以「@codex」开头的评论。
 - Google Drive 连接器在新账号下重新授权过，用的还是原来那个 Google 账号；审核文件夹和权限不变。旧账号的 Drive 授权保持原样（用户 11-14）。
 - 旧环境里那个「回合结束前不能有没提交改动」的钩子，新环境没有。照旧做：做到一半的文件也要提交。
+
+## 三、11-14 之后做的
+- Seedance PoC 01（`experiments/seedance_poc01/`）：v2 Blockout 已交（a69d359），停在等 Seedance 验证。
+- 灰盒 Blockout 渲染很快（Workbench，720×1280 约 0.5–0.65 秒一帧，半分辨率约 0.15 秒一帧），慢在改的轮数。以后先用脚本把关键物体的角点投影到画面上，检查会不会出框，再渲图；改构图时用半分辨率。
 
 ---
 
