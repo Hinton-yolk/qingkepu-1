@@ -17,6 +17,8 @@
 | 10 | 医院夹手指的血氧仪，也是用光看血 | 指夹式血氧仪用红光（约 660 nm）和红外光穿过手指，比较两者吸收算血氧；脉率来自随心跳变化的那部分吸收 | 〔官〕FDA 510(k) 摘要 https://510k.innolitics.com/device/K212300 ；MedlinePlus https://magazine.medlineplus.gov/article/getting-an-accurate-read-on-pulse-oximeters |
 | 11 | 表带戴紧、戴在腕骨上面、别晃 | Garmin 手册：戴在腕骨上方，贴合但舒适，跑步时不要移动；Apple：「snug but comfortable」 | 〔官〕Garmin 手册 https://www8.garmin.com/manuals/webhelp/venu/EN-US/GUID-F2E7E0A9-FB44-4297-BF4D-D0C31C400C45.html ；〔待〕Apple 现行原文 |
 | 12 | 深色纹身可能测不准 | Apple 2015 年支持页：部分纹身的墨水、图案、饱和度会挡住传感器的光；实测深色实心墨水影响最大 | 〔官〕转引自 Engadget https://www.engadget.com/2015-05-01-apple-watch-tattoo-confirmation.html ；〔待〕Apple 现行页面原文 |
+| 13 | 戒指内圈有灯在照（画面） | Live Science 评测称 Oura 第三代用绿色 LED 测心率；Oura 官网称用红外。各品牌不同，片中不说颜色 | 〔综〕https://www.livescience.com/oura-ring-generation-3-review ；〔厂〕同 7 |
+| 14 | 跑步时读数 128（示意） | 示意数字，不代表任何人的标准值 | — |
 
 ## 注意
 - 「一亮一暗」是简化：真实信号是在一个很大的不变底上叠一点点随心跳的起伏，画面上要放大起伏，并加注「起伏放大示意」。
