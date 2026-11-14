@@ -32,7 +32,7 @@
     acc: 32.75, mag: 32.75, magEnd: 33.15, chipOn: 33.0, swing: 33.25, swingEnd: 34.0,
     acc2: 34.75, align: 34.75, alignEnd: 36.5, sub: 37.0, subEnd: 37.75, num120: 37.75,
     // 39.5–44 · the ring
-    q8: 39.5, stop: 39.5, stopEnd: 40.5, slide: 39.75, slideEnd: 41.0, open: 40.0, openEnd: 40.9, ringGlow: 41.0,
+    q8: 39.5, stop: 39.5, stopEnd: 40.5, slide: 39.75, slideEnd: 41.0, open: 40.0, openEnd: 40.9, ringGlow: 40.5,
     ringA: 41.75, rmag: 41.75, rmagEnd: 42.15, curveSlide: 42.0, curveSlideEnd: 42.75,
     // 44–53.5 · back to the start; the closing line; the tip
     q9: 44.0, back: 44.0, backEnd: 45.0, grab: 44.5, lift: 44.75, flip2: 45.0, flip2End: 45.5,

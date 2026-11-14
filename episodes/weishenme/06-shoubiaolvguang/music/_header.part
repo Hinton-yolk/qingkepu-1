@@ -1,0 +1,15 @@
+// music/score.mjs — the original score + every sound effect, synthesized from scratch (no samples) and locked to
+// ../timeline.js, so each hit lands on its frame.
+//   node music/score.mjs   ->  music/score-C.wav (48 kHz stereo, peak-normalised; loudness is set in the mix step)
+// EP.06 手表绿光 — same sound as the series (the same synths and drum kit, 120 BPM straight 16ths, the question cue, the hook
+// mi-sol-la → mi-sol-DO), a new piece:
+//   · A major (new for the series). The watch's own wake-up chime is the hook: mi-sol-la (C#7 E7 F#7) when the face lights;
+//     on the closing landing it resolves: mi-sol-DO (C#7 E7 A7).
+//   · The heart is in the music: a soft lub-dub on every beat the picture shows — 80 / min (every three 16ths, a 3-against-4
+//     against the groove) at rest; running, 120 / min, the heart IS the beat (four on the floor = the heart).
+//   · Progression (new): opening vi–IV–Vsus–V (F#m–D–Esus–E); the explanation I–IV–vi–V (A–D–F#m–E), a chord a second;
+//     the reveals land on I; the run: vi–IV–I–V (F#m–D–A–E) with ii (Bm) before the accelerometer.
+//     (EP.01/03: IV–V–iii–vi in C; EP.02: vi–IV–I–V in G; EP.04 in D; EP.05: I–V6–vi–iii6–IV… in F.)
+//   · Three textures: opening = chime, light pulse, 8th plucks; explanation = the heart thump + soft 8th stabs + a 16th
+//     "photon" shimmer; reveal = four on the floor, off-beat open hats, octave bass, the lead. Half-beat stops before 心率,
+//     before 减掉甩手 and before the closing line. The three loudest hits: 5.25 用光看血, 23.25 心率, 46.25 the closing line.

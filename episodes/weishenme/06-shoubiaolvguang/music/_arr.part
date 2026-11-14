@@ -1,0 +1,146 @@
+
+// the heart: a soft, low lub-dub (sine thumps), and a swish for each swing of the arm
+function heart(t, v = 1) {
+  put(SFX, t, 0.25, (tt) => v * 0.55 * Math.sin(TAU * (52 * tt + (40 * (1 - Math.exp(-tt * 30))) / 30)) * Math.exp(-tt * 16) * Math.min(1, tt / 0.004), {});
+  put(SFX, t + 0.13, 0.2, (tt) => v * 0.32 * Math.sin(TAU * (64 * tt + (36 * (1 - Math.exp(-tt * 34))) / 34)) * Math.exp(-tt * 20) * Math.min(1, tt / 0.004), {});
+}
+function swish(t, len = 0.32, v = 1, pan = 0) { const f = svf(); put(SFX, t, len, (tt) => { const q = tt / len; return v * 0.22 * f(rnd() * 2 - 1, 500 + 2600 * Math.sin(Math.PI * q), 1.4).bp * Math.sin(Math.PI * q); }, { pan, rev: 0.15 }); }
+function beep(t, m, len = 0.11, v = 1, pan = 0) { put(SFX, t, len + 0.02, (tt) => v * 0.2 * (Math.sin(TAU * mtof(m) * tt) + 0.18 * Math.sin(TAU * mtof(m) * 3 * tt)) * Math.min(1, tt / 0.003) * (tt < len ? 1 : Math.max(0, 1 - (tt - len) / 0.02)), { pan, rev: 0.12 }); }
+function plink(t, m, v = 1, pan = 0) { put(SFX, t, 0.5, (tt) => { const f = mtof(m) * (1 + 0.5 * Math.exp(-tt * 60)); return v * 0.2 * Math.sin(TAU * f * tt) * Math.exp(-tt * 9) * Math.min(1, tt / 0.002); }, { pan, rev: 0.4 }); }
+
+// ------------------------------------------------------------------ the harmony (A major)
+const CH = { A: [52, 57, 61, 64], D: [54, 57, 62, 66], E: [52, 56, 59, 64], Fsm: [54, 57, 61, 66], Bm: [54, 59, 62, 66], Csm: [52, 56, 61, 64], Esus: [52, 57, 59, 64] };
+const ROOT = { A: 33, D: 26, E: 28, Fsm: 30, Bm: 23, Csm: 25, Esus: 28 };
+const PROG = [[0, "Fsm"], [1, "D"], [2, "Esus"], [2.5, "E"], [T.q2, "A"], [4, "D"], [T.a1, "A"], [6, "E"],
+  [T.flood, "Fsm"], [8, "D"], [9, "A"], [10, "E"], [11, "Fsm"], [12, "D"], [13, "Bm"], [14, "E"],
+  [T.q4, "A"], [15.5, "D"], [16.5, "Fsm"], [17.5, "E"], [18.5, "A"], [19.5, "D"], [20.5, "Fsm"], [21.5, "D"], [22.25, "E"],
+  [T.rate, "A"], [24, "Csm"], [25, "D"], [T.q6, "E"],
+  [27, "Fsm"], [28, "D"], [29, "A"], [30, "E"], [31, "Fsm"], [32, "D"], [33, "Bm"], [34, "E"], [35, "Fsm"], [36, "E"],
+  [T.sub, "A"], [38, "D"], [39, "E"],
+  [T.q8, "Fsm"], [40.5, "D"], [41.5, "A"], [42.5, "E"], [43.25, "D"],
+  [T.q9, "Bm"], [45, "Esus"], [T.fin, "A"], [47, "Csm"], [48, "D"], [49, "E"],
+  [T.tip, "A"], [50.5, "Fsm"], [51.5, "D"], [52.5, "E"], [T.end, "A"]];
+const chordAt = (t) => { let c = PROG[0][1]; for (const [a, ch] of PROG) if (t >= a - 1e-6) c = ch; return c; };
+const SECS = [[0, "hook"], [T.a1, "ans"], [T.flood, "dive"], [T.q3, "dig"], [T.q4, "mech"], [T.rate, "name"], [T.q6, "out"], [T.r1, "run"],
+  [T.acc, "acc"], [T.sub, "name"], [T.q8, "ring"], [T.q9, "build"], [T.fin, "payoff"], [T.tip, "tip"], [T.end, "end"]];
+const secAt = (t) => { let s = SECS[0][1]; for (const [t0, n] of SECS) if (t >= t0 - 1e-6) s = n; return s; };
+const STOPS = [[T.rate - 0.5, T.rate], [T.sub - 0.5, T.sub], [T.stop2, T.fin]];
+const silent = (t) => STOPS.some(([a, b]) => t >= a && t < b);
+
+// ------------------------------------------------------------------ arrangement
+const ARP = [0, 1, 2, 3, 2, 1, 2, 3];
+for (let t = 0; t < DUR - 1e-6; t += BEAT) {
+  const q = Math.round(t / BEAT) % 4, sec = secAt(t), ch = chordAt(t + 1e-4), root = ROOT[ch], notes = CH[ch];
+  if (silent(t)) continue;
+  // drums (where the heart is heard, the kick steps back: the heart is the pulse)
+  if (sec === "hook") { if (q === 0) kick(t, 0.55); hat(t + BEAT / 2, 0.35); if (t > 0.9) hat(t, 0.16); }
+  if (sec === "ans") { if (q === 0 || q === 2) kick(t, 0.7); hat(t + BEAT / 2, 0.45); }
+  if (sec === "dive") { const k = Math.min(1, (t - T.flood) / 0.8); for (let e = 0; e < 4; e++) hat(t + e * S16, 0.1 + 0.2 * k * (e === 2 ? 1.3 : 1)); }
+  if (sec === "dig") { if (q === 0) kick(t, 0.4); if (q === 3) rim(t + BEAT / 2, 0.35); for (let e = 0; e < 4; e++) hat(t + e * S16, e === 2 ? 0.3 : 0.12); }
+  if (sec === "mech") { if (q === 3) rim(t + BEAT / 2, 0.4); for (let e = 0; e < 4; e++) hat(t + e * S16, e === 2 ? 0.34 : 0.13); }
+  if (sec === "name" || sec === "payoff") { kick(t, q === 0 ? 1 : 0.85); if (q === 1 || q === 3) clap(t, 0.75); for (let e = 0; e < 4; e++) { if (e === 2) hat(t + e * S16, 0.75, true, 0.2); else hat(t + e * S16, e % 2 ? 0.4 : 0.22); } }
+  if (sec === "out") { if (q === 0) kick(t, 0.55); hat(t + BEAT / 2, 0.3); }
+  if (sec === "run" || sec === "acc") { if (q === 1 || q === 3) snare(t, sec === "run" ? 0.55 : 0.4); for (let e = 0; e < 4; e++) hat(t + e * S16, e === 2 ? 0.45 : 0.18); }
+  if (sec === "ring") { if (q === 0) kick(t, 0.45); hat(t + BEAT / 2, 0.28); }
+  if (sec === "build") { if (q === 0 || q === 2) kick(t, 0.6); for (let e = 0; e < 4; e++) { const tt = t + e * S16; if (!silent(tt)) { hat(tt, 0.15 + 0.2 * (tt - T.q9)); snare(tt, 0.06 + 0.2 * (tt - T.q9)); } } }
+  if (sec === "tip") { if (q === 0) kick(t, 0.45); hat(t + BEAT / 2, 0.28); }
+  // bass
+  if (sec === "hook" && (q === 0 || q === 2)) bass(t, root + 12, BEAT * 1.7, 0.55);
+  if (sec === "ans") { bass(t, root + 12, BEAT * 0.2, 0.7); bass(t + BEAT / 2, root + 24, BEAT * 0.35, 0.8); }
+  if ((sec === "dive" || sec === "dig") && q === 0) bass(t, root + 12, BEAT * 3.6, 0.45);
+  if (sec === "mech") for (let e = 0; e < 2; e++) { const tt = t + e * BEAT / 2; if (!silent(tt)) bass(tt, ROOT[chordAt(tt + 1e-4)] + 12 + (e ? 12 : 0), BEAT * 0.3, 0.62); }
+  if (sec === "name" || sec === "payoff") { bass(t, root + 12, BEAT * 0.18, 0.75); bass(t + BEAT / 2, root + 24, BEAT * 0.4, 0.9); }
+  if (sec === "out" && (q === 0 || q === 2)) bass(t, root + 12, BEAT * 1.7, 0.55);
+  if (sec === "run" || sec === "acc") { const pat = [0, 12, 0, 12]; for (let e = 0; e < 2; e++) { const tt = t + e * BEAT / 2; bass(tt, ROOT[chordAt(tt + 1e-4)] + 12 + pat[(q * 2 + e) % 4], BEAT * 0.3, sec === "run" ? 0.8 : 0.65); } }
+  if ((sec === "ring" || sec === "tip") && q === 0) bass(t, root + 12, BEAT * 3.6, 0.45);
+  if (sec === "build") bass(t, root + 12, BEAT * 0.3, 0.7);
+  if (sec === "end" && Math.abs(t - T.sting) < 1e-6) bass(t, 33 + 12, BEAT * 3, 0.6);
+  // the opening: 8th plucks
+  if (sec === "hook") { const nn = notes.map((m) => m + 12); for (let e = 0; e < 2; e++) pluck(t + e * BEAT / 2, nn[(q * 2 + e + 1) % 4], 0.28, e ? 0.3 : -0.3); }
+  // the explanation: soft 8th stabs and a 16th "photon" shimmer (the light going in and out)
+  if (sec === "dig" || sec === "mech") {
+    for (let e = 0; e < 2; e++) { const tt = t + e * BEAT / 2; if (!silent(tt)) stab(tt, CH[chordAt(tt + 1e-4)].map((m) => m + 12), 0.15, e ? 0.45 : 0.62, 0.35); }
+    if (t >= T.photons - 1e-6) { const nn = notes.map((m) => m + 24); for (let e = 0; e < 4; e++) { const tt = t + e * S16; if (silent(tt)) continue; pluck(tt, nn[ARP[(q * 4 + e) % 8]], e === 0 ? 0.36 : 0.24, e % 2 ? 0.35 : -0.35); } }
+  }
+  // running: driving 8th stabs; the accelerometer: mallets answer the swing
+  if (sec === "run") for (let e = 0; e < 2; e++) stab(t + e * BEAT / 2, notes.map((m) => m + 12), 0.14, e ? 0.5 : 0.7, 0.6);
+  if (sec === "acc") { const nn = notes.map((m) => m + 12); for (let e = 0; e < 2; e++) { const tt = t + e * BEAT / 2; if (!silent(tt)) mallet(tt, nn[ARP[(q * 2 + e) % 8]] + (e ? 12 : 0), 0.4, e ? 0.25 : -0.25); } }
+  // reveal: off-beat bright stabs and a 16th arp
+  if (sec === "name" || sec === "payoff") { stab(t + BEAT / 2, notes.map((m) => m + 12), 0.2, 0.8, 1.2); const nn = notes.map((m) => m + 24); for (let e = 0; e < 4; e++) pluck(t + e * S16, nn[ARP[(q * 4 + e) % 8]], e === 0 ? 0.5 : 0.36, e % 2 ? 0.3 : -0.3); }
+  // the ring and the tip: mallet arpeggios, quieter
+  if (sec === "ring" || sec === "tip" || sec === "out") { const nn = notes.map((m) => m + 12); for (let e = 0; e < 2; e++) mallet(t + e * BEAT / 2, nn[ARP[(q * 2 + e) % 8]] + (e ? 12 : 0), sec === "out" ? 0.3 : 0.38, e ? 0.25 : -0.25); }
+}
+// pads, by chord span and section
+{
+  const cuts = [...new Set([...PROG.map(([a]) => a), ...SECS.map(([a]) => a), ...STOPS.flat(), DUR])].sort((a, b) => a - b);
+  for (let k = 0; k + 1 < cuts.length; k++) {
+    const a = cuts[k], z = Math.min(cuts[k + 1], DUR), sec = secAt(a + 1e-4), notes = CH[chordAt(a + 1e-4)].map((m) => m + 12), len = z - a - 0.04;
+    if (len < 0.2 || silent(a + 1e-4)) continue;
+    const V = { hook: [0.5, 1300], ans: [0.6, 1100], dive: [1.0, 700], dig: [0.75, 900], mech: [0.6, 1000], name: [0.8, 1600], out: [0.7, 1000],
+      run: [0.5, 1400], acc: [0.6, 1200], ring: [0.8, 1300], build: [0.7, 1400], payoff: [0.85, 1800], tip: [0.75, 1300], end: [1.0, 1500] }[sec];
+    if (V) pad(a, notes, len, V[0], V[1]);
+  }
+}
+// ---- melodies grown from the motif (C#–E–F# = mi-sol-la; the answer C#–E–A = mi-sol-DO)
+const play = (t0, notes, v = 0.9, br = 1) => notes.forEach(([s, m, d]) => lead(t0 + s * S16, m, d * S16 * 0.92, v, br));
+play(T.rate, [[0, 85, 2], [2, 88, 2], [4, 93, 6], [10, 92, 2], [12, 90, 2], [14, 88, 2]], 0.95, 1.1);         // 心率: mi-sol-DO, then down
+play(T.rate + 1.0, [[0, 88, 2], [2, 85, 2], [4, 81, 4]], 0.8, 1.0);
+play(T.rate + 2.0, [[0, 90, 2], [2, 88, 2], [4, 86, 4], [8, 85, 2], [10, 83, 2]], 0.7, 0.9);
+play(T.sub, [[0, 85, 2], [2, 88, 2], [4, 90, 4], [8, 88, 2], [10, 85, 2], [12, 88, 4]], 0.85, 1.0);             // 减掉甩手: mi-sol-la, open
+play(T.sub + 1.0, [[0, 86, 2], [2, 85, 2], [4, 83, 4], [8, 81, 6]], 0.75, 0.9);
+play(T.fin, [[0, 85, 2], [2, 88, 2], [4, 93, 8], [12, 95, 2], [14, 93, 2]], 0.95, 1.1);                           // the closing line
+play(T.fin + 1.0, [[0, 92, 2], [2, 88, 2], [4, 85, 4], [8, 88, 6]], 0.85, 1.0);
+play(T.fin + 2.0, [[0, 90, 2], [2, 93, 2], [4, 90, 4], [8, 88, 2], [10, 85, 2]], 0.75, 0.9);
+[[0, 85], [2, 88], [4, 93], [6, 92], [8, 88]].forEach(([s, m]) => mallet(T.tip + 0.5 + s * S16, m, 0.55, 0.15));
+[[0, 86], [2, 90], [4, 93], [6, 90], [10, 88]].forEach(([s, m]) => mallet(T.tip + 2 + s * S16, m, 0.5, -0.15));
+[[0, 81, 2], [2, 85, 2], [4, 93, 12]].forEach(([s, m, d]) => lead(T.sting - 0.5 + s * S16, m, d * S16 * 0.92, 0.85, 0.9));
+
+// ------------------------------------------------------------------ sound effects on picture events
+const ask = (t) => { blip(t, 88, 0.55, -0.15); blip(t + 0.125, 93, 0.6, 0.15); };       // every question: the same rising 4th (E6 → A6)
+[T.q3, T.q4, T.q5, T.q6, T.q7, T.q8, T.q9].forEach(ask);
+// the heart, wherever the picture shows it
+THUMPS.forEach((t) => heart(t, t >= T.run && t < T.stopEnd ? 0.8 : 1));
+// 1 the phenomenon: the green glows (a faint shimmer); the underline; the watch rolls over and lands; the face wakes (mi-sol-la)
+bloom(0.02, [97, 100, 105], 0.25);
+blip(T.underline, 93, 0.7); blip(T.underline + 0.125, 97, 0.5);
+glide(T.flip, T.flipEnd - T.flip, 72, 84, 0.45, 0.1); tap(T.land, 0.8, 95); click(T.land, 0.35);
+[[0, 97], [1, 100], [2, 102]].forEach(([i, m]) => beep(T.scrOn + i * S16, m, 0.09, 0.7, 0.1));
+// 2 into the light (one of the three loudest hits): the turn to the side, the gap, the dark
+impact(T.a1, 1.4); stab(T.a1, [57, 64, 69, 73, 76], 0.6, 1.05, 1.3);
+riser(T.pitch + 0.25, T.flood - T.pitch, 0.7); glide(T.gap, 0.9, 62, 79, 0.55, 0.1);
+bloom(T.flood, [69, 73, 76], 0.6); tick(T.ledLab, 0.45, -0.3, 3200);
+// 3 the light: photons go in; the deep ones are eaten (falling); the light eye catches the rest
+for (let i = 0; i < 6; i++) plink(T.photons + i * 0.25, [93, 97, 100, 97, 93, 100][i], 0.35, -0.4 + 0.16 * i);
+glide(T.eat, 0.6, 81, 69, 0.5, -0.2); glide(T.eat + 1.0, 0.6, 81, 69, 0.4, 0.2);
+blip(T.pdOn, 93, 0.55, 0.35); blip(T.pdOn + 0.08, 97, 0.45, 0.35);
+// 4 the trace; the dim answer; the ticks; 心率 (after a half-beat stop)
+glide(T.curve, T.curveEnd - T.curve, 69, 81, 0.45, 0);
+glide(T.ans5, 0.5, 84, 76, 0.45, 0.1);
+BEATS.filter((b) => b >= T.ticks - 0.3 && b < T.gather).forEach((b) => tick(b + 0.125, 0.45, 0.2, 3000));
+glide(T.gather, T.gatherEnd - T.gather, 76, 88, 0.5, 0.3);
+impact(T.rate, 1.3); stab(T.rate, [57, 64, 69, 73, 76], 0.6, 1, 1.2); bloom(T.num80, [93, 97, 100], 0.6);
+// 5 running: out of the skin; the swings; the trace goes wild; ?; the accelerometer; matching; subtract; 120
+glide(T.pullOut, T.pullOutEnd - T.pullOut, 79, 67, 0.55, 0);
+SWINGS.forEach((t, i) => swish(t - 0.16, 0.34, 0.55, i % 2 ? 0.3 : -0.3));
+glide(T.r1 + 0.25, 0.4, 76, 88, 0.35, 0.2); glide(T.r1 + 0.75, 0.4, 88, 72, 0.35, -0.2);
+blip(T.qmark, 87, 0.5, 0.3); blip(T.qmark + 0.08, 86, 0.45, 0.3);
+blip(T.mag, 88, 0.5, 0.35); blip(T.mag + 0.08, 92, 0.4, 0.35); tick(T.chipOn, 0.5, 0.35, 3400);
+glide(T.swing, T.swingEnd - T.swing, 69, 81, 0.4, -0.2);
+for (let i = 0; i < 6; i++) tick(T.align + 0.3 * i, 0.4, -0.3 + 0.12 * i, 2800 + 150 * i);
+impact(T.sub, 0.95); glide(T.sub + 0.1, 0.6, 84, 72, 0.4, 0); bloom(T.num120, [93, 97, 100], 0.55);
+// 6 the ring: the hand opens; the ring's light; its section
+glide(T.slide, T.slideEnd - T.slide, 72, 79, 0.4, 0.2);
+bloom(T.ringGlow, [88, 93, 97], 0.45); blip(T.rmag, 88, 0.5, 0.2); blip(T.rmag + 0.08, 93, 0.4, 0.2);
+// 7 back to the start: the camera back; fingers; lift; it rolls over (green); half a beat of nothing; the closing line; it lands
+glide(T.back, T.backEnd - T.back, 79, 69, 0.45, -0.2); click(T.grab, 0.4);
+glide(T.lift, 0.25, 74, 81, 0.35, 0); glide(T.flip2, T.flip2End - T.flip2, 76, 88, 0.4, 0.1); bloom(T.flip2End, [97, 100, 105], 0.3);
+riser(T.flip2End, T.stop2 - T.flip2End, 0.4);
+impact(T.fin, 1.35); stab(T.fin, [57, 64, 69, 73, 76], 0.5, 1, 1.25);
+tap(T.ka, 0.9, 95); [[0, 97], [1, 100], [2, 105]].forEach(([i, m]) => beep(T.ka + i * S16, m, i === 2 ? 0.3 : 0.09, 0.85, 0.1));
+// 8 the tip: the strap one notch; the watch slides towards the elbow
+bloom(T.tip, [81, 85, 88], 0.45); click(T.tighten, 0.6); click(T.tighten + 0.125, 0.5); tap(T.tighten, 0.4, 140);
+glide(T.move, T.moveEnd - T.move, 79, 72, 0.4, -0.3);
+{ let k = 0; TL.COPY.end.forEach((s, li) => { const n = s.replace(/[\[\]]/g, "").length; for (let j = 0; j < n; j++) tick(T.title1 + li * 0.3 + j * 0.045, 0.45, -0.2 + 0.05 * (k++ % 8), 2600 + (j % 3) * 300); }); }
+blip(T.ep, 93, 0.6);
+impact(T.sting, 0.55); stab(T.sting, [57, 64, 69, 73, 76], 1.6, 0.8, 0.9); bloom(T.sting, [93, 97, 100, 105], 1.0);
+
