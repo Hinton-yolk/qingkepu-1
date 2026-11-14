@@ -62,11 +62,60 @@ def brushed(m, b, rough_lo, rough_hi, axis='Y', scale=900.0):
     nt.links.new(tc.outputs['Object'], mp.inputs['Vector'])
     nt.links.new(mp.outputs['Vector'], nz.inputs['Vector'])
     nt.links.new(nz.outputs['Fac'], ramp.inputs['Value'])
-    nt.links.new(ramp.outputs['Result'], b.inputs['Roughness'])
+    # 不完美：大块污渍（粗糙度斑驳）+ 稀疏细划痕（Voronoi 边线）
+    sm = nt.nodes.new('ShaderNodeTexNoise')
+    sm.inputs['Scale'].default_value = 70.0
+    sm.inputs['Detail'].default_value = 3.0
+    nt.links.new(tc.outputs['Object'], sm.inputs['Vector'])
+    smr = nt.nodes.new('ShaderNodeMapRange')
+    smr.inputs['From Min'].default_value = 0.52
+    smr.inputs['From Max'].default_value = 0.72
+    smr.inputs['To Min'].default_value = 0.0
+    smr.inputs['To Max'].default_value = 0.14
+    nt.links.new(sm.outputs['Fac'], smr.inputs['Value'])
+    vo = nt.nodes.new('ShaderNodeTexVoronoi')
+    vo.feature = 'DISTANCE_TO_EDGE'
+    vo.inputs['Scale'].default_value = 260.0
+    nt.links.new(tc.outputs['Object'], vo.inputs['Vector'])
+    scr = nt.nodes.new('ShaderNodeMapRange')
+    scr.inputs['From Min'].default_value = 0.0
+    scr.inputs['From Max'].default_value = 0.012
+    scr.inputs['To Min'].default_value = 1.0
+    scr.inputs['To Max'].default_value = 0.0
+    nt.links.new(vo.outputs['Distance'], scr.inputs['Value'])
+    sparse = nt.nodes.new('ShaderNodeTexNoise')
+    sparse.inputs['Scale'].default_value = 40.0
+    nt.links.new(tc.outputs['Object'], sparse.inputs['Vector'])
+    spr = nt.nodes.new('ShaderNodeMapRange')
+    spr.inputs['From Min'].default_value = 0.55
+    spr.inputs['From Max'].default_value = 0.65
+    nt.links.new(sparse.outputs['Fac'], spr.inputs['Value'])
+    scm = nt.nodes.new('ShaderNodeMath')
+    scm.operation = 'MULTIPLY'
+    nt.links.new(scr.outputs['Result'], scm.inputs[0])
+    nt.links.new(spr.outputs['Result'], scm.inputs[1])
+    scw = nt.nodes.new('ShaderNodeMath')
+    scw.operation = 'MULTIPLY'
+    scw.inputs[1].default_value = 0.16
+    nt.links.new(scm.outputs['Value'], scw.inputs[0])
+    add1 = nt.nodes.new('ShaderNodeMath')
+    add1.operation = 'ADD'
+    nt.links.new(ramp.outputs['Result'], add1.inputs[0])
+    nt.links.new(smr.outputs['Result'], add1.inputs[1])
+    add2 = nt.nodes.new('ShaderNodeMath')
+    add2.operation = 'ADD'
+    add2.use_clamp = True
+    nt.links.new(add1.outputs['Value'], add2.inputs[0])
+    nt.links.new(scw.outputs['Value'], add2.inputs[1])
+    nt.links.new(add2.outputs['Value'], b.inputs['Roughness'])
+    hgt = nt.nodes.new('ShaderNodeMath')
+    hgt.operation = 'SUBTRACT'
+    nt.links.new(nz.outputs['Fac'], hgt.inputs[0])
+    nt.links.new(scm.outputs['Value'], hgt.inputs[1])
     bump = nt.nodes.new('ShaderNodeBump')
-    bump.inputs['Strength'].default_value = 0.05
+    bump.inputs['Strength'].default_value = 0.06
     bump.inputs['Distance'].default_value = 0.00002
-    nt.links.new(nz.outputs['Fac'], bump.inputs['Height'])
+    nt.links.new(hgt.outputs['Value'], bump.inputs['Height'])
     nt.links.new(bump.outputs['Normal'], b.inputs['Normal'])
     tg = nt.nodes.new('ShaderNodeTangent')
     tg.direction_type = 'RADIAL'
@@ -82,7 +131,10 @@ def make_materials():
     m, b = principled('Nickel_cage', (0.74, 0.73, 0.70), 1.0, 0.22, aniso=0.3)
     brushed(m, b, 0.16, 0.30, scale=1400.0)
     M['nickel'] = m
-    M['tab'] = principled('Pulltab_lime', (0.42, 0.72, 0.06), 0.0, 0.42, spec=0.4)[0]
+    m, b = principled('Pulltab_lime', (0.42, 0.72, 0.06), 0.0, 0.48, spec=0.4)
+    b.inputs['Subsurface Weight'].default_value = 0.35
+    b.inputs['Subsurface Scale'].default_value = 0.0015
+    M['tab'] = m
     M['mpo'] = principled('MPO_darkplastic', (0.02, 0.021, 0.024), 0.0, 0.6, spec=0.3)[0]
     M['hole'] = principled('Hole_black', (0.004, 0.004, 0.005), 0.0, 0.8)[0]
     M['screw'] = principled('Screw_steel', (0.6, 0.6, 0.62), 1.0, 0.3)[0]
@@ -117,15 +169,24 @@ def make_materials():
     mixc = nt.nodes.new('ShaderNodeMix')
     mixc.data_type = 'RGBA'
     mixc.inputs['A'].default_value = (0.02, 0.12, 0.06, 1)
-    mixc.inputs['B'].default_value = (0.05, 0.20, 0.08, 1)
+    mixc.inputs['B'].default_value = (0.08, 0.30, 0.12, 1)
     nt.links.new(tr.outputs['Color'], mixc.inputs['Factor'])
     gold_bsdf = nt.nodes.new('ShaderNodeBsdfPrincipled')
     gold_bsdf.inputs['Base Color'].default_value = (1.0, 0.76, 0.36, 1)
     gold_bsdf.inputs['Metallic'].default_value = 1.0
     gold_bsdf.inputs['Roughness'].default_value = 0.25
-    nt.links.new(mixc.outputs['Result'], b.inputs['Base Color'])
+    sk = nt.nodes.new('ShaderNodeTexImage')
+    sk.image = bpy.data.images.load(os.path.join(HERE, 'assets_dl', 'pcb_silk_mask.png'))
+    sk.image.colorspace_settings.name = 'Non-Color'
+    nt.links.new(mp.outputs['Vector'], sk.inputs['Vector'])
+    mixk = nt.nodes.new('ShaderNodeMix')
+    mixk.data_type = 'RGBA'
+    mixk.inputs['B'].default_value = (0.85, 0.86, 0.82, 1)
+    nt.links.new(mixc.outputs['Result'], mixk.inputs['A'])
+    nt.links.new(sk.outputs['Color'], mixk.inputs['Factor'])
+    nt.links.new(mixk.outputs['Result'], b.inputs['Base Color'])
     bump = nt.nodes.new('ShaderNodeBump')
-    bump.inputs['Strength'].default_value = 0.25
+    bump.inputs['Strength'].default_value = 0.6
     bump.inputs['Distance'].default_value = 0.00003
     nt.links.new(tr.outputs['Color'], bump.inputs['Height'])
     nt.links.new(bump.outputs['Normal'], b.inputs['Normal'])
@@ -366,7 +427,7 @@ def build_board(M):
             return False
         return -52 < x < 72 and -165 < y < BOARD_EDGE_Y - 3
     placed = 0
-    while placed < 170:
+    while placed < 650:
         kind = random.random()
         x, y = random.uniform(-52, 72), random.uniform(-165, -5)
         rot = random.choice([0, 90])
@@ -416,7 +477,7 @@ def build_env(M, hdri_strength=0.07):
     bd.data.materials.append(M['backdrop'])
     # 背景散景：远处的小发光点（机房指示灯 / 走廊灯的感觉），靠景深虚化
     for i in range(70):
-        x, y, z = random.uniform(-0.30, 0.30), random.uniform(-0.85, -0.40), random.uniform(0.03, 0.40)
+        x, y, z = random.uniform(-0.22, 0.22), random.uniform(-0.80, -0.30), random.uniform(0.012, 0.09)   # 放在镜头上沿能看到的高度
         bpy.ops.mesh.primitive_uv_sphere_add(radius=random.uniform(1.5, 4.0) * MM, location=(x, y, z))
         b = bpy.context.active_object
         warm = random.random() < 0.18
@@ -435,16 +496,16 @@ def build_env(M, hdri_strength=0.07):
     ph.set_world_hdri('studio_small_09', res='2k', strength=hdri_strength, rotation_deg=140,
                       camera_sees=(0.004, 0.005, 0.007))
     # 体积雾：只放在光束经过的区域，做出斜射的光柱
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, -0.45, 0.22))   # 雾只放在主体后面
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, -0.42, 0.10))   # 雾只放在主体后面
     v = bpy.context.active_object
     v.name = 'haze'
-    v.scale = (0.8, 0.6, 0.4)
+    v.scale = (0.8, 0.56, 0.2)
     vm = bpy.data.materials.new('haze')
     vm.use_nodes = True
     nt = vm.node_tree
     nt.nodes.remove(nt.nodes['Principled BSDF'])
     pv = nt.nodes.new('ShaderNodeVolumePrincipled')
-    pv.inputs['Density'].default_value = 0.4
+    pv.inputs['Density'].default_value = 0.22
     pv.inputs['Anisotropy'].default_value = 0.55
     nt.links.new(pv.outputs['Volume'], nt.nodes['Material Output'].inputs['Volume'])
     v.data.materials.append(vm)
@@ -470,18 +531,18 @@ def lights():
     area('fill_warm', (0.14, 0.26, 0.05), (0, MOD_FRONT_Y * MM, 0.007), 0.12, 0.25, (1.0, 0.78, 0.55))
     area('rim_cool', (0.16, -0.20, 0.07), tgt, 0.06, 0.8, (0.6, 0.8, 1.0))
     sp = bpy.data.lights.new('beam', 'SPOT')
-    sp.energy = 160.0
+    sp.energy = 55.0
     sp.spot_size = math.radians(16)
     sp.spot_blend = 0.7
     sp.shadow_soft_size = 0.004
     sp.color = (0.82, 0.9, 1.0)
     o = bpy.data.objects.new('beam', sp)
     bpy.context.scene.collection.objects.link(o)
-    o.location = (-0.22, -0.55, 0.42)
-    o.rotation_euler = (Vector((0.05, -0.28, 0.0)) - Vector(o.location)).to_track_quat('-Z', 'Y').to_euler()
+    o.location = (-0.16, -0.70, 0.24)   # 从后方斜着逆光，穿过散热器那一带的雾
+    o.rotation_euler = (Vector((0.02, -0.10, 0.0)) - Vector(o.location)).to_track_quat('-Z', 'Y').to_euler()
 
 
-def camera(az=14.0, el=30.0, dist=0.15, lens=60.0, fstop=9.0, dof=True):
+def camera(az=16.0, el=17.0, dist=0.155, lens=60.0, fstop=8.0, dof=True):
     sc = bpy.context.scene
     focus = Vector((0, (MOD_FRONT_Y - 4.0) * MM, (MOD_Z0 + 9.0) * MM))   # 对焦在前端面稍后（前段顶盖），笼子入口也比较清楚
     aim = Vector((1.5 * MM, (MOD_FRONT_Y - 30.0) * MM, (MOD_Z0 + 2.0) * MM))   # 视线往后，模块前端在下三分之一，上方留给笼子和散热器
@@ -521,7 +582,7 @@ def build(res=540, spp=64):
     sc.cycles.samples = spp
     sc.cycles.use_denoising = True
     sc.cycles.max_bounces = 8
-    sc.cycles.volume_step_rate = 2.0
+    sc.cycles.volume_step_rate = 4.0
     sc.cycles.volume_max_steps = 256
     r.resolution_x, r.resolution_y = res, int(res * 16 / 9)
     r.resolution_percentage = 100

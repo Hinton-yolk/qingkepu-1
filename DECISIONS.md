@@ -147,6 +147,12 @@
   - 为了看清而做的简化（比如把挡板做矮）要在交付说明里写明，并提醒生成模型可能和参考图冲突。
   - PoC 02 已按这条把笼子放到板边、入口和挡板平齐。
 
+- 2026-11-14：**写实 3D 镜头走 Blender Cycles + RunPod，每集十几块钱可以接受**。用户：「eevee的不用做了，之前我们做过对比，跟cycles有差距，不尝试了；另外自己跑的时间成本太高，也不考虑；如果是一集10几块钱的成本，这个可以接受」。
+  - 不用 EEVEE；不在用户自己的电脑上渲染（时间成本太高）。
+  - 写实镜头用 Cycles 在 RunPod 上渲。现有的「一批 1 美元以内直接跑」规则不变；每集的渲染总预算按十几元人民币考虑。
+  - 依据：Blender PoC 03（`experiments/blender_poc03/`）。Cycles 静帧的真实感约为 Seedance 2.5 那帧的六到七成，差距在氛围和细节，正在继续补。
+  - 这条也回答了成本分级草案（`docs/workflow/cost_tiered_production_DRAFT.md`）的一部分：B 镜头用 Cycles。S 镜头（Seedance）还用不用、用多少，等草案确认时一起定。
+
 ## 待定事项
 - **成本分级制作流程（2026-11-14 草案）**：镜头按来源分 R / B / S / P；Seedance 只用于写实镜头，先用 mini 480p 做运动验证，再出终版；附每集预算估算。草案在 `docs/workflow/cost_tiered_production_DRAFT.md`，第 8 节是等用户定的事。确认前不写进 CLAUDE.md。
 - 光互连 01（3D 版）等用户定的事（2026-11-12，详见 `episodes/guanghulian/01-journey-3d/README.md`）：
