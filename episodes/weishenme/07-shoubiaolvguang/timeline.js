@@ -66,7 +66,7 @@
     fin: ["它不是在[摸]你的脉，", "是在用光[看]你的血"],
     tipTag: "小提示：", tip: ["表带贴紧，", "戴在腕骨[靠手肘]那边"],
     // small text (terms and notes only as small text)
-    led: "每秒闪几百次", caught: "接住的光", note: "示意", pdName: "光电二极管", term: "这种测法叫光电容积描记",
+    led: "每秒闪几百次", caught: "接住的光", dim: "暗＝接到的光变少", simple: "简化示意", note: "示意", pdName: "光电二极管", term: "这种测法叫光电容积描记",
     rowLight: "光", rowSwing: "甩手", elbow: "手肘", bone: "腕骨", tattoo: "有些纹身会挡光，可能测不准",
     end: ["你每天都在用，", "但你不知道", "它[怎么工作]"], epNum: "EP.07", epName: "手表绿光",
   };
