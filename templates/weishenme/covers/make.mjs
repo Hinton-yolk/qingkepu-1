@@ -48,6 +48,13 @@ const COVERS = [
     hero: "ep06-hero", heroDy: -200, anchor: [640, 912], inset: { img: "ep06-inset", cx: 540, cy: 1020, src: 380, x: 885, y: 1060, r: 170 }, tag: "红外光点量出高低",
     inset2: { img: "ep06-mask", cx: 440, cy: 800, src: 300, x: 170, y: 1150, r: 115, tag: "戴口罩只看眼周" },
     ser: 108, t1: 252, t2: 398, size: 100, wash: 500 },
+  // EP.07: the film's first frame (the green lights on the back of the watch) + the section: green light into the skin
+  { out: "ep07-douyin", W: 1080, H: 1920, ep: "EP.07", title: ["手表背面的绿光，", "在<b>看</b>什么？"],
+    hero: "ep07-hero", heroDy: 90, anchor: [527, 1080], inset: { img: "ep07-inset", cx: 560, cy: 770, src: 230, x: 830, y: 1440, r: 180 }, tag: "它在用光看血",
+    ser: 300, t1: 452, t2: 602, size: 124, wash: 760 },
+  { out: "ep07-xiaohongshu", W: 1080, H: 1440, ep: "EP.07", title: ["手表背面的绿光，", "在<b>看</b>什么？"],
+    hero: "ep07-hero", heroDy: -170, anchor: [527, 1080], inset: { img: "ep07-inset", cx: 560, cy: 770, src: 230, x: 870, y: 1150, r: 160 }, tag: "它在用光看血",
+    ser: 108, t1: 252, t2: 398, size: 120, wash: 480 },
 ];
 const ONLY = process.argv[2];                                   // node make.mjs ep04 → only those covers
 

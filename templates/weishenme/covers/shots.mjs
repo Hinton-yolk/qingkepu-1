@@ -23,6 +23,8 @@ const JOBS = [
   ["../../../episodes/weishenme/06-renlianjiesuo", "ep06-hero", 1.9, null, null],     // her profile, lipstick on, the phone unlocking (no drift); anchor set in make.mjs
   ["../../../episodes/weishenme/06-renlianjiesuo", "ep06-mask", 44.6, null, null],     // the closing: the mask on (for the second, small inset)
   ["../../../episodes/weishenme/06-renlianjiesuo", "ep06-inset", 13.0, null, null],   // the dots and the lines of equal height on the face
+  ["../../../episodes/weishenme/07-shoubiaolvguang", "ep07-hero", 0.6, null, null],   // fingertips hold the watch back-up over the wrist: the green lights
+  ["../../../episodes/weishenme/07-shoubiaolvguang", "ep07-inset", 11.0, null, null],  // the section: green light into the skin, the blood eats it
 ];
 const ONLY = process.argv[2];                                   // node shots.mjs ep04 → only the jobs whose name starts with ep04
 const browser = await chromium.launch();
