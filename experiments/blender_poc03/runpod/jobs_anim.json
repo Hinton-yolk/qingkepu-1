@@ -1,0 +1,76 @@
+{
+ "scene_dir": "<scratchpad>/rp/scene",
+ "script": "build_hero.py",
+ "out_dir": "<scratchpad>/rp/out",
+ "sec_per_unit": 10,
+ "tasks": [
+  {
+   "args": [
+    "anim",
+    "--res",
+    "1080",
+    "--spp",
+    "64",
+    "--gpu",
+    "--fs",
+    "1",
+    "--fe",
+    "45",
+    "--out",
+    "{out}/f"
+   ],
+   "units": 45
+  },
+  {
+   "args": [
+    "anim",
+    "--res",
+    "1080",
+    "--spp",
+    "64",
+    "--gpu",
+    "--fs",
+    "46",
+    "--fe",
+    "90",
+    "--out",
+    "{out}/f"
+   ],
+   "units": 45
+  },
+  {
+   "args": [
+    "anim",
+    "--res",
+    "1080",
+    "--spp",
+    "64",
+    "--gpu",
+    "--fs",
+    "91",
+    "--fe",
+    "135",
+    "--out",
+    "{out}/f"
+   ],
+   "units": 45
+  },
+  {
+   "args": [
+    "anim",
+    "--res",
+    "1080",
+    "--spp",
+    "64",
+    "--gpu",
+    "--fs",
+    "136",
+    "--fe",
+    "180",
+    "--out",
+    "{out}/f"
+   ],
+   "units": 45
+  }
+ ]
+}

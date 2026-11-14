@@ -1,5 +1,5 @@
 """后期调色（Cycles 输出之后）：偏冷的暗部、轻微暗角、柔光晕和细颗粒。参数可调，原图不覆盖。
-用法：python3 grade.py <输入.png> <输出.png> [--exposure -0.7] [--glow 0.18]
+用法：python3 grade.py <输入.png> <输出.png> [--exposure -0.7] [--glow 0.18] [--seed 帧号]
 """
 import sys
 
@@ -32,7 +32,8 @@ yy, xx = np.mgrid[0:h, 0:w]
 r = np.sqrt(((xx - w / 2) / (w / 2)) ** 2 + ((yy - h / 2) / (h / 2)) ** 2)
 a = a * (1 - 0.28 * np.clip(r - 0.55, 0, 1) ** 1.5)[..., None]
 # 细颗粒
-rng = np.random.default_rng(1)
+SEED = int(sys.argv[sys.argv.index('--seed') + 1]) if '--seed' in sys.argv else 1
+rng = np.random.default_rng(SEED)   # 动画每帧换种子，颗粒才会动
 a = a + rng.normal(0, 0.012, a.shape) * (0.6 + 0.4 * (1 - lum))
 Image.fromarray((np.clip(a, 0, 1) * 255).astype(np.uint8)).save(dst)
 print('ok', dst)
