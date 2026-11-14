@@ -134,6 +134,13 @@
 - 2026-11-12（晚，四）：**模型使用策略**。用户：不要默认所有任务都用 Fable 5.2。Sonnet 5.5 默认用于 Blender、Remotion、RunPod、动画实现、测试和日常工程；Opus 5.5 用于导演创意、叙事结构、复杂制作决策；Fable 5.2 只用于需要深度推理的重大科学、架构或复杂问题，升级前先说明原因；Haiku 5.5 用于简单文档、日志整理和机械检查。当前 T0 / T1 / T2 概念测试优先用 Sonnet。已写进 `CLAUDE.md`「四个角色」。T1 v1 是在这条定下之前由主 agent（Fable）直接做的。
 - 2026-11-12（晚，五）：**融合方向通过，进入动态概念测试**（PR #3 评论「融合稿审核及下一轮制作任务｜观众理解优先」，ChatGPT 起草；用户在会话里要求按它做，先做 T1）。评价顺序：观众懂不懂 → 因果有没有讲反 → 再谈技术精细度；参数和例外留在 FACTS 和制作说明里；技术阈值只当内部调试指标。三组二维粗样：T1 电控制光（A 直觉版、B 步调版）、T2 同机位铜 / 光对照、T0 两个开场；T3 窄门后置。样片和说明在 `episodes/guanghulian/01-journey-3d/previews/director-concepts/`，源码在 `concept_tests/`。停点：三组都交了，等用户和 ChatGPT 看片。
 
+- 2026-11-14：**迁到新的 Claude 账号，环境重建**。用户 11-14 的决定：
+  - 继续在 `claude/happy-goodall-o47ilg` 上工作；新建个人云环境「kepu-studio」（放行的主机和启动脚本见 `HANDOFF.md`）。
+  - 「项目之后将继续以 Claude 为主要执行 Agent，不再使用 Codex 制作动画」；观众角色「继续选择 codex 来当」（`CLAUDE.md`「四个角色」不变）。ChatGPT Codex Connector GitHub App 先停用。
+  - GitHub Actions「删掉，以后有需要再加」：`main` 上的工作流和配置说明已删除（1706817）。
+  - RunPod、Gemini、Fish Audio 的密钥重新配到新环境（旧密钥在旧账号的环境里，建议作废）。
+  - 下一项制作（继续 T6 还是重做 V0.2）「暂时先不做」。
+
 ## 待定事项
 - 光互连 01（3D 版）等用户定的事（2026-11-12，详见 `episodes/guanghulian/01-journey-3d/README.md`）：
   - 开头：任务书的镜头顺序（S01 机房 → S02 芯片 → S03 才讲机制）和「开头 2 秒规则」、skill 的「3 秒内出现机制演示」对不上，以哪个为准；开头三个备选选哪个。

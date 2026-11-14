@@ -1,4 +1,34 @@
-# 最新进展（2026-11-13，T6-Story 进行中；先读这一节）
+# 最新进展（2026-11-14，换 Claude 账号；先读这一节）
+
+用户把项目迁到新的 Claude 账号。GitHub 仓库、PR #3、Google Drive 审核文件夹都没变。**这一节取代下面「2026-11-13，T6-Story 进行中」的说法。**
+
+## 一、实际制作状态
+- **现在没有在做的制作任务。** 用户 11-14：下一项制作「暂时先不做」，等指令。
+- 分支仍是 `claude/happy-goodall-o47ilg`（用户 11-14 确认）；Draft PR #3 不合并。
+- T5 3D 导演预览 v1（20.8 秒）：GPT 认为技术成立、导演不通过。用户首看原话：「一开始的运镜让人头晕，看不懂想表达什么；镜头转场非常生硬；最缺的是故事性的表达」。
+- T6-Story（37 秒，PR #3 第 33 条评论，已授权）：**只完成了一半，没有交付**。仓库里有七幕镜头表 `concept_tests/t6_story/镜头表_T6.md` 和 8 张底板 `plates/`；动态故事板 `t6.html` 在旧会话的临时目录里，**已经丢失**。
+- Director-Locked V0.2（9 秒电控光 MZI 测试）：规范在 `preprod/13_Director-Locked_V0.2_9s.md`，机位图是同名 `.svg`。11-13 派给了 Codex，源码在 `concept_tests/codex_v02/`（提交 6ec6a83）；MP4 只在 Codex 本机，Drive 里没有。GPT 复审（第 38 条评论）：**不批准，暂定 35/100**，依据只有静帧。
+- 用户 11-14 定：**以后不用 Codex 做动画**，Claude 是主要执行 agent；Codex 只当「观众」。
+- 反复出现的 P0：电控光的「因」看不出来（T4、T5、V0.2 都是）。其余见 PR #3 第 31–38 条评论。
+
+## 二、环境（新账号）
+- 云环境「kepu-studio」（个人）。放行的主机：download.blender.org、dl.polyhaven.org、drive.usercontent.google.com、rest.runpod.io、generativelanguage.googleapis.com、api.fish.audio、auth.openai.com、chatgpt.com、api.openai.com；包管理器默认放行。
+- 启动脚本：安装 libegl1 和 xz-utils，把 Blender 5.2.3 装到 `/opt/blender/blender-5.2.3-linux-x64/`（链接到 `/usr/local/bin/blender`），装 Codex CLI。11-14 在本会话里手动跑过两遍（第二遍验证可以重复运行），Blender 后台 Cycles 渲一帧通过；新容器上还没验证。
+- **不再用** `/tmp/blender/`：Blender 已经在 `/opt/blender`。
+- 网络密钥由代理注入，脚本里写占位值即可：
+  - Fish Audio：已存，只读接口返回 200。
+  - RunPod：已存，但 `GET /v1/pods` 返回 401，**没通**。可能是 key 错了或权限不够，要用户核对。另外，pod 的传输地址 `<pod>-8000.proxy.runpod.net` 要用户在环境设置里加 `*.proxy.runpod.net`（agent 加不了通配符）。
+  - Gemini：表单不支持 `x-goog-api-key` 请求头，要用户在环境设置的网络密钥里手动加。
+- 观众（Codex）：CLI 0.169.0。登录信息只存在当前容器里，**每个新容器都要重新** `codex login --device-auth`（后台运行，把网址和验证码发给用户）。
+- 云渲染工具 `tools/runpod_render.py` 仍在 `origin/claude/bold-hypatia-1tyot4`，取法见下文「更早的交接」第七节。
+- GitHub Actions：工作流已经从 `main` 删除（提交 1706817，用户 11-14 定「以后需要再加」）。要恢复就从 a3e5783 取回。仓库密钥 `CLAUDE_CODE_OAUTH_TOKEN` 由用户删除。
+- ChatGPT Codex Connector 这个 GitHub App 由用户停用；`@codex` 评论不再触发它。
+- Google Drive 连接器在新账号下重新授权过，用的还是原来那个 Google 账号；审核文件夹和权限不变。
+- 旧环境里那个「回合结束前不能有没提交改动」的钩子，新环境没有。照旧做：做到一半的文件也要提交。
+
+---
+
+# 更早：2026-11-13，T6-Story（已过时：T6 没有交付，t6.html 已丢失；以上面 11-14 一节为准）
 
 - 任务：PR #3 第 35 条评论《T6-Story｜37 秒故事优先重构：Storyboard + Animatic》，用户已批准并在会话里说「立即开始」。不用 RunPod、不做精细 3D、不做全片。
 - 已做：七幕镜头表 `episodes/guanghulian/01-journey-3d/concept_tests/t6_story/镜头表_T6.md`（主 agent）。一个 Sonnet 角色在做 `t6.html` 动态故事板（T5 渲好的帧当底板 + 2D 叠层），工作目录 `scratchpad/t6/work/`，进度 `progress.txt`。
