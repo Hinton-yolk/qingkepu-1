@@ -37,6 +37,8 @@ const MAIN = cv.getContext("2d");
 const OFF = document.createElement("canvas"); OFF.width = W; OFF.height = H;
 const OFFX = OFF.getContext("2d");
 let ctx = MAIN;
+const ARM = document.createElement("canvas"); ARM.width = W; ARM.height = H;   // v2: the arm photo + what lies on it (the strap, the shadow), clipped to the arm and faded as one
+const ARMX = ARM.getContext("2d");
 
 const C = {
   ground: "#ECEBE6", ink: "#141414", acc: "#FF4A1C", paper: "#F1F0EC", dark: "#17191C",
@@ -239,7 +241,7 @@ const HAND_OPEN = { top: [[0, 14], [40, 15], [88, 12], [130, 9], [165, 4], [173,
 const HAND_FIST = { top: [[0, 14], [40, 15], [78, 14], [100, 9], [112, 0], [113, -6]], bot: [[113, -12], [104, -26], [84, -32], [62, -26], [40, -20], [0, -20]] };
 function handProfile(k) { const m = (A, B) => A.map((p, i) => [lerp(B[i][0], p[0], k), lerp(B[i][1], p[1], k)]); return { top: m(HAND_OPEN.top, HAND_FIST.top), bot: m(HAND_OPEN.bot, HAND_FIST.bot) }; }
 function zAt(cont, x) { for (let i = 1; i < cont.length; i++) { const a = cont[i - 1], b = cont[i]; if ((x - a[0]) * (x - b[0]) <= 0 && a[0] !== b[0]) return lerp(a[1], b[1], (x - a[0]) / (b[0] - a[0])); } return cont[cont.length - 1][1]; }
-function openK(t) { return t < T.run ? 1 : t < T.open ? Math.max(0, 1 - prog(t, T.run, T.run + 0.5)) : E.p2io(prog(t, T.open, T.openEnd)); }
+function openK(t) { return t < T.q6 ? 1 : t < T.open ? 1 - E.smooth(prog(t, T.q6, T.q6 + 0.4)) : E.p2io(prog(t, T.open, T.openEnd)); }   // v2: a fist from 26 s (no ring before the ring beat)
 // top-view hand: palm and fingers (back of the hand up; the thumb on the −y side)
 const FINGERS = [[-27, 74, 8.2], [-9, 82, 8.6], [9, 78, 8.4], [26, 63, 7.4]];   // y, length, half-width
 function drawHandTop(t, K) {
@@ -370,16 +372,17 @@ function ledGlow(K, F, a, w = 1) {
   g.addColorStop(0, `rgba(61,240,138,${0.55 * a})`); g.addColorStop(0.35, `rgba(61,240,138,${0.22 * a})`); g.addColorStop(1, "rgba(61,240,138,0)");
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, TAU); ctx.fill(); ctx.restore();
 }
-function drawStrap(t, K, s, F) {
-  // wrapped: a band round the arm under the case; open: two straps hanging off the case
-  if (s.wrap > 0.01) {
+function drawStrap(t, K, s, F, part = "open") {
+  // wrapped: a band round the arm under the case (drawn on the arm layer, clipped to the photo); open: two straps hanging off the case
+  if (part === "wrap" && s.wrap > 0.01) {
     ctx.save(); ctx.globalAlpha = s.wrap;
     const xs = [s.xw + s.slip - 11, s.xw + s.slip + 11];
     const P = bandPts(K, [xs[0], xs[0] + 7, xs[1] - 7, xs[1]], (x) => armRy(x) + 1.6, (x) => armRz(x) + 1.6);
-    poly(P); const g = ctx.createLinearGradient(P[0][0], 0, P[1][0], 0); ctx.fillStyle = C.strap; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = C.ink; ctx.stroke();
+    poly(P); let y0 = 1e9, y1 = -1e9; for (const p of P) { y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); }
+    const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, "#6A707A"); g.addColorStop(0.35, C.strap); g.addColorStop(1, "#2A2D33"); ctx.fillStyle = g; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = "rgba(20,20,20,0.6)"; ctx.stroke();
     ctx.restore();
   }
-  if (s.wrap < 0.99) {
+  if (part === "open" && s.wrap < 0.99) {
     ctx.save(); ctx.globalAlpha = 1 - s.wrap; ctx.lineCap = "butt";
     for (const sg of [-1, 1]) {
       const a = P3(K, LP(F, 0, sg * (WT.hy - 2), -1)), b = P3(K, LP(F, 0, sg * (WT.hy + 26), -3)), c = P3(K, v3.add(LP(F, 0, sg * (WT.hy + 34), -6), [0, 0, -16]));
@@ -394,7 +397,7 @@ function drawWatch(t, K, s, o = {}) {
   drawStrap(t, K, s, F);
   // the case: hull of both outlines
   const P = []; for (const w of [-WT.th / 2, WT.th / 2]) for (const [u, v] of CASE_PTS) P.push(P3(K, LP(F, u, v, w)));
-  poly(hull(P)); ctx.fillStyle = C.caseD; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = C.ink; ctx.stroke();
+  poly(hull(P)); { let y0 = 1e9, y1 = -1e9; for (const p of P) { y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); } const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, "#4A4E56"); g.addColorStop(0.3, C.caseD); g.addColorStop(1, "#15171B"); ctx.fillStyle = g; } ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = C.ink; ctx.stroke();
   const faceUp = F.ez[1] * view[1] + F.ez[2] * view[2] > 0;
   if (faceUp) {
     faceT(K, F, WT.th / 2);
@@ -528,14 +531,19 @@ function drawLight(t, K) {
   ALPHA = armAngle(t);
   const side = sideK(K), s = watchState(t);
   ctx.save(); ctx.globalAlpha = 1 - endFade;
-  // the arm: the top-view photo ↔ the side-view photo (cross-fade while the camera turns)
+  // the arm: the top-view photo ↔ the side-view photo (cross-fade while the camera turns), on its own layer with the strap and the case's shadow
   const k = openK(t), sw = E.smooth(clamp((side - 0.35) / 0.3));
+  const mainCtx = ctx; ARMX.setTransform(1, 0, 0, 1, 0, 0); ARMX.globalAlpha = 1; ARMX.globalCompositeOperation = "source-over"; ARMX.clearRect(0, 0, W, H); ctx = ARMX;
   drawArmTop(K, 1 - sw);
   if (sw > 0.005) drawArmSide(K, sw, k);
-  if (s.lift > 0.5 && side < 0.5) {                                      // the case's shadow on the arm while it is held up
-    const p = P3(K, [s.xw + 0.35 * s.lift, 0.25 * s.lift, armTop(s.xw)]); ctx.fillStyle = `rgba(60,35,15,${0.16 * clamp(1 - s.lift / 70)})`;
-    ctx.beginPath(); ctx.ellipse(p[0], p[1], (WT.hx + 6) * K.A, (WT.hy + 4) * K.A * Math.cos(K.th), 0, 0, TAU); ctx.fill();
+  ctx.globalCompositeOperation = "source-atop";                         // only where the arm is
+  if (s.lift > 0.5) {                                                    // the case's shadow on the arm while it is held up (a soft rounded square)
+    const p = P3(K, [s.xw + 0.35 * s.lift, 0.25 * s.lift, armTop(s.xw)]), sa = 0.18 * clamp(1 - s.lift / 70) * (1 - sw);
+    if (sa > 0.005) { ctx.save(); ctx.filter = `blur(${(6 * K.A).toFixed(1)}px)`; ctx.fillStyle = `rgba(60,35,15,${sa})`; rr(p[0] - (WT.hx + 3) * K.A, p[1] - (WT.hy + 3) * K.A * Math.cos(K.th), 2 * (WT.hx + 3) * K.A, 2 * (WT.hy + 3) * K.A * Math.cos(K.th), WT.r * K.A); ctx.fill(); ctx.restore(); }
   }
+  { const F0 = watchFrame(t, s); drawStrap(t, K, s, F0, "wrap"); }
+  ctx.globalCompositeOperation = "source-over"; ctx = mainCtx;
+  ID(); ctx.drawImage(ARM, 0, 0);
   let ringP = null;
   if (sw > 0.5) ringP = drawRingGlow(t, K, k);
   ctx.restore();
@@ -547,7 +555,7 @@ function drawLight(t, K) {
   drawFingertips(t, K, s, F);
     if (endFade > 0) {                                                   // the badge: the watch as an outline
     ctx.save(); ctx.globalAlpha = endFade; ID(); ctx.fillStyle = C.ground; const fp = P3(K, LP(F, 0, 0, 0));
-    ctx.beginPath(); ctx.arc(fp[0], fp[1], 60 * K.A, 0, TAU); ctx.fill();
+    // v2: no ground-coloured disc behind the badge (it cut a hard-edged window out of the fading photo); the arm layer fades as a whole
     faceT(K, F, WT.th / 2);
     for (const sg of [-1, 1]) { ctx.beginPath(); ctx.rect(-11, sg > 0 ? WT.hy : -WT.hy - 16, 22, 16); ID(); ctx.lineWidth = 4.5; ctx.strokeStyle = C.ink; ctx.stroke(); faceT(K, F, WT.th / 2); }
     rr(-WT.hx, -WT.hy, 2 * WT.hx, 2 * WT.hy, WT.r); ID(); ctx.lineWidth = 9; ctx.stroke(); faceT(K, F, WT.th / 2);
@@ -670,7 +678,7 @@ function drawCard(t, light, target) {
   ctx.save(); rr(CARD.x0, CARD.y0, CARD.x1 - CARD.x0, CARD.y1 - CARD.y0, 30); ctx.clip();
   // row labels (short)
   ctx.font = `700 46px ${UI}`; ctx.textBaseline = "middle"; ctx.textAlign = "left";
-  ctx.fillStyle = C.green; ctx.fillText(COPY.rowLight, 112, gy + 2);
+  ctx.fillStyle = C.paper; ctx.fillText(COPY.rowLight, 112, gy + 2);   // v2: green only for light itself (D17)
   // the green trace (drawn on from the left)
   const on = E.p3out(prog(t, T.curve, T.curveEnd)), xr = lerp(CARD.px0, CARD.px1, on);
   ctx.save(); ctx.beginPath(); ctx.rect(CARD.px0 - 6, CARD.y0, xr - CARD.px0 + 12, CARD.y1 - CARD.y0); ctx.clip();
@@ -848,7 +856,7 @@ function overlays(t, K, LW) {
     const fo = 1 - prog(t, T.tipOut - 0.3, T.tipOut), k = E.p3out(prog(t, T.wideEnd - 0.3, T.wideEnd + 0.2));
     const b = proj(K, -6 + 40 / TOPI.s, 115 / TOPI.s, TOPI.z); ID(); ctx.save(); ctx.globalAlpha = fo; leader(b[0] + 70, b[1] + 120, b[0], b[1] + 6, C.ink, k); ctx.restore();
     label(COPY.bone, b[0] + 40, b[1] + 175, 46, C.ink, t, T.wideEnd - 0.3, T.tipOut, { alpha: fo });
-    const s = watchState(t), w0 = proj(K, s.xw - WT.hx - 8, 0, armTop(s.xw) + 6), ax = proj(K, -205, 0, armTop(-205));
+    const s = watchState(t), w0 = proj(K, s.xw - WT.hx - 8, 0, armTop(s.xw) + 6), ax0 = proj(K, -205, 0, armTop(-205)), ax = [Math.max(ax0[0], 150), ax0[1]];   // v2: never pushed off the left edge by the drift
     const ak = E.p3out(prog(t, T.move - 0.25, T.move + 0.4));
     ID(); ctx.save(); ctx.globalAlpha = fo * ak; ctx.strokeStyle = C.acc; ctx.lineWidth = 9; ctx.lineCap = "round";
     const ay = w0[1] - 150; line(w0[0], ay, lerp(w0[0], ax[0], ak), ay); const hx = lerp(w0[0], ax[0], ak);
