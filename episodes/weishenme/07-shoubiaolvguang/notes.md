@@ -79,3 +79,4 @@
 - 用户：「两个会话都可以做，你只负责接着刚才的那版继续往下就可以了，我看了那一版没有什么太大问题，可以出终版了，然后配上小红书和抖音的图」；上传 `ep07-shoubiaolvguang_4.mp4`：「确保最新版是这个哦」。
 - 终版 `out/ep07-shoubiaolvguang.mp4`：按 v5.1 源码重渲，与用户上传文件逐字节一致（MD5 d76d4eb89c2346c2eee655b606880cc5），56 秒，motion PASS（静止 5%，最长 0.37 秒），−14.3 LUFS。
 - 交付包：`cover-douyin.png`、`cover-xiaohongshu.png`（`templates/weishenme/covers/` ep07）、`out/ep07-shoubiaolvguang-xhs.mp4`（1080×2340）、`publish.md`。节点 ③ 监督「无阻断」。
+- 节点 ③ 审核：第一轮「不通过」4 条（抖音描述旧说法「数一分钟」、搜索词「心率监测原理」「手表绿光」未覆盖、抖音封面标签出中间 3:4、置顶评论没按模板）→ 改后复核「通过」。交用户：主版本 + 小红书全屏版 + 两张封面 + `publish.md`。
