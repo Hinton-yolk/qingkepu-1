@@ -766,7 +766,7 @@ function secCY(t) { return 900 - 110 * E.smooth(secEmp(t)); }
 // v6 (user 11-14: 「真正的原理部分画面很小，下边用不到的地方占比太大」): the band from just above the case line (670) to below the
 // vessel (938) fills y 560–1090; a slow push keeps it alive; nothing below the card is shown
 const STAGE = { y0: 670, sy: 560, s: 2.16 };
-function secMapOwn(t) { const s = STAGE.s * (1 + 0.05 * prog(t, T.floodEnd, T.q6) + 0.025 * Math.sin((t - T.flood) * 0.9)), dx = 34 * Math.sin((t - T.flood) * 0.6), dy = 10 * Math.sin((t - T.flood) * 0.75 + 1); return [s, 540 - s * 540 + dx, STAGE.sy + 8 + dy - s * STAGE.y0]; }   // v6: a slow, constant drift (motion check)
+function secMapOwn(t) { const s = STAGE.s * (1 + 0.05 * prog(t, T.floodEnd, T.q6) + 0.035 * Math.sin((t - T.flood) * 0.9)), dx = 42 * Math.sin((t - T.flood) * 0.6), dy = 10 * Math.sin((t - T.flood) * 0.75 + 1); return [s, 540 - s * 540 + dx, STAGE.sy + 8 + dy - s * STAGE.y0]; }   // v6: a slow, constant drift (motion check)
 function secMap(t) {                                                       // v4: [scale, ox, oy]: screen = (ox + s·X, oy + s·Y)
   const own = secMapOwn(t); if (t >= T.floodEnd + 0.8) return own;
   const tt = Math.min(t, T.floodEnd), K = cam(tt), p = proj(K, ...LEDW), sd = K.A / SECPX, dive = [sd, p[0] - sd * SEC.led, p[1] - sd * SEC.y0];
@@ -819,7 +819,7 @@ function drawSection(t, a) {
   const fan = E.p3out(prog(t, T.flood, T.floodEnd + 0.3)) * (1 - 0.65 * E.smooth(prog(t, T.photons, T.photons + 1)));
   if (fan > 0.01) {
     ctx.save(); ctx.globalCompositeOperation = "lighter";
-    g = ctx.createRadialGradient(SEC.led, SEC.y0, 10, SEC.led, SEC.y0, 330); g.addColorStop(0, `rgba(61,240,138,${0.5 * fan * flick(t)})`); g.addColorStop(1, "rgba(61,240,138,0)");
+    g = ctx.createRadialGradient(SEC.led, SEC.y0, 10, SEC.led, SEC.y0, 330); g.addColorStop(0, `rgba(40,220,110,${0.36 * fan * flick(t) * (1 + 0.3 * Math.sin(t * 6.3))})`);   // v6.1: the cone breathes (motion check) g.addColorStop(1, "rgba(61,240,138,0)");
     ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(SEC.led - 20, SEC.y0); ctx.lineTo(SEC.led - 260, SEC.y0 + 300); ctx.quadraticCurveTo(SEC.led, SEC.y0 + 420, SEC.led + 260, SEC.y0 + 300); ctx.lineTo(SEC.led + 20, SEC.y0); ctx.closePath(); ctx.fill(); ctx.restore();
   }
   const ph = E.smooth(prog(t, T.photons, T.photons + 0.6));
@@ -855,7 +855,7 @@ function drawSection(t, a) {
   g = ctx.createRadialGradient(SEC.led, SEC.y0 - 8, 0, SEC.led, SEC.y0 - 8, 90); g.addColorStop(0, `rgba(61,240,138,${0.6 * fl})`); g.addColorStop(1, "rgba(61,240,138,0)"); ctx.fillStyle = g; ctx.fillRect(SEC.led - 90, SEC.y0 - 100, 180, 190);
   if (pdB > 0.01) { g = ctx.createRadialGradient(SEC.pd, SEC.y0 - 10, 0, SEC.pd, SEC.y0 - 10, 80 + 50 * emp); g.addColorStop(0, `rgba(61,240,138,${(0.3 + 0.4 * emp) * pdB})`); g.addColorStop(1, "rgba(61,240,138,0)"); ctx.fillStyle = g; ctx.fillRect(SEC.pd - 130, SEC.y0 - 140, 260, 270); }
   ctx.restore();
-  ID(); { const fz = clamp((t - T.floodEnd) / 0.8 + 0, 0, 1) * (t < T.q6 ? 1 : 1 - prog(t, T.q6, T.q6 + 0.4));   // v6: below the stage, a quiet dark floor
+  ID(); { const fz = clamp((t - T.floodEnd) / 0.8 + 0, 0, 1);   // v6.1: kept to the end of the section (the way-out circle covers it)   // v6: below the stage, a quiet dark floor
     if (fz > 0.01) { const g2 = ctx.createLinearGradient(0, 1110, 0, 1180); g2.addColorStop(0, "rgba(23,25,28,0)"); g2.addColorStop(1, `rgba(23,25,28,${0.97 * fz})`); ctx.fillStyle = g2; ctx.fillRect(0, 1110, W, 70); ctx.fillStyle = `rgba(23,25,28,${0.97 * fz})`; ctx.fillRect(0, 1180, W, H - 1180); } }
   ctx.restore();
 }
@@ -892,7 +892,7 @@ function drawCard(t, light, target) {
   ctx.stroke(); ctx.restore(); ctx.globalAlpha = a;
   const head = [CARD.px1, gy - 22 + 60 * greenVal(t, t)]; ctx.fillStyle = C.green; ctx.beginPath(); ctx.arc(head[0], head[1], 9 * on, 0, TAU); ctx.fill();
   { const bt = BEATS.filter((b) => b <= t && b >= T.q5 - 0.01 && b < T.rate).pop();   // v4: the same orange ring as the vessel and the column
-    if (bt !== undefined && t - bt >= 0.4 && t - bt < 0.8) { const q = (t - bt - 0.4) / 0.4, x = CARD.px1 - (t - bt - 0.12) / CARD.win * (CARD.px1 - CARD.px0), y = gy - 22 + 60 * greenVal(bt + 0.12, t);
+    if (bt !== undefined && t - bt >= 0.48 && t - bt < 0.74) { const q = (t - bt - 0.48) / 0.26, x = CARD.px1 - (t - bt - 0.12) / CARD.win * (CARD.px1 - CARD.px0), y = gy - 22 + 60 * greenVal(bt + 0.12, t);
       ctx.strokeStyle = `rgba(${ACC},${1 - q})`; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(x, y, 22 + 26 * q, 0, TAU); ctx.stroke(); } }
   // the ticks: one under each dip (21–23.75), then they fly to the readout
   if (t >= T.ticks && t < T.num80 + 0.1) {
@@ -1080,19 +1080,19 @@ function textBand(t) {
 // v6: what to look at, beat by beat — the rest of the section steps back; each new thing gets an orange frame when it first appears
 const FOCUS = () => [
   [T.q3, ["led"]], [T.a3, ["blood"]], [T.pd, ["pd"]], [T.meterOn, ["pd", "meter"]], [T.q4, ["meter", "card"]],
-  [T.b1, ["blood"]], [T.q5, ["blood", "meter"]], [T.b2, ["meter", "card"]], [T.rate, ["card"]],
+  [T.b1, ["led", "blood"]], [T.q5, ["led", "blood", "meter", "card"]], [T.b2, ["led", "meter", "card"]], [T.rate, ["card"]],   // v6.1: the lamp stays in the light — it never dims
 ];
 const INTRO = () => [["led", T.q3 + 0.1], ["blood", T.a3 + 0.1], ["pd", T.pd + 0.1], ["meter", T.meterOn + 0.1], ["card", T.q4 + 0.2]];
 function spotRect(t, id) {
   const pd = secPt(t, SEC.pd, SEC.y0 - 4);
   if (id === "led") { const p = secPt(t, SEC.led, SEC.y0); return [p[0] - 170, p[1] - 70, 340, 300]; }
-  if (id === "blood") { const a = secPt(t, 0, SEC.epi + 8), b = secPt(t, W, SEC.vy + 34); return [-20, a[1], W + 40, b[1] - a[1]]; }
+  if (id === "blood") { const a = secPt(t, 0, SEC.epi + 8), b = secPt(t, W, SEC.vy + 34); return [36, a[1], W - 72, b[1] - a[1]]; }
   if (id === "pd") return [pd[0] - 130, pd[1] - 60, 260, 260];
   if (id === "meter") { const px = clamp(pd[0] + 70, 0, 900), py = pd[1] + 70; return [px - 18, py - 18, 140, 34 * 6 + 30 + 36 + 80]; }
-  if (id === "card") return [CARD.x0 - 12, CARD.y0 - 12, CARD.x1 - CARD.x0 + 24, CARD.y1 - CARD.y0 + 24];
+  if (id === "card") return [CARD.x0 - 10, CARD.y0 - 10, CARD.x1 - CARD.x0 + 20, 1442 - (CARD.y0 - 10)];   // bottom edge ≤ 1445 with the line width
 }
 function spotlight(t) {
-  const on = win(t, T.q3 - 0.2, T.q6, 0.4, 0.3) * (flood(t) > 0.5 ? 1 : 0); if (on <= 0.01) return;
+  const on = win(t, T.floodEnd + 0.8, T.q6, 0.4, 0.3) * (flood(t) > 0.5 ? 1 : 0);   // v6.1: only once the stage has landed (no grey) if (on <= 0.01) return;
   const F = FOCUS(); let i = 0; while (i + 1 < F.length && t >= F[i + 1][0]) i++;
   const u = i + 1 < F.length ? 0 : 1, k0 = E.smooth(prog(t, F[i][0], F[i][0] + 0.35)), prev = i > 0 ? F[i - 1][1] : null;
   const sets = [[F[i][1], prev ? k0 : 1]]; if (prev && k0 < 1) sets.push([prev, 1 - k0]);
@@ -1104,15 +1104,15 @@ function spotlight(t) {
   ID(); ctx.save(); ctx.globalAlpha = on; ctx.drawImage(ARM, 0, 0); ctx.restore();
   // the first appearance: an orange frame draws itself round the new thing, then lets go
   for (const [id, t0] of INTRO()) { const k = E.p3out(prog(t, t0, t0 + 0.4)), fo = 1 - E.smooth(prog(t, t0 + 1.3, t0 + 1.8)); if (t < t0 || fo <= 0.01) continue;
-    const r = spotRect(t, id), g = 6 * (1 - k); ID(); ctx.save(); ctx.globalAlpha = fo; ctx.strokeStyle = C.acc; ctx.lineWidth = 6; ctx.beginPath(); ctx.roundRect(r[0] - g, r[1] - g, r[2] + 2 * g, r[3] + 2 * g, 26); ctx.stroke(); ctx.restore(); }
+    const r = spotRect(t, id), g = id === "card" ? 0 : 6 * (1 - k); ID(); ctx.save(); ctx.globalAlpha = fo; ctx.strokeStyle = C.acc; ctx.lineWidth = 6; ctx.beginPath(); ctx.roundRect(r[0] - g, r[1] - g, r[2] + 2 * g, r[3] + 2 * g, 26); ctx.stroke(); ctx.restore(); }
 }
 function overlays(t, K, LW) {
   const fl = flood(t);
   if (fl > 0.5) {
     const led = secPt(t, SEC.led, SEC.y0 - 4), pd = secPt(t, SEC.pd, SEC.y0 - 4);
-    if (t >= T.ledLab && t < T.a3 + 0.3) { const k = E.p3out(prog(t, T.ledLab + 0.1, T.ledLab + 0.45)), fo = 1 - prog(t, T.a3, T.a3 + 0.3); ID(); ctx.save(); ctx.globalAlpha = fo; leader(250, 668, led[0] - 10, led[1] - 8, "rgba(241,240,236,0.8)", k); ctx.restore(); label(COPY.led, 96, 658, 44, "rgba(241,240,236,0.95)", t, T.ledLab, T.a3 + 0.3, { alpha: fo }); }
-    if (t >= T.pd && t < T.q4 + 0.3) { const k = E.p3out(prog(t, T.pdOn, T.pdOn + 0.35)), fo = 1 - prog(t, T.q4, T.q4 + 0.3); ID(); ctx.save(); ctx.globalAlpha = fo; leader(800, 668, pd[0] + 14, pd[1] - 8, "rgba(241,240,236,0.8)", k); ctx.restore(); label(COPY.pdName, 984, 658, 44, "rgba(241,240,236,0.95)", t, T.pd, T.q4 + 0.3, { align: "right", alpha: fo }); }
-    if (t >= T.a3 && t < T.pd) { const vp = secPt(t, 150, vesselY(150) + 26); pill(COPY.vessel, vp[0], vp[1] + 52, 46, t, T.a3 + 0.1, T.pd, { weight: 700 }); }   // v6
+    if (t >= T.ledLab && t < T.a3 + 0.3) { const k = E.p3out(prog(t, T.ledLab + 0.1, T.ledLab + 0.45)), fo = 1 - prog(t, T.a3, T.a3 + 0.3); ID(); ctx.save(); ctx.globalAlpha = fo; leader(led[0], 596, led[0], led[1] - 26, "rgba(241,240,236,0.8)", k); ctx.restore(); label(COPY.led, 96, 580, 44, "rgba(241,240,236,0.95)", t, T.ledLab, T.a3 + 0.3, { alpha: fo }); }
+    if (t >= T.pd && t < T.q4 + 0.3) { const k = E.p3out(prog(t, T.pdOn, T.pdOn + 0.35)), fo = 1 - prog(t, T.q4, T.q4 + 0.3); ID(); ctx.save(); ctx.globalAlpha = fo; leader(pd[0], 596, pd[0], pd[1] - 26, "rgba(241,240,236,0.8)", k); ctx.restore(); label(COPY.pdName, 984, 580, 44, "rgba(241,240,236,0.95)", t, T.pd, T.q4 + 0.3, { align: "right", alpha: fo }); }
+    if (t >= T.a3 && t < T.pd) { const vp = secPt(t, 380, vesselY(380) + 26); pill(COPY.vessel, vp[0], vp[1] + 58, 46, t, T.a3 + 0.1, T.pd, { weight: 700 }); }   // v6
     const note = (a, b) => { pill(COPY.note, 118, 606, 44, t, a, b, { weight: 700 }); };   // v6: top left, in the case band (clear of the vessel tag and the meter)
     if (t >= T.eat && t < T.pd) note(T.eat, T.pd);
     if (t >= T.q5 && t < T.rate) note(T.q5, T.rate);
@@ -1133,13 +1133,21 @@ function overlays(t, K, LW) {
       ctx.shadowColor = "rgba(61,240,138,0.9)"; ctx.shadowBlur = 16; ctx.fillStyle = "rgba(200,255,220,0.9)"; ctx.fillRect(cx0, fy - 2, cw, 4); ctx.restore();
       // every beat: one orange ring on the vessel, on the column and (in the card) on the dip — the same moment
       // v5 (audience v4 #1): in order — first the vessel (blood more), then the column (less light caught), then the dip
+      // v6.1 (audience v6 #1, user 11-14): every beat is told as a chain — the vessel swells → (arrow) → the meter drops → (arrow) → the trace dips
       const bt = BEATS.filter((b) => b <= t && b >= T.q5 - 0.01 && b < T.rate).pop();
       if (bt !== undefined) {
-        const ring = (d, f) => { const q = (t - bt - d) / 0.4; if (q >= 0 && q < 1) f(q, 1 - q); };
-        const vp = secPt(t, (SEC.led + SEC.pd) / 2, vesselY((SEC.led + SEC.pd) / 2));
-        ctx.lineWidth = 5;
-        ring(0, (q, al) => { ctx.strokeStyle = `rgba(${ACC},${al})`; ctx.beginPath(); ctx.ellipse(vp[0], vp[1], 70 + 40 * q, 34 + 20 * q, 0, 0, TAU); ctx.stroke(); });
-        ring(0.2, (q, al) => { ctx.strokeStyle = `rgba(${ACC},${al})`; ctx.beginPath(); ctx.ellipse(px + pw / 2, py + ph / 2, pw / 2 + 10 + 12 * q, ph / 2 + 10 + 12 * q, 0, 0, TAU); ctx.stroke(); });
+        const tb = t - bt, fade = 1 - E.smooth(prog(tb, 0.6, 0.74));
+        const vp = secPt(t, (SEC.led + SEC.pd) / 2 + 60, vesselY((SEC.led + SEC.pd) / 2 + 60));
+        const mL = [px - 10, py + ph * 0.55], mB = [px + pw / 2, py + ph + 96];
+        const dx = CARD.px1 - (tb - 0.12) / CARD.win * (CARD.px1 - CARD.px0), dip = [dx, 1300 - 22 + 60 * greenVal(bt + 0.12, t) - 30];
+        const arrow = (a, b, k) => { if (k <= 0) return; const e = [lerp(a[0], b[0], k), lerp(a[1], b[1], k)], an = Math.atan2(b[1] - a[1], b[0] - a[0]);
+          ctx.strokeStyle = `rgba(${ACC},${fade})`; ctx.lineWidth = 6; ctx.lineCap = "round"; line(a[0], a[1], e[0], e[1]);
+          if (k > 0.6) { ctx.beginPath(); ctx.moveTo(e[0] - 22 * Math.cos(an - 0.5), e[1] - 22 * Math.sin(an - 0.5)); ctx.lineTo(e[0], e[1]); ctx.lineTo(e[0] - 22 * Math.cos(an + 0.5), e[1] - 22 * Math.sin(an + 0.5)); ctx.stroke(); } };
+        const ringE = (c, rx, ry, d) => { const q = clamp((tb - d) / 0.22); if (tb < d) return; ctx.strokeStyle = `rgba(${ACC},${fade})`; ctx.lineWidth = 6; ctx.beginPath(); ctx.ellipse(c[0], c[1], rx * (0.85 + 0.15 * E.p3out(q)), ry * (0.85 + 0.15 * E.p3out(q)), 0, 0, TAU); ctx.stroke(); };
+        ringE(vp, 120, 46, 0);                                                                       // 1 blood more
+        arrow([vp[0] + 124, vp[1] - 10], mL, E.p3out(clamp((tb - 0.12) / 0.12)));                     // →
+        ringE([px + pw / 2, py + ph / 2], pw / 2 + 16, ph / 2 + 16, 0.24);                            // 2 less light caught
+        arrow(mB, [dip[0] + 10, dip[1] - 10], E.p3out(clamp((tb - 0.36) / 0.12)));                    // →
       }
       ctx.restore();
       pill(COPY.caught, px + pw / 2, py + ph + 64, 44, t, T.meterOn, T.rate + 0.4, { align: "center", weight: 700 });
@@ -1152,7 +1160,7 @@ function overlays(t, K, LW) {
         const tk = prog(t, T.q4 + 0.5, T.q4 + 1.0); if (tk > 0 && tk < 1) { const q = E.p2io(tk); ctx.fillStyle = C.green; ctx.beginPath(); ctx.arc(lerp(a0[0], b0[0], q), lerp(a0[1], b0[1], q), 11, 0, TAU); ctx.fill(); }
         ctx.restore();
       }
-      pill(COPY.dim, px - 24, py + ph + 150, 52, t, T.b2 + 0.25, T.rate, { align: "right", weight: 700 });   // v6: beside the meter   // v4 (audience v3 #1): which thing goes dark
+      pill(COPY.dim, 1000, 600, 52, t, T.b2 + 0.25, T.rate, { align: "right", weight: 700 });   // v6.1: above the meter, clear of the vessel ring   // v4 (audience v3 #1): which thing goes dark
     }
   }
   // the tip: the wrist bone and the elbow side, named
