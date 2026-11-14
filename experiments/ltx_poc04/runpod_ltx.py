@@ -81,7 +81,7 @@ st() { echo "$1" > /w/stage; echo "[$(date +%H:%M:%S)] $1" >> /w/setup.log; }
 export DEBIAN_FRONTEND=noninteractive
 st apt
 apt-get update -qq >>/w/setup.log 2>&1
-apt-get install -y -qq --no-install-recommends git curl ca-certificates ffmpeg libgl1 libglib2.0-0 >>/w/setup.log 2>&1
+apt-get install -y -qq --no-install-recommends git curl ca-certificates ffmpeg libgl1 libglib2.0-0 build-essential >>/w/setup.log 2>&1
 nvidia-smi >>/w/setup.log 2>&1
 st install_ltx
 pip install -q uv >>/w/setup.log 2>&1
