@@ -64,3 +64,23 @@ python3 tools/frame_stats.py <图片或视频> [秒 ...] [--crop 宽:高:x:y]
 - 不用 HSV 饱和度：它在暗像素上会被放大，近黑的深蓝也会显得「很饱和」。
 - 测录屏时用 `--crop` 裁掉浏览器界面。
 - 同时输出平均亮度：「微观世界的样子」还有一个亮度门槛（平均亮度 ≥ 0.25，建议值，待用户定）。
+
+## polyhaven.py / polyhaven_blender.py：Poly Haven 素材（HDRI、贴图、模型）
+用户 2026-11-14：「为了更高效的让你借助 blender 建模，请你接入 poly haven 的 API」。
+
+```bash
+python3 tools/polyhaven.py search textures metal          # 按关键词搜（hdris / textures / models）
+python3 tools/polyhaven.py info metal_plate                # 详情和可下载的贴图
+python3 tools/polyhaven.py get studio_small_09 --res 2k    # 下载（HDRI / 贴图 / 模型都用 get）
+```
+Blender 脚本里：
+```python
+import sys; sys.path.insert(0, '<仓库>/tools'); import polyhaven_blender as ph
+ph.set_world_hdri('studio_small_09', res='2k', strength=0.1, camera_sees=(0.004, 0.005, 0.007))
+mat = ph.pbr_material('metal_plate', res='2k')     # 按素材标注的真实尺寸平铺
+objs = ph.import_model('<模型id>', res='1k')
+```
+- API 不需要 key。条款要求请求带能标识软件名的 User-Agent，脚本固定用 `kepu-studio-asset-fetch/1.0`，不带个人信息；两次请求至少间隔 0.25 秒，资产列表缓存 24 小时。
+- 素材是 CC0，用在视频里不需要署名。条款只对「在产品里实时展示 API 内容」要求注明来源，我们不涉及。
+- 下载到 `assets/polyhaven/<类型>/<id>/<分辨率>/`（不进仓库），核对 md5，旁边写 `manifest.json`（许可、作者、来源链接）。新容器要重新下载。
+- 局限：Poly Haven 几乎没有电子硬件模型（光模块、电路板要自己建），主要用它的 HDRI、金属和地面贴图。
