@@ -443,9 +443,11 @@ function drawFingertips(t, K, s, F) {
   const S0 = PINCH.L, S1 = PINCH.R, D0 = [pL[0], pL[1] - up], D1 = [pR[0], pR[1] - up];
   const sv = [S1[0] - S0[0], S1[1] - S0[1]], dv = [D1[0] - D0[0], D1[1] - D0[1]];
   const S2 = [S0[0] - sv[1], S0[1] + sv[0]], D2 = [D0[0] - dv[1], D0[1] + dv[0]];
-  drawPinned(IMG.pinch, affine([S0, S1, S2], [D0, D1, D2]), s.fing, 2400);
+  const fa = s.fing * (1 - E.smooth(clamp((sideK(K) - 0.15) / 0.25)));       // only from above: not while the camera is still turning from the side
+  if (fa <= 0.01) return;
+  drawPinned(IMG.pinch, affine([S0, S1, S2], [D0, D1, D2]), fa, 2400);
   // green on the pads (only while the back faces up)
-  if (!faceUpNow(K, F)) { ctx.save(); ctx.globalAlpha = s.fing; ctx.globalCompositeOperation = "lighter"; for (const p of [D0, D1]) {
+  if (!faceUpNow(K, F)) { ctx.save(); ctx.globalAlpha = fa; ctx.globalCompositeOperation = "lighter"; for (const p of [D0, D1]) {
     const g = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], 16 * K.A); g.addColorStop(0, `rgba(61,240,138,${0.35 * flick(t)})`); g.addColorStop(1, "rgba(61,240,138,0)");
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p[0], p[1], 16 * K.A, 0, TAU); ctx.fill();
   } ctx.restore(); }
@@ -473,11 +475,11 @@ function cam(t) {
     return interpF([55, 0, 6], [540, 1000], 4.2, 90, Ft, [540, 1080], 8.6, 0, u, u, E.smooth(u));
   }
   if (t < T.end) {
-    const s = watchState(t), u = E.p2io(prog(t, T.wide, T.move)), z = 2.45 * Math.pow(3.4 / 2.45, prog(t, T.wideEnd, T.end + 0.6)), px = -20 + 12 * prog(t, T.wideEnd, T.end);   // v3: keeps the photo's cut-off elbow end out of frame
+    const s = watchState(t), u = E.p2io(prog(t, T.wide, T.move)), z = 2.45 * Math.pow(3.4 / 2.45, prog(t, T.wideEnd, T.end + 0.6)), px = -20 + 38 * prog(t, T.wideEnd, T.end);   // v3: keeps the photo's cut-off elbow end out of frame
     return interp(key([-18, 0, armTop(-18) + 12], [540, 1080], 11.2, 0), key([px, 0, 0], [560, 1010], z, 0), u);
   }
   const s = watchState(t), F = watchFrame(t, s);
-  return interp(key([-20 + 12, 0, 0], [560, 1010], 2.45 * Math.pow(3.4 / 2.45, prog(T.end, T.wideEnd, T.end + 0.6)), 0), key([F.c[0], 0, F.c[2]], [232, 545], 4.4, 0), E.p3io(prog(t, T.end, T.endMorph)));
+  return interp(key([-20 + 38, 0, 0], [560, 1010], 2.45 * Math.pow(3.4 / 2.45, prog(T.end, T.wideEnd, T.end + 0.6)), 0), key([F.c[0], 0, F.c[2]], [232, 545], 4.4, 0), E.p3io(prog(t, T.end, T.endMorph)));
 }
 
 // ---------------------------------------------------------------- the light world
