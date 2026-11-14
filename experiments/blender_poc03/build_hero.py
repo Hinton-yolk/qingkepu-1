@@ -643,6 +643,82 @@ def build(res=540, spp=64):
     return sc
 
 
+# ---------- 动画：6 秒插入镜头（节奏沿用 Seedance PoC 01 v2 的 Blockout） ----------
+FPS, F_FIRST, F_LAST = 30, 1, 180
+INS0, INS1 = 37, 121          # 1.2 s 开始插入，4.0 s 到位停稳
+D_START = 94.0                # 起点：模块后端在笼口外 10 mm（前端面比到位时靠外 94 mm）
+
+
+def _smooth(x):
+    x = min(max(x, 0.0), 1.0)
+    return x * x * (3 - 2 * x)
+
+
+def insert_progress(f):
+    """梯形速度：约 0.3 s 平滑加速、匀速、最后约 0.9 s 减速到 0（停稳不反弹）。"""
+    a, d = 0.3, 0.9
+    T = (INS1 - INS0) / FPS
+
+    def vel(t):
+        if t <= 0 or t >= T:
+            return 0.0
+        if t < a:
+            return 0.5 - 0.5 * math.cos(math.pi * t / a)
+        if t > T - d:
+            return 0.5 + 0.5 * math.cos(math.pi * (t - (T - d)) / d)
+        return 1.0
+
+    def integ(t, n=300):
+        h = t / n
+        return sum(vel((i + 0.5) * h) for i in range(n)) * h if t > 0 else 0.0
+
+    t = min(max((f - INS0) / FPS, 0.0), T)
+    return integ(t) / integ(T)
+
+
+def cam_progress(t):
+    """相机进度：0–1.2 s 推进到 0.12（减速）；1.2–1.7 s 稳住（只到 0.135）；1.7–6 s 跟随靠近到 1（缓起、结尾减速）。"""
+    if t < 1.2:
+        u = t / 1.2
+        return 0.12 * (2 * u - u * u)
+    if t < 1.7:
+        return 0.12 + 0.015 * (t - 1.2) / 0.5
+    u = (t - 1.7) / (5.967 - 1.7)
+    return 0.135 + 0.865 * (0.85 * _smooth(u) + 0.15 * min(u, 1.0))
+
+
+def animate(sc):
+    sc.render.fps = FPS
+    sc.frame_start, sc.frame_end = F_FIRST, F_LAST
+    sc.render.use_motion_blur = True
+    sc.render.motion_blur_shutter = 0.4
+    root = bpy.data.objects['OSFP_module']
+    cam = bpy.data.objects['CAM']
+    cd = cam.data
+    prev = None
+    for f in range(F_FIRST, F_LAST + 1):
+        t = (f - 1) / FPS
+        yf = MOD_FRONT_Y + D_START * (1 - insert_progress(f))        # 模块前端面的 y（mm）
+        root.location = (0, yf * MM, MOD_Z0 * MM)
+        root.keyframe_insert('location', frame=f)
+        p = cam_progress(t)
+        az, el = math.radians(26 + (16 - 26) * p), math.radians(26 + (17 - 26) * p)
+        dist = 0.34 + (0.155 - 0.34) * p
+        focus = Vector((0, (yf - 4.0) * MM, (MOD_Z0 + 9.0) * MM))   # 焦点始终跟着模块前端
+        w = _smooth((t - 3.0) / 3.0)
+        aim_y = (0.5 * yf) * (1 - w) + (yf - 30.0) * w                # 前半段看「笼口和模块前端的中点」，结尾回到静帧构图
+        aim = Vector((1.5 * MM, aim_y * MM, (MOD_Z0 + 2.0) * MM))
+        pos = focus + dist * Vector((math.sin(az) * math.cos(el), math.cos(az) * math.cos(el), math.sin(el)))
+        cam.location = pos
+        q = (aim - pos).to_track_quat('-Z', 'Y')
+        cam.rotation_euler = q.to_euler('XYZ', prev) if prev else q.to_euler()
+        prev = cam.rotation_euler.copy()
+        cam.keyframe_insert('location', frame=f)
+        cam.keyframe_insert('rotation_euler', frame=f)
+        cd.dof.focus_distance = (pos - focus).length
+        cd.dof.keyframe_insert('focus_distance', frame=f)
+
+
 def main():
     argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else ['still']
     def opt(k, d):
@@ -651,6 +727,22 @@ def main():
     out = opt('--out', os.path.join('out', 'hero.png'))
     sc = build(res, spp)
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(HERE, 'scene_hero.blend'), compress=True)
+    if argv[0] in ('anim', 'frames'):
+        animate(sc)
+        bpy.ops.wm.save_as_mainfile(filepath=os.path.join(HERE, 'scene_hero_anim.blend'), compress=True)
+        import time as _time
+        _t1 = _time.time()
+        if argv[0] == 'frames':                       # 预览：只渲指定的几帧，例如 frames 1,37,121,180
+            os.makedirs(os.path.join(HERE, out), exist_ok=True)
+            for f in [int(x) for x in argv[1].split(',')]:
+                sc.frame_set(f)
+                sc.render.filepath = os.path.join(HERE, out, f'f{f:04d}.png')
+                bpy.ops.render.render(write_still=True)
+        else:                                         # 整段或一段：--fs 1 --fe 45
+            sc.frame_start, sc.frame_end = opt('--fs', F_FIRST), opt('--fe', F_LAST)
+            sc.render.filepath = os.path.join(HERE, out)
+            bpy.ops.render.render(animation=True)
+        print(f'[timing] 渲染 {_time.time() - _t1:.1f} 秒', flush=True)
     if argv[0] == 'still':
         os.makedirs(os.path.dirname(os.path.join(HERE, out)), exist_ok=True)
         sc.render.filepath = os.path.join(HERE, out)
