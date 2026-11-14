@@ -1,0 +1,55 @@
+输入包 12.6 MB
+建好 pod tp28hngi86yqer  每小时 $2.19  NVIDIA A100-SXM4-80GB
+[  0.0 分] 连不上（HTTPError） 已拉回 0
+输入已上传
+[  0.4 分] apt 已拉回 0
+[  0.7 分] install_ltx 已拉回 0
+[  1.0 分] install_ltx 已拉回 0
+[  1.4 分] install_ltx 已拉回 0
+[  1.7 分] install_ltx 已拉回 0
+[  2.1 分] download_weights 已拉回 0
+[  2.4 分] download_weights 已拉回 0
+[  2.7 分] download_weights 已拉回 0
+[  3.1 分] download_weights 已拉回 0
+[  3.4 分] download_weights 已拉回 0
+[  3.8 分] download_weights 已拉回 0
+[  4.1 分] download_weights 已拉回 0
+[  4.4 分] download_weights 已拉回 0
+[  4.8 分] download_weights 已拉回 0
+[  5.1 分] download_weights 已拉回 0
+[  5.5 分] download_weights 已拉回 0
+[  5.8 分] download_weights 已拉回 0
+[  6.2 分] running 已拉回 0
+[  6.5 分] running 已拉回 0
+[  6.8 分] running 已拉回 0
+[  7.2 分] running 已拉回 0
+[  7.5 分] running 已拉回 0
+[  7.9 分] running 已拉回 0
+[  8.2 分] running 已拉回 0
+[  8.5 分] running 已拉回 0
+[  8.9 分] running 已拉回 0
+[  9.2 分] running 已拉回 0
+[  9.6 分] running 已拉回 0
+[  9.9 分] running 已拉回 0
+[ 10.2 分] running 已拉回 0
+[ 10.6 分] running 已拉回 0
+[ 10.9 分] running 已拉回 0
+[ 11.3 分] running 已拉回 1
+[ 11.6 分] running 已拉回 1
+[ 12.0 分] running 已拉回 1
+[ 12.3 分] running 已拉回 1
+[ 12.6 分] running 已拉回 1
+[ 13.0 分] running 已拉回 1
+[ 13.3 分] running 已拉回 1
+[ 13.7 分] running 已拉回 1
+[ 14.0 分] running 已拉回 1
+[ 14.3 分] running 已拉回 1
+[ 14.7 分] running 已拉回 1
+[ 15.0 分] running 已拉回 1
+[ 15.4 分] running 已拉回 1
+[ 15.7 分] running 已拉回 1
+[ 16.0 分] running 已拉回 2
+[ 16.4 分] running 已拉回 3
+[ 16.7 分] done 已拉回 4
+完成：墙钟 17.1 分钟，约 $0.62（上限估计，以账单为准）
+已删除 pod tp28hngi86yqer
