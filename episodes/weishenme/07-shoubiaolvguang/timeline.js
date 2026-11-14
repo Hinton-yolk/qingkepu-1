@@ -11,36 +11,36 @@
 //   44–52.5 the watch off, back up (green), on again + 它不是在摸你的脉… (closing) → 小提示 (strap, towards the elbow)
 // 120 BPM: 1 beat = 0.5 s = 15 frames at 30 fps, 1 bar = 2 s; 56.0 s. Hearts: 80 / min (0.75 s) at rest, 120 / min (0.5 s) running.
 (function (root) {
-  const BPM = 120, BEAT = 60 / BPM, BAR = 4 * BEAT, FPS = 30, DUR = 56.0;
+  const BPM = 120, BEAT = 60 / BPM, BAR = 4 * BEAT, FPS = 30, DUR = 55.0;   // v7: the opening is 1 s quicker (user 11-14: 「开头的节奏有点稍慢，同样参考体脂秤的」)
   const W = 1080, H = 1920;
 
   const T = {
     // 0–5.25 · the phenomenon: the back of the watch, green; it rolls over and lands; the face: ♥ 80
-    underline: 1.5, flip: 2.0, flipEnd: 2.5, land: 2.5, release: 2.5, releaseEnd: 3.3, h1Out: 2.59,
-    q2: 2.75, scrOn: 2.75, beat0: 3.0,
+    underline: 1.5, flip: 2, flipEnd: 2.5, land: 2.5, release: 2.5, releaseEnd: 3.3, h1Out: 2.59,
+    q2: 2.75, scrOn: 2.75, beat0: 3,
     // 5.25–9.5 · one take in: the camera turns to the side, goes into the gap under the watch, the section (dark)
-    a1: 5.25, pitch: 5.25, pitchEnd: 6.5, gap: 5.75, gapEnd: 6.75, flood: 6.25, floodEnd: 7.25, ledLab: 7.25,
-    q3: 7.5, push1: 7.25, push1End: 9.5,
+    a1: 5, pitch: 5, pitchEnd: 5.9, gap: 5.25, gapEnd: 6, flood: 5.5, floodEnd: 6.25, ledLab: 6.25,
+    q3: 6.5, push1: 6.25, push1End: 8.5,
     // 9.5–14.5 · blood eats green light; what comes back is caught by the light eye
-    a3: 9.5, photons: 9.5, eat: 9.75, pd: 12.0, pdOn: 12.25, meterOn: 13.25,
+    a3: 8.5, photons: 8.5, eat: 8.75, pd: 11, pdOn: 11.25, meterOn: 12.25,
     // 14.5–26 · how does it count? the trace; the vessel swells; the answer; the ticks; 80
-    q4: 14.5, curve: 14.5, curveEnd: 15.25, b1: 16.25, pulseOn: 16.25,
-    q5: 18.5, ans5: 19.0, b2: 21.0, ticks: 21.0, rate: 23.25, gather: 23.25, gatherEnd: 23.75, num80: 23.75, term: 24.25,
+    q4: 13.5, curve: 13.5, curveEnd: 14.25, b1: 15.25, pulseOn: 15.25,
+    q5: 17.5, ans5: 18, b2: 20, ticks: 20, rate: 22.25, gather: 22.25, gatherEnd: 22.75, num80: 22.75, term: 23.25,
     // 26–39.5 · running: out to the arm; it swings; the trace goes wild; the accelerometer; subtract; 120
-    q6: 26.0, unflood: 26.0, unfloodEnd: 26.4, pullOut: 26.0, pullOutEnd: 27.5, run: 26.5,
-    r1: 28.0, q7: 30.5, qmark: 30.75,
-    acc: 32.75, mag: 32.75, magEnd: 33.15, chipOn: 33.0, swing: 33.25, swingEnd: 34.0,
-    acc2: 34.75, align: 34.75, alignEnd: 36.5, sub: 37.0, subEnd: 37.75, num120: 37.75,
+    q6: 25, unflood: 25, unfloodEnd: 25.4, pullOut: 25, pullOutEnd: 26.5, run: 25.5,
+    r1: 27, q7: 29.5, qmark: 29.75,
+    acc: 31.75, mag: 31.75, magEnd: 32.15, chipOn: 32, swing: 32.25, swingEnd: 33,
+    acc2: 33.75, align: 33.75, alignEnd: 35.5, sub: 36, subEnd: 36.75, num120: 36.75,
     // 39.5–44 · the ring
-    q8: 39.5, stop: 39.5, stopEnd: 40.5, slide: 39.75, slideEnd: 41.0, open: 40.0, openEnd: 40.9, ringMark: 40.75, ringGlow: 41.25,
-    ringA: 41.75, rmag: 41.75, rmagEnd: 42.15, curveSlide: 42.0, curveSlideEnd: 42.75,
+    q8: 38.5, stop: 38.5, stopEnd: 39.5, slide: 38.75, slideEnd: 40, open: 39, openEnd: 39.9, ringMark: 39.75, ringGlow: 40.25,
+    ringA: 40.75, rmag: 40.75, rmagEnd: 41.15, curveSlide: 41, curveSlideEnd: 41.75,
     // 44–53.5 · back to the start; the closing line; the tip
     // v3 (2026-11-14, audience #3 adopted): the question 「现在知道，它在看什么了吗？」 is cut; the closing line comes straight after the ring
-    q9: 44.0, back: 44.0, backEnd: 44.75, grab: 44.25, lift: 44.5, flip2: 44.75, flip2End: 45.25,
-    stop2: 45.25, fin: 45.75, flip3: 45.75, flip3End: 46.25, ka: 46.25, finOut: 48.25,
-    tip: 48.25, wide: 48.25, wideEnd: 49.25, tighten: 49.5, move: 50.0, moveEnd: 50.75, tipOut: 52.1,
+    q9: 43, back: 43, backEnd: 43.75, grab: 43.25, lift: 43.5, flip2: 43.75, flip2End: 44.25,
+    stop2: 44.25, fin: 44.75, flip3: 44.75, flip3End: 45.25, ka: 45.25, finOut: 47.25,
+    tip: 47.25, wide: 47.25, wideEnd: 48.25, tighten: 48.5, move: 49, moveEnd: 49.75, tipOut: 51.1,
     // 52.25–56.0 end card
-    end: 52.25, endMorph: 52.85, title1: 53.0, ep: 53.75, sting: 54.25,
+    end: 51.25, endMorph: 51.85, title1: 52, ep: 52.75, sting: 53.25,
   };
 
   const COPY = {

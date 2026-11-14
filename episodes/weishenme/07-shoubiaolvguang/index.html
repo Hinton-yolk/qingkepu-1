@@ -14,7 +14,7 @@
 </style>
 </head>
 <body>
-<div id="root" data-composition-id="main" data-start="0" data-duration="56.0" data-width="1080" data-height="1920">
+<div id="root" data-composition-id="main" data-start="0" data-duration="55.0" data-width="1080" data-height="1920">
   <canvas id="c" width="1080" height="1920"></canvas>
 </div>
 <script src="timeline.js"></script>
@@ -892,7 +892,7 @@ function drawCard(t, light, target) {
   ctx.stroke(); ctx.restore(); ctx.globalAlpha = a;
   const head = [CARD.px1, gy - 22 + 60 * greenVal(t, t)]; ctx.fillStyle = C.green; ctx.beginPath(); ctx.arc(head[0], head[1], 9 * on, 0, TAU); ctx.fill();
   { const bt = BEATS.filter((b) => b <= t && b >= T.q5 - 0.01 && b < T.rate).pop();   // v4: the same orange ring as the vessel and the column
-    if (bt !== undefined && t - bt >= 0.48 && t - bt < 0.74) { const q = (t - bt - 0.48) / 0.26, x = CARD.px1 - (t - bt - 0.12) / CARD.win * (CARD.px1 - CARD.px0), y = gy - 22 + 60 * greenVal(bt + 0.12, t);
+    if (bt !== undefined && t - bt >= 0.34 && t - bt < 0.74) { const q = (t - bt - 0.34) / 0.4, x = CARD.px1 - (t - bt - 0.12) / CARD.win * (CARD.px1 - CARD.px0), y = gy - 22 + 60 * greenVal(bt + 0.12, t);
       ctx.strokeStyle = `rgba(${ACC},${1 - q})`; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(x, y, 22 + 26 * q, 0, TAU); ctx.stroke(); } }
   // the ticks: one under each dip (21–23.75), then they fly to the readout
   if (t >= T.ticks && t < T.num80 + 0.1) {
@@ -1144,10 +1144,8 @@ function overlays(t, K, LW) {
           ctx.strokeStyle = `rgba(${ACC},${fade})`; ctx.lineWidth = 6; ctx.lineCap = "round"; line(a[0], a[1], e[0], e[1]);
           if (k > 0.6) { ctx.beginPath(); ctx.moveTo(e[0] - 22 * Math.cos(an - 0.5), e[1] - 22 * Math.sin(an - 0.5)); ctx.lineTo(e[0], e[1]); ctx.lineTo(e[0] - 22 * Math.cos(an + 0.5), e[1] - 22 * Math.sin(an + 0.5)); ctx.stroke(); } };
         const ringE = (c, rx, ry, d) => { const q = clamp((tb - d) / 0.22); if (tb < d) return; ctx.strokeStyle = `rgba(${ACC},${fade})`; ctx.lineWidth = 6; ctx.beginPath(); ctx.ellipse(c[0], c[1], rx * (0.85 + 0.15 * E.p3out(q)), ry * (0.85 + 0.15 * E.p3out(q)), 0, 0, TAU); ctx.stroke(); };
-        ringE(vp, 120, 46, 0);                                                                       // 1 blood more
-        arrow([vp[0] + 124, vp[1] - 10], mL, E.p3out(clamp((tb - 0.12) / 0.12)));                     // →
-        ringE([px + pw / 2, py + ph / 2], pw / 2 + 16, ph / 2 + 16, 0.24);                            // 2 less light caught
-        arrow(mB, [dip[0] + 10, dip[1] - 10], E.p3out(clamp((tb - 0.36) / 0.12)));                    // →
+        // v7 (user 11-14: 「血管那里不用加圈和箭头，只保留接住的光到曲线的箭头示意即可」): only the meter → trace arrow
+        arrow(mB, [dip[0] + 10, dip[1] - 10], E.p3out(clamp((tb - 0.2) / 0.14)));
       }
       ctx.restore();
       pill(COPY.caught, px + pw / 2, py + ph + 64, 44, t, T.meterOn, T.rate + 0.4, { align: "center", weight: 700 });
@@ -1244,7 +1242,7 @@ function frame(t) {
 }
 
 // ---------------------------------------------------------------- motion blur: temporal supersampling where things move fast
-const BLUR = [[1.9, 3.35, 16], [5.25, 6.2, 10], [6.2, 7.3, 22], [26.0, 27.6, 10], [27.6, 40.6, 5], [44.0, 45.6, 16], [45.7, 46.45, 12], [48.25, 49.35, 10], [50.0, 50.8, 8], [52.25, 52.9, 12]];
+const BLUR = [[1.9, 3.35, 16], [5.0, 5.6, 10], [5.6, 6.3, 22], [25, 26.6, 10], [26.6, 39.6, 5], [43, 44.6, 16], [44.7, 45.45, 12], [47.25, 48.35, 10], [49, 49.8, 8], [51.25, 51.9, 12]];
 const SHUTTER = 0.5 / FPS;
 window.seek = function seek(t) {
   t = clamp(t, 0, DUR - 1e-6);
