@@ -29,7 +29,7 @@ def door_mask():
 def floor_perf():
     s = 600                                               # 1 px = 1 mm，一块 600 mm 地板
     col = Image.new('RGB', (s, s), (150, 153, 158))
-    rough = Image.new('L', (s, s), 70)                    # 金属面偏亮，粗糙度约 0.27
+    rough = Image.new('L', (s, s), 38)                    # 金属面偏亮、有反光，粗糙度约 0.15
     dc, dr = ImageDraw.Draw(col), ImageDraw.Draw(rough)
     # 板边一圈压条
     for k in range(6):

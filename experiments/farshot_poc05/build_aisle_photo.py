@@ -176,30 +176,42 @@ def photo_extras(sc, M):
         y += 1.2
     # 两排机柜上方、黄色光纤槽后面：装满青色线缆的梯架
     for side in (-1, 1):
-        x0 = side * (AISLE / 2 + 0.45)
-        box('ladder_rail', x0 - 0.22, x0 - 0.20, y_a, y_b, 2.78, 2.86, M['tray_black'])
-        box('ladder_rail', x0 + 0.20, x0 + 0.22, y_a, y_b, 2.78, 2.86, M['tray_black'])
+        x0 = side * (AISLE / 2 + 0.25)
+        box('ladder_rail', x0 - 0.22, x0 - 0.20, y_a, y_b, 2.98, 3.06, M['tray_black'])
+        box('ladder_rail', x0 + 0.20, x0 + 0.22, y_a, y_b, 2.98, 3.06, M['tray_black'])
         yy = y_a
         while yy < y_b:
-            box('ladder_rung', x0 - 0.2, x0 + 0.2, yy, yy + 0.02, 2.78, 2.80, M['tray_black'])
+            box('ladder_rung', x0 - 0.2, x0 + 0.2, yy, yy + 0.02, 2.98, 3.00, M['tray_black'])
             yy += 0.3
-        for k in range(26):                                # 一捆青色 / 蓝色线缆，沿通道
+        for k in range(14):                                # 一捆青色 / 蓝色线缆，沿通道
             cx = x0 + random.uniform(-0.17, 0.17)
-            cz = 2.81 + random.uniform(0.0, 0.07)
+            cz = 3.01 + random.uniform(0.0, 0.08)
             mat = M['teal'] if random.random() < 0.75 else M['blue']
-            cyl('cable', (cx, y_a, cz), (cx + random.uniform(-0.02, 0.02), y_b, cz), 0.006, mat, 6)
+            cyl('cable', (cx, y_a, cz), (cx + random.uniform(-0.03, 0.03), y_b, cz + random.uniform(-0.01, 0.01)), random.uniform(0.004, 0.009), mat, 6)
         # 梯架的吊杆
         yy = -0.6
         while yy < y_b:
-            cyl('rod', (x0 - 0.21, yy, 2.86), (x0 - 0.21, yy, 3.30), 0.005, M['steel'], 6)
-            cyl('rod', (x0 + 0.21, yy, 2.86), (x0 + 0.21, yy, 3.30), 0.005, M['steel'], 6)
+            cyl('rod', (x0 - 0.21, yy, 3.06), (x0 - 0.21, yy, 3.30), 0.005, M['steel'], 6)
+            cyl('rod', (x0 + 0.21, yy, 3.06), (x0 + 0.21, yy, 3.30), 0.005, M['steel'], 6)
             yy += 1.2
         # 黄色光纤槽的下线口（每两台机柜一个，落到柜顶）
         xf = side * AISLE / 2
         for r in range(0, N_RACKS, 2):
             yc = r * RACK_W + 0.3
-            box('fiber_drop', min(xf + side * 0.12, xf + side * 0.24), max(xf + side * 0.12, xf + side * 0.24),
-                yc - 0.05, yc + 0.05, RACK_H, 2.35, M['tray_yellow'])
+            box('fiber_drop', min(xf + side * 0.13, xf + side * 0.19), max(xf + side * 0.13, xf + side * 0.19),
+                yc - 0.03, yc + 0.03, RACK_H, 2.50, M['tray_yellow'])
+    # 横跨通道的梯架（每 2.4 m 一道），上面有几根线缆
+    yy = 0.6
+    while yy < y_b:
+        for xx in (-1.0, 1.0):
+            pass
+        box('cross_rail', -1.6, 1.6, yy, yy + 0.02, 3.36, 3.42, M['tray_black'])
+        box('cross_rail', -1.6, 1.6, yy + 0.3, yy + 0.32, 3.36, 3.42, M['tray_black'])
+        for k in range(8):
+            cz = 3.42 + random.uniform(0, 0.04)
+            yc = yy + 0.03 + random.uniform(0, 0.26)
+            cyl('cable', (-1.6, yc, cz), (1.6, yc + random.uniform(-0.02, 0.02), cz), 0.006, M['teal'] if random.random() < 0.6 else M['blue'], 6)
+        yy += 2.4
     # 通道上方的银色线管 3 根、红色喷淋管 1 根（带下垂的喷头）
     for x in (-0.55, -0.48, 0.62):
         cyl('conduit', (x, y_a, 3.22), (x, y_b, 3.22), 0.012, M['steel'])
@@ -272,15 +284,15 @@ def build():
     M = dict(
         frame=mat_basic('rack_frame', (0.012, 0.012, 0.014), 0.3, 0.45),
         side=mat_basic('rack_side', (0.02, 0.02, 0.024), 0.2, 0.55),
-        tray_yellow=mat_basic('fiber_tray', (0.85, 0.62, 0.02), 0.0, 0.45),
+        tray_yellow=mat_basic('fiber_tray', (0.95, 0.66, 0.0), 0.0, 0.35),
         tray_black=mat_basic('ladder_tray', (0.03, 0.03, 0.035), 0.4, 0.5),
-        light=mat_basic('ceiling_light', (1, 1, 1), 0, 0.5, (0.85, 0.92, 1.0), 9.0),
+        light=mat_basic('ceiling_light', (1, 1, 1), 0, 0.5, (0.85, 0.92, 1.0), 3.5),
         ceiling=mat_basic('ceiling', (0.015, 0.015, 0.017), 0.0, 0.85),
         wall=mat_basic('end_wall', (0.62, 0.64, 0.66), 0.0, 0.75),
         steel=mat_basic('steel', (0.55, 0.56, 0.58), 1.0, 0.35),
         unistrut=mat_basic('unistrut', (0.25, 0.26, 0.27), 0.8, 0.45),
         red=mat_basic('sprinkler', (0.55, 0.03, 0.02), 0.0, 0.45),
-        teal=mat_basic('cable_teal', (0.03, 0.30, 0.38), 0.0, 0.5),
+        teal=mat_basic('cable_teal', (0.02, 0.16, 0.22), 0.0, 0.55),
         blue=mat_basic('cable_blue', (0.02, 0.10, 0.55), 0.0, 0.45),
         yellow_cable=mat_basic('cable_yellow', (0.85, 0.65, 0.03), 0.0, 0.45),
         housing=mat_basic('fixture_housing', (0.75, 0.76, 0.78), 0.2, 0.4),
@@ -348,20 +360,31 @@ def build():
                 mat = M['blue'] if random.random() < 0.6 else M['yellow_cable']
                 cable_loop('patch', (xc, ya, z), (xc, yb2, z + random.uniform(-0.05, 0.05)), random.uniform(0.04, 0.15), 0.0025, mat)
         # 机柜上方：黄色光纤槽 + 黑色梯架
-        box('fiber_tray', min(xf, xf + side * 0.35), max(xf, xf + side * 0.35), -0.5, N_RACKS * RACK_W + 0.5, 2.35, 2.45, M['tray_yellow'])
+        # 黄色光纤槽：U 形槽（底 + 两侧），吊在柜顶上方，每 1.2 m 一个黑色托架和两根吊杆
+        xa, xb2 = min(xf + side * 0.02, xf + side * 0.30), max(xf + side * 0.02, xf + side * 0.30)
+        y_lo, y_hi = -0.5, N_RACKS * RACK_W + 0.5
+        box('fiber_tray', xa, xb2, y_lo, y_hi, 2.50, 2.515, M['tray_yellow'])
+        box('fiber_tray', xa, xa + 0.012, y_lo, y_hi, 2.50, 2.62, M['tray_yellow'])
+        box('fiber_tray', xb2 - 0.012, xb2, y_lo, y_hi, 2.50, 2.62, M['tray_yellow'])
+        yy = -0.3
+        while yy < y_hi:
+            box('tray_bracket', xa - 0.03, xb2 + 0.03, yy, yy + 0.04, 2.47, 2.50, M['unistrut'])
+            cyl('tray_rod', (xa - 0.015, yy + 0.02, 2.47), (xa - 0.015, yy + 0.02, 3.34), 0.005, M['steel'], 6)
+            cyl('tray_rod', (xb2 + 0.015, yy + 0.02, 2.47), (xb2 + 0.015, yy + 0.02, 3.34), 0.005, M['steel'], 6)
+            yy += 1.2
         box('ladder_tray', min(xb, xb - side * 0.5), max(xb, xb - side * 0.5), -0.5, N_RACKS * RACK_W + 0.5, 2.6, 2.65, M['tray_black'])
     # 通道正上方的条形灯
     for k in range(6):
-        y = -0.3 + k * 1.0
-        box('fixture_housing', -0.13, 0.13, y - 0.25, y + 0.95, 3.02, 3.10, M['housing'])
-        box('light', -0.11, 0.11, y - 0.23, y + 0.93, 3.015, 3.02, M['light'])
-        cyl('fixture_rod', (0, y - 0.15, 3.10), (0, y - 0.15, 3.30), 0.004, M['steel'], 6)
-        cyl('fixture_rod', (0, y + 0.85, 3.10), (0, y + 0.85, 3.30), 0.004, M['steel'], 6)
+        y = -0.2 + k * 1.9
+        box('fixture_housing', -0.13, 0.13, y - 0.1, y + 0.8, 3.02, 3.10, M['housing'])
+        box('light', -0.11, 0.11, y - 0.08, y + 0.78, 3.015, 3.02, M['light'])
+        cyl('fixture_rod', (0, y - 0.05, 3.10), (0, y - 0.05, 3.30), 0.004, M['steel'], 6)
+        cyl('fixture_rod', (0, y + 0.75, 3.10), (0, y + 0.75, 3.30), 0.004, M['steel'], 6)
         if '--clay' not in sys.argv:                 # 每盏灯下面放一个真正照明的面光源（发光网格只负责「看得见灯」）
             ld = bpy.data.lights.new('fixture', 'AREA')
             ld.shape = 'RECTANGLE'
-            ld.size, ld.size_y = 0.22, 1.16
-            ld.energy = 110.0
+            ld.size, ld.size_y = 0.22, 0.86
+            ld.energy = 55.0
             ld.color = (0.86, 0.92, 1.0)
             lo = bpy.data.objects.new('fixture', ld)
             sc.collection.objects.link(lo)
@@ -429,7 +452,7 @@ def look_cycles(sc, spp, gpu):
     nt = vm.node_tree
     nt.nodes.remove(nt.nodes['Principled BSDF'])
     pv = nt.nodes.new('ShaderNodeVolumePrincipled')
-    pv.inputs['Density'].default_value = 0.014
+    pv.inputs['Density'].default_value = 0.0035
     pv.inputs['Color'].default_value = (0.75, 0.85, 1.0, 1)
     nt.links.new(pv.outputs['Volume'], nt.nodes['Material Output'].inputs['Volume'])
     v.data.materials.append(vm)
@@ -446,6 +469,7 @@ def look_cycles(sc, spp, gpu):
     sc.render.use_motion_blur = True
     sc.render.motion_blur_shutter = 0.4
     sc.view_settings.view_transform = 'AgX'
+    sc.view_settings.exposure = -0.55
     try:
         sc.view_settings.look = 'AgX - Medium High Contrast'
     except Exception:
