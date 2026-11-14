@@ -321,7 +321,7 @@ const WT = { hx: 19, hy: 22.5, th: 11, r: 9 };
 function watchState(t) {
   const s = { xw: -18, lift: 0, roll: 0, wrap: 1, fing: 0 };
   s.xw = lerp(-18, -56, E.p2io(prog(t, T.move, T.moveEnd)));
-  const bob = 1.6 * Math.sin(TAU * t / 1.7);
+  const bob = 3.2 * Math.sin(TAU * t / 1.6);
   if (t < T.flipEnd) { const u = E.p2io(prog(t, T.flip, T.flipEnd)); s.lift = 40 * (1 - u) + bob * (1 - u); s.roll = Math.PI * (1 - u); }
   else if (t >= T.lift && t < T.flip3End) {
     const up = E.p2io(prog(t, T.lift, T.flip2)), r1 = E.p2io(prog(t, T.flip2, T.flip2End)), dn = E.p2io(prog(t, T.flip3, T.flip3End));
@@ -464,26 +464,26 @@ const KR = key([-105, 0, 40], [560, 880], 2.1, 90);                    // runnin
 const KH = key([116, 0, -2], [540, 1000], 4.2, 90);                    // the hand and the ring
 const KW = key([-110, 0, 0], [560, 1010], 2.35, 0);                   // the tip: elbow ← wrist
 function cam(t) {
-  if (t < T.pitch) { const z = kf(t, [[0, 8.4], [T.flip, 8.7], [T.land, 9.1], [T.pitch, 9.7]], E.smooth); return key([-18, 0, armTop(-18) + 12 + 22 * (1 - E.p2io(prog(t, T.flip, T.flipEnd)))], [540, 1080], z, 0); }
+  if (t < T.pitch) { const z = 8.2 * Math.pow(10.4 / 8.2, t / T.pitch); return key([-18 + 6 * (t / T.pitch), 0, armTop(-18) + 12 + 22 * (1 - E.p2io(prog(t, T.flip, T.flipEnd)))], [540 - 10 * Math.sin(t * 0.9), 1080], z, 0); }
   if (t < T.unflood) {                                                  // turn to the side, into the gap
     const u = E.p2io(prog(t, T.pitch, T.pitchEnd)), g = E.p3in(prog(t, T.gap, T.gapEnd + 0.25));
-    const F = [-18, 0, lerp(armTop(-18) + 5.5, GAP(-18)[2], u)], z = 9.7 * Math.pow(48 / 9.7, 0.25 * u + 0.75 * g);
+    const F = [-12, 0, lerp(armTop(-18) + 5.5, GAP(-18)[2], u)], z = 10.4 * Math.pow(48 / 10.4, 0.25 * u + 0.75 * g);
     return key(F, [540, lerp(1080, 1000, u)], z, 90 * u);
   }
   if (t < T.slide) { const u = E.p3io(prog(t, T.pullOut, T.pullOutEnd)); return interp(key(GAP(-18), [540, 1000], 30, 90), KR, u); }
   if (t < T.back) { const u = E.p3io(prog(t, T.slide, T.slideEnd)); return interp(KR, KH, u); }
   if (t < T.wide) {
     const u = E.p3io(prog(t, T.back, T.backEnd)), s = watchState(t);
-    const Ft = [s.xw, 0, armTop(s.xw) + 12], zt = kf(t, [[T.backEnd, 8.6], [T.fin, 8.9], [T.ka, 9.2], [T.wide, 9.6]], E.smooth);
-    if (u >= 1) return key(Ft, [540, 1080], zt, 0);
+    const Ft = [s.xw + 5 * Math.sin((t - T.backEnd) * 0.8), 0, armTop(s.xw) + 12], zt = 8.6 * Math.pow(11.2 / 8.6, prog(t, T.backEnd, T.wide));
+    if (u >= 1) return key(Ft, [540 + 8 * Math.sin((t - T.backEnd) * 1.1), 1080], zt, 0);
     return interpF([116, 0, -2], [540, 1000], 4.2, 90, Ft, [540, 1080], 8.6, 0, u, u, E.smooth(u));
   }
   if (t < T.end) {
-    const s = watchState(t), u = E.p3io(prog(t, T.wide, T.wideEnd)), z = lerp(2.35, 2.5, prog(t, T.wideEnd, T.end));
-    return interp(key([s.xw, 0, armTop(s.xw) + 12], [540, 1080], 9.6, 0), key([-110, 0, 0], [560, 1010], z, 0), u);
+    const s = watchState(t), u = E.p2io(prog(t, T.wide, T.move)), z = 2.3 * Math.pow(3.4 / 2.3, prog(t, T.wideEnd, T.end + 0.6)), px = -110 + 55 * prog(t, T.wideEnd, T.end);
+    return interp(key([-18, 0, armTop(-18) + 12], [540, 1080], 11.2, 0), key([px, 0, 0], [560, 1010], z, 0), u);
   }
   const s = watchState(t), F = watchFrame(t, s);
-  return interp(key([-110, 0, 0], [560, 1010], 2.5, 0), key([F.c[0], 0, F.c[2]], [232, 545], 4.4, 0), E.p3io(prog(t, T.end, T.endMorph)));
+  return interp(key([-110 + 55, 0, 0], [560, 1010], 2.3 * Math.pow(3.4 / 2.3, prog(T.end, T.wideEnd, T.end + 0.6)), 0), key([F.c[0], 0, F.c[2]], [232, 545], 4.4, 0), E.p3io(prog(t, T.end, T.endMorph)));
 }
 
 // ---------------------------------------------------------------- the light world
@@ -535,8 +535,9 @@ function faceUpNow(K, F) { return F.ez[1] * Math.sin(K.th) + F.ez[2] * Math.cos(
 
 // ---------------------------------------------------------------- the section (dark): sensor on top, skin, small vessels
 const SEC = { y0: 700, epi: 738, derm: 1095, led: 390, pd: 690, vy: 868, vr: 11 };
-function secPush(t) { return kf(t, [[T.flood, 0.86], [T.push1End, 1.06], [T.q4, 1.1], [T.q6, 1.16]], E.p2io); }
-function secT(t) { const s = secPush(t), cx = 540, cy = 900; ctx.setTransform(s, 0, 0, s, cx - s * cx, cy - s * cy); }
+function secPush(t) { return 0.86 * Math.pow(1.42 / 0.86, prog(t, T.flood, T.q6)); }
+function secDX(t) { return 34 * Math.sin((t - T.flood) * 0.55); }
+function secT(t) { const s = secPush(t), cx = 540, cy = 900; ctx.setTransform(s, 0, 0, s, cx - s * cx + secDX(t), cy - s * cy); }
 const vesselY = (x) => SEC.vy + 10 * Math.sin(x / 170 + 0.6);
 const CAPS = [[300, 820, 9], [770, 800, 8], [905, 990, 10], [180, 985, 9]];
 const PHOT = (() => {
@@ -615,7 +616,7 @@ function drawSection(t, a) {
   ctx.restore();
   ID(); ctx.restore();
 }
-function secPt(t, x, y) { const s = secPush(t); return [540 + s * (x - 540), 900 + s * (y - 900)]; }
+function secPt(t, x, y) { const s = secPush(t); return [540 + s * (x - 540) + secDX(t), 900 + s * (y - 900)]; }
 
 // ---------------------------------------------------------------- the trace card (screen space, under the picture)
 const CARD = { x0: 72, x1: 1008, y0: 1110, y1: 1390, px0: 210, px1: 790, win: 3.0 };
