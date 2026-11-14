@@ -9,7 +9,7 @@
 //   26–39.5 可你一跑起来呢？ (out, side view, the arm swings) → 光乱了 → 哪下是甩手？ → 加速度计 → 减掉甩手 → 120
 //   39.5–44 那戒指那么小？ (the hand opens, a ring; its section: green light into the finger)
 //   44–52.5 the watch off, back up (green), on again + 它不是在摸你的脉… (closing) → 小提示 (strap, towards the elbow)
-// 120 BPM: 1 beat = 0.5 s = 15 frames at 30 fps, 1 bar = 2 s; 56.25 s. Hearts: 80 / min (0.75 s) at rest, 120 / min (0.5 s) running.
+// 120 BPM: 1 beat = 0.5 s = 15 frames at 30 fps, 1 bar = 2 s; 56.0 s. Hearts: 80 / min (0.75 s) at rest, 120 / min (0.5 s) running.
 (function (root) {
   const BPM = 120, BEAT = 60 / BPM, BAR = 4 * BEAT, FPS = 30, DUR = 56.0;
   const W = 1080, H = 1920;
@@ -39,7 +39,7 @@
     q9: 44.0, back: 44.0, backEnd: 44.75, grab: 44.25, lift: 44.5, flip2: 44.75, flip2End: 45.25,
     stop2: 45.25, fin: 45.75, flip3: 45.75, flip3End: 46.25, ka: 46.25, finOut: 48.25,
     tip: 48.25, wide: 48.25, wideEnd: 49.25, tighten: 49.5, move: 50.0, moveEnd: 50.75, tipOut: 52.1,
-    // 52.5–56.25 end card
+    // 52.25–56.0 end card
     end: 52.25, endMorph: 52.85, title1: 53.0, ep: 53.75, sting: 54.25,
   };
 

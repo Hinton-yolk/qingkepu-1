@@ -583,10 +583,11 @@ function drawDetails(D, M, a = 1, filt = null) {
   ctx.save(); ctx.globalAlpha *= a; ctx.lineCap = "round"; ctx.lineJoin = "round";
   const poly_ = (c, dy = 0) => { ctx.beginPath(); c.forEach((p, i) => { const q = mapPt(M, [p[0], p[1] + dy]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }); };
   for (const c of D.creases) { if (filt && !filt(c[0])) continue; poly_(c); ctx.strokeStyle = "rgba(160,104,66,0.38)"; ctx.lineWidth = 2; ctx.stroke(); }
-  for (const c of D.gaps || []) {                                       // v3: the fingers are separate — a shadowed gap with a lit edge above it
-    poly_(c, -3.2); ctx.strokeStyle = "rgba(255,240,222,0.55)"; ctx.lineWidth = Math.max(1.5, 4 * sc); ctx.stroke();
-    poly_(c); ctx.strokeStyle = "rgba(132,82,48,0.7)"; ctx.lineWidth = Math.max(2, 4.5 * sc); ctx.stroke();
-  }
+  (D.gaps || []).forEach((c, gi) => {                                  // v3: the fingers are separate — a shadowed gap with a lit edge above it
+    const k = [0.75, 1, 0.6, 0.85][gi % 4];                               // v5 (audience v4): uneven, softer — less of a comb
+    poly_(c, -3.2); ctx.strokeStyle = `rgba(255,240,222,${0.4 * k})`; ctx.lineWidth = Math.max(1.5, 4 * sc * k); ctx.stroke();
+    poly_(c); ctx.strokeStyle = `rgba(132,82,48,${0.48 * k})`; ctx.lineWidth = Math.max(1.6, 3.6 * sc * k); ctx.stroke();
+  });
   for (const [cx, cy, ra, rb, an] of D.nailE || []) {
     if (filt && !filt([cx, cy])) continue;
     const c = mapPt(M, [cx, cy]), u = mapPt(M, [cx + Math.cos(an), cy + Math.sin(an)]), v = mapPt(M, [cx - Math.sin(an), cy + Math.cos(an)]);
@@ -1107,7 +1108,7 @@ function overlays(t, K, LW) {
       }
       ctx.restore();
       pill(COPY.caught, px + pw / 2, py + ph + 64, 44, t, T.b1 - 0.4, T.rate + 0.4, { align: "center", weight: 700 });
-      pill(COPY.dim, 96, 690, 44, t, T.b2 + 0.25, T.rate, { weight: 700 });   // v4 (audience v3 #1): which thing goes dark
+      pill(COPY.dim, 96, 702, 54, t, T.b2 + 0.25, T.rate, { weight: 700 });   // v4 (audience v3 #1): which thing goes dark
     }
   }
   // the tip: the wrist bone and the elbow side, named
@@ -1180,7 +1181,7 @@ function frame(t) {
   accMag(t, K, LW.F);
   ringMag(t, K, LW.ringP);
   overlays(t, K, LW);
-  if (t >= T.sub && t < T.q8) pill(COPY.simple, CARD.x1 - 24, CARD.y0 - 26, 44, t, T.sub, T.q8, { align: "right", weight: 700 });   // v4 (audience v3)
+  if (t >= T.sub && t < T.q8) pill(COPY.simple, CARD.x1 - 24, CARD.y0 - 26, 52, t, T.sub, T.q8, { align: "right", weight: 700 });   // v4 (audience v3)
   if (ir) {
     const nw = ir.into ? 1 : 0;
     ctx.save(); irisClip(ir, false); TXF = 1 - nw; textBand(t); ctx.restore();
