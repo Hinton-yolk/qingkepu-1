@@ -573,6 +573,12 @@ function drawArmTop(K, a) {
   drawPart(bandPts(K, xs, armRy, armRz), null, g);
   const z = TOPI.z, s = TOPI.s, u0 = TOPI.u0, v0 = TOPI.v0;
   const M = affine([[u0, v0], [u0 + 100 * s, v0], [u0, v0 + 100 * s]], [P3(K, [-6, 0, z]), P3(K, [94, 0, z]), P3(K, [-6, 100, z])]);
+  // v3: the hand has thickness — under a tilt its lower layers show below the back of the hand (no step where the forearm meets it)
+  if (Math.sin(K.th) > 0.05) {
+    const lay = (zl) => affine([[u0, v0], [u0 + 100 * s, v0], [u0, v0 + 100 * s]], [P3(K, [-6, 0, zl]), P3(K, [94, 0, zl]), P3(K, [-6, 100, zl])]);
+    pathPts(TOPHAND, lay(-20)); ctx.strokeStyle = "rgba(120,78,44,0.55)"; ctx.lineWidth = 2.6; ctx.stroke();
+    for (let zl = -20; zl < 18; zl += 1) { pathPts(TOPHAND, lay(zl)); ctx.fillStyle = mixHex("#C99D74", "#E2BC94", (zl + 20) / 38); ctx.fill(); }
+  }
   drawPart(TOPHAND, M, g);
   drawDetails(AM.top, M, 1, (p) => p[0] >= 1110);
   ctx.restore();
