@@ -18,7 +18,7 @@
 | 11 | 表带戴紧、戴在腕骨上面、别晃 | Garmin 手册：戴在腕骨上方，贴合但舒适，跑步时不要移动；Apple：「snug but comfortable」 | 〔官〕Garmin 手册（「above your wrist bone」「snug but comfortable」）https://www8.garmin.com/manuals/webhelp/venu/EN-US/GUID-F2E7E0A9-FB44-4297-BF4D-D0C31C400C45.html ；Apple https://support.apple.com/zh-cn/118234 ：「舒适贴合」「戴在腕骨以上（靠近肘部，而不是手部）」「锻炼时可以收紧，结束后放松」。**注意：「戴在腕骨上面」会被读成压在腕骨上，正是官方要纠正的戴法** |
 | 12 | 深色纹身可能测不准 | Apple 2015 年支持页：部分纹身的墨水、图案、饱和度会挡住传感器的光；实测深色实心墨水影响最大 | 〔官〕Apple 现行 https://support.apple.com/zh-cn/105002 ：「一些纹身所使用的色料、图案和饱和度可能会阻碍传感器检测到相应的光线」。官方没说「大面积深色」——「深色实心影响最大」出自 2015 年媒体实测（Engadget 转引 https://www.engadget.com/2015-05-01-apple-watch-tattoo-confirmation.html ）；片中小字用官方口径「有些纹身会挡光」 |
 | 13 | 戒指内圈两侧的小灯亮绿光（画面） | Oura 官方：Ring 4「Green and infrared LEDs … alternate to measure heart rate and HRV 24/7」，红光 + 红外测睡眠血氧；LED 在手指两侧 → 画面画内圈两侧的绿光有依据。各品牌不同，不点名 | 〔厂〕https://ouraring.com/blog/smart-sensing/ ；同 7（ring-technology 页只提红外，是旧说法） |
-| 14 | 读数 72 / 128（v2 建议改 80 / 120，示意） | 示意数字，不代表任何人的标准值 | — |
+| 14 | 读数 80 / 120（v2，示意；心跳间隔 0.75 / 0.5 秒对齐 120 BPM） | 示意数字，不代表任何人的标准值 | — |
 | 15 | 「这叫光电容积描记」（小字） | 方法名：光电容积描记（法）/ 光电容积脉搏波描记法，PPG；「脉搏波」是信号名。Apple 中文用「光体积描记法」 | 〔官〕https://support.apple.com/zh-cn/120277 ；〔综〕《医用生物力学》2024 https://search.napstic.cn/literature/periodical/010yyswlx202402025 |
 | 16 | 光在组织里的路径（画面） | 漫散射、弯曲路径，不是镜面反弹；绿光只到真皮浅层的小动脉和毛细血管网；也有研究认为绿光 PPG 主要来自动脉搏动对毛细血管床的挤压 | 〔综〕Kamshilin 2015 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4440202/ |
 | — | 「光眼睛」 | **类比**：指光电二极管，小字给出真名 | — |
