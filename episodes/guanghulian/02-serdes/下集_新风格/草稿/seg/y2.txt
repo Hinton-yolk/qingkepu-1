@@ -1,0 +1,5 @@
+file '../beats/y2_0.png'
+duration 2.797
+file '../beats/y2_1.png'
+duration 1.316
+file '../beats/y2_1.png'

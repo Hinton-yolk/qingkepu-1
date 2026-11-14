@@ -1,0 +1,341 @@
+{
+ "scene_dir": "episodes/guanghulian/02-serdes/下集_新风格/blender",
+ "script": "shot_open.py",
+ "out_dir": "episodes/guanghulian/02-serdes/下集_新风格/blender/out/cloud",
+ "sec_per_unit": 8,
+ "tasks": [
+  {
+   "args": [
+    "A",
+    "{out}/seq",
+    "1080",
+    "1920",
+    "64",
+    "cycles",
+    "gpu",
+    "look=r2",
+    "seq",
+    "fs=1",
+    "fe=12"
+   ],
+   "units": 12
+  },
+  {
+   "args": [
+    "A",
+    "{out}/seq",
+    "1080",
+    "1920",
+    "64",
+    "cycles",
+    "gpu",
+    "look=r2",
+    "seq",
+    "fs=13",
+    "fe=24"
+   ],
+   "units": 12
+  },
+  {
+   "args": [
+    "A",
+    "{out}/seq",
+    "1080",
+    "1920",
+    "64",
+    "cycles",
+    "gpu",
+    "look=r2",
+    "seq",
+    "fs=25",
+    "fe=36"
+   ],
+   "units": 12
+  },
+  {
+   "args": [
+    "A",
+    "{out}/seq",
+    "1080",
+    "1920",
+    "64",
+    "cycles",
+    "gpu",
+    "look=r2",
+    "seq",
+    "fs=37",
+    "fe=48"
+   ],
+   "units": 12
+  },
+  {
+   "args": [
+    "A",
+    "{out}/seq",
+    "1080",
+    "1920",
+    "64",
+    "cycles",
+    "gpu",
+    "look=r2",
+    "seq",
+    "fs=49",
+    "fe=60"
+   ],
+   "units": 12
+  },
+  {
+   "args": [
+    "A",
+    "{out}/seq",
+    "1080",
+    "1920",
+    "64",
+    "cycles",
+    "gpu",
+    "look=r2",
+    "seq",
+    "fs=61",
+    "fe=72"
+   ],
+   "units": 12
+  },
+  {
+   "args": [
+    "B",
+    "{out}/seq",
+    "1080",
+    "1920",
+    "64",
+    "cycles",
+    "gpu",
+    "look=r2",
+    "seq",
+    "fs=1",
+    "fe=12"
+   ],
+   "units": 12
+  },
+  {
+   "args": [
+    "B",
+    "{out}/seq",
+    "1080",
+    "1920",
+    "64",
+    "cycles",
+    "gpu",
+    "look=r2",
+    "seq",
+    "fs=13",
+    "fe=24"
+   ],
+   "units": 12
+  },
+  {
+   "args": [
+    "B",
+    "{out}/seq",
+    "1080",
+    "1920",
+    "64",
+    "cycles",
+    "gpu",
+    "look=r2",
+    "seq",
+    "fs=25",
+    "fe=36"
+   ],
+   "units": 12
+  },
+  {
+   "args": [
+    "B",
+    "{out}/seq",
+    "1080",
+    "1920",
+    "64",
+    "cycles",
+    "gpu",
+    "look=r2",
+    "seq",
+    "fs=37",
+    "fe=48"
+   ],
+   "units": 12
+  },
+  {
+   "args": [
+    "B",
+    "{out}/seq",
+    "1080",
+    "1920",
+    "64",
+    "cycles",
+    "gpu",
+    "look=r2",
+    "seq",
+    "fs=49",
+    "fe=60"
+   ],
+   "units": 12
+  },
+  {
+   "args": [
+    "B",
+    "{out}/seq",
+    "1080",
+    "1920",
+    "64",
+    "cycles",
+    "gpu",
+    "look=r2",
+    "seq",
+    "fs=61",
+    "fe=72"
+   ],
+   "units": 12
+  },
+  {
+   "args": [
+    "B",
+    "{out}/seq",
+    "1080",
+    "1920",
+    "64",
+    "cycles",
+    "gpu",
+    "look=r2",
+    "seq",
+    "fs=73",
+    "fe=84"
+   ],
+   "units": 12
+  },
+  {
+   "args": [
+    "B",
+    "{out}/seq",
+    "1080",
+    "1920",
+    "64",
+    "cycles",
+    "gpu",
+    "look=r2",
+    "seq",
+    "fs=85",
+    "fe=96"
+   ],
+   "units": 12
+  },
+  {
+   "args": [
+    "B",
+    "{out}/seq",
+    "1080",
+    "1920",
+    "64",
+    "cycles",
+    "gpu",
+    "look=r2",
+    "seq",
+    "fs=97",
+    "fe=108"
+   ],
+   "units": 12
+  },
+  {
+   "args": [
+    "B",
+    "{out}/seq",
+    "1080",
+    "1920",
+    "64",
+    "cycles",
+    "gpu",
+    "look=r2",
+    "seq",
+    "fs=109",
+    "fe=120"
+   ],
+   "units": 12
+  },
+  {
+   "args": [
+    "B",
+    "{out}/stills",
+    "1188",
+    "2112",
+    "64",
+    "cycles",
+    "gpu",
+    "look=r2",
+    "view=side",
+    "noband=1"
+   ],
+   "units": 2
+  },
+  {
+   "args": [
+    "B",
+    "{out}/stills",
+    "1188",
+    "2112",
+    "64",
+    "cycles",
+    "gpu",
+    "look=r2",
+    "view=count",
+    "noband=1"
+   ],
+   "units": 2
+  },
+  {
+   "args": [
+    "B",
+    "{out}/stills",
+    "1188",
+    "2112",
+    "64",
+    "cycles",
+    "gpu",
+    "look=r2",
+    "view=close",
+    "noband=1"
+   ],
+   "units": 2
+  },
+  {
+   "args": [
+    "B",
+    "{out}/stills",
+    "1188",
+    "2112",
+    "64",
+    "cycles",
+    "gpu",
+    "look=r2",
+    "view=wide",
+    "noband=1"
+   ],
+   "units": 2
+  },
+  {
+   "args": [
+    "B",
+    "{out}/stills",
+    "1188",
+    "2112",
+    "64",
+    "cycles",
+    "gpu",
+    "look=r2",
+    "view=rx",
+    "xray=1",
+    "noband=1"
+   ],
+   "units": 2
+  }
+ ],
+ "note": "和 render_package_win/start_render_cycles.bat 同一套参数（r2 + Cycles 64 采样，1080×1920 序列 + 1188×2112 静帧），序列按 12 帧一段分给多张卡"
+}

@@ -1,9 +1,14 @@
-﻿测试镜头三「光在芯片里走的路有多细？」· EEVEE 渲染包 · 2026-11-10（草稿版）
+﻿测试镜头三「光在芯片里走的路有多细？」· EEVEE 渲染包 · 2026-11-10（第二版：机房环境、从暖到冷）
 
-1. 解压到不含中文的路径（例如 D:\Render\scale\）。
-2. 先双击 preview_eevee.bat：试渲 5 帧，看速度和画面。把窗口截图和 preview 里的 5 张图发给 Claude。
-3. 速度可以的话，再双击 start_render_eevee.bat 渲整段（540 帧），把 output 里的 scale.mp4 和 anchors.json 发回。
-   字、角注、配乐在云端合成。
+1. 解压到不含中文的路径（例如 D:\Render\scale\）。需要 Blender 5.x（和云端测试用的 5.2.3 一致最好）。
+2. 先双击 preview_eevee.bat：试渲 6 帧，看速度和画面。把窗口截图和 preview 里的 6 张图发给 Claude。
+3. 速度可以的话，再双击 start_render_eevee.bat 渲整段（540 帧）。渲完会自动编码成 output\scale.mp4。
+   把 scale.mp4 和 anchors.json 发回；字、角注、配乐在云端合成。中途停了可以再双击，已渲的帧会跳过。
+   output\frames 里的帧约占 2–3 GB 磁盘空间，渲完可以删。需要 Blender 5.0 或更新版本。
 
-说明：这是第一版草稿场景，材质和细节还比较「模型感」，先看构图、节奏和速度。
-assets 里的 label_font.otf 是思源黑体（SIL OFL 开源字体）的子集，只含标签用到的字。
+这一版改了什么：交换机放进机房（身后一排排机柜、指示灯、雾），前景少量灰尘，全程浅景深，
+相机慢慢滚转；颜色从机房的暖金过渡到芯片里的冷调；交换机和光模块补了细节（冲孔面板、笼子、
+MPO 跳线、电路板走线、电容、手机背面摄像头）。
+
+素材说明：assets_dl 里的 HDRI 和金属贴图来自 Poly Haven（CC0，可自由使用）；assets 里的 png 是脚本生成的
+示例贴图；label_font.otf 是思源黑体（SIL OFL 开源字体）的子集，只含标签用到的字。
