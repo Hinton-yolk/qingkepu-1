@@ -616,6 +616,12 @@ function drawArmTop(K, a) {
   ctx.save(); pathPts(TH, lay(z)); ctx.clip(); drawDetails(AM.top, lay(z), 1, (p) => p[0] >= 1110); ctx.restore();   // v3.1: details stay inside
   ctx.restore();
 }
+// v4: the arm part of the side outline (well behind the fist) is smoothed with a moving average — a softer inside of the elbow
+function softArm(P, w = 7, passes = 3) {
+  const lim = FISTBOX.u1 - 320;
+  for (let it = 0; it < passes; it++) { const Q = P.map((p, i) => { if (p[0] > lim) return p; let x = 0, y = 0; for (let j = -w; j <= w; j++) { const q = P[(i + j + P.length) % P.length]; x += q[0]; y += q[1]; } return [x / (2 * w + 1), y / (2 * w + 1)]; }); P = Q; }
+  return P;
+}
 function chaikin(P, n) { for (let it = 0; it < n; it++) { const Q = []; for (let i = 0; i < P.length; i++) { const a = P[i], b = P[(i + 1) % P.length]; Q.push([0.75 * a[0] + 0.25 * b[0], 0.75 * a[1] + 0.25 * b[1]], [0.25 * a[0] + 0.75 * b[0], 0.25 * a[1] + 0.75 * b[1]]); } P = Q; } return P; }
 // the fist's front (image px): its right-most part; the knuckle ridge runs top → bottom a little behind it
 const FISTBOX = (() => { let u1 = -1e9, v0 = 1e9, v1 = -1e9; for (const [u, v] of AM.MORPH.fist) u1 = Math.max(u1, u); for (const [u, v] of AM.MORPH.fist) if (u > u1 - 140) { v0 = Math.min(v0, v); v1 = Math.max(v1, v); } return { u1, v0, v1 }; })();
@@ -639,7 +645,7 @@ function drawArmSide(K, a, k) {
   const M = sideM(K);
   ctx.save(); ctx.globalAlpha *= a;
   // fist ↔ open: the same arm; the hand outline morphs (both resampled to the same points by tools/model.py)
-  const P = chaikin(AM.MORPH.fist.map((p, i) => { const q = AM.MORPH.open[i]; return [lerp(p[0], q[0], k), lerp(p[1], q[1], k)]; }), 2);   // v4: corners rounded (the inside of the elbow)
+  const P = chaikin(softArm(AM.MORPH.fist.map((p, i) => { const q = AM.MORPH.open[i]; return [lerp(p[0], q[0], k), lerp(p[1], q[1], k)]; })), 2);   // v4: corners rounded (the inside of the elbow)
   const x = -18, zc = armZc(x), rz = armRz(x);
   drawPart(P, M, skinGrad(P3(K, [x, 0, zc + rz]), P3(K, [x, 0, zc - rz])));
   // the sleeve (the grey of the photos), going on up out of frame
@@ -668,7 +674,7 @@ function drawArmSide(K, a, k) {
 }
 function drawLight(t, K) {
   const endFade = t >= T.end ? E.p2io(prog(t, T.end, T.endMorph)) : 0;
-  ID(); ctx.fillStyle = C.ground; ctx.fillRect(0, 0, W, H);
+  ID(); ctx.fillStyle = mixHex(C.ground, C.dark, diveDark(t)); ctx.fillRect(0, 0, W, H);   // v4: the world dims as the camera goes in
   ALPHA = armAngle(t);
   const side = sideK(K), s = watchState(t);
   ctx.save(); ctx.globalAlpha = 1 - endFade;
@@ -984,7 +990,7 @@ function scrim(t) {
   scrimOf(t, Math.max(flood(t), diveDark(t)));
 }
 // v4: during the dive the case fills the top of the frame — the caption band turns dark with it (no grey veil over the case)
-function diveDark(t) { return t < T.pitch || t >= T.floodEnd + 0.5 ? 0 : E.smooth(prog(t, T.pitch + 0.35, T.pitch + 0.95)); }
+function diveDark(t) { return t < T.pitch || t >= T.floodEnd + 0.5 ? 0 : E.smooth(prog(t, T.pitch + 0.55, T.pitch + 1.05)); }
 function scrimOf(t, fl) {
   const STOPS = [[0, 1], [0.66, 1], [0.74, 0.86], [0.82, 0.56], [0.9, 0.24], [1, 0]];
   if (fl > 0.02) { ID(); const g = ctx.createLinearGradient(0, 0, 0, 800); STOPS.forEach(([o, k]) => g.addColorStop(o, `rgba(23,25,28,${fl * k})`)); ctx.fillStyle = g; ctx.fillRect(0, 0, W, 800); }
@@ -1112,7 +1118,7 @@ function frame(t) {
   if (!LW) { ALPHA = armAngle(t); const s = watchState(t); LW = { F: watchFrame(t, s), ringP: null }; }
   // the trace card, with its leader to the light eye (section) or to the device (outside)
   const inSec = fl > 0.5;
-  let target = inSec ? null : P3(K, LW.F.c);   // v3: no dashed leader across the skin in the section (it read as a light path)
+  let target = inSec ? null : P3(K, LP(LW.F, 0, WT.hy + 1.5, 0));   // v4: to the case's lower edge, not across the numbers   // v3: no dashed leader across the skin in the section (it read as a light path)
   if (target && t >= T.curveSlide && LW.ringP) { const u = E.p2io(prog(t, T.curveSlide, T.curveSlideEnd)); const r = [770, 760 + 205]; target = [lerp(target[0], r[0], u), lerp(target[1], r[1], u)]; }
   drawCard(t, !inSec, target);
   scrim(t);
