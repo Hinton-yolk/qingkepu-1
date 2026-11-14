@@ -162,8 +162,15 @@ def main():
     max_h = float(opt('--max-hours', 1.5))
     if '--yes' not in a:
         raise SystemExit('要真的租卡，加 --yes')
-    data = bundle(in_dir)
-    print(f'输入包 {len(data) / 1e6:.1f} MB')
+    # --wait-for a,b,c：先开机（装环境、下权重和本机出素材同时进行），这些文件都到了输入目录才打包上传
+    need = [x for x in (opt('--wait-for') or '').split(',') if x]
+    def ready():
+        return all(os.path.exists(os.path.join(in_dir, x)) for x in need)
+    data = bundle(in_dir) if ready() else None
+    if data is not None:
+        print(f'输入包 {len(data) / 1e6:.1f} MB')
+    else:
+        print('输入还没齐，先开机，齐了再上传：', need, flush=True)
     os.makedirs(out_dir, exist_ok=True)
     token = secrets.token_urlsafe(24)
     body = dict(name=f'{PREFIX}0', imageName=IMAGE, gpuTypeIds=opt('--gpu', GPUS).split(','), gpuTypePriority='custom', gpuCount=1,
@@ -186,7 +193,11 @@ def main():
                 st = dict(stage=f'连不上（{type(e).__name__}）', files=[])
             if st.get('has_bundle'):
                 uploaded = True
-            elif not uploaded and 'has_bundle' in st:
+            elif not uploaded and 'has_bundle' in st and (data is not None or ready()):
+                if data is None:
+                    time.sleep(3)                      # 等最后一个文件写完
+                    data = bundle(in_dir)
+                    print(f'输入包 {len(data) / 1e6:.1f} MB', flush=True)
                 pod_http(pid, token, 'PUT', '/bundle', data, timeout=120)
                 uploaded = True
                 print('输入已上传', flush=True)
