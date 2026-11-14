@@ -434,11 +434,16 @@ function drawWatch(t, K, s, o = {}) {
     ctx.restore(); rr(-WT.hx + 1.8, -WT.hy + 1.8, 2 * WT.hx - 3.6, 2 * WT.hy - 3.6, WT.r - 1.8); ctx.lineWidth = 0.5; ctx.strokeStyle = "rgba(255,255,255,0.22)"; ctx.stroke();
     const on = t >= T.scrOn ? E.p3out(prog(t, T.scrOn, T.scrOn + 0.25)) : 0;
     if (on > 0.01) {
-      const p = pulseAt(t, T.beat0), sc = 1 + 0.16 * p;
-      ctx.save(); ctx.globalAlpha = on; ctx.translate(-8.5, -0.5); ctx.scale(sc, sc); heartPath(0, 0, 5.6); ctx.fillStyle = C.acc; ctx.fill(); ctx.restore();
+      const p = pulseAt(t, T.beat0), sc = 1 + 0.16 * p, mk = mountK(t);
+      if (mk > 0.01) {                                                   // v4.1: seen small from the side — a lit screen edge and one big heart read as 「表盘朝你」
+        ctx.save(); ctx.globalAlpha = on * mk; rr(-WT.hx + 2.4, -WT.hy + 2.4, 2 * WT.hx - 4.8, 2 * WT.hy - 4.8, WT.r - 2.4); ctx.lineWidth = 1.6; ctx.strokeStyle = "rgba(241,240,236,0.75)"; ctx.stroke();
+        const g = ctx.createRadialGradient(0, 0, 2, 0, 0, 22); g.addColorStop(0, "rgba(255,120,80,0.28)"); g.addColorStop(1, "rgba(255,120,80,0)"); ctx.fillStyle = g; ctx.fillRect(-WT.hx, -WT.hy, 2 * WT.hx, 2 * WT.hy);
+        ctx.translate(0, 0.5); ctx.scale(sc, sc); heartPath(0, 0, 10.5); ctx.fillStyle = C.acc; ctx.fill(); ctx.restore();
+      }
+      ctx.save(); ctx.globalAlpha = on * (1 - mk); ctx.translate(-8.5, -0.5); ctx.scale(sc, sc); heartPath(0, 0, 5.6); ctx.fillStyle = C.acc; ctx.fill(); ctx.restore();
       ctx.globalAlpha = on; ctx.font = `700 11px ${UI}`; ctx.fillStyle = C.paper; ctx.textAlign = "left"; ctx.textBaseline = "middle";
       const running = t >= T.run && t < T.stopEnd + 0.4;
-      if (!running) ctx.fillText(String(HR_REST), -1.8, 0.6);
+      ctx.globalAlpha = on * (1 - mountK(t)); if (!running) ctx.fillText(String(HR_REST), -1.8, 0.6);
       ctx.globalAlpha = 1;
     }
   } else {
@@ -674,7 +679,7 @@ function drawArmSide(K, a, k) {
 }
 function drawLight(t, K) {
   const endFade = t >= T.end ? E.p2io(prog(t, T.end, T.endMorph)) : 0;
-  ID(); ctx.fillStyle = mixHex(C.ground, C.dark, diveDark(t)); ctx.fillRect(0, 0, W, H);   // v4: the world dims as the camera goes in
+  ID(); ctx.fillStyle = C.ground; ctx.fillRect(0, 0, W, H);
   ALPHA = armAngle(t);
   const side = sideK(K), s = watchState(t);
   ctx.save(); ctx.globalAlpha = 1 - endFade;
@@ -766,6 +771,7 @@ function drawSection(t, a) {
   g.addColorStop(0, C.epi); g.addColorStop(f(SEC.epi), C.epi); g.addColorStop(f(SEC.epi + 6), C.derm);
   g.addColorStop(f(SEC.derm), C.dermD); g.addColorStop(f(SEC.derm + 30), C.fat); g.addColorStop(f(1500), "#E9D08E"); g.addColorStop(f(1560), "#B9645E"); g.addColorStop(1, "#8E4A48");
   ctx.fillStyle = g; ctx.fillRect(-4000, SEC.y0, W + 8000, YB - SEC.y0);
+  ctx.fillStyle = "#8E4A48"; ctx.fillRect(-4000, YB - 1, W + 8000, 6000);   // v4.1: deep tissue goes on below (the dive sees it at small scale)
   // fat lobules (big, soft, few — no dense pattern)
   ctx.strokeStyle = "rgba(190,160,90,0.45)"; ctx.lineWidth = 3;
   for (const [x, y, rx, ry] of [[120, 1290, 150, 110], [430, 1330, 170, 120], [760, 1300, 160, 115], [1000, 1340, 150, 120], [280, 1470, 160, 70], [640, 1480, 170, 70]]) { ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU); ctx.stroke(); }
@@ -990,7 +996,11 @@ function scrim(t) {
   scrimOf(t, Math.max(flood(t), diveDark(t)));
 }
 // v4: during the dive the case fills the top of the frame — the caption band turns dark with it (no grey veil over the case)
-function diveDark(t) { return t < T.pitch || t >= T.floodEnd + 0.5 ? 0 : E.smooth(prog(t, T.pitch + 0.55, T.pitch + 1.05)); }
+function diveDark(t) {
+  if (t < T.pitch || t >= T.floodEnd + 0.5) return 0;
+  const K = cam(t), top = proj(K, LEDW[0], 0, LEDW[2] + WT.th)[1];       // the top of the case on screen
+  return E.smooth(clamp((640 - top) / 140));                             // dark once the case is under the captions
+}
 function scrimOf(t, fl) {
   const STOPS = [[0, 1], [0.66, 1], [0.74, 0.86], [0.82, 0.56], [0.9, 0.24], [1, 0]];
   if (fl > 0.02) { ID(); const g = ctx.createLinearGradient(0, 0, 0, 800); STOPS.forEach(([o, k]) => g.addColorStop(o, `rgba(23,25,28,${fl * k})`)); ctx.fillStyle = g; ctx.fillRect(0, 0, W, 800); }
@@ -1060,8 +1070,8 @@ function overlays(t, K, LW) {
         ctx.beginPath(); ctx.ellipse(px + pw / 2, py + ph / 2, pw / 2 + 10 + 12 * q, ph / 2 + 10 + 12 * q, 0, 0, TAU); ctx.stroke();
       }
       ctx.restore();
-      pill(COPY.caught, px + pw / 2, py + ph + 62, 40, t, T.b1 - 0.4, T.rate + 0.4, { align: "center", weight: 700 });
-      pill(COPY.dim, 96, 640, 44, t, T.b2 + 0.25, T.rate, { weight: 700 });   // v4 (audience v3 #1): which thing goes dark
+      pill(COPY.caught, px + pw / 2, py + ph + 64, 44, t, T.b1 - 0.4, T.rate + 0.4, { align: "center", weight: 700 });
+      pill(COPY.dim, 96, 690, 44, t, T.b2 + 0.25, T.rate, { weight: 700 });   // v4 (audience v3 #1): which thing goes dark
     }
   }
   // the tip: the wrist bone and the elbow side, named
@@ -1114,6 +1124,15 @@ function frame(t) {
   if (ir) {
     if (ir.into) { light(); ctx.save(); irisClip(ir, true); drawSection(t, 1); ctx.restore(); }
     else { drawSection(t, 1); ctx.save(); irisClip(ir, true); light(); ctx.restore(); }
+  } else if (t >= T.pitch && t < T.floodEnd) {                         // v4.1: the dive — no grey dissolve
+    light();
+    const yc = proj(K, ...LEDW)[1], grow = E.smooth(prog(t, T.flood, T.flood + 0.65)), depth = grow * (H - yc + 60);
+    if (grow > 0.001) {                                                  // the tissue grows down from the contact line, as the light goes in
+      ctx.save(); ID(); ctx.beginPath(); ctx.rect(0, yc - 2, W, depth); ctx.clip(); drawSection(t, 1); ctx.restore();
+      ctx.save(); ID(); ctx.beginPath(); ctx.rect(0, yc - 2 + depth, W, 70); ctx.clip(); drawSection(t, 0.45); ctx.restore();   // a soft front
+    }
+    const top = E.smooth(prog(t, T.floodEnd - 0.3, T.floodEnd));      // above the line: the case (dark) becomes the section's case (dark)
+    if (top > 0.001) { ctx.save(); ID(); ctx.beginPath(); ctx.rect(0, 0, W, Math.max(0, yc - 2)); ctx.clip(); drawSection(t, top); ctx.restore(); }
   } else if (fl < 0.999) { light(); if (fl > 0.001) drawSection(t, fl); } else drawSection(t, 1);
   if (!LW) { ALPHA = armAngle(t); const s = watchState(t); LW = { F: watchFrame(t, s), ringP: null }; }
   // the trace card, with its leader to the light eye (section) or to the device (outside)
@@ -1125,7 +1144,7 @@ function frame(t) {
   accMag(t, K, LW.F);
   ringMag(t, K, LW.ringP);
   overlays(t, K, LW);
-  if (t >= T.sub && t < T.q8) pill(COPY.simple, CARD.x1 - 24, CARD.y0 - 26, 40, t, T.sub, T.q8, { align: "right", weight: 700 });   // v4 (audience v3)
+  if (t >= T.sub && t < T.q8) pill(COPY.simple, CARD.x1 - 24, CARD.y0 - 26, 44, t, T.sub, T.q8, { align: "right", weight: 700 });   // v4 (audience v3)
   if (ir) {
     const nw = ir.into ? 1 : 0;
     ctx.save(); irisClip(ir, false); TXF = 1 - nw; textBand(t); ctx.restore();
