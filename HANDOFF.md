@@ -1,3 +1,16 @@
+# 环境更新（2026-11-14 晚，新对话；取代下面「二、环境」里关于环境和密钥的说法）
+- 用户在新对话里说「继续在happy-goodall上做」：仍在本分支工作。02 线（`claude/wonderful-lamport-vyi0q3`）没有并进来，免得混进 PR #3；两条线的合并版留在 `claude/determined-galileo-fx1123` 备查。
+- 这个账号下原先只有 Default 环境（网络 Unrestricted、没有启动脚本、**没有任何网络密钥**）；旧账号的「kepu-studio」环境这里看不到。
+- 新建了个人环境 **kepu-studio**（用户已批准）：
+  - 放行 download.blender.org、dl.polyhaven.org、api.polyhaven.com、drive.usercontent.google.com、rest.runpod.io、generativelanguage.googleapis.com、api.fish.audio、auth.openai.com、chatgpt.com、api.openai.com、github.com、objects / release-assets.githubusercontent.com；包管理器放行。
+  - 启动脚本装 Blender 依赖、思源黑体 / 霞鹜文楷（apt）、得意黑 v2.0.1、Blender 5.2.3（`/opt/blender/…`，链接 `/usr/local/bin/blender`）、opencv-python-headless、librosa、Codex CLI。在容器里跑过两遍，Cycles 渲一帧通过。
+  - `*.proxy.runpod.net` 是通配符，agent 加不了：要用户在 Settings 里加，或改成 Unrestricted。
+  - 那个对话本身留在 Default（Unrestricted）上，没切过去；以后的对话请选 kepu-studio。
+- 网络密钥（Fish Audio、RunPod、Gemini）这个账号下都还没配，用到时用 `request_credential` 向用户要；Gemini 的 `x-goog-api-key` 头要用户在 Settings 里手动加。LTX PoC 04 还要用户在 RunPod 控制台建 Secret `hf_token`。
+- Codex CLI 0.169.0 已装，没登录。
+
+---
+
 # 最新进展（2026-11-14，换 Claude 账号；先读这一节）
 
 用户把项目迁到新的 Claude 账号。GitHub 仓库、PR #3、Google Drive 审核文件夹都没变。**这一节取代下面「2026-11-13，T6-Story 进行中」的说法。**
