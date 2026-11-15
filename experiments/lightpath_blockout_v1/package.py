@@ -13,7 +13,7 @@ FR = os.path.join(HERE, 'out', 'frames')
 D = os.path.join(HERE, 'deliver')
 SHOTS = [('S01', 'departure'), ('S02', 'electrical'), ('S03', 'modulation'),
          ('S04', 'fiber'), ('S05', 'reception'), ('S06', 'arrival')]
-HERO = {'S01': 110, 'S02': 75, 'S03': 80, 'S04': 100, 'S05': 70, 'S06': 100}   # principal-action local frames
+HERO = {'S01': 110, 'S02': 75, 'S03': 60, 'S04': 85, 'S05': 70, 'S06': 100}   # principal-action local frames
 os.makedirs(os.path.join(D, 'shots'), exist_ok=True)
 os.makedirs(os.path.join(D, 'reference_frames'), exist_ok=True)
 missing = [f for f in range(1, 901) if not os.path.exists(os.path.join(FR, f'f{f:04d}.png'))]

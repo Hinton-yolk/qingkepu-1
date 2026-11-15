@@ -1,3 +1,17 @@
+# 交接（2026-11-15 晚，LIGHTPATH 30 秒 Blockout；先读这一节，再读下面 11-15 一节）
+
+- 分支：`claude/optimistic-faraday-7ux180`（已合并 `claude/happy-goodall-o47ilg` 的全部内容，PoC 文件原样）。
+- 任务：用户转来导演 ChatGPT 的《PROJECT LIGHTPATH — 30s Cinematic Blockout V1.0》，只做 Blender 灰盒。**已交付，停点：等用户和导演看片。** 不做写实、Cycles、GPT 图、LTX、Seedance。
+- 目录：`experiments/lightpath_blockout_v1/`
+  - `build_scene.py`：生成整个场景（两台机柜 + 两台同型号服务器 + 两只同型号光模块 + 光纤 + 6 台相机 + 信号动画），也能出静帧（`stills`）、逐帧穿模检查（`check`）、投影检查（`proj`）、渲染（`anim 起 止`，可多进程分段并行）。
+  - `package.py`：从 `out/frames/` 出总片、6 个单镜、18 张参考帧、接触表、SHA256。
+  - `REVIEW_REPORT.md`（逐镜说明、转场、自检、已知问题、刻意的简化）、`OBJECTS.md`（物体与真实硬件对照）。
+  - mp4 不进仓库，发给了用户；参考帧和接触表在 `deliver/`。
+- 最大的待定：S06 结尾 GPU B 不够大（报告第 8 节给了 A/B/C 三种改法，等导演定）。
+- 坑：多个 Blender 进程同时 `save_as_mainfile` 会撞车（「Cannot change old file」），所以 `anim` 模式不存 .blend，要存就单独跑 `-- save`。
+
+---
+
 # 交接（2026-11-15，新对话先读这一节；它取代下面所有旧节里关于环境、密钥和进度的说法）
 
 ## 0. 新对话开头做什么

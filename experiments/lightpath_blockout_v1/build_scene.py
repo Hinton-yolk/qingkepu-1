@@ -57,13 +57,14 @@ C_SI = (0.30, 0.31, 0.34, 1)             # photonic chip (PIC)
 C_WG = (0.48, 0.50, 0.54, 1)             # waveguide ridge (inactive)
 C_PAD = (0.62, 0.62, 0.60, 1)            # metal pads / electrodes / bond wires
 C_FIBER = (0.70, 0.74, 0.78, 0.28)       # translucent fiber jacket / coating
-C_CABLE = (0.62, 0.66, 0.72, 0.30)
+C_CABLE = (0.20, 0.21, 0.23, 0.55)
 C_PLUG = (0.42, 0.44, 0.47, 1)
 C_BOOT = (0.30, 0.31, 0.33, 1)
 
 # ------------------------------------------------------------------ layout constants (cm)
-CX_A, CX_B = -32.0, 32.0                 # rack / server centre x
-LANE_DX = -6.0                           # the used lane (GPU, NIC, cage) sits at server cx + LANE_DX
+CX_A, CX_B = 32.0, -32.0                 # rack / server centre x (A on screen-left of the front-facing wide shots)
+LANE_DX = +6.0                           # the used lane (GPU, NIC, cage) sits at server cx + LANE_DX
+NB_DX = -10.0                            # neighbour accelerator on the same board
 XL_A, XL_B = CX_A + LANE_DX, CX_B + LANE_DX
 SRV_Z0 = 186.0                           # chassis floor bottom (top server slot)
 PCB_TOP = 187.5
@@ -79,7 +80,7 @@ PIC_TOP = 187.91
 WG_R = 0.0125                            # drawn waveguide radius (hugely enlarged; see report)
 WG_Z = PIC_TOP + WG_R
 FIB_Z = 188.25                           # MPO / cable centre height
-CABLE_R = 0.18
+CABLE_R = 0.22
 PAIR_DX = [-1.05, -0.35, 0.35, 1.05]     # board diff pairs relative to lane x; index 1 is the story lane
 PAIR_HALF = 0.09                         # half spacing of the two lines of a pair
 REP = 1                                  # representative pair index
@@ -473,15 +474,15 @@ def build_server(S, cx):
     gpu_c = coll(f'GPU_{S}', bd)
     die = gpu(f'GPU_{S}', xl, GPU_Y, gpu_c)
     nb_c = coll(f'GPU_{S}_neighbor', bd)
-    gpu(f'GPU_{S}_neighbor', cx + 10, GPU_Y, nb_c)
+    gpu(f'GPU_{S}_neighbor', cx + NB_DX, GPU_Y, nb_c)
     # VRM inductors around the GPUs
     vr = coll(f'VRM_{S}', bd)
     for i in range(8):
-        box(f'VRM_{S}_L{i}', vr, xl - 6.2, xl - 5.4, -4.4 + i * 1.15 - 0.4, -4.4 + i * 1.15 + 0.4, PCB_TOP,
+        box(f'VRM_{S}_L{i}', vr, xl + 5.4, xl + 6.2, -4.4 + i * 1.15 - 0.4, -4.4 + i * 1.15 + 0.4, PCB_TOP,
             PCB_TOP + 0.65, C_METAL_DK)
         box(f'VRM_{S}_B{i}', vr, xl - 4.2 + i * 1.15 - 0.4, xl - 4.2 + i * 1.15 + 0.4, -6.4, -5.6, PCB_TOP,
             PCB_TOP + 0.65, C_METAL_DK)
-        box(f'VRM_{S}_N{i}', vr, cx + 10 - 4.2 + i * 1.15 - 0.4, cx + 10 - 4.2 + i * 1.15 + 0.4, -6.4, -5.6,
+        box(f'VRM_{S}_N{i}', vr, cx + NB_DX - 4.2 + i * 1.15 - 0.4, cx + NB_DX - 4.2 + i * 1.15 + 0.4, -6.4, -5.6,
             PCB_TOP, PCB_TOP + 0.65, C_METAL_DK)
     # NIC
     nic_c = coll(f'NIC_{S}', bd)
@@ -500,7 +501,7 @@ def build_server(S, cx):
             continue
         if abs(px - xl) < GPU_HALF + 0.3 and abs(py - GPU_Y) < GPU_HALF + 0.3:
             continue
-        if abs(px - cx - 10) < GPU_HALF + 0.3 and abs(py - GPU_Y) < GPU_HALF + 0.3:
+        if abs(px - cx - NB_DX) < GPU_HALF + 0.3 and abs(py - GPU_Y) < GPU_HALF + 0.3:
             continue
         if abs(px - xl) < 6.6 and -6.9 < py < 5:
             continue
@@ -517,12 +518,12 @@ def build_server(S, cx):
     bt = coll(f'BG_TRACES_{S}', bd)
     for k in range(10):
         y = -9 - k * 0.35
-        curve_obj(f'BG_TRACE_{S}_{k}', bt, [(xl - 3.5, y, PCB_TOP), (cx + 6.5, y, PCB_TOP)], 0, C_TRACE,
+        curve_obj(f'BG_TRACE_{S}_{k}', bt, [(cx - 6.5, y, PCB_TOP), (xl + 3.5, y, PCB_TOP)], 0, C_TRACE,
                   flat=(0.07, 0.006))
     for k in range(8):
-        x = cx + 4 + k * 0.35
+        x = cx - 8 + k * 0.35
         curve_obj(f'BG_TRACE_{S}_v{k}', bt, [(x, 5.0, PCB_TOP), (x, 30.0 - k * 0.3, PCB_TOP),
-                                             (x + 3, 33.0 - k * 0.3, PCB_TOP), (x + 3, 36.0, PCB_TOP)], 0, C_TRACE,
+                                             (x - 3, 33.0 - k * 0.3, PCB_TOP), (x - 3, 36.0, PCB_TOP)], 0, C_TRACE,
                   flat=(0.07, 0.006))
 
     # ---- lane traces: GPU -> NIC (4 pairs) and NIC -> cage (4 pairs)
@@ -693,8 +694,9 @@ def build_fiber():
         box(f'FIBER_MPO_boot_{S}', c, xl - 0.4, xl + 0.4, y0 + 1.5, y0 + 3.0, FIB_Z - 0.2, FIB_Z + 0.2, C_BOOT)
         ends[S] = (xl, y0 + 3.0, FIB_Z)
     (xa, ya, za), (xb, yb, zb) = ends['A'], ends['B']
-    route = fillet([(xa, ya, za), (xa, 54.5, za), (xa, 54.5, 184.0), (xa + 7, 49.5, 181.2), (xb - 7, 49.5, 181.2),
-                    (xb, 54.5, 184.0), (xb, 54.5, zb), (xb, yb, zb)], 3.5, 14)
+    sg = 1 if xb > xa else -1
+    route = fillet([(xa, ya, za), (xa, 54.5, za), (xa, 54.5, 184.0), (xa + sg * 7, 49.5, 181.2),
+                    (xb - sg * 7, 49.5, 181.2), (xb, 54.5, 184.0), (xb, 54.5, zb), (xb, yb, zb)], 3.5, 14)
     cable = curve_obj('FIBER_ROUTE_cable', c, route, CABLE_R, C_CABLE)
     return route, cable
 
@@ -821,10 +823,10 @@ def build():
     # ---------------------------------------------------------- S04: fiber route A -> B
     L_route = path_len(route)
     pk4 = Packet(f0=G(4, 1) - 3.0 / 0.72, v=0.72, slot=0.72 * 4.2)
-    pulse_curves('SIG_O_fiber', sig, route, 0.0, pk4, frange(4), CABLE_R * 0.45, C_CYAN)
+    pulse_curves('SIG_O_fiber', sig, route, 0.0, pk4, frange(4), CABLE_R * 0.6, C_CYAN)
     # link-established core line, fades in during the S06 pull-back (closure)
-    link = curve_obj('SIG_O_fiber_link_core', sig, route, CABLE_R * 0.32, C_CYAN)
-    color_track(link, frange(6), lambda f: (*C_CYAN[:3], min(max((f - G(6, 108)) / 28, 0), 1) * 0.85),
+    link = curve_obj('SIG_O_fiber_link_core', sig, route, CABLE_R * 0.5, C_CYAN)
+    color_track(link, frange(6), lambda f: (*C_CYAN[:3], min(max((f - G(6, 108)) / 28, 0), 1)),
                 (*C_CYAN_DIM[:3], 0.0))
     key_visible_ranges(link, [(G(6, 100), G(6, 150))])
 
@@ -967,14 +969,14 @@ def build_cameras():
     ]))
     # S04 THE OPTICAL PATH — from TX connector, accelerate along the cable, reveal racks, arrive at RX connector
     cams.append(make_camera(4, [
-        (-10, (A - 2.6, 44.6, 191.3), (A + 0.2, 50.5, 187.6), 30),
-        (1, (A - 2.6, 45.0, 191.2), (A + 0.2, 51.2, 187.4), 30),
-        (30, (A - 4.0, 49.0, 193.0), (A + 0.6, 54.0, 185.5), 30),
-        (70, (A - 34.0, 100.0, 216.0), (A + 22.0, 49.0, 184.0), 22),
-        (100, (-30.0, 108.0, 218.0), (B - 26.0, 49.5, 183.5), 22),
-        (135, (B - 9.0, 64.0, 195.5), (B, 50.0, 186.8), 28),
-        (150, (B - 3.4, 56.6, 192.6), (B, 48.6, 188.1), 30),
-        (162, (B - 3.0, 56.1, 192.4), (B, 48.3, 188.15), 30),
+        (-10, (A + 2.6, 44.6, 191.3), (A - 0.2, 50.5, 187.6), 30),
+        (1, (A + 2.6, 45.0, 191.2), (A - 0.2, 51.2, 187.4), 30),
+        (30, (A + 4.0, 49.0, 193.0), (A - 0.6, 54.0, 185.5), 30),
+        (70, (A + 30.0, 92.0, 224.0), (A - 24.0, 49.5, 182.0), 22),
+        (100, (36.0, 98.0, 226.0), (-2.0, 49.5, 182.0), 22),
+        (135, (B + 9.0, 64.0, 195.5), (B, 50.0, 186.8), 28),
+        (150, (B + 3.4, 56.6, 192.6), (B, 48.6, 188.1), 30),
+        (162, (B + 3.0, 56.1, 192.4), (B, 48.3, 188.15), 30),
     ]))
     # S05 OPTICAL RECEPTION — cutaway module B, mirror of S03 (looking −Y): PD, then the electrical departure
     cams.append(make_camera(5, [
@@ -992,9 +994,9 @@ def build_cameras():
         (1, (lpb + 1.0, 38.4, 190.5), (lpb, 30.8, 187.5), 24),
         (35, (lpb + 1.0, 32.0, 190.3), (lpb, 22.0, 187.5), 24),
         (100, (lpb + 1.6, 15.5, 190.4), (B, 2.0, 187.8), 24),
-        (125, (B + 26.0, 14.0, 212.0), (B - 6.0, 6.0, 187.0), 20),
-        (150, (84.0, 12.0, 250.0), (2.0, 22.0, 186.0), 16.5),
-        (162, (86.5, 12.0, 252.5), (1.2, 22.3, 186.0), 16.5),
+        (125, (B - 4.0, 52.0, 222.0), (B + 6.0, 6.0, 187.0), 20),
+        (150, (-42.0, 108.0, 266.0), (10.0, 16.0, 180.0), 15),
+        (162, (-42.6, 110.0, 268.0), (10.4, 16.0, 180.0), 15),
     ]))
     return cams
 
@@ -1044,7 +1046,8 @@ def main():
     mode = argv[0]
     half = '--half' in argv
     sc = build()
-    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(HERE, 'lightpath_blockout.blend'), compress=True)
+    if mode in ('save', 'stills'):   # never from parallel 'anim' workers (concurrent saves collide)
+        bpy.ops.wm.save_as_mainfile(filepath=os.path.join(HERE, 'lightpath_blockout.blend'), compress=True)
     if half:
         sc.render.resolution_percentage = 50
     if mode == 'check':
