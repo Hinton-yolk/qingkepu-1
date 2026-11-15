@@ -1,0 +1,70 @@
+{
+  "fps": 30,
+  "frames": 270,
+  "resolution": [
+    540,
+    960
+  ],
+  "pattern": [
+    1,
+    0,
+    1,
+    1,
+    0,
+    0,
+    1,
+    0
+  ],
+  "shots": [
+    {
+      "id": "S1",
+      "first": 0,
+      "last": 44
+    },
+    {
+      "id": "S2",
+      "first": 45,
+      "last": 89
+    },
+    {
+      "id": "S3",
+      "first": 90,
+      "last": 194
+    },
+    {
+      "id": "S4",
+      "first": 195,
+      "last": 269
+    }
+  ],
+  "electric_starts": [
+    96,
+    108,
+    120,
+    132,
+    144,
+    156,
+    168,
+    180
+  ],
+  "optical_starts": [
+    100,
+    112,
+    124,
+    136,
+    148,
+    160,
+    172,
+    184
+  ],
+  "response_delay": 4,
+  "first_visible_electric": 55,
+  "engine": "CYCLES",
+  "samples": 2,
+  "cost_usd": 0,
+  "native_render_resolution": [
+    270,
+    480
+  ],
+  "delivery_upscale": "Lanczos 2x"
+}

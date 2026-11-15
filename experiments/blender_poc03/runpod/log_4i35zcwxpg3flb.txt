@@ -1,0 +1,24 @@
+/w/scene/build_hero.py:42: DeprecationWarning: 'Material.use_nodes' is expected to be removed in Blender 6.0
+  m.use_nodes = True
+/w/scene/build_hero.py:512: DeprecationWarning: 'Material.use_nodes' is expected to be removed in Blender 6.0
+  em.use_nodes = True
+/w/scene/build_hero.py:530: DeprecationWarning: 'Material.use_nodes' is expected to be removed in Blender 6.0
+  vm.use_nodes = True
+[timing] 搭场景 25.7 秒，物体 2676 个，网格 122 份
+00:27.673  cycles           | WARNING HIPEW initialization failed: Error opening HIP dynamic library
+Blender 5.2.3 LTS (hash e13b728c6880 built 2026-10-22 01:35:05)
+00:36.388  render           | Saved: '/w/out/hero_v3_1080_raw.png'
+GPU: ['NVIDIA GeForce RTX 4090']
+Info: Saved as "scene_hero.blend"
+[timing] 渲染 8.5 秒
+
+Blender quit
+
+---setup---
+----------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+

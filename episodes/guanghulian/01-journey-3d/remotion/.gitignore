@@ -1,0 +1,10 @@
+node_modules
+out
+dist
+.DS_Store
+.env
+# 构建前由 scripts/scan-frames.mjs 生成
+src/generated/
+# Blender 图像序列（大文件）与锚点，不进仓库
+public/frames/
+public/anchors/*.json

@@ -1,0 +1,214 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>T1 电控制光</title>
+<style>
+  html, body { margin: 0; background: #000; }
+  canvas { display: block; width: 540px; height: 960px; }
+</style>
+<canvas id="c" width="540" height="960"></canvas>
+<script>
+// T1 概念测试：电控制光。二维示意，不是成片画面。
+// 两个版本共用同一套时间和构图：
+//   A 直觉版：调制器是一个盒子，只看「光稳稳进来 → 电到了 → 出来的光一暗一亮」。
+//   B 步调版：前 3.6 秒和 A 一样，然后盒子打开，露出两路光和它们的波纹。
+// window.renderFrame(t, {variant:'A'|'B', captions:true|false}) 画出第 t 秒的一帧。
+// 时间和图样的常数和 audio_t1.py 里的保持一致。
+const W = 540, H = 960;
+const FONT = '"WenQuanYi Zen Hei", "Noto Sans CJK SC", sans-serif';
+const CYAN = [86, 232, 240], GOLD = [255, 190, 70];
+const V = 220;                 // 所有条纹在屏幕上的速度，像素每秒
+const TBIT = 0.4;              // 一拍多长，秒
+const PATTERN = [1, 1, 0, 1, 0, 0, 1, 0];   // 电信号的图样：1 = 金色亮 = 推一下
+const T_ENTER = 0.6;           // 电信号从画面右边进来的时刻
+const X_BEAM = 230;            // 光的主干
+const Y_LASER = 900, Y_SPLIT = 690, Y_MERGE = 330, Y_TOP = 40;
+const ARM_DX = 66;             // 两路各往旁边让开多少
+const X_EL = X_BEAM + ARM_DX + 40;          // 电极的位置
+const Y_EL_BOT = 640, Y_EL_TOP = 380;
+const TRACE_LEN = (W - X_EL) + (Y_EL_BOT - Y_EL_TOP);   // 电信号走的总长
+const P = 36;                  // 波纹的间距，像素（示意，未按比例）
+const DIM = 0.12;              // 暗的时候剩多少亮度（暗不是全灭）
+const T_OPEN = 3.9, T_OPEN_LEN = 0.6;       // B 版盒子打开的时刻
+
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const smooth = x => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${clamp(a, 0, 1)})`;
+
+// 电信号源头在时刻 tau 的值，0–1，边沿抹平一点
+function src(tau) {
+  if (tau < 0) return 0;
+  const edge = 0.07;
+  const k = tau / TBIT, i = Math.floor(k), f = (k - i) * TBIT;
+  const cur = PATTERN[i % 8], prev = i === 0 ? 0 : PATTERN[(i - 1) % 8];
+  return prev + (cur - prev) * smooth(f / edge);
+}
+// 电信号沿走线走了 s 像素处，时刻 t 的值
+const elec = (s, t) => src(t - T_ENTER - s / V);
+// 电极顶端的电信号（决定这一路光出电极时慢了多少）
+const elecTop = t => elec(TRACE_LEN, t);
+// 出口处、高度 y 的光有多亮
+function outI(y, t) {
+  const tau = t - (Y_EL_TOP - Y_MERGE) / V - (Y_MERGE - y) / V;
+  return 1 - (1 - DIM) * elecTop(tau);
+}
+
+function beamSeg(ctx, x0, y0, x1, y1, inten, wipeY) {
+  // 一小段光：亮芯 + 很窄的光晕，光约束在芯里
+  if (wipeY !== undefined && Math.min(y0, y1) > wipeY + 0.5 === false && Math.max(y0, y1) < wipeY) return;
+  ctx.lineCap = 'round';
+  const k = Math.pow(inten, 1.4);
+  ctx.strokeStyle = rgba(CYAN, 0.12 * k); ctx.lineWidth = 24;
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  ctx.strokeStyle = rgba(CYAN, 0.30 * k); ctx.lineWidth = 14;
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  ctx.strokeStyle = rgba([205, 250, 255], 0.10 + 0.90 * k); ctx.lineWidth = 7;
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+}
+function guide(ctx, pts) {
+  // 没有光的时候也看得见的通道本身
+  ctx.strokeStyle = 'rgba(120,170,190,0.22)'; ctx.lineWidth = 7; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke();
+}
+function label(ctx, text, x, y, align = 'left', size = 22, alpha = 0.92) {
+  ctx.font = `${size}px ${FONT}`; ctx.textAlign = align; ctx.textBaseline = 'middle';
+  ctx.fillStyle = `rgba(4,16,24,${0.55 * alpha})`;
+  const w = ctx.measureText(text).width, pad = 7;
+  const x0 = align === 'left' ? x - pad : align === 'right' ? x - w - pad : x - w / 2 - pad;
+  ctx.beginPath(); ctx.roundRect(x0, y - size * 0.72, w + pad * 2, size * 1.44, 6); ctx.fill();
+  ctx.fillStyle = `rgba(232,244,248,${alpha})`; ctx.fillText(text, x, y + 1);
+}
+function caption(ctx, text, alpha) {
+  if (alpha <= 0) return;
+  ctx.font = `34px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const lines = text.split('\n'), lh = 46, y0 = 790 - (lines.length - 1) * lh / 2;
+  const w = Math.max(...lines.map(l => ctx.measureText(l).width));
+  ctx.fillStyle = `rgba(6,18,26,${0.82 * alpha})`;
+  ctx.beginPath(); ctx.roundRect(W / 2 - w / 2 - 18, y0 - 30, w + 36, lines.length * lh + 14, 12); ctx.fill();
+  ctx.fillStyle = `rgba(255,250,235,${alpha})`;
+  lines.forEach((l, i) => ctx.fillText(l, W / 2, y0 + i * lh));
+}
+const CAPS = {
+  A: [[0.3, 2.3, '光，一直稳稳地亮着'], [2.8, 5.6, '电信号一到\n出来的光就暗一下'], [6.0, 7.9, '是电，在控制光']],
+  B: [[0.3, 2.3, '光，一直稳稳地亮着'], [2.8, 4.0, '电信号一到，光就暗一下'], [4.4, 7.9, '里面是两路光：电推一下\n一路慢半步，合起来就暗']],
+};
+
+function renderFrame(t, opt) {
+  const variant = opt.variant || 'A', caps = !!opt.captions;
+  const ctx = document.getElementById('c').getContext('2d');
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  // 背景：有颜色的深青蓝，不是黑色虚空；几条稀疏的线表示芯片表面
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#103646'); g.addColorStop(0.55, '#0c2a3a'); g.addColorStop(1, '#0a2030');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // 很慢的推近，画面不死
+  const z = 1 + 0.035 * (t / 8);
+  ctx.translate(W / 2, 520); ctx.scale(z, z); ctx.translate(-W / 2, -520);
+  ctx.strokeStyle = 'rgba(140,200,220,0.07)'; ctx.lineWidth = 2;
+  for (const [x0, y0, x1, y1] of [[60, 0, 60, 960], [470, 120, 470, 960], [0, 250, 150, 250], [0, 700, 110, 700], [420, 860, 540, 860], [100, 120, 100, 300]]) {
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  }
+
+  const open = variant === 'B' ? smooth((t - T_OPEN) / T_OPEN_LEN) : 0;   // 盒子打开了多少
+  const wipeY = Y_LASER - smooth(t / 0.9) * (Y_LASER - Y_TOP + 10);       // 开头光从下往上亮起来
+
+  // 通道本身
+  guide(ctx, [[X_BEAM, Y_LASER], [X_BEAM, Y_SPLIT]]);
+  guide(ctx, [[X_BEAM, Y_MERGE], [X_BEAM, Y_TOP]]);
+
+  // 激光器
+  ctx.fillStyle = '#16323f'; ctx.strokeStyle = 'rgba(150,210,230,0.55)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(X_BEAM - 36, Y_LASER - 4, 72, 44, 6); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = rgba(CYAN, 0.9); ctx.fillRect(X_BEAM - 5, Y_LASER - 6, 10, 8);
+
+  // 光：一小段一小段画，亮度看这一段的位置和时刻
+  const STEP = 6;
+  const vis = y => y >= wipeY;      // 开头还没亮到的地方不画
+  for (let y = Y_LASER - 6; y > Y_SPLIT; y -= STEP) if (vis(y)) beamSeg(ctx, X_BEAM, y, X_BEAM, Math.max(y - STEP, Y_SPLIT), 1);
+  for (let y = Y_MERGE; y > Y_TOP; y -= STEP) if (vis(y)) beamSeg(ctx, X_BEAM, y, X_BEAM, Math.max(y - STEP, Y_TOP), outI(y, t));
+  // 很淡的流动短划：亮度不变，但看得出光一直在往上流（主干上才画，两路里有波纹）
+  const FLOW = 56, off = ((V * t) % FLOW + FLOW) % FLOW;
+  ctx.lineCap = 'round'; ctx.lineWidth = 3;
+  for (let y = Y_LASER - 10 - off; y > Y_TOP; y -= FLOW) {
+    if (!vis(y) || (y < Y_SPLIT + 6 && y > Y_MERGE - 6)) continue;
+    const k = y > Y_SPLIT ? 1 : Math.pow(outI(y, t), 1.4);
+    ctx.strokeStyle = `rgba(255,255,255,${0.5 * k})`;
+    ctx.beginPath(); ctx.moveTo(X_BEAM, y); ctx.lineTo(X_BEAM, y - 12); ctx.stroke();
+  }
+
+  // 调制器内部：两路
+  const armX = (y, side) => {
+    // 从分岔到并拢，中间是直的
+    const a = smooth((Y_SPLIT - y) / 60), b = smooth((y - Y_MERGE) / 60);
+    return X_BEAM + side * ARM_DX * Math.min(a, b);
+  };
+  if (open > 0.01) {
+    ctx.globalAlpha = open;
+    for (const side of [-1, 1]) {
+      const pts = []; for (let y = Y_SPLIT; y >= Y_MERGE; y -= 6) pts.push([armX(y, side), y]);
+      guide(ctx, pts);
+      for (let y = Y_SPLIT; y > Y_MERGE; y -= STEP) {
+        if (!vis(y)) continue;
+        beamSeg(ctx, armX(y, side), y, armX(y - STEP, side), y - STEP, 0.6);
+      }
+      // 波纹：一道一道往上走的横杠。右边这一路经过电极时被拖慢，出电极后最多慢半步
+      const lagAt = y => {
+        if (side < 0) return 0;
+        if (y >= Y_EL_BOT) return 0;
+        if (y >= Y_EL_TOP) return 0.5 * P * ((Y_EL_BOT - y) / (Y_EL_BOT - Y_EL_TOP)) * elec((W - X_EL) + (Y_EL_BOT - y), t);
+        return 0.5 * P * elecTop(t - (Y_EL_TOP - y) / V);
+      };
+      const base = ((Y_SPLIT - V * t) % P + P) % P;
+      for (let y0 = Y_MERGE + base - P; y0 < Y_SPLIT + P; y0 += P) {
+        const y = y0 + lagAt(y0);
+        if (y <= Y_MERGE + 18 || y >= Y_SPLIT - 18 || !vis(y)) continue;
+        const x = armX(y, side);
+        // 横杠往中间伸：两路步调一致时左右对成一级一级的梯子，错开时像错位的拉链
+        if (Math.abs(x - X_BEAM) < 30) continue;
+        ctx.strokeStyle = 'rgba(235,255,255,0.95)'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(x + side * 12, y); ctx.lineTo(X_BEAM + side * 5, y); ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // 调制器的盒子：A 版一直盖着；B 版到时候淡出，只留一圈轮廓
+  const bx = X_BEAM - ARM_DX - 30, bw = 2 * ARM_DX + 60, by = Y_MERGE - 6, bh = Y_SPLIT - Y_MERGE + 12;
+  ctx.fillStyle = `rgba(20,62,80,${0.96 * (1 - open)})`;
+  ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 14); ctx.fill();
+  ctx.strokeStyle = `rgba(150,215,235,${0.75 - 0.35 * open})`; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 14); ctx.stroke();
+  // 盒子还盖着的时候，电到了就让盒子靠电极的一侧泛一下金色：看得出是电在碰它
+  const hit = elecTop(t) * (1 - open);
+  if (hit > 0.02) {
+    const gg = ctx.createLinearGradient(bx + bw, 0, bx + bw - 90, 0);
+    gg.addColorStop(0, rgba(GOLD, 0.55 * hit)); gg.addColorStop(1, rgba(GOLD, 0));
+    ctx.fillStyle = gg; ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 14); ctx.fill();
+  }
+
+  // 电：走线从右边进来，拐上电极，到电极顶端的小方块为止
+  const tracePt = s => s <= W - X_EL ? [W - s, Y_EL_BOT] : [X_EL, Y_EL_BOT - (s - (W - X_EL))];
+  ctx.strokeStyle = 'rgba(150,110,50,0.55)'; ctx.lineWidth = 12; ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
+  ctx.beginPath(); ctx.moveTo(W, Y_EL_BOT); ctx.lineTo(X_EL, Y_EL_BOT); ctx.lineTo(X_EL, Y_EL_TOP); ctx.stroke();
+  for (let s = 0; s < TRACE_LEN; s += 4) {
+    const e = elec(s + 2, t); if (e < 0.02) continue;
+    const [x0, y0] = tracePt(s), [x1, y1] = tracePt(Math.min(s + 4.6, TRACE_LEN));
+    ctx.strokeStyle = rgba(GOLD, 0.28 * e); ctx.lineWidth = 24; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    ctx.strokeStyle = rgba([255, 214, 120], e); ctx.lineWidth = 12; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  }
+  ctx.fillStyle = '#5a4424'; ctx.strokeStyle = 'rgba(255,205,110,0.8)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.rect(X_EL - 11, Y_EL_TOP - 18, 22, 18); ctx.fill(); ctx.stroke();
+
+  // 标签：贴着东西，字不多
+  label(ctx, '激光器', X_BEAM + 48, Y_LASER + 18);
+  label(ctx, '电信号', W - 14, Y_EL_BOT + 34, 'right', 22, smooth((t - T_ENTER + 0.3) / 0.4));
+  label(ctx, '调制器', bx + 6, by - 22, 'left', 22);
+  label(ctx, '光', X_BEAM - 22, Y_TOP + 40, 'right', 22);
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  // 角标：说明这是什么
+  ctx.font = `15px ${FONT}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = 'rgba(220,235,240,0.55)';
+  ctx.fillText(`概念测试 T1-${variant} · 二维粗样 · 非成片 · 示意`, 14, 12);
+  if (caps) for (const [a, b, text] of CAPS[variant]) caption(ctx, text, Math.min(smooth((t - a) / 0.2), smooth((b - t) / 0.2)));
+}
+window.renderFrame = renderFrame;
+</script>

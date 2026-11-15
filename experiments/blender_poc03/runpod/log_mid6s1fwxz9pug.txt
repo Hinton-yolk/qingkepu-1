@@ -1,0 +1,40 @@
+0156.png'
+03:52.673  render           | Saved: '/w/out/f0157.png'
+04:02.054  render           | Saved: '/w/out/f0158.png'
+04:11.562  render           | Saved: '/w/out/f0159.png'
+04:21.043  render           | Saved: '/w/out/f0160.png'
+04:30.585  render           | Saved: '/w/out/f0161.png'
+04:40.067  render           | Saved: '/w/out/f0162.png'
+04:49.504  render           | Saved: '/w/out/f0163.png'
+04:58.909  render           | Saved: '/w/out/f0164.png'
+05:08.324  render           | Saved: '/w/out/f0165.png'
+05:17.835  render           | Saved: '/w/out/f0166.png'
+05:27.344  render           | Saved: '/w/out/f0167.png'
+05:36.885  render           | Saved: '/w/out/f0168.png'
+05:46.217  render           | Saved: '/w/out/f0169.png'
+05:55.679  render           | Saved: '/w/out/f0170.png'
+06:05.223  render           | Saved: '/w/out/f0171.png'
+06:14.698  render           | Saved: '/w/out/f0172.png'
+06:24.116  render           | Saved: '/w/out/f0173.png'
+06:33.434  render           | Saved: '/w/out/f0174.png'
+06:42.918  render           | Saved: '/w/out/f0175.png'
+06:52.276  render           | Saved: '/w/out/f0176.png'
+07:01.616  render           | Saved: '/w/out/f0177.png'
+07:10.949  render           | Saved: '/w/out/f0178.png'
+07:20.197  render           | Saved: '/w/out/f0179.png'
+07:29.481  render           | Saved: '/w/out/f0180.png'
+GPU: ['NVIDIA GeForce RTX 4090']
+Info: Saved as "scene_hero.blend"
+Info: Saved as "scene_hero_anim.blend"
+[timing] 渲染 426.1 秒
+
+Blender quit
+
+---setup---
+----------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+

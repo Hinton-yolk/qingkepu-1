@@ -1,0 +1,2 @@
+{"scene_dir": "<scratchpad>/rp/scene", "script": "build_hero.py", "out_dir": "<scratchpad>/rp/out", "sec_per_unit": 60,
+ "tasks": [{"args": ["still", "--res", "1080", "--spp", "64", "--gpu", "--out", "{out}/hero_v2_1080_raw.png"], "units": 1}]}
