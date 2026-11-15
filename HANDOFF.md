@@ -1,4 +1,56 @@
-# 当前进度（2026-11-14 晚，先读这一节）
+# 交接（2026-11-15，新对话先读这一节；它取代下面所有旧节里关于环境、密钥和进度的说法）
+
+## 0. 新对话开头做什么
+1. 选云环境 **kepu-studio**（不是 Default）。分支 `claude/happy-goodall-o47ilg`，Draft PR #3 **不合并**，不发以「@codex」开头的评论。
+2. `git pull`，读这一节、`DECISIONS.md` 的 2026-11-14 各条（第 137–172 行附近）和「待定事项」。
+3. 看一眼 RunPod 上有没有忘了删的机器（`GET https://rest.runpod.io/v1/pods`）。11-15 交接时没有在跑的东西。
+4. 用户在英国。用了 LTX 等 AI 生成画面的片子，发布时要标注 AI 生成（LTX 许可证要求，也是平台规则）；LTX 的隐形标记保持打开，不去水印。
+
+## 1. 环境（11-15 用 get_environment 核实过）
+- 这个账号只有两个云环境：
+  - **kepu-studio**（个人，网络 Unrestricted）：4 个网络密钥由代理注入——RunPod、Fish Audio、Gemini（`x-goog-api-key` 头，用户在 Settings 手动加的）、Hugging Face（只读 token）。脚本里写占位值 `proxy-injected` 即可，**不要让用户在聊天里贴密钥**，缺了用 `request_credential`。
+  - **Default**：没有任何密钥、没有启动脚本。下面旧节里「RunPod、Fish Audio 存在 Default 环境」的说法是错的。
+- 启动脚本装：libegl1、xz-utils、思源黑体（fonts-noto-cjk）、霞鹜文楷（fonts-lxgw-wenkai）、得意黑（fonts-smiley-sans）、Blender 5.2.3（`/opt/blender/…`，链接 `/usr/local/bin/blender`）、Codex CLI。**不装** opencv、librosa（要用就 `pip install`）。
+- RunPod 控制台里有 Secret `hf_token`，pod 环境变量写 `{{ RUNPOD_SECRET_hf_token }}`；HF 账号已有 LTX-2.5 和 Layout-To-Render LoRA 的权限。
+- `runpod_render.py`（Cycles 云渲染）不在本分支，从 `origin/claude/bold-hypatia-1tyot4` 取：`git show origin/claude/bold-hypatia-1tyot4:tools/runpod_render.py > tools/runpod_render.py`（取前先 `git fetch origin claude/bold-hypatia-1tyot4`）。LTX 用本分支的 `experiments/ltx_poc04/runpod_ltx.py`（A100-SXM4-80GB 跑通，带 `--wait-for`）。
+- Codex（观众角色）：登录只在当前容器有效，新容器要后台跑 `codex login --device-auth`，把网址和验证码发给用户。
+- 本地有个 `stash@{0}`（旧版 runpod_ltx.py 改动，已被远端版本取代），新容器里不会有，可忽略。
+
+## 2. 费用规矩
+- 一批云渲染预计 ≤ $1 直接跑，> $1 先报（CLAUDE.md）。机器渲完就删。PoC 05 用户临时放宽到 $2，只对那一次。
+- 实测单价：Cycles 6 秒（1088×1920，96 采样）两台 4090 / 3090 约 $0.34–0.48；LTX 6 秒一次约 $0.41–0.62（含开机和下 72 GB 权重，生成本身约 $0.17）。用户：每集「十几块钱」可以接受。
+
+## 3. 11-14 之后做的实验（都在 `experiments/`，各有 README）
+| 目录 | 做了什么 | 状态 |
+|---|---|---|
+| `seedance_poc01/` | OSFP 模块插入 6 秒 Blockout + Seedance 提示词 | 用户：达到预期，不再处理；**科学严谨性问题以后审查要重视**（方向插反过） |
+| `seedance_poc02/` | 60° 环绕 Blockout + 提示词（挡板 A/B 两种） | 交了，停 |
+| `blender_poc03/` | Cycles 写实特写（OSFP 模块 / 笼子 / 网卡），静帧 + 6 秒插入动画，RunPod 渲 | 交了。`FACTS.md` 里 OSFP 尺寸、笼子顶筋、拉环形状**待核** |
+| `ltx_poc04/` | LTX-2.5 Layout-To-Render：灰模 + Cycles 关键帧 | 跑通。用户：「V1更好看，V2可能细节更对」 |
+| `farshot_poc05/` | 数据中心冷通道远景：Cycles / LTX V1·V2 / **V3（GPT 照片级首帧）** / 照片对标版 Cycles | 结论已进 DECISIONS（11-14 晚） |
+- 工具：`tools/polyhaven.py`、`tools/polyhaven_blender.py`（CC0 贴图、HDRI、模型，缓存在 `assets/polyhaven/`，不进仓库）。
+
+## 4. 现行分工（DECISIONS 2026-11-14 晚）
+- **远景 / 氛围镜头**：主 agent 在 Blender 建模、出灰模关键帧 → **用户**拿去让 GPT 出照片级首帧 → LTX（灰模视频 + 首帧）。
+- **讲机制、看结构的特写**：Cycles（器件不能编）。照着 GPT 照片调 Cycles 的「照片对标」做法保留，用在必须用 Cycles 的镜头。
+- 用户 11-14 晚的补充：V3 那张照片里顶棚的梯架和线缆是**用户让 GPT 加的**，不是 GPT 自己加的。所以下一轮建模要把这类大件细节（顶棚梯架、成捆线缆）直接建进灰模，别指望 GPT 补；给 GPT 的提示词模板在 `farshot_poc05/deliver/gpt_input/GPT_prompts.md`。
+- 用户的判断（11-15）：「无论是cycles还LTX，都极大的依赖于参考帧」。
+
+## 5. 等用户定的
+1. 成本分级制作草案 `docs/workflow/cost_tiered_production_DRAFT.md` 第 8 节的问题（确认前不写进 CLAUDE.md）。
+2. `blender_poc03/FACTS.md` 里的待核项。
+3. 下一步做什么：目前**没有在做的制作任务**。T6-Story、Director-Locked V0.2 仍然暂停（见下面 11-14 一节）。
+
+## 6. 干活习惯（这几天踩过的坑）
+- 改构图前先用脚本把关键物体角点投影到画面上查出框，再渲；改构图用半分辨率。
+- 上千个零件的场景别用 `bpy.ops`：共享 bmesh 网格缓存，云上搭场景从 12 分钟降到十几秒。
+- 灰模按原生 24 fps 出；`tools/motion_check.py` 对 24 fps 会误报静止。
+- 跑着的日志不进 git，跑完另存为正式记录；mp4 不进仓库，直接发给用户并在 README 记 sha256。
+- 有另一个对话同时推本分支的情况：推之前 `git pull --rebase`。
+
+---
+
+# 当前进度（2026-11-14 晚；已被最上面 11-15 一节取代，环境部分有误）
 
 分支 `claude/happy-goodall-o47ilg`。RunPod 上没有在跑的机器（20:22 UTC 查过）。
 
