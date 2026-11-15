@@ -24,7 +24,7 @@ const JOBS = [
   ["../../../episodes/weishenme/06-renlianjiesuo", "ep06-mask", 44.6, null, null],     // the closing: the mask on (for the second, small inset)
   ["../../../episodes/weishenme/06-renlianjiesuo", "ep06-inset", 13.0, null, null],   // the dots and the lines of equal height on the face
   ["../../../episodes/weishenme/07-shoubiaolvguang", "ep07-hero", 0.6, null, null],   // fingertips hold the watch back-up over the wrist: the green lights
-  ["../../../episodes/weishenme/07-shoubiaolvguang", "ep07-inset", 11.0, null, null],  // the section: green light into the skin, the blood eats it
+  ["../../../episodes/weishenme/07-shoubiaolvguang", "ep07-inset", 10.0, null, null],  // the section (v7.2 timing): green light into the skin, the blood eats it
 ];
 const ONLY = process.argv[2];                                   // node shots.mjs ep04 → only the jobs whose name starts with ep04
 const browser = await chromium.launch();
@@ -42,6 +42,7 @@ for (const [dir, name, t, camExpr, anchor] of JOBS.filter((j) => !ONLY || j[1].s
     if (name.startsWith("ep05") && typeof window.overlays === "function") window.overlays = () => {};   // EP.05 inset: no label leaders cut off by the circle
     if (typeof window.driftZ === "function") window.driftZ = () => ({ s: 1, tx: 0, ty: 0 });   // EP.06: no drift on the cover art
     if (typeof window.tag === "function" && name.startsWith("ep06")) window.tag = () => {};          // EP.06: no small tags on the cover art
+    if (name === "ep07-inset") { for (const f of ["overlays", "spotlight", "drawCard"]) if (typeof window[f] === "function") window[f] = () => {}; }   // EP.07 inset: the light and the vessel only (no frames, tags or card)
     if (camExpr) { const K = eval(camExpr); window.cam = () => K; }
     if (camExpr && typeof window.sweeping === "function" && typeof window.drawPhone === "function") {
       // EP.01: the phone half seen through — the board above an orange scan line, the screen below it
