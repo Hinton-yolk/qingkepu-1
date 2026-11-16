@@ -378,7 +378,7 @@ function cellM(t) {
   const d = drift(t), d0 = drift(T.diveEnd), ramp = E.smooth(prog(t, T.diveEnd, T.diveEnd + 1));
   const dx = 1.1 * (d[0] - d0[0]) * ramp, dy = 0.9 * (d[1] - d0[1]) * ramp, dr = 1 + 1.5 * (d[2] - d0[2]) * ramp;
   const zin = kf(t, [[T.zoomA, 0], [T.zoomAEnd, 1], [T.zoomOut, 1], [T.zoomOutEnd, 0]]);
-  const s = dr * (1 + 0.8 * zin) * (1 + 0.12 * prog(t, T.diveEnd, T.split));
+  const s = dr * (1 + 0.45 * zin) * (1 + 0.12 * prog(t, T.diveEnd, T.split));
   const cx = lerp(540, 600, zin), cy = 825, fx = lerp(540, CELL.a0 - 20, zin), fy = 825;   // zoom about the anode face
   return [s, cx - s * fx + dx, cy - s * fy + dy];
 }
@@ -450,11 +450,13 @@ function drawCell(t, M, a = 1, detail = 1) {
   ctx.save(); ctx.globalAlpha = a;
   ID(); const bg = ctx.createRadialGradient(540, 900, 100, 540, 900, 1100); bg.addColorStop(0, "#22252B"); bg.addColorStop(1, "#141518"); ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
   setM(M);
-  for (let k = -2; k <= 2; k++) {                          // the stripes beyond the window (dim): where the dive lands
-    const off = k * CELL.per;
+  const stripeA = 1 - E.smooth(prog(t, T.diveEnd, T.diveEnd + 0.7));   // the stripes beyond the window: only where the dive lands, then gone
+  if (stripeA > 0.01) for (let k = -2; k <= 2; k++) {
+    const off = k * CELL.per; ctx.globalAlpha = a * stripeA;
     ctx.fillStyle = C.cathD; ctx.fillRect(CELL.c0 + off, -4000, CELL.c1 - CELL.c0, 10000);
     ctx.fillStyle = "#1F2125"; ctx.fillRect(CELL.a0 + off, -4000, CELL.a1 - CELL.a0, 10000);
   }
+  ctx.globalAlpha = a;
   ctx.fillStyle = `rgba(16,17,20,${0.8 * detail})`; ctx.fillRect(-4000, -4000, 10000, 10000);   // 聚光: dim all
   if (detail > 0.01) {
     ctx.save(); ctx.globalAlpha = a * detail;
@@ -464,12 +466,12 @@ function drawCell(t, M, a = 1, detail = 1) {
     const fw = filmW(t), fg = ctx.createLinearGradient(CELL.a0 - fw, 0, CELL.a0, 0); fg.addColorStop(0, C.filmL); fg.addColorStop(1, C.film);
     rr(CELL.a0 - fw, CELL.top, fw + 8, CELL.bot - CELL.top, 8); ctx.fillStyle = fg; ctx.fill();
     // the outer wire with electrons (only while the cell is explained, not in the close-up)
-    const wa = win(t, T.h1 + 0.3, T.q8 + 0.2, 0.4, 0.4);
+    const wa = win(t, T.chg1 - 0.4, T.q8 + 0.2, 0.4, 0.4);
     if (wa > 0.01) {
       ctx.save(); ctx.globalAlpha *= wa; const top = 598, xl = 215, xr = 850;
-      ctx.strokeStyle = C.wire; ctx.lineWidth = 8; ctx.lineJoin = "round"; ctx.beginPath(); ctx.moveTo(xl, CELL.top); ctx.lineTo(xl, top); ctx.lineTo(xr, top); ctx.lineTo(xr, CELL.top); ctx.stroke();
+      ctx.strokeStyle = "#737985"; ctx.lineWidth = 10; ctx.lineJoin = "round"; ctx.beginPath(); ctx.moveTo(xl, CELL.top); ctx.lineTo(xl, top); ctx.lineTo(xr, top); ctx.lineTo(xr, CELL.top); ctx.stroke();
       const ph = wireFlow(t);
-      for (let i = 0; i < 9; i++) { const u = ((i / 9 + ph) % 1 + 1) % 1; glowBall(lerp(xl + 30, xr - 30, u), top, 7, 1, null, C.elec, "190,200,215"); }
+      for (let i = 0; i < 9; i++) { const u = ((i / 9 + ph) % 1 + 1) % 1; glowBall(lerp(xl + 30, xr - 30, u), top, 9, 1, null, "#DCE2EA", "190,200,215"); }
       ctx.restore();
     }
     ctx.restore();
@@ -481,7 +483,7 @@ function drawCell(t, M, a = 1, detail = 1) {
       const p = ionPos(o, t, s), q = ionPos(o, t - 0.12, s0), bob = 4 * Math.sin(t * 2.3 + o.ph);
       const stuck = o.stuck && t >= T.stick + 0.55;
       if (stuck) { ctx.save(); ctx.globalAlpha = a * detail; ctx.fillStyle = "#8E877A"; ctx.beginPath(); ctx.arc(p[0], p[1], 15, 0, TAU); ctx.fill(); ctx.restore(); }
-      else { ctx.save(); ctx.globalAlpha = a * detail; glowBall(p[0] + 3 * Math.sin(t * 1.3 + o.ph * 2), p[1] + bob, 15, 1, Math.hypot(p[0] - q[0], p[1] - q[1]) > 2 ? [q[0], q[1] + bob] : null); ctx.restore(); }
+      else { ctx.save(); ctx.globalAlpha = a * detail; glowBall(p[0] + 3 * Math.sin(t * 1.3 + o.ph * 2), p[1] + bob, 15 * (1 + 0.35 * win(t, T.h1 + 0.2, T.h1 + 1.2, 0.3, 0.5)), 1, Math.hypot(p[0] - q[0], p[1] - q[1]) > 2 ? [q[0], q[1] + bob] : null); ctx.restore(); }
     }
   }
   ctx.restore();
@@ -529,7 +531,7 @@ function drawGauge(t, a) {
   if (t >= T.barOn && t < T.q8) pill(COPY.bar, x - r - 46, y + 14, 44, t, T.barOn, T.q8, { align: "right" });
   const rk = win(t, T.ringOn, T.disR + 0.5, 0.3, 0.3);
   if (rk > 0.01) { ID(); ctx.save(); ctx.globalAlpha = rk * a; ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.setLineDash([TAU * (r + 34) * E.p3out(prog(t, T.ringOn, T.ringOn + 0.35)), 4000]); ctx.beginPath(); ctx.arc(x, y, r + 34, -Math.PI / 2, 1.5 * Math.PI); ctx.stroke(); ctx.restore(); }
-  if (t >= T.ringOn && t < T.a7) pill(COPY.used, x + r + 46, y + 14, 44, t, T.ringOn, T.a7, {});
+  if (t >= T.ringOn && t < T.a7) pill(COPY.used, x + r + 40, y + 16, 48, t, T.ringOn, T.a7, {});
   // the two halves, named
   if (t >= T.half1End - 0.1 && t < T.q8) pill(COPY.half1, x + r + 46, y + 14, 44, t, T.half1End - 0.1, T.q8, { col: C.acc });
   if (t >= T.half2End - 0.1 && t < T.q8) pill(COPY.half2, x - r - 46, y + 14, 44, t, T.half2End - 0.1, T.q8, { align: "right", col: C.half2 });
@@ -544,19 +546,23 @@ function cellLabels(t, M) {
   if (kb > 0) { obox(eS(M, CELL.a0, 0)[0] - 8, eS(M, 0, CELL.top)[1] - 8, (CELL.a1 - CELL.a0) * M[0] + 16, (CELL.bot - CELL.top) * M[0] + 16, E.p3out(prog(t, T.tagAnode, T.tagAnode + 0.35)), kb, 22, 5); }
   const tl = win(t, T.tagCath, T.q8, 0.3, 0.3);
   if (tl > 0.01) { pill(COPY.cath, lc[0], lc[1] + 62, 44, t, T.tagCath, T.q8, { align: "center" }); pill(COPY.anode, la[0], la[1] + 62, 44, t, T.tagAnode, T.q8, { align: "center" }); }
-  if (t >= T.h1 + 0.6 && t < T.q8) { const w = eS(M, 700, 598); pill(COPY.elec, w[0], w[1] - 22, 44, t, T.h1 + 0.6, T.q8, { align: "center", col: C.elec }); }
+  if (t >= T.chg1 && t < T.q8) { const w = eS(M, 700, 598); pill(COPY.elec, w[0], w[1] - 22, 44, t, T.chg1, T.q8, { align: "center", col: C.elec }); }
+  const lk = win(t, T.h1 + 0.25, T.tagCath, 0.25, 0.3);
+  if (lk > 0.01) { const o = IONS[0], q = eS(M, o.c[0], o.c[1]); oring(q[0], q[1], 34, E.p3out(prog(t, T.h1 + 0.25, T.h1 + 0.55)), lk, 5); pill(COPY.li, q[0] + 60, q[1] + 16, 48, t, T.h1 + 0.35, T.tagCath, { col: C.acc }); }
   // the SEI film: an orange box + its name (first time)
   const fk = win(t, T.film, T.a8 + 0.25, 0.3, 0.3);
-  if (fk > 0) { const f0 = eS(M, CELL.a0 - filmW(t), CELL.top), f1 = eS(M, CELL.a0 + 8, CELL.bot); obox(f0[0] - 14, f0[1] - 10, f1[0] - f0[0] + 28, f1[1] - f0[1] + 20, E.p3out(prog(t, T.film, T.film + 0.35)), fk, 12, 5); }
-  if (t >= T.film && t < T.split) { const f0 = eS(M, CELL.a0 - filmW(t), CELL.top); pill(COPY.sei, f0[0] - 26, f0[1] + 60, 44, t, T.film, T.split, { align: "right" }); }
+  if (fk > 0) { const f0 = eS(M, CELL.a0 - filmW(t), CELL.top), f1 = eS(M, CELL.a0 + 8, CELL.bot); obox(f0[0] - 14, f0[1] - 6, f1[0] - f0[0] + 28, f1[1] - f0[1] + 12, E.p3out(prog(t, T.film, T.film + 0.35)), fk, 12, 5); }
+  if (t >= T.film && t < T.split) { const f0 = eS(M, CELL.a0 - filmW(t), CELL.top + 0.3 * (CELL.bot - CELL.top)); pill(COPY.sei, f0[0] - 40, f0[1] + 16, 46, t, T.film, T.split, { align: "right" }); }
   // the stuck ones: orange rings; their name; the arrow to the gauge (the full battery is shorter)
   const sa = win(t, T.stick + 0.55, T.split, 0.2, 0.3);
   if (sa > 0.01) for (const o of IONS) if (o.stuck) { const p = ionPos(o, t, charge(t)), q = eS(M, p[0], p[1]); oring(q[0], q[1], 30 * Math.max(1, M[0] * 0.8), E.p3out(prog(t, T.stick + 0.55, T.stick + 0.85)), sa, 5); }
-  if (t >= T.stick + 0.6 && t < T.split) { const q = eS(M, CELL.a0 - 140, CELL.bot); pill(COPY.stuck, q[0], Math.min(1120, q[1] + 64), 44, t, T.stick + 0.6, T.split, { align: "center", col: C.acc }); }
-  if (t >= T.a8 && t < T.split) pill(COPY.note, 1010, 1440, 44, t, T.thick, T.split, { align: "right" });
+  if (t >= T.stick + 0.6 && t < T.a10 + 0.2) { const q = eS(M, CELL.a0 - filmW(t), CELL.top + 0.72 * (CELL.bot - CELL.top)); pill(COPY.stuck, q[0] - 44, q[1] + 16, 50, t, T.stick + 0.6, T.a10 + 0.2, { align: "right", col: C.acc }); }
+  if (t >= T.a8 && t < T.split) pill(COPY.note, 1010, 1418, 44, t, T.thick, T.split, { align: "right" });
   const ak = E.p3out(prog(t, T.a10 + 0.2, T.a10 + 0.75)), aa = win(t, T.a10 + 0.2, T.split, 0.2, 0.3);
   if (aa > 0.01) { const o = IONS.find((i) => i.stuck && i.f[1] === Math.max(...IONS.filter((j) => j.stuck).map((j) => j.f[1]))); const p = ionPos(o, t, charge(t)), q = eS(M, p[0], p[1]); ID(); ctx.save(); ctx.globalAlpha = aa; arrowS(q[0], q[1] + 30, GA.x + 70, GA.y - 76, C.acc, 6, 20, 0.12, ak); ctx.restore(); }
-  if (t >= T.shrink + 0.2 && t < T.split) pill(COPY.less, GA.x + GA.r + 46, GA.y + 14, 44, t, T.shrink + 0.2, T.split, { edge: true });
+  const ek = win(t, T.zoomOut + 0.3, T.split, 0.3, 0.3);
+  if (ek > 0.01) { ID(); ctx.save(); ctx.globalAlpha = ek; ctx.strokeStyle = C.acc; ctx.lineWidth = 4; ctx.setLineDash([8, 7]); let lx = 0, ly = 0; for (const o of IONS) if (o.stuck) { const q = eS(M, o.c[0], o.c[1]); ctx.beginPath(); ctx.arc(q[0], q[1], 17 * M[0], 0, TAU); ctx.stroke(); lx = q[0]; ly = Math.max(ly, q[1]); } ctx.setLineDash([]); ctx.restore(); if (t >= T.zoomOut + 0.4) { const q = eS(M, (CELL.c0 + CELL.c1) / 2, CELL.bot); pill(COPY.gap, q[0] + 30, q[1] + 66, 48, t, T.zoomOut + 0.4, T.split, { align: "center", col: C.acc }); } }
+  if (t >= T.shrink + 0.2 && t < T.split) pill(COPY.less, GA.x + GA.r + 40, GA.y + 16, 50, t, T.shrink + 0.2, T.split, { edge: true });
 }
 
 // ================================================================ SPLIT (dark): two anode faces side by side (满 + 热 vs not)
@@ -588,7 +594,7 @@ function drawSplit(t, a) {
     // stuck ones in the film: more on the hot, full side
     const nStuck = i === 0 ? 1 + (t > T.cmpL + 1.2 ? 1 : 0) : 1 + Math.floor(5 * E.p2io(prog(t, T.heat, T.heatEnd)));
     for (let k = 0; k < nStuck; k++) { const y = P.y + 120 + k * 110; ctx.fillStyle = "#8E877A"; ctx.beginPath(); ctx.arc(ax - fw / 2, y, 13, 0, TAU); ctx.fill(); }
-    ctx.fillStyle = `rgba(13,14,17,${0.62 * (1 - lit[i])})`; ctx.fillRect(P.x, P.y, P.w, P.h);
+    ctx.fillStyle = `rgba(13,14,17,${0.8 * (1 - lit[i])})`; ctx.fillRect(P.x, P.y, P.w, P.h);
     ctx.restore();
     ctx.strokeStyle = rgba(C.paper, 0.25 + 0.35 * lit[i]); ctx.lineWidth = 3; rr(P.x, P.y, P.w, P.h, 26); ctx.stroke();
   });
@@ -610,8 +616,8 @@ function thermo(x, y, lv, a = 1, sc = 1) {          // x, y: the top of the tube
 const CH = { X0: 170, X1: 960, Y0: 790, Y1: 1290 };
 const yv = (v) => lerp(CH.Y1, CH.Y0, v), xt = (u) => lerp(CH.X0, CH.X1, u);
 const CURVES = {
-  A: { pts: [[0, 0.45], [0.18, 0.8], [0.78, 0.8], [0.9, 1], [1, 1]], u: (t) => kf(t, [[T.pull + 1.0, 0], [T.hold80, 0.18], [T.dawn, 0.78], [T.fill100End, 0.92], [T.fill100End + 0.4, 1]], (x) => x), on: (t) => kf(t, [[T.q14, 1], [T.q14 + 0.4, 0.22]]) },
-  B: { pts: [[0, 0.45], [0.26, 1], [1, 1]], u: (t) => kf(t, [[T.q14 + 0.3, 0], [T.a14 - 0.6, 0.26], [T.a14 + 0.6, 1]], (x) => x), on: (t) => kf(t, [[T.a15, 1], [T.a15 + 0.4, 0.22]]) },
+  A: { pts: [[0, 0.45], [0.18, 0.8], [0.78, 0.8], [0.9, 1], [1, 1]], u: (t) => kf(t, [[T.pull + 1.0, 0], [T.hold80, 0.18], [T.dawn, 0.78], [T.fill100End, 0.92], [T.fill100End + 0.4, 1]], (x) => x), on: (t) => kf(t, [[T.q14, 1], [T.q14 + 0.4, 0.12]]) },
+  B: { pts: [[0, 0.45], [0.26, 1], [1, 1]], u: (t) => kf(t, [[T.q14 + 0.3, 0], [T.a14 - 0.6, 0.26], [T.a14 + 0.6, 1]], (x) => x), on: (t) => kf(t, [[T.a15, 1], [T.a15 + 0.4, 0.12]]) },
   C: { pts: [[0, 0.4], [0.2, 0.8], [1, 0.8]], u: (t) => kf(t, [[T.limit, 0], [T.limit + 0.35, 0.2], [T.irisOut + 0.1, 1]], (x) => x), on: () => 1 },
 };
 function curvePts(c, u) {                                  // the polyline up to u (0..1 in time)
@@ -622,10 +628,12 @@ function curvePts(c, u) {                                  // the polyline up to
 function chartK(t) { return E.p2io(prog(t, T.pull + 0.3, T.pull + 1.0)); }
 function drawChart(t, a = 1) {
   if (a <= 0.01) return;
-  const d = drift(t), z = 1 + 0.16 * prog(t, T.pull, T.irisOut) + 0.1 * E.sine(prog(t, T.pull + 0.8, T.a13 + 0.6));   // a lean in while the night starts
+  const d = drift(t), z = 1 + 0.05 * prog(t, T.pull, T.irisOut) + 0.07 * E.sine(prog(t, T.pull + 0.8, T.a13 + 0.6)) * (1 - E.sine(prog(t, T.a13 + 0.6, T.q14)));   // a lean in while the night starts
   ID(); const bg = ctx.createRadialGradient(540, 1000, 100, 540, 1000, 1100); bg.addColorStop(0, "#21242B"); bg.addColorStop(1, "#131418");
   ctx.save(); ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = a;   // the ground is opaque at once (no grey veil); the chart fades in
-  ctx.translate(540 + 1.1 * d[0], 1040 + 0.9 * d[1]); ctx.scale(z, z); ctx.translate(-540, -1040);
+  ctx.translate(540 + 0.8 * d[0], 1040 + 0.9 * d[1]); ctx.scale(z, z); ctx.translate(-540, -1040);
+  const CHM = ctx.getTransform(), cp = (x, y) => { const q = CHM.transformPoint(new DOMPoint(x, y)); return [q.x, q.y]; };   // chart → screen (the pills draw in screen space)
+  const cpill = (...args) => { pill(...args); ctx.setTransform(CHM); };   // pill() resets the transform: put the chart's back
   const ax = E.p3out(prog(t, T.pull + 0.4, T.pull + 1.1));
   rr(80, 700, 920, 720, 30); ctx.fillStyle = "rgba(255,255,255,0.035)"; ctx.fill();
   ctx.strokeStyle = "rgba(241,240,236,0.4)"; ctx.lineWidth = 3; line(CH.X0, CH.Y1, CH.X0, lerp(CH.Y1, CH.Y0 - 40, ax)); line(CH.X0, CH.Y1, lerp(CH.X0, CH.X1, ax), CH.Y1);
@@ -650,16 +658,18 @@ function drawChart(t, a = 1) {
     const hd = P[P.length - 1]; if (on > 0.5) glowBall(xt(hd[0]), yv(hd[1]), 15 + 4 * Math.sin(t * 5), on);
   }
   // A: 80% held, the dawn fill; B: the flat top = 一直满着; C: the limit
-  if (t >= T.hold80 && t < T.q14) pill(COPY.opt, 540, yv(0.8) + 76, 44, t, T.hold80, T.q14, { align: "center" });
-  if (t >= T.dawn + 0.2 && t < T.q14) pill(COPY.dawn, xt(0.86), yv(1) - 48, 44, t, T.dawn + 0.2, T.q14, { align: "center" });
+  if (t >= T.hold80 && t < T.q14) cpill(COPY.opt, ...cp(540, yv(0.8) + 76), 46, t, T.hold80, T.q14, { align: "center" });
+  if (t >= T.dawn + 0.2 && t < T.q14) cpill(COPY.dawn, ...cp(xt(0.86), yv(1) - 48), 48, t, T.dawn + 0.2, T.q14, { align: "center" });
+  if (t >= T.a15 + 0.3 && t < T.irisOut + 0.3) cpill(COPY.optTag, ...cp(xt(0.86), yv(1) - 46), 44, t, T.a15 + 0.3, T.irisOut + 0.3, { align: "center", col: "rgba(241,240,236,0.6)" });
+  if (t >= T.limit + 0.4) cpill(COPY.limTag, ...cp(xt(0.5), yv(0.8) + 76), 50, t, T.limit + 0.4, T.irisOut + 0.3, { align: "center", col: C.acc, edge: true });
   const bt = E.p3out(prog(t, T.a14, T.a14 + 0.5)), ba = win(t, T.a14, T.a15 + 0.3, 0.3, 0.3);
   if (ba > 0.01) {
     const x0 = xt(0.26), x1 = xt(Math.max(0.26, CURVES.B.u(t)));
     ctx.save(); ctx.globalAlpha = a * ba; ctx.fillStyle = "rgba(255,74,28,0.22)"; ctx.fillRect(x0, yv(1) - 26, (x1 - x0) * bt, 52); ctx.strokeStyle = C.acc; ctx.lineWidth = 10; line(x0, yv(1), x0 + (x1 - x0) * bt, yv(1)); ctx.restore();
     ctx.save(); ctx.globalAlpha = a * ba; ctx.font = `700 48px ${UI}`; ctx.fillStyle = C.acc; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.fillText(COPY.full, (x0 + x1) / 2, yv(1) - 48); ctx.restore();
   }
-  if (t >= T.flowStop && t < T.a15 + 0.3) { pill(COPY.stopped, xt(0.52), yv(0.42), 44, t, T.flowStop, T.a15 + 0.3, { align: "center" }); ctx.save(); ctx.globalAlpha = a * win(t, T.flowStop, T.a15 + 0.3, 0.3, 0.3); arrowS(xt(0.4), yv(0.42) - 62, xt(0.3), yv(1) + 26, "rgba(241,240,236,0.6)", 4, 16, 0, E.p3out(prog(t, T.flowStop, T.flowStop + 0.4))); ctx.restore(); }
-  if (t >= T.a14 && t < T.a15) pill(COPY.note, 990, 760, 44, t, T.a14, T.a15, { align: "right" });
+  if (t >= T.flowStop && t < T.a15 + 0.3) { cpill(COPY.stopped, ...cp(xt(0.52), yv(0.42)), 50, t, T.flowStop, T.a15 + 0.3, { align: "center" }); ctx.save(); ctx.globalAlpha = a * win(t, T.flowStop, T.a15 + 0.3, 0.3, 0.3); arrowS(xt(0.4), yv(0.42) - 62, xt(0.3), yv(1) + 26, "rgba(241,240,236,0.6)", 4, 16, 0, E.p3out(prog(t, T.flowStop, T.flowStop + 0.4))); ctx.restore(); }
+  if (t >= T.a14 && t < T.a15) cpill(COPY.note, ...cp(990, CH.Y1 - 24), 44, t, T.a14, T.a15, { align: "right" });
   // the settings card (C)
   const ca = win(t, T.a15, T.irisOutEnd, 0.35, 0.1);
   if (ca > 0.01) {
@@ -733,7 +743,7 @@ function textBand(t, fl) {
   underline(COPY.h1[1], "会", "充坏", 1, t, T.underline, T.q2);
   // 2 the wrong guess (on orange), struck; the flip
   lines(COPY.q2, t, T.q2, T.a2, { style: "blur", col: L, acc: C.paper, exit: 0.001 });
-  lines(COPY.a2, t, T.a2, T.q3, { style: "slam", col: L });
+  lines(COPY.a2, t, T.a2, T.q3, { style: "slam", col: L, acc: orangeK(t) > 0.35 ? C.ink : C.acc });
   lines(COPY.q3, t, T.q3, T.h1, { style: "blur", col: M });
   // 3–4 lithium
   lines(COPY.h4, t, T.h1, T.q4, { style: "blur", col: D });
@@ -858,6 +868,7 @@ function frame(t) {
       const P0 = PAN[0], P1 = PAN[1];
       pill(COPY.cmpL, P0.x + P0.w / 2, P0.y - 30, 46, t, T.cmpL - 0.1, T.pull, { align: "center" });
       pill(COPY.cmpR, P1.x + P1.w / 2, P1.y - 30, 46, t, T.cmpR - 0.1, T.pull, { align: "center", edge: t >= T.cmpR && t < T.cmpR + 1.2 });
+      if (t >= T.heat) pill(COPY.hot, P1.x + 140, P1.y + 210, 46, t, T.heat, T.pull, {});
     }
     if (t >= T.pull) { drawChart(t, chartK(t)); drawSplit(t, splitK(t)); }
   } else if (t < T.irisOut) {
@@ -887,7 +898,7 @@ function overlay(t) {
   if (t < T.dive + 0.5) drawRow(t);                                   // above the caption scrim
   if (fl >= 0) textBand(t, fl);
   if (t >= T.hot && t < T.end + 0.2) label(COPY.hot, 80, 622, 46, C.ink, t, T.hot, T.end + 0.2, { align: "center" });   // above the scrim
-  if (t >= T.a7 + 0.3 && t < T.q8) pill(COPY.term, 540, 1440, 44, t, T.term, T.q8, { align: "center" });
+  if (t >= T.a7 + 0.3 && t < T.q8) pill(COPY.term, 540, 1418, 44, t, T.term, T.q8, { align: "center" });
   if (t >= T.end) { ID(); ctx.fillStyle = C.ground; ctx.globalAlpha = E.p2io(prog(t, T.end, T.end + 0.3)); ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; endCard(t); }
 }
 

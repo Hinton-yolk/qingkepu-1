@@ -25,7 +25,7 @@
     // 7.25–10.5 · one take in
     q3: 7.25, dive: 7.25, xray: 7.6, cells: 8.35, diveEnd: 10.25,
     // 10.5–24.25 · lithium moves
-    h1: 10.5, spot: 10.75, tagCath: 11.0, tagAnode: 11.5,
+    h1: 10.5, spot: 10.75, tagCath: 11.9, tagAnode: 12.3,
     q4: 13.0, barOn: 13.25, chg1: 13.55, chg1End: 15.0,
     q5: 15.5, dis1: 15.75, dis1End: 17.25,
     a6: 17.75, ringOn: 17.85, chgR: 18.3, chgREnd: 18.75, disR: 18.85, disREnd: 19.85,
@@ -80,8 +80,8 @@
     cath: "正极", anode: "负极 · 石墨", bar: "电量", ring: "循环", term: "这叫一次充电循环", sei: "SEI 膜", note: "示意",
     cmpL: "不满、不热", cmpR: "满 + 热", hot: "热", opt: "优化电池充电 · 学会你的作息后", dawn: "快起床时再充满",
     limit: "充电上限", pause: "暂停", next: "下一次充电",
-    used: "用掉的电", half1: "第一次用掉一半", half2: "第二次用掉一半", elec: "电子", stuck: "被粘住，搬不回去", less: "满格也少一截",
-    night: "夜里", wake: "起床", full: "一直满着", stopped: "充满后不再往里充",
+    used: "累计用掉的电", half1: "第一次用掉一半", half2: "第二次用掉一半", elec: "电子", stuck: "被粘住，搬不回去", less: "满格也少一截",
+    night: "夜里", wake: "起床", full: "一直满着", stopped: "充满后不再往里充", gap: "空出来的位置", optTag: "起床前充满", limTag: "上限：最多 80%", li: "锂",
     end: ["你每天都在用，", "但你不知道", "它[怎么工作]"], epNum: "EP.08", epName: "充电",
   };
   const S16 = BEAT / 4;
