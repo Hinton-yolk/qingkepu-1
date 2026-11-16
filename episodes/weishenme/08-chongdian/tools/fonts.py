@@ -6,7 +6,7 @@ from fontTools import subset
 from fontTools.ttLib import TTFont, TTCollection
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-text = "".join((ROOT / f).read_text(encoding="utf-8") for f in ["timeline.js", "index.html"])
+text = "".join((ROOT / f).read_text(encoding="utf-8") for f in ["timeline.js", "index.html", "styleframes.html"] if (ROOT / f).exists())
 chars = set(ch for ch in text if ord(ch) > 0x7E) | set(chr(c) for c in range(0x20, 0x7F))
 chars |= set("，。？！“”：°·—…0123456789")
 uni = sorted(ord(c) for c in chars)

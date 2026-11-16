@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1080">
+<title>EP.08 样张</title>
+<style>
+  @font-face { font-family: "Smiley"; src: url("assets/fonts/smiley.woff2") format("woff2"); }
+  @font-face { font-family: "NotoSC"; font-weight: 700; src: url("assets/fonts/noto-sc-bold.woff2") format("woff2"); }
+  @font-face { font-family: "NotoSC"; font-weight: 400; src: url("assets/fonts/noto-sc-regular.woff2") format("woff2"); }
+  html, body { margin: 0; background: #17191C; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script>
+"use strict";
+// EP.08 v2 style frames (三个样张): the redesign — one big gauge in the line of sight, a cell with materials, glowing
+// lithium with trails, an outer circuit, causes joined by orange arrows; the night as one chart.
+// ?f=1|2|3 picks the frame.
+const W = 1080, H = 1920, TAU = Math.PI * 2;
+const ctx = document.getElementById("c").getContext("2d");
+const C = { ink: "#141414", acc: "#FF4A1C", paper: "#F1F0EC", dark: "#17191C", ground: "#ECEBE6",
+  cath: "#2C4A8C", cathL: "#5577C4", cathA: "#6C7FB0", anode: "#24262B", sheet: "#4B4F58", sheetL: "#7A808C",
+  li: "#FFF3DC", liGlow: "255,214,150", film: "#9C8463", filmL: "#C2A77E", wire: "#5B606B" };
+const DISPLAY = "Smiley", UI = "NotoSC";
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x)), lerp = (a, b, k) => a + (b - a) * k;
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function line(a, b, c, d) { ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.stroke(); }
+function mulberry32(a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+// captions: two lines at 330 / 472, Smiley 112 px, one orange word per line ([ ])
+function caption(L, col = C.paper) {
+  ctx.textBaseline = "alphabetic";
+  L.forEach((s, i) => {
+    let x = 96, acc = false; const size = 112; ctx.font = `${size}px ${DISPLAY}`;
+    for (const ch of s) { if (ch === "[") { acc = true; continue; } if (ch === "]") { acc = false; continue; } ctx.fillStyle = acc ? C.acc : col; ctx.fillText(ch, x, [330, 472][i]); x += ctx.measureText(ch).width; }
+  });
+}
+function small(str, x, y, o = {}) {           // small text (Noto ≥ 44 px), optionally on a dark pill
+  ctx.font = `${o.w ?? 700} ${o.size ?? 44}px ${UI}`; const wv = ctx.measureText(str).width;
+  const left = o.align === "right" ? x - wv : o.align === "center" ? x - wv / 2 : x;
+  if (o.pill) { rr(left - 20, y - (o.size ?? 44) - 6, wv + 40, (o.size ?? 44) + 24, ((o.size ?? 44) + 24) / 2); ctx.fillStyle = "rgba(23,25,28,0.9)"; ctx.fill(); if (o.edge) { ctx.strokeStyle = C.acc; ctx.lineWidth = 4; ctx.stroke(); } }
+  ctx.fillStyle = o.col ?? C.paper; ctx.textAlign = "left"; ctx.fillText(str, left, y);
+}
+function arrow(x0, y0, x1, y1, col = C.acc, w = 7, head = 22, bend = 0) {
+  const mx = (x0 + x1) / 2 - bend * (y1 - y0), my = (y0 + y1) / 2 + bend * (x1 - x0);
+  ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(mx, my, x1, y1); ctx.stroke();
+  const a = Math.atan2(y1 - my, x1 - mx); ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x1 + Math.cos(a) * 6, y1 + Math.sin(a) * 6);
+  ctx.lineTo(x1 - Math.cos(a - 0.45) * head, y1 - Math.sin(a - 0.45) * head); ctx.lineTo(x1 - Math.cos(a + 0.45) * head, y1 - Math.sin(a + 0.45) * head); ctx.closePath(); ctx.fill();
+}
+function obox(x, y, w, h, r = 16, lw = 5) { ctx.strokeStyle = C.acc; ctx.lineWidth = lw; rr(x, y, w, h, r); ctx.stroke(); }
+function ground() {                             // the dark interior: a soft vignette, not flat
+  const g = ctx.createRadialGradient(540, 1000, 100, 540, 1000, 1100); g.addColorStop(0, "#22252B"); g.addColorStop(1, "#141518");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
+function scrim() { const g = ctx.createLinearGradient(0, 0, 0, 640); g.addColorStop(0, "rgba(20,21,24,1)"); g.addColorStop(0.75, "rgba(20,21,24,0.92)"); g.addColorStop(1, "rgba(20,21,24,0)"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, 640); }
+
+// ---------------------------------------------------------------- the cell: cathode crystal | electrolyte | graphite
+const CELL = { x0: 70, x1: 1010, y0: 640, y1: 1010, c1: 360, a0: 690 };
+function lithium(x, y, r = 15, a = 1, trail = null) {
+  if (trail) {                                   // a short glowing trail behind a moving ion
+    const g = ctx.createLinearGradient(trail[0], trail[1], x, y); g.addColorStop(0, `rgba(${C.liGlow},0)`); g.addColorStop(1, `rgba(${C.liGlow},${0.55 * a})`);
+    ctx.strokeStyle = g; ctx.lineWidth = r * 1.5; ctx.lineCap = "round"; line(trail[0], trail[1], x, y);
+  }
+  const h = ctx.createRadialGradient(x, y, 0, x, y, r * 2.6); h.addColorStop(0, `rgba(${C.liGlow},${0.55 * a})`); h.addColorStop(1, `rgba(${C.liGlow},0)`);
+  ctx.fillStyle = h; ctx.beginPath(); ctx.arc(x, y, r * 2.6, 0, TAU); ctx.fill();
+  ctx.globalAlpha = a; ctx.fillStyle = C.li; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+}
+function cathode(x0, y0, x1, y1) {              // a layered oxide: blue-grey slabs with rows of oxygen beads (sparse)
+  const g = ctx.createLinearGradient(x0, 0, x1, 0); g.addColorStop(0, "#22386B"); g.addColorStop(1, C.cath);
+  rr(x0, y0, x1 - x0, y1 - y0, 18); ctx.fillStyle = g; ctx.fill();
+  const rows = []; for (let y = y0 + 34; y < y1 - 20; y += 66) rows.push(y);
+  rows.forEach((y) => { rr(x0 + 16, y - 9, x1 - x0 - 32, 18, 9); ctx.fillStyle = C.cathL; ctx.fill(); ctx.fillStyle = "rgba(255,255,255,0.10)"; rr(x0 + 16, y - 9, x1 - x0 - 32, 6, 3); ctx.fill(); });
+  return rows.slice(0, -1).map((y, i) => (y + rows[i + 1]) / 2);   // the gaps (where lithium sits)
+}
+function anode(x0, y0, x1, y1) {                // graphite: dark sheets with a faint sheen
+  rr(x0, y0, x1 - x0, y1 - y0, 18); ctx.fillStyle = C.anode; ctx.fill();
+  const rows = []; for (let y = y0 + 34; y < y1 - 20; y += 66) rows.push(y);
+  rows.forEach((y) => { const g = ctx.createLinearGradient(0, y - 8, 0, y + 8); g.addColorStop(0, C.sheetL); g.addColorStop(1, C.sheet); rr(x0 + 16, y - 8, x1 - x0 - 32, 16, 8); ctx.fillStyle = g; ctx.fill(); });
+  return rows.slice(0, -1).map((y, i) => (y + rows[i + 1]) / 2);
+}
+function circuit(dir, k = 1) {                  // the outer wire over the cell; electrons (small dots) flow along it
+  const L = [215, 600], R = [850, 600], top = 590;
+  ctx.strokeStyle = C.wire; ctx.lineWidth = 8; ctx.lineJoin = "round"; ctx.beginPath(); ctx.moveTo(215, CELL.y0); ctx.lineTo(215, top); ctx.lineTo(850, top); ctx.lineTo(850, CELL.y0); ctx.stroke();
+  for (let i = 0; i < 9; i++) { const u = ((i / 9) + 0.37) % 1, x = lerp(255, 810, dir > 0 ? u : 1 - u); ctx.fillStyle = "#AEB4BF"; ctx.beginPath(); ctx.arc(x, top, 7, 0, TAU); ctx.fill(); }
+  arrow(dir > 0 ? 500 : 580, top - 34, dir > 0 ? 580 : 500, top - 34, "#AEB4BF", 5, 16);
+  small("电子", 540, top - 58, { align: "center", size: 44, col: "#AEB4BF" });
+}
+// ---------------------------------------------------------------- the gauge: a big battery inside a ring of "used"
+const GA = { x: 540, y: 1205, r: 160 };
+function gauge(level, used, o = {}) {
+  const { x, y, r } = GA;
+  // the ring (used, cumulative)
+  ctx.lineCap = "butt"; ctx.strokeStyle = "rgba(241,240,236,0.14)"; ctx.lineWidth = 26; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
+  (o.segs ?? [[0, used]]).forEach(([a, b], i) => { ctx.strokeStyle = i % 2 ? "#FF8A5C" : C.acc; ctx.beginPath(); ctx.arc(x, y, r, -Math.PI / 2 + TAU * a, -Math.PI / 2 + TAU * b); ctx.stroke(); });
+  // the battery
+  const cap = o.cap ?? 1, bw = 220, bh = 112, bx = x - bw / 2, by = y - bh / 2;
+  if (cap < 1) { ctx.setLineDash([12, 10]); ctx.strokeStyle = "rgba(241,240,236,0.45)"; ctx.lineWidth = 5; rr(bx, by, bw, bh, 20); ctx.stroke(); ctx.setLineDash([]); }
+  ctx.strokeStyle = C.paper; ctx.lineWidth = 8; rr(bx, by, bw * cap, bh, 20); ctx.stroke();
+  ctx.fillStyle = C.paper; rr(bx + bw + 6, y - 22, 14, 44, 5); ctx.fill();
+  rr(bx + 14, by + 14, Math.max(0, (bw * cap - 28) * level), bh - 28, 10); ctx.fillStyle = C.paper; ctx.fill();
+}
+
+const R = mulberry32(8);
+function frame1() {                             // 加起来，还是[一次]
+  ground();
+  const cg = cathode(CELL.x0, CELL.y0, CELL.c1, CELL.y1), ag = anode(CELL.a0, CELL.y0, CELL.x1, CELL.y1);
+  ctx.strokeStyle = "rgba(255,255,255,0.10)"; ctx.lineWidth = 3; ctx.setLineDash([16, 14]); line(525, CELL.y0 + 10, 525, CELL.y1 - 10); ctx.setLineDash([]);
+  circuit(-1);                                  // using: electrons go back to the cathode side through the phone
+  // lithium: half way back — some in the graphite, some crossing (trails), some home in the cathode (a third stays home)
+  const cx = [130, 210, 290], ax = [760, 850, 940];
+  cg.forEach((y, i) => cx.forEach((x, j) => { if ((i + j) % 2 === 0 || i < 2) lithium(x, y, 14); }));
+  ag.forEach((y, i) => ax.forEach((x, j) => { if ((i * 3 + j) % 4 === 1) lithium(x, y, 14); }));
+  [[600, 700], [470, 790], [610, 880], [430, 950], [560, 745]].forEach(([x, y]) => lithium(x, y, 14, 1, [x + 120, y + 10]));
+  small("正极", (CELL.x0 + CELL.c1) / 2, CELL.y1 + 56, { align: "center", pill: true });
+  small("负极 · 石墨", (CELL.a0 + CELL.x1) / 2, CELL.y1 + 56, { align: "center", pill: true });
+  // the cell → the gauge: what is in the graphite is the charge
+  arrow(850, CELL.y1 + 92, GA.x + 112, GA.y - 64, "rgba(241,240,236,0.55)", 5, 18, -0.2);
+  gauge(0.5, 1, { segs: [[0, 0.5], [0.5, 1]] });
+  small("第一次用掉一半", GA.x + GA.r + 34, GA.y + 14, { size: 44, col: C.acc });
+  small("第二次用掉一半", GA.x - GA.r - 34, GA.y + 14, { align: "right", size: 44, col: "#FF8A5C" });
+  small("合起来一圈 = 一次充电循环", 540, 1428, { align: "center", size: 44, pill: true });
+  // a flash where the two halves meet (the 咔)
+  const fy = GA.y - GA.r; const h = ctx.createRadialGradient(540, fy, 0, 540, fy, 70); h.addColorStop(0, "rgba(255,138,92,0.9)"); h.addColorStop(1, "rgba(255,138,92,0)"); ctx.fillStyle = h; ctx.beginPath(); ctx.arc(540, fy, 70, 0, TAU); ctx.fill();
+  scrim(); caption(["加起来，", "还是[一次]"]);
+}
+function frame2() {                             // 就这样一点点老，电池就[不耐用]了
+  ground();
+  // zoomed: the graphite's face (right), the SEI film on it, the electrolyte (left)
+  const fx = 560, y0 = 650, y1 = 1060;
+  const ag = anode(fx, y0, 1080 + 40, y1);
+  const fw = 46; const g = ctx.createLinearGradient(fx - fw, 0, fx, 0); g.addColorStop(0, C.filmL); g.addColorStop(1, C.film);
+  rr(fx - fw, y0, fw + 8, y1 - y0, 10); ctx.fillStyle = g; ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,0.12)"; for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.arc(fx - fw / 2 + (R() - 0.5) * 20, y0 + 40 + i * 64, 4, 0, TAU); ctx.fill(); }
+  small("SEI 膜", fx - fw - 24, y0 + 44, { align: "right", pill: true });
+  // the free lithium goes home (left) with trails; the stuck ones stay in the film, dim, ringed
+  [[300, 720], [200, 810], [360, 900], [150, 980], [430, 1010]].forEach(([x, y]) => lithium(x, y, 15, 1, [x + 150, y]));
+  ag.forEach((y, i) => { if (i % 2) lithium(800 + (i % 3) * 90, y, 15, 0.9); });
+  const stuck = [[fx - 22, 760], [fx - 20, 870], [fx - 24, 975]];
+  stuck.forEach(([x, y]) => { ctx.fillStyle = "#8E877A"; ctx.beginPath(); ctx.arc(x, y, 15, 0, TAU); ctx.fill(); ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(x, y, 30, 0, TAU); ctx.stroke(); });
+  small("被粘住，搬不回去", fx - 300, 1130, { align: "center", size: 44, col: C.acc });
+  small("示意", 1000, 1130, { align: "right", pill: true, size: 44 });
+  // stuck → the gauge: the full battery is a bit shorter
+  arrow(fx - 24, 1005, GA.x + 20, GA.y - 80, C.acc, 6, 20, 0.12);
+  gauge(1, 0, { cap: 0.86 });
+  small("满格也少一截", GA.x + GA.r + 150, GA.y + 14, { align: "center", size: 44, pill: true, edge: true });
+  scrim(); caption(["就这样一点点老，", "电池就[不耐用]了"]);
+}
+function frame3() {                             // 手机没有这个[功能]呢？ → 只是[一直满]着 (chart)
+  ground();
+  const X0 = 150, X1 = 980, Y0 = 760, Y1 = 1300;    // the chart
+  const yv = (v) => lerp(Y1, Y0, v);                  // v: 0..1 (0 = empty, 1 = full)
+  rr(70, 680, 940, 740, 30); ctx.fillStyle = "rgba(255,255,255,0.03)"; ctx.fill();
+  // axes
+  ctx.strokeStyle = "rgba(241,240,236,0.35)"; ctx.lineWidth = 3; line(X0, Y0 - 30, X0, Y1); line(X0, Y1, X1, Y1);
+  ctx.setLineDash([10, 10]); ctx.strokeStyle = "rgba(241,240,236,0.25)"; line(X0, yv(1), X1, yv(1)); line(X0, yv(0.8), X1, yv(0.8)); ctx.setLineDash([]);
+  small("100%", X0 - 14, yv(1) + 14, { align: "right", size: 44, col: "rgba(241,240,236,0.8)" });
+  small("80%", X0 - 14, yv(0.8) + 14, { align: "right", size: 44, col: "rgba(241,240,236,0.8)" });
+  // time: night (moon) → wake (sun)
+  ctx.fillStyle = "#D8D6CE"; ctx.beginPath(); ctx.arc(X0 + 30, Y1 + 62, 20, 0, TAU); ctx.fill(); ctx.fillStyle = "#1E2025"; ctx.beginPath(); ctx.arc(X0 + 40, Y1 + 55, 17, 0, TAU); ctx.fill();
+  small("夜里", X0 + 64, Y1 + 76, { size: 44, col: "rgba(241,240,236,0.85)" });
+  ctx.fillStyle = "#F2C27A"; ctx.beginPath(); ctx.arc(X1 - 150, Y1 + 62, 18, 0, TAU); ctx.fill();
+  ctx.strokeStyle = "#F2C27A"; ctx.lineWidth = 4; for (let i = 0; i < 8; i++) { const a = i * TAU / 8; line(X1 - 150 + Math.cos(a) * 26, Y1 + 62 + Math.sin(a) * 26, X1 - 150 + Math.cos(a) * 34, Y1 + 62 + Math.sin(a) * 34); }
+  small("起床", X1 - 116, Y1 + 76, { size: 44, col: "rgba(241,240,236,0.85)" });
+  const xt = (u) => lerp(X0, X1 - 40, u);
+  // curve A (optimised, already explained): dim
+  const A = [[0, 0.45], [0.18, 0.8], [0.78, 0.8], [0.9, 1], [1, 1]];
+  ctx.strokeStyle = "rgba(241,240,236,0.25)"; ctx.lineWidth = 7; ctx.lineJoin = "round"; ctx.beginPath(); A.forEach(([u, v], i) => (i ? ctx.lineTo(xt(u), yv(v)) : ctx.moveTo(xt(u), yv(v)))); ctx.stroke();
+  small("优化充电", xt(0.66), yv(0.8) + 52, { align: "center", size: 44, col: "rgba(241,240,236,0.45)" });
+  // curve B (no such feature): bright; the flat top marked orange = 一直满着
+  const B = [[0, 0.45], [0.26, 1], [1, 1]];
+  ctx.strokeStyle = C.paper; ctx.lineWidth = 10; ctx.beginPath(); B.forEach(([u, v], i) => (i ? ctx.lineTo(xt(u), yv(v)) : ctx.moveTo(xt(u), yv(v)))); ctx.stroke();
+  ctx.fillStyle = "rgba(255,74,28,0.22)"; ctx.fillRect(xt(0.26), yv(1) - 26, xt(1) - xt(0.26), 52);
+  ctx.strokeStyle = C.acc; ctx.lineWidth = 10; line(xt(0.26), yv(1), xt(1), yv(1));
+  small("一直满着", (xt(0.26) + xt(1)) / 2, yv(1) - 46, { align: "center", size: 48, col: C.acc });
+  // the moment of "full": the current stops (a small plug icon with a stop)
+  small("充满后不再往里充", xt(0.5), yv(0.42), { align: "center", size: 44, pill: true });
+  arrow(xt(0.38), yv(0.42) - 62, xt(0.3), yv(1) + 24, "rgba(241,240,236,0.6)", 4, 16);
+  small("示意", 990, 740, { align: "right", pill: true, size: 44 });
+  scrim(); caption(["充满就不再往里充了，", "只是[一直满]着"]);
+}
+const f = new URLSearchParams(location.search).get("f") || "1";
+document.fonts.load(`100px ${DISPLAY}`, "加起来还是一次就这样一点点老电池就不耐用了充满就不再往里充只是一直满着").then(() => document.fonts.load(`700 44px ${UI}`, "正极负极石墨电子第一次用掉一半第二次合起来一圈充电循环被粘住搬不回去示意满格也少一截夜里起床优化充电一直满着充满后不再往里充100%80%SEI膜")).then(() => {
+  ({ 1: frame1, 2: frame2, 3: frame3 })[f](); window.ready = true;
+});
+</script>
+</body>
+</html>
