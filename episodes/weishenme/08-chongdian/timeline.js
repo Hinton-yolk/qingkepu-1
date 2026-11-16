@@ -23,7 +23,7 @@
     q2: 2.75, myth: 2.75, row: 3.0, unplug2: 3.25, plug3: 3.5, unplug3: 4.0, plug4: 4.25, hush: 4.5, strike: 5.0,
     a2: 5.25, unOrange: 5.25, fast: 5.5, fastEnd: 7.0,
     // 7.25–10.5 · one take in
-    q3: 7.25, dive: 7.25, xray: 7.75, cells: 8.75, diveEnd: 10.25,
+    q3: 7.25, dive: 7.25, xray: 7.6, cells: 8.35, diveEnd: 10.25,
     // 10.5–24.25 · lithium moves
     h1: 10.5, spot: 10.75, tagCath: 11.0, tagAnode: 11.5,
     q4: 13.0, barOn: 13.25, chg1: 13.55, chg1End: 15.0,
@@ -35,15 +35,15 @@
     q8: 24.25, chgA: 24.35, chgAEnd: 25.0, zoomA: 24.25, zoomAEnd: 25.5, film: 25.25,
     a8: 26.5, thick: 26.6, thickEnd: 27.5, stick: 27.75, stickEnd: 28.6,
     q9: 29.5, dis9: 29.75, dis9End: 31.0,
-    a10: 31.75, zoomOut: 31.75, zoomOutEnd: 32.4, shrink: 32.4, shrinkEnd: 33.4,
+    a10: 31.75, zoomOut: 31.75, zoomOutEnd: 32.4, chgS: 32.45, chgSEnd: 32.95, shrink: 33.0, shrinkEnd: 33.6,   // fill it up again, then the outline shrinks (满格也装得少了)
     q11: 34.0, split: 34.25, splitEnd: 35.0,
     a12: 36.0, cmpL: 36.15, cmpR: 36.9, full: 36.9, fullEnd: 37.4, heat: 37.45, heatEnd: 38.25,
     // 38.5–49.75 · night
     q13: 38.5, pull: 38.5, pullEnd: 39.9,
     a13: 40.75, hold80: 41.25, dawn: 42.0, fill100: 42.35, fill100End: 42.75, grab: 42.6, liftEnd: 43.2,
-    q14: 43.25, phone2: 43.25, phone2End: 43.75,
+    q14: 43.25, phone2: 43.25, phone2End: 43.7,   // a whip pan to another bedside (another phone, still night)
     a14: 45.0, flowStop: 45.5,
-    a15: 47.5, toggle: 47.75, toggleEnd: 48.1, limit: 48.3, limitEnd: 49.2,
+    a15: 47.5, toggle: 47.6, toggleEnd: 47.85, limit: 47.95, limitEnd: 48.45,   // the next charge: up from low, it stops at 80% (held ≥ 1 s before the circle reaches it)
     // 49.75–52.75 · back to the first shot
     stop2: 49.25, fin: 49.75, irisOut: 49.25, irisOutEnd: 49.85, plugF: 50.35, ka: 50.5,   // the circle opens in the half-beat stop: the closing line lands on light
     // 52.75–55.75 · the tip
@@ -79,7 +79,7 @@
     // small text (terms and notes only as small text)
     cath: "正极", anode: "负极 · 石墨", bar: "电量", ring: "循环", term: "这叫一次充电循环", sei: "SEI 膜", note: "示意",
     cmpL: "不满、不热", cmpR: "满 + 热", hot: "热", opt: "优化电池充电 · 学会你的作息后", dawn: "快起床时再充满",
-    limit: "充电上限", pause: "暂停",
+    limit: "充电上限", pause: "暂停", next: "下一次充电",
     end: ["你每天都在用，", "但你不知道", "它[怎么工作]"], epNum: "EP.08", epName: "充电",
   };
   const S16 = BEAT / 4;

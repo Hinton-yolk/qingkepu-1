@@ -130,7 +130,7 @@ const secAt = (t) => { let s = SECS[0][1]; for (const [t0, n] of SECS) if (t >= 
 const STOPS = [[T.hush, T.strike], [T.a7 - 0.5, T.a7], [T.stop2, T.fin]];
 const silent = (t) => STOPS.some(([a, b]) => t >= a && t < b);
 // when lithium is moving (the shimmer plays): the charge state changes
-const MOVES = [[T.chg1, T.chg1End], [T.dis1, T.dis1End], [T.chgR, T.chgREnd], [T.disR, T.disREnd], [T.chgH, T.chgHEnd], [T.half1, T.half1End], [T.back1, T.back1End], [T.half2, T.half2End], [T.chgA, T.chgAEnd], [T.dis9, T.dis9End]];
+const MOVES = [[T.chgS, T.chgSEnd], [T.chg1, T.chg1End], [T.dis1, T.dis1End], [T.chgR, T.chgREnd], [T.disR, T.disREnd], [T.chgH, T.chgHEnd], [T.half1, T.half1End], [T.back1, T.back1End], [T.half2, T.half2End], [T.chgA, T.chgAEnd], [T.dis9, T.dis9End]];
 const moving = (t) => MOVES.some(([a, b]) => t >= a - 0.05 && t < b + 0.05);
 
 // ------------------------------------------------------------------ arrangement
@@ -225,7 +225,7 @@ snapSfx(T.half2End, 0.8); bloom(T.half2End, [87, 91, 94], 0.4);
 tick(T.film, 0.5, 0.35, 2900);
 creak(T.thick, 0.8); creak(T.thick + 0.45, 0.6);
 [0, 0.15, 0.3].forEach((d, i) => plink(T.stick + 0.45 + d, [63, 61, 58][i], 0.5, 0.3));
-glide(T.shrink, T.shrinkEnd - T.shrink, 75, 63, 0.5, 0);
+glide(T.chgS, T.chgSEnd - T.chgS, 70, 82, 0.35, 0.2); glide(T.shrink, T.shrinkEnd - T.shrink, 75, 63, 0.5, 0);
 // 5b split; full; heat (a rising glide)
 glide(T.split, T.splitEnd - T.split, 72, 79, 0.35, 0);
 glide(T.full, T.fullEnd - T.full, 75, 87, 0.35, 0.3); riser(T.heat - 0.1, T.heatEnd - T.heat + 0.1, 0.45);
@@ -233,7 +233,7 @@ glide(T.full, T.fullEnd - T.full, 75, 87, 0.35, 0.3); riser(T.heat - 0.1, T.heat
 glide(T.pull, T.pullEnd - T.pull, 84, 70, 0.45, 0);
 beep(T.hold80, 87, 0.09, 0.5, 0.1); beep(T.hold80 + 0.125, 87, 0.09, 0.4, 0.1);
 bloom(T.dawn, [79, 84, 87], 0.4); [[0, 91], [1, 94], [2, 99]].forEach(([i, m]) => beep(T.fill100End + i * S16, m, 0.09, 0.55, 0.1));
-glide(T.flowStop, 0.4, 79, 70, 0.35, 0.2);
+swish(T.phone2 - 0.05, 0.45, 0.7, 0.3); glide(T.flowStop, 0.4, 79, 70, 0.35, 0.2);
 click(T.toggle, 0.6); tap(T.toggle, 0.4, 160); beep(T.limitEnd, 87, 0.09, 0.45, 0.1);
 // 7 the closing line (after a half-beat stop): the plug goes home; the chime resolves mi-sol-DO
 impact(T.fin, 1.35); stab(T.fin, [51, 58, 63, 67, 70], 0.5, 1, 1.25);

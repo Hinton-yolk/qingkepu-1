@@ -215,7 +215,7 @@ function plugOut(t) {
 }
 function drawPlugAndCable(t, K, out, a = 1) {
   setK(K); ctx.save(); ctx.globalAlpha = a;
-  const y0 = PORT[1] - 22 + out * 70;                   // the metal tip's top
+  const y0 = PORT[1] - 22 + out * 50;                   // the metal tip's top
   // cable: from the plug's tail, curving off to the right edge
   const tail = [0, y0 + 22 + 84];
   ctx.lineCap = "round"; ctx.strokeStyle = C.cableD; ctx.lineWidth = 22;
@@ -285,32 +285,29 @@ function drawPhone(t, K, o = {}) {
 
 // ---------------------------------------------------------------- placeholder hands (until the reference images arrive)
 function skinGrad(x0, y0, x1, y1) { const g = ctx.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, C.skinL); g.addColorStop(0.45, C.skin); g.addColorStop(1, C.skinD); return g; }
-// the right hand pinching the plug from below-right; p = the pinch point (local), k = 1 holding
+// the right hand pinching the plug, coming in from the right edge (nothing below y 1450); p = the pinch point (local)
 function handPinch(K, p, a = 1) {
   setK(K); ctx.save(); ctx.globalAlpha = a; ctx.translate(p[0], p[1]);
-  const fill = skinGrad(-60, -40, 420, 380);
-  // forearm out through the right edge
-  capsule([[230, 190], [520, 330], [760, 430]], 190, C.skinD); capsule([[230, 180], [520, 320], [760, 420]], 176, fill);
-  // palm
-  ctx.save(); ctx.translate(150, 120); ctx.rotate(-0.55); ctx.beginPath(); ctx.ellipse(0, 0, 135, 100, 0, 0, TAU); ctx.fillStyle = fill; ctx.fill(); ctx.restore();
-  // curled middle, ring, little fingers (under the palm)
-  capsule([[120, 40], [70, 70], [80, 120]], 50, C.skinD); capsule([[170, 60], [120, 100], [128, 146]], 46, C.skinD); capsule([[215, 90], [176, 128], [182, 166]], 40, C.skinD);
-  capsule([[120, 40], [70, 70], [80, 120]], 42, fill); capsule([[170, 60], [120, 100], [128, 146]], 38, fill); capsule([[215, 90], [176, 128], [182, 166]], 32, fill);
-  // index finger to the right side of the plug
-  capsule([[150, 30], [96, -10], [44, -6]], 50, C.skinD); capsule([[150, 30], [96, -10], [44, -6]], 42, fill);
-  // thumb to the left side of the plug
-  capsule([[90, 150], [10, 110], [-44, 40]], 56, C.skinD); capsule([[90, 150], [10, 110], [-44, 40]], 46, fill);
-  ctx.fillStyle = C.nail; ctx.beginPath(); ctx.ellipse(-44, 36, 12, 14, 0.6, 0, TAU); ctx.fill();
+  const fill = skinGrad(-40, -80, 520, 200);
+  capsule([[200, 20], [520, -60], [900, -150]], 180, C.skinD); capsule([[200, 12], [520, -68], [900, -158]], 166, fill);   // the forearm, out through the right edge
+  ctx.save(); ctx.translate(140, 40); ctx.rotate(0.15); ctx.beginPath(); ctx.ellipse(0, 0, 120, 92, 0, 0, TAU); ctx.fillStyle = fill; ctx.fill(); ctx.restore();
+  // middle, ring, little fingers curled under the palm
+  [[[100, 70], [70, 108], [92, 140]], [[150, 84], [124, 120], [146, 146]], [[198, 86], [178, 116], [196, 136]]].forEach((P, i) => { capsule(P, 46 - 5 * i, C.skinD); capsule(P, 38 - 5 * i, fill); });
+  // the index finger along the top, its tip on the plug's right side
+  capsule([[120, -10], [70, -24], [36, -8]], 48, C.skinD); capsule([[120, -10], [70, -24], [36, -8]], 40, fill);
+  // the thumb under the plug, its tip on the plug's left side
+  capsule([[80, 70], [10, 70], [-38, 18]], 52, C.skinD); capsule([[80, 70], [10, 70], [-38, 18]], 43, fill);
+  ctx.fillStyle = C.nail; ctx.beginPath(); ctx.ellipse(-38, 14, 11, 13, -0.5, 0, TAU); ctx.fill();
   ctx.restore();
 }
-// the right hand coming down from the top to take the phone (local, around the phone)
+// the right hand coming in from the right to take the phone (local, around the phone); it leaves to the right
 function handGrab(K, k, a = 1) {
-  setK(K); ctx.save(); ctx.globalAlpha = a; ctx.translate(0, lerp(-900, -PH.h / 2 + 60, k));
-  const fill = skinGrad(-200, -500, 200, 100);
-  capsule([[40, -700], [30, -260]], 200, C.skinD); capsule([[40, -700], [30, -260]], 186, fill);
-  ctx.beginPath(); ctx.ellipse(10, -150, 150, 130, 0, 0, TAU); ctx.fillStyle = fill; ctx.fill();
-  capsule([[-130, -160], [-178, -40], [-172, 70]], 46, fill);                       // thumb along the left side
-  capsule([[60, -80], [176, 0], [180, 110]], 44, fill); capsule([[110, -110], [182, -40], [184, 40]], 40, fill);
+  setK(K); ctx.save(); ctx.globalAlpha = a; ctx.translate(lerp(900, 0, k), 0);
+  const fill = skinGrad(0, -200, 700, 200);
+  capsule([[260, -40], [700, -120], [1400, -200]], 200, C.skinD); capsule([[260, -48], [700, -128], [1400, -208]], 186, fill);
+  ctx.beginPath(); ctx.ellipse(210, -30, 140, 120, 0, 0, TAU); ctx.fillStyle = fill; ctx.fill();
+  capsule([[120, -120], [0, -170], [-120, -150]], 46, fill);                         // thumb across the top of the screen edge
+  capsule([[150, 60], [40, 110], [-120, 120]], 44, fill); capsule([[180, 10], [60, 40], [-100, 50]], 40, fill);
   ctx.restore();
 }
 // two hands holding the phone sideways (landscape), from the bottom corners
@@ -319,7 +316,7 @@ function handsLandscape(K, a = 1, caseW = 0) {
   for (const sx of [-1, 1]) {
     ctx.save(); ctx.scale(sx, 1);
     const fill = skinGrad(200, 0, 500, 500);
-    capsule([[300 + caseW, 160], [440, 420], [520, 700]], 170, C.skinD); capsule([[300 + caseW, 150], [440, 410], [520, 690]], 156, fill);
+    capsule([[300 + caseW, 160], [470, 320], [700, 420]], 170, C.skinD); capsule([[300 + caseW, 150], [470, 310], [700, 410]], 156, fill);
     ctx.beginPath(); ctx.ellipse(300 + caseW, 120, 110, 120, 0.3, 0, TAU); ctx.fillStyle = fill; ctx.fill();
     capsule([[250 + caseW, 60], [210 + caseW, -10], [196 + caseW, -60]], 46, C.skinD); capsule([[250 + caseW, 60], [210 + caseW, -10], [196 + caseW, -60]], 38, fill);
     ctx.fillStyle = C.nail; ctx.beginPath(); ctx.ellipse(196 + caseW, -62, 12, 14, 0, 0, TAU); ctx.fill();
@@ -354,7 +351,8 @@ const K_DIVE_END = key(LSTAR, DIVE_TGT, KF_A);
 // E → screen: E coords are the screen coords of K_DIVE_END (shifted so that the gap centre (490, 1030) = DIVE_TGT)
 const E0 = [CELL.sep, 1030];
 function eToLocal(e) { return [LSTAR[0] + (e[0] - E0[0]) / KF_A, LSTAR[1] + (e[1] - E0[1]) / KF_A]; }
-function phoneK(t) { const d = drift(t); return key([0, 30], [540 + 0.95 * d[0], 1000 + 0.95 * d[1]], lerp(1.0, 1.09, prog(t, 0, T.dive)) * d[2]); }
+const PHS = 0.86, PHY = 930;                           // the light shots: the phone's scale and height (hand, plug and cable stay above y 1450)
+function phoneK(t) { const d = drift(t); return key([0, 30], [540 + 0.95 * d[0], PHY + 0.95 * d[1]], PHS * lerp(1.0, 1.09, prog(t, 0, T.dive)) * d[2]); }
 function camPhone(t) {
   // the light world: a slow push all the time (never still); the dive; the closing; the tip
   if (t < T.dive) return phoneK(t);
@@ -398,7 +396,7 @@ const setM = (M) => ctx.setTransform(M[0], 0, 0, M[0], M[1], M[2]);
 function charge(t) {
   return kf(t, [[0, 0], [T.chg1, 0], [T.chg1End, 1], [T.dis1, 1], [T.dis1End, 0], [T.chgR, 0], [T.chgREnd, 1], [T.disR, 1], [T.disREnd, 0],
     [T.chgH, 0], [T.chgHEnd, 1], [T.half1, 1], [T.half1End, 0.5], [T.back1, 0.5], [T.back1End, 1], [T.half2, 1], [T.half2End, 0.5],
-    [T.chgA, 0.5], [T.chgAEnd, 1], [T.dis9, 1], [T.dis9End, 0], [DUR, 0]], E.p2io);
+    [T.chgA, 0.5], [T.chgAEnd, 1], [T.dis9, 1], [T.dis9End, 0], [T.chgS, 0], [T.chgSEnd, 1], [DUR, 1]], E.p2io);
 }
 // the cycle ring (counts what is used: the discharge)
 function ringVal(t) {
@@ -424,7 +422,7 @@ const IONS = (() => {
   }
   // three of the movable ones get stuck in the film (the ones nearest the anode face)
   const mv = out.filter((o) => o.movable).sort((p, q) => p.a[0] - q.a[0]);
-  const stuckY = [820, 1020, 1240];
+  const stuckY = [900, 1050, 1200];
   mv.slice(0, 3).forEach((o, j) => { o.stuck = true; o.f = [640, stuckY[j]]; });
   return out;
 })();
@@ -476,6 +474,8 @@ function drawCell(t, M, a = 1, detail = 1) {
     }
   }
   ctx.restore();
+  ID(); const gf = ctx.createLinearGradient(0, 1380, 0, 1450); gf.addColorStop(0, "rgba(23,25,28,0)"); gf.addColorStop(1, "rgba(23,25,28,1)");
+  ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = gf; ctx.fillRect(0, 1380, W, 70); ctx.fillStyle = C.elyte; ctx.fillRect(0, 1450, W, H - 1450); ctx.restore();
 }
 
 // ================================================================ SPLIT (dark): two anode faces side by side
@@ -530,82 +530,93 @@ function thermo(x, y, lv, a = 1, sc = 1) {          // x, y: the top of the tube
   ctx.restore();
 }
 
-// ================================================================ NIGHT (dark): a bedside
-const K_NIGHT = key([0, 0], [420, 990], 0.62);
-function nightZ(t) { return 1 + 0.5 * prog(t, T.pull, T.irisOut); }   // a slow push in on the bedside (never still)
-function nightA(t) { return E.p2io(prog(t, T.pull + 0.2, T.pull + 1.2)) * (1 - E.p2io(prog(t, T.irisOut, T.irisOutEnd))); }
-function dawnK(t) { return kf(t, [[0, 0], [T.dawn, 0], [T.fill100End, 1], [T.q14, 1], [T.phone2End, 0]], E.p2io); }
-function drawNight(t) {
-  ID(); const nd = drift(t), nz = nightZ(t); ctx.translate(420, 990); ctx.scale(nz, nz); ctx.translate(-420, -990); ctx.translate(1.25 * nd[0], 1.25 * nd[1]);
-  const dk = dawnK(t);
-  ctx.fillStyle = mixHex(C.night, "#2A2730", dk * 0.6); ctx.fillRect(-100, -100, W + 200, H + 200);
-  // the window (top right): night blue → a first light
-  const wx = 640, wy = 660, ww = 330, wh = 400;
+// ================================================================ NIGHT (dark): two bedsides
+// room A (38.5–43.25): phone A (dark) on a stand at x 420, the window on the right; it holds at 80%, dawn, it fills, it is taken.
+// room B (43.25–49.85): a whip pan to another bedside: phone B (silver) at x 650, the window on the left, still night.
+const ROOM = { A: { px: 420, wx: 640 }, B: { px: 650, wx: 90 } };
+function nightZ(t) { return 1 + 0.5 * prog(t, T.pull, T.irisOut); }   // a slow push in (never still)
+function nightA(t) { return E.p2io(prog(t, T.pull + 0.2, T.pull + 0.7)); }
+function dawnK(t) { return kf(t, [[0, 0], [T.dawn, 0], [T.fill100End, 1], [DUR, 1]], E.p2io); }
+function whip(t) { return E.p3io(prog(t, T.phone2, T.phone2End)); }    // 0 = room A, 1 = room B
+function roomT(t, xoff) {                                                // the room's transform: push in about its phone, drift, the whip
+  const nd = drift(t), nz = nightZ(t); ID(); ctx.translate(xoff, 0); ctx.translate(540, 990); ctx.scale(nz, nz); ctx.translate(-540, -990); ctx.translate(1.25 * nd[0], 1.25 * nd[1]);
+}
+function drawRoom(t, r, xoff) {
+  const R_ = ROOM[r], dk = r === "A" ? dawnK(t) : 0;
+  ctx.save(); roomT(t, xoff);
+  ctx.fillStyle = mixHex(r === "A" ? C.night : "#191C24", "#2A2730", dk * 0.6); ctx.fillRect(-200, -200, W + 400, H + 400);
+  const wx = R_.wx, wy = 660, ww = 330, wh = 400;
   const g = ctx.createLinearGradient(0, wy, 0, wy + wh);
   g.addColorStop(0, mixHex("#26304A", "#3A4A6A", dk)); g.addColorStop(1, mixHex("#33405E", "#E9B48A", dk));
   rr(wx, wy, ww, wh, 10); ctx.fillStyle = g; ctx.fill();
   ctx.strokeStyle = "#2E3442"; ctx.lineWidth = 10; ctx.stroke(); line(wx + ww / 2, wy, wx + ww / 2, wy + wh); line(wx, wy + wh / 2, wx + ww, wy + wh / 2);
-  // a small moon (night) / it fades with the dawn
-  ctx.globalAlpha = 1 - dk; ctx.fillStyle = "#D8D6CE"; ctx.beginPath(); ctx.arc(wx + 250, wy + 90, 26, 0, TAU); ctx.fill(); ctx.fillStyle = mixHex("#1F2638", "#3A4A6A", dk); ctx.beginPath(); ctx.arc(wx + 262, wy + 82, 22, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
-  ctx.fillStyle = "#D8D6CE"; [[wx + 60, wy + 70], [wx + 140, wy + 150], [wx + 210, wy + 260], [wx + 290, wy + 200], [wx + 90, wy + 300]].forEach(([x, y], i) => { ctx.globalAlpha = (1 - dk) * (0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * (2.1 + i * 0.7) + i * 1.9))); ctx.beginPath(); ctx.arc(x, y, 5, 0, TAU); ctx.fill(); }); ctx.globalAlpha = 1;
-  // the table top
-  ctx.fillStyle = C.table; ctx.fillRect(-100, 1255, W + 200, 260); ctx.fillStyle = "#3E4452"; ctx.fillRect(-100, 1255, W + 200, 12);
-  // the cable along the table, to the right edge
+  ctx.globalAlpha = 1 - dk; ctx.fillStyle = "#D8D6CE"; ctx.beginPath(); ctx.arc(wx + (r === "A" ? 250 : 80), wy + 90, 26, 0, TAU); ctx.fill();
+  ctx.fillStyle = mixHex("#26304A", "#3A4A6A", dk); ctx.beginPath(); ctx.arc(wx + (r === "A" ? 262 : 92), wy + 82, 22, 0, TAU); ctx.fill();
+  ctx.fillStyle = "#D8D6CE"; [[60, 70], [140, 150], [210, 260], [290, 200], [90, 300]].forEach(([x, y], i) => { ctx.globalAlpha = (1 - dk) * (0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * (2.1 + i * 0.7) + i * 1.9))); ctx.beginPath(); ctx.arc(wx + (r === "A" ? x : ww - x), wy + y, 5, 0, TAU); ctx.fill(); }); ctx.globalAlpha = 1;
+  // the table top (room B: a lighter wood edge), the stand, the cable
+  ctx.fillStyle = r === "A" ? C.table : "#2A2622"; ctx.fillRect(-200, 1255, W + 400, 260); ctx.fillStyle = r === "A" ? "#3E4452" : "#4A4038"; ctx.fillRect(-200, 1255, W + 400, 12);
   ctx.strokeStyle = "#8D8A83"; ctx.lineWidth = 12; ctx.lineCap = "round";
-  ctx.beginPath(); ctx.moveTo(420, 1215); ctx.bezierCurveTo(420, 1290, 560, 1300, 1100, 1300); ctx.stroke();
-}
-function nightPhoneState(t) {
-  // phone 1 (until it is taken): it charges to 80% (held), then to 100% at dawn
-  if (t < T.q14) {
-    const lv = kf(t, [[0, 0.62], [T.a13, 0.62], [T.hold80, 0.8], [T.fill100, 0.8], [T.fill100End, 1]], E.p2io);
-    const held = t >= T.hold80 - 0.05 && t < T.fill100;
-    return { on: 1, level: lv, txt: t >= T.hold80 - 0.05 ? (t >= T.fill100End - 0.05 ? "100%" : "80%") : null, charging: !held, pause: held };
-  }
-  // phone 2 (no such feature): full; later the limit
-  if (t < T.limit) return { on: 1, level: 1, txt: "100%", charging: t < T.flowStop };
-  const lv = kf(t, [[T.limit, 1], [T.limit + 0.35, 0.55], [T.limitEnd, 0.8]], E.p2io);
-  return { on: 1, level: lv, txt: t >= T.limitEnd - 0.05 ? "80%" : null, charging: t < T.limitEnd - 0.05, pause: t >= T.limitEnd - 0.05, mark80: true };
-}
-function drawNightPhone(t, a) {
-  const nd = drift(t), nz = nightZ(t), K = key([0, 0], [420 + 1.25 * nd[0] * nz, 990 + 1.25 * nd[1] * nz], 0.62 * nd[2] * nz);
-  // phone 1 is lifted away by the hand; phone 2 slides in
-  const lift = E.p2in(prog(t, T.grab + 0.25, T.liftEnd)), in2 = E.p3out(prog(t, T.phone2, T.phone2End));
-  ctx.save(); ctx.globalAlpha = a;
-  // the stand
-  ID(); ctx.translate(420, 990); ctx.scale(nz, nz); ctx.translate(-420, -990); ctx.fillStyle = C.stand; rr(300 + 1.25 * nd[0], 1180 + 1.25 * nd[1], 240, 80, 14); ctx.fill(); ID();
-  if (t < T.liftEnd) {
-    const K1 = { A: K.A, B: [K.B[0], K.B[1] - 1100 * lift] };
-    drawPhone(t, K1, { screen: nightPhoneState(t), shadow: 0 });
-    if (t >= T.grab - 0.3) handGrab(K1, E.p3out(prog(t, T.grab - 0.3, T.grab + 0.15)), 1);
-  }
-  if (t >= T.phone2) {
-    const K2 = { A: K.A, B: [K.B[0] + 700 * (1 - in2), K.B[1]] };
-    drawPhone(t, K2, { screen: nightPhoneState(t), shadow: 0, body: "#3B3F47", edge: "#50555F" });
-  }
+  ctx.beginPath(); ctx.moveTo(R_.px, 1215); ctx.bezierCurveTo(R_.px, 1290, R_.px + 140, 1300, 1300, 1300); ctx.stroke();
+  ctx.fillStyle = C.stand; rr(R_.px - 120, 1180, 240, 80, 14); ctx.fill();
   ctx.restore();
 }
-// the flow along the cable: little arrows moving into the phone; they stop
-function flowArrows(t, a) {
+function phoneKIn(t, r, xoff) {                                          // the phone's key inside its room transform
+  const nd = drift(t), nz = nightZ(t), px = ROOM[r].px;
+  const x = 540 + (px + 1.25 * nd[0] - 540) * nz + xoff, y = 990 + (990 + 1.25 * nd[1] - 990) * nz;
+  return key([0, 0], [x, y], 0.62 * nz);
+}
+function stateA(t) {
+  const lv = kf(t, [[0, 0.62], [T.a13, 0.62], [T.hold80, 0.8], [T.fill100, 0.8], [T.fill100End, 1]], E.p2io);
+  const held = t >= T.hold80 - 0.05 && t < T.fill100;
+  return { on: 1, level: lv, txt: t >= T.hold80 - 0.05 ? (t >= T.fill100End - 0.05 ? "100%" : "80%") : null, charging: !held, pause: held };
+}
+function stateB(t) {
+  if (t < T.a15) {                                                       // no such feature: it fills to the top, then the current stops
+    const lv = kf(t, [[0, 0.9], [T.phone2End, 0.9], [T.flowStop, 1]], E.p2io);
+    return { on: 1, level: lv, txt: t >= T.flowStop - 0.05 ? "100%" : null, charging: t < T.flowStop };
+  }
+  // with a limit: the next charge, up from low, it stops at 80%
+  const lv = kf(t, [[T.limit, 0.42], [T.limitEnd, 0.8]], E.p2io);
+  if (t < T.limit) return { on: 1, level: 1, txt: "100%", charging: false };
+  return { on: 1, level: lv, txt: t >= T.limitEnd - 0.05 ? "80%" : null, charging: t < T.limitEnd - 0.05, pause: t >= T.limitEnd - 0.05, mark80: true };
+}
+function drawNightScene(t) {
+  const w = whip(t), xa = -W * 1.1 * w, xb = W * 1.1 * (1 - w);
+  if (w < 0.999) {
+    drawRoom(t, "A", xa);
+    const K = phoneKIn(t, "A", xa), go = E.p2in(prog(t, T.grab + 0.25, T.liftEnd));
+    const K1 = { A: K.A, B: [K.B[0] + 900 * go, K.B[1] - 60 * go] };
+    if (t < T.liftEnd + 0.3) drawPhone(t, K1, { screen: stateA(t), shadow: 0 });
+    if (t >= T.grab - 0.3 && t < T.liftEnd + 0.3) handGrab(K1, E.p3out(prog(t, T.grab - 0.3, T.grab + 0.15)), 1);
+  }
+  if (w > 0.001) {
+    drawRoom(t, "B", xb);
+    drawPhone(t, phoneKIn(t, "B", xb), { screen: stateB(t), shadow: 0, body: "#C9CCD2", edge: "#E2E4E8" });
+    flowArrows(t, win(t, T.phone2End - 0.1, T.flowStop + 0.5, 0.3, 0.1), xb);
+    limitCard(t, xb);
+  }
+}
+// the flow along room B's cable: little arrows moving into the phone; they stop when it is full
+function flowArrows(t, a, xoff) {
   if (a <= 0.01) return;
-  const stopK = E.p2io(prog(t, T.flowStop, T.flowStop + 0.4));
-  ID(); ctx.save(); ctx.globalAlpha = a * (1 - stopK); { const nd = drift(t), nz = nightZ(t); ctx.translate(420, 990); ctx.scale(nz, nz); ctx.translate(-420, -990); ctx.translate(1.25 * nd[0], 1.25 * nd[1]); }
-  const path = (u) => { const P0 = [1100, 1300], P1 = [560, 1300], P2 = [420, 1290], P3 = [420, 1215]; const v = 1 - u; return [0, 1].map((i) => v * v * v * P0[i] + 3 * v * v * u * P1[i] + 3 * v * u * u * P2[i] + u * u * u * P3[i]); };
-  for (let i = 0; i < 5; i++) {
-    const u = ((t - T.q14) * 0.5 + i / 5) % 1, p = path(u), q = path(Math.min(1, u + 0.02));
+  const stopK = E.p2io(prog(t, T.flowStop - 0.1, T.flowStop + 0.3));
+  ctx.save(); roomT(t, xoff); ctx.globalAlpha = a * (1 - stopK);
+  const px = ROOM.B.px, path = (u) => { const P0 = [1300, 1300], P1 = [px + 140, 1300], P2 = [px, 1290], P3 = [px, 1215]; const v = 1 - u; return [0, 1].map((i) => v * v * v * P0[i] + 3 * v * v * u * P1[i] + 3 * v * u * u * P2[i] + u * u * u * P3[i]); };
+  for (let i = 0; i < 4; i++) {
+    const u = ((t - T.q14) * 0.55 + i / 4) % 1, p = path(u), q = path(Math.min(1, u + 0.02));
     const ang = Math.atan2(q[1] - p[1], q[0] - p[0]);
     ctx.save(); ctx.translate(p[0], p[1] - 22); ctx.rotate(ang); ctx.fillStyle = C.acc; ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-10, -11); ctx.lineTo(-10, 11); ctx.closePath(); ctx.fill(); ctx.restore();
   }
   ctx.restore();
 }
-// the settings card: 充电上限 → 80%
-function limitCard(t) {
-  const a = win(t, T.a15, T.stop2 + 0.4, 0.35, 0.3); if (a <= 0.01) return;
+// the settings card in room B: 充电上限 → on; then 下一次充电
+function limitCard(t, xoff) {
+  const a = win(t, T.a15, T.irisOutEnd, 0.35, 0.1); if (a <= 0.01) return;
   const k = E.p2io(prog(t, T.toggle, T.toggleEnd));
-  ID(); ctx.save(); ctx.globalAlpha = a;
-  const x = 620, y = 1080 + 30 * (1 - E.p3out(prog(t, T.a15, T.a15 + 0.4))), w = 380, h = 140;
+  ctx.save(); ID(); { const nd = drift(t); ctx.translate(xoff + 0.6 * nd[0], 0.6 * nd[1]); } ctx.globalAlpha = a;   // screen space (not pushed out of frame)
+  const x = 70, y = 1080 + 30 * (1 - E.p3out(prog(t, T.a15, T.a15 + 0.4))), w = 380, h = 140;
   rr(x, y, w, h, 28); ctx.fillStyle = "#262A32"; ctx.fill(); ctx.strokeStyle = "#3A3F49"; ctx.lineWidth = 3; ctx.stroke();
   ctx.font = `700 46px ${UI}`; ctx.fillStyle = C.paper; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(COPY.limit, x + 30, y + h / 2);
-  // the switch
   const sx = x + w - 130, sy = y + h / 2 - 30;
   rr(sx, sy, 100, 60, 30); ctx.fillStyle = mixHex("#4A4F59", C.acc, k); ctx.fill();
   ctx.beginPath(); ctx.arc(sx + 30 + 40 * k, sy + 30, 24, 0, TAU); ctx.fillStyle = C.paper; ctx.fill();
@@ -617,8 +628,8 @@ const K_TIP = key([0, 0], [540, 1010], 1.0);
 function tipK(t) { return E.p2io(prog(t, T.tipIn, T.tipInEnd)); }
 function drawTip(t) {
   const k = tipK(t), ang = lerp(0, -Math.PI / 2, k);
-  const sc = lerp(1, 1.12, k) * (1 + 0.01 * Math.sin(t * 1.1));
-  const td = drift(t), K = { A: sc, B: [540 + 0.95 * td[0], lerp(1000 - 30, 1010, k) + 0.95 * td[1]] };
+  const sc = lerp(PHS, 1.12, k) * (1 + 0.01 * Math.sin(t * 1.1));
+  const td = drift(t), K = { A: sc, B: [540 + 0.95 * td[0], lerp(PHY - 30 * PHS, 900, k) + 0.95 * td[1]] };
   ID(); ctx.save(); ctx.translate(K.B[0], K.B[1]); ctx.rotate(ang); ctx.scale(sc, sc);
   const K0 = { A: 1, B: [0, 0] };
   // the case (thick), slides off
@@ -639,7 +650,7 @@ function drawTip(t) {
   ctx.strokeStyle = C.paper; ctx.lineWidth = 6; ctx.setLineDash([40, 40]); ctx.lineDashOffset = -tt * 260; line(0, -PH.h / 2, 0, PH.h / 2); ctx.setLineDash([]);
   ctx.fillStyle = C.paper; rr(-50, 120, 100, 150, 20); ctx.fill();
   ctx.fillStyle = `rgba(10,11,13,${0.55 * pause})`; ctx.fillRect(-PH.w / 2, -PH.h / 2, PH.w, PH.h);
-  if (pause > 0.01) { ctx.globalAlpha = pause; ctx.fillStyle = C.paper; rr(-36, -60, 26, 120, 8); ctx.fill(); rr(10, -60, 26, 120, 8); ctx.fill(); ctx.globalAlpha = 1; }
+  if (pause > 0.01) { ctx.globalAlpha = pause; ctx.fillStyle = C.paper; rr(-60, -36, 120, 26, 8); ctx.fill(); rr(-60, 10, 120, 26, 8); ctx.fill(); ctx.globalAlpha = 1; }   // reads ‖ once the phone is sideways
   ctx.restore();
   // the cable at the phone's bottom end (which is now on the right)
   ctx.save(); ctx.strokeStyle = C.cable; ctx.lineWidth = 16; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(0, PH.h / 2 + 30); ctx.bezierCurveTo(0, PH.h / 2 + 160, -160, PH.h / 2 + 240, -400, PH.h / 2 + 300); ctx.stroke();
@@ -649,8 +660,8 @@ function drawTip(t) {
   if (k > 0.5) handsLandscape(key([0, 0], [K.B[0], K.B[1]], sc), clamp((k - 0.5) * 2), 0);
   // the thermometer, top right of the phone
   const hot = E.p2io(prog(t, T.hot, T.hotEnd)), cool = E.p2io(prog(t, T.cool, T.coolEnd));
-  ID(); thermo(900, 700, 0.2 + 0.7 * hot - 0.62 * cool, E.p3out(prog(t, T.hot - 0.3, T.hot)) * (1 - prog(t, T.end, T.end + 0.3)), 0.9);
-  label(COPY.hot, 952, 790, 46, C.ink, t, T.hot, T.end + 0.2);
+  ID(); thermo(80, 640, 0.2 + 0.7 * hot - 0.62 * cool, E.p3out(prog(t, T.hot - 0.3, T.hot)) * (1 - prog(t, T.end, T.end + 0.3)), 0.9);
+  label(COPY.hot, 80, 622, 46, C.ink, t, T.hot, T.end + 0.2, { align: "center" });
 }
 
 // ================================================================ overlays (screen space) on the cell
@@ -762,7 +773,7 @@ function endCard(t) {
   if (t < T.end) return;
   const k = E.p3io(prog(t, T.end, T.endMorph + 0.3));
   ID(); ctx.save();
-  const sc = lerp(1.12, 0.22, k), cx = lerp(540, BADGE[0], k), cy = lerp(1010, BADGE[1], k), ang = lerp(-Math.PI / 2, 0, k);
+  const sc = lerp(1.12, 0.22, k), cx = lerp(540, BADGE[0], k), cy = lerp(900, BADGE[1], k), ang = lerp(-Math.PI / 2, 0, k);
   ctx.translate(cx, cy); ctx.rotate(ang); ctx.scale(sc, sc);
   ctx.strokeStyle = C.ink; ctx.lineWidth = 9 / sc * 0.35 + 6; rr(-PH.w / 2, -PH.h / 2, PH.w, PH.h, PH.r); ctx.fillStyle = mixHex(C.body, C.ground, k); ctx.fill(); ctx.stroke();
   ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(0, PH.h / 2 + 10); ctx.bezierCurveTo(0, PH.h / 2 + 140, 120, PH.h / 2 + 160, 260, PH.h / 2 + 120); ctx.stroke();
@@ -820,15 +831,18 @@ function drawPhoneScene(t, K, o = {}) {
   if (xr > 0) {
     setK(K); ctx.save();
     rr(-PH.w / 2 + 12, -PH.h / 2 + 12, PH.w - 24, PH.h - 24, PH.r - 12); ctx.fillStyle = rgba("#1E2025", xr); ctx.fill();
-    ctx.globalAlpha = xr; rr(BATT.x, BATT.y, BATT.w, BATT.h, BATT.r); ctx.fillStyle = "#5C6370"; ctx.fill(); ctx.strokeStyle = "#9AA1AC"; ctx.lineWidth = 4 / K.A; ctx.stroke();
+    ctx.globalAlpha = xr; rr(BATT.x, BATT.y, BATT.w, BATT.h, BATT.r); ctx.fillStyle = "#262A31"; ctx.fill(); ctx.strokeStyle = "#8A919C"; ctx.lineWidth = 4 / K.A; ctx.stroke();
+    ctx.fillStyle = "#9EA3AB"; rr(-70, BATT.y - 16, 34, 22, 4); ctx.fill(); rr(36, BATT.y - 16, 34, 22, 4); ctx.fill();   // the tabs
+    rr(BATT.x + 26, BATT.y + 60, BATT.w - 52, 120, 10); ctx.fillStyle = "#3A3F49"; ctx.fill(); ctx.strokeStyle = "#555B67"; ctx.lineWidth = 2 / K.A; ctx.stroke();   // the label panel
     ctx.restore();
     const st = E.p2io(prog(t, T.cells, T.cells + 0.5));
     if (st > 0) drawStripes(K, st, 0);
   }
   // the hand holds the plug (from the first frame until the dive takes over), and again in the closing shot
   const handA = t < T.dive ? 1 : t < T.irisOut ? 1 - E.p2io(prog(t, T.dive, T.dive + 0.4)) : 1;
-  if (handA > 0.01) handPinch(K, [0, PORT[1] + 30 + out * 70], handA);
+  if (handA > 0.01) handPinch(K, [0, PORT[1] + 40 + out * 50], handA);
 }
+const IRC = [300, 760];                                                  // the night → light circle opens away from phone B (its 80% stays ≥ 1 s)
 function frame(t) {
   ctx.reset(); ID();
   let fl = darkAt(t);
@@ -849,28 +863,29 @@ function frame(t) {
       pill(COPY.cmpL, P0.x + P0.w / 2, P0.y - 30, 46, t, T.cmpL - 0.1, T.pull, { align: "center" });
       pill(COPY.cmpR, P1.x + P1.w / 2, P1.y - 30, 46, t, T.cmpR - 0.1, T.pull, { align: "center", edge: t >= T.cmpR && t < T.cmpR + 1.2 });
     }
-    if (t >= T.pull) { const na = nightA(t); ctx.save(); ctx.globalAlpha = na; drawNight(t); drawNightPhone(t, 1); ctx.restore(); drawSplit(t, splitK(t)); }
+    if (t >= T.pull) { const na = nightA(t); ctx.save(); ctx.globalAlpha = na; drawNightScene(t); ctx.restore(); drawSplit(t, splitK(t)); }
   } else if (t < T.irisOut) {
-    drawNight(t); drawNightPhone(t, 1); flowArrows(t, win(t, T.q14 + 0.3, T.a15, 0.3, 0.3)); limitCard(t);
-    pill(COPY.opt, 420, 1395, 40, t, T.hold80, T.q14, { align: "center" });
-    pill(COPY.dawn, 820, 1120, 40, t, T.dawn + 0.2, T.q14, { align: "center" });
-    if (t >= T.a14) pill(COPY.note, 980, 1400, 40, t, T.a14, T.a15, { align: "right" });
+    drawNightScene(t);
+    pill(COPY.opt, 420, 1395, 44, t, T.hold80, T.q14, { align: "center" });
+    pill(COPY.dawn, 805, 1120, 44, t, T.dawn + 0.2, T.q14 - 0.1, { align: "center" });
+    if (t >= T.limit - 0.1) pill(COPY.next, 650, 1395, 44, t, T.limit - 0.1, T.irisOut + 0.2, { align: "center" });
+    if (t >= T.a14) pill(COPY.note, 980, 1400, 44, t, T.a14, T.a15, { align: "right" });
   } else if (t < T.irisOutEnd) {
     // dark (night) → light (the first shot): a growing circle, both worlds fully opaque
     const k = E.p2io(prog(t, T.irisOut, T.irisOutEnd)), R = 6 + 2300 * k * k * (3 - 2 * k);
-    drawNight(t); drawNightPhone(t, 1); limitCard(t);
-    ctx.save(); const P = new Path2D(); P.arc(540, 1000, R, 0, TAU); ID(); ctx.clip(P); { const d = drift(t); drawPhoneScene(t, key([0, 30], [540 + 0.95 * d[0], 1000 + 0.95 * d[1]], d[2])); } ctx.restore();
+    drawNightScene(t);
+    ctx.save(); const P = new Path2D(); P.arc(IRC[0], IRC[1], R, 0, TAU); ID(); ctx.clip(P); { const d = drift(t); drawPhoneScene(t, key([0, 30], [540 + 0.95 * d[0], PHY + 0.95 * d[1]], PHS * d[2])); } ctx.restore();
     fl = 1 - k;
   } else if (t < T.tip) {
-    { const d = drift(t); drawPhoneScene(t, key([0, 30], [540 + 0.95 * d[0], 1000 + 0.95 * d[1]], d[2])); }
+    { const d = drift(t); drawPhoneScene(t, key([0, 30], [540 + 0.95 * d[0], PHY + 0.95 * d[1]], PHS * d[2])); }
   } else {
     ID(); ctx.fillStyle = C.ground; ctx.fillRect(0, 0, W, H);
     if (t < T.end + 0.05) drawTip(t);
   }
   if (t >= T.irisOut && t < T.irisOutEnd) {                             // the circle: dark scrim outside, light inside (no grey)
     const k = E.p2io(prog(t, T.irisOut, T.irisOutEnd)), R = 6 + 2300 * k * k * (3 - 2 * k);
-    ctx.save(); let P = new Path2D(); P.rect(0, 0, W, H); P.arc(540, 1000, R, 0, TAU); ID(); ctx.clip(P, "evenodd"); scrimOf(1); textBand(t, 1); ctx.restore();
-    ctx.save(); P = new Path2D(); P.arc(540, 1000, R, 0, TAU); ID(); ctx.clip(P); scrimOf(0); textBand(t, 0); ctx.restore();
+    ctx.save(); let P = new Path2D(); P.rect(0, 0, W, H); P.arc(IRC[0], IRC[1], R, 0, TAU); ID(); ctx.clip(P, "evenodd"); scrimOf(1); textBand(t, 1); ctx.restore();
+    ctx.save(); P = new Path2D(); P.arc(IRC[0], IRC[1], R, 0, TAU); ID(); ctx.clip(P); scrimOf(0); textBand(t, 0); ctx.restore();
     fl = -1;
   } else scrimOf(fl, t >= T.end ? 1 - prog(t, T.end, T.end + 0.3) : 1, groundRGB(t));
   if (t < T.dive + 0.5) drawRow(t);                                   // above the caption scrim
@@ -880,7 +895,7 @@ function frame(t) {
 }
 
 // ---------------------------------------------------------------- motion blur where things move fast
-const BLUR = [[7.6, 10.3, 8], [38.5, 40, 6], [49.25, 49.9, 8], [52.75, 53.3, 8], [55.75, 56.7, 8]];
+const BLUR = [[7.6, 10.3, 8], [38.5, 40, 6], [52.75, 53.3, 8], [55.75, 56.7, 8]];
 const SHUTTER = 0.5 / FPS;
 window.seek = function seek(t) {
   t = clamp(t, 0, DUR - 1e-6);
