@@ -630,7 +630,7 @@ function thermo(x, y, lv, a = 1, sc = 1) {          // x, y: the top of the tube
 const CH = { X0: 170, X1: 960, Y0: 790, Y1: 1290 };
 const yv = (v) => lerp(CH.Y1, CH.Y0, v), xt = (u) => lerp(CH.X0, CH.X1, u);
 const CURVES = {
-  A: { pts: [[0, 0.45], [0.18, 0.8], [0.78, 0.8], [0.9, 1], [1, 1]], u: (t) => kf(t, [[T.pull + 1.0, 0], [T.hold80, 0.18], [T.dawn, 0.78], [T.fill100End, 0.92], [T.fill100End + 0.4, 1]], (x) => x), on: (t) => kf(t, [[T.q14, 1], [T.q14 + 0.4, 0.12]]) },
+  A: { pts: [[0, 0.45], [0.18, 0.8], [0.78, 0.8], [0.9, 1], [1, 1]], u: (t) => kf(t, [[T.pull + 1.0, 0], [T.hold80, 0.18], [T.dawn, 0.78], [T.fill100End, 0.92], [T.fill100End + 0.4, 1]], (x) => x), on: (t) => kf(t, [[T.q14, 1], [T.q14 + 0.4, 0.12], [T.a15, 0.12], [T.a15 + 0.4, 0]]) },
   B: { pts: [[0, 0.45], [0.26, 1], [1, 1]], u: (t) => kf(t, [[T.q14 + 0.3, 0], [T.a14 - 0.6, 0.26], [T.a14 + 0.6, 1]], (x) => x), on: (t) => kf(t, [[T.a15, 1], [T.a15 + 0.4, 0]]) },
   C: { pts: [[0, 0.4], [0.2, 0.8], [1, 0.8]], u: (t) => kf(t, [[T.limit, 0], [T.limit + 0.35, 0.2], [T.irisOut + 0.1, 1]], (x) => x), on: () => 1 },
 };
@@ -667,15 +667,15 @@ function drawChart(t, a = 1) {
   for (const id of ["A", "B", "C"]) {
     const c = CURVES[id], u = c.u(t); if (u <= 0.001) continue;
     const on = c.on(t), P = curvePts(c, u);
-    ctx.strokeStyle = rgba(C.paper, 0.2 + 0.8 * on); ctx.lineWidth = 6 + 4 * on; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    ctx.strokeStyle = rgba(C.paper, 0.2 * Math.min(1, on / 0.12) + 0.8 * on); if (on <= 0.005) continue; ctx.lineWidth = 6 + 4 * on; ctx.lineJoin = "round"; ctx.lineCap = "round";
     ctx.beginPath(); P.forEach(([uu, vv], i) => (i ? ctx.lineTo(xt(uu), yv(vv)) : ctx.moveTo(xt(uu), yv(vv)))); ctx.stroke();
     const hd = P[P.length - 1]; if (on > 0.5) glowBall(xt(hd[0]), yv(hd[1]), 15 + 4 * Math.sin(t * 5), on);
   }
   // A: 80% held, the dawn fill; B: the flat top = 一直满着; C: the limit
   if (t >= T.hold80 && t < T.q14) cpill(COPY.opt, ...cp(540, yv(0.8) + 76), 46, t, T.hold80, T.q14, { align: "center" });
   if (t >= T.dawn + 0.2 && t < T.q14) cpill(COPY.dawn, ...cp(xt(0.82), yv(1) - 48), 52, t, T.dawn + 0.2, T.q14, { align: "center" });
-  if (t >= T.a15 + 0.3 && t < T.irisOut + 0.3) cpill(COPY.optTag, ...cp(xt(1) + 20, yv(1) - 44), 46, t, T.a15 + 0.3, T.irisOut + 0.3, { align: "right", col: "rgba(241,240,236,0.6)" });
-  if (t >= T.limit + 0.4) cpill(COPY.limTag, ...cp(xt(1) + 20, yv(0.8) + 70), 52, t, T.limit + 0.4, T.irisOut + 0.3, { align: "right", col: C.acc, edge: true });
+  if (false) cpill(COPY.optTag, ...cp(xt(1) + 20, yv(1) - 44), 46, t, T.a15 + 0.3, T.irisOut + 0.3, { align: "right", col: "rgba(241,240,236,0.6)" });
+  if (t >= T.toggleEnd) cpill(COPY.limTag, ...cp(xt(1) + 20, yv(0.8) + 70), 52, t, T.toggleEnd, T.irisOut + 0.3, { align: "right", col: C.acc, edge: true });
   const bt = E.p3out(prog(t, T.a14, T.a14 + 0.5)), ba = win(t, T.a14, T.a15 + 0.3, 0.3, 0.3);
   if (ba > 0.01) {
     const x0 = xt(0.26), x1 = xt(Math.max(0.26, CURVES.B.u(t)));
@@ -876,7 +876,7 @@ function frame(t) {
   } else if (t < T.pull + 1.2) {
     const M = cellM(t), sk = splitK(t);
     if (t < T.splitEnd + 0.01) drawCell(t, M, 1, 1);
-    const back = win(t, T.ringOn, T.q8 - 0.1, 0.35, 0.35);                // while the ring is explained, the cell steps back (one thing to look at)
+    const back = Math.max(win(t, T.ringOn, T.q8 - 0.1, 0.35, 0.35), 1.2 * win(t, T.shrink - 0.2, T.split, 0.35, 0.3));   // one thing to look at: the ring; later the shorter battery
     if (back > 0.01 && t < T.split) { ID(); ctx.fillStyle = `rgba(16,17,20,${0.45 * back})`; ctx.fillRect(0, 0, W, 1110); }
     if (sk > 0) { if (t >= T.split) { ID(); ctx.fillStyle = rgba(C.dark, sk); ctx.fillRect(0, 0, W, H); } drawSplit(t, sk); }
     if (t < T.split + 0.4) { drawGauge(t, gaugeK(t)); cellLabels(t, M); }
@@ -885,6 +885,7 @@ function frame(t) {
       pill(COPY.cmpL, P0.x + P0.w / 2, P0.y - 30, 46, t, T.cmpL - 0.1, T.pull, { align: "center" });
       pill(COPY.cmpR, P1.x + P1.w / 2, P1.y - 30, 46, t, T.cmpR - 0.1, T.pull, { align: "center", edge: t >= T.cmpR && t < T.cmpR + 1.2 });
       if (t >= T.heat) pill(COPY.hot, P1.x + 70, P1.y + 86, 46, t, T.heat, T.pull, { align: "center" });
+      if (t >= T.heat + 0.3) pill(COPY.faster, P1.x + P1.w / 2 + 40, P1.y + P1.h - 40, 46, t, T.heat + 0.3, T.pull, { align: "center", col: C.acc, edge: true });
     }
     if (t >= T.pull) { drawChart(t, chartK(t)); drawSplit(t, splitK(t)); }
   } else if (t < T.irisOut) {
