@@ -490,7 +490,7 @@ function drawCell(t, M, a = 1, detail = 1) {
 }
 
 // ================================================================ the gauge (screen space): a big battery inside a ring of "used"
-const GA = { x: 540, y: 1215, r: 158 };
+const GA = { x: 540, y: 1190, r: 158 };
 function gaugeK(t) { return win(t, T.barOn, T.split + 0.35, 0.35, 0.35); }
 function arrowS(x0, y0, x1, y1, col = C.acc, w = 7, head = 22, bend = 0, k = 1) {   // a curved arrow that draws itself (k 0..1)
   if (k <= 0) return;
@@ -499,27 +499,28 @@ function arrowS(x0, y0, x1, y1, col = C.acc, w = 7, head = 22, bend = 0, k = 1) 
   ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = "round"; ctx.beginPath(); for (let i = 0; i <= 24; i++) { const p = P(k * i / 24); i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); } ctx.stroke();
   if (k > 0.9) { const e = P(k), b = P(k - 0.05), an = Math.atan2(e[1] - b[1], e[0] - b[0]); ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(e[0] + Math.cos(an) * 6, e[1] + Math.sin(an) * 6); ctx.lineTo(e[0] - Math.cos(an - 0.45) * head, e[1] - Math.sin(an - 0.45) * head); ctx.lineTo(e[0] - Math.cos(an + 0.45) * head, e[1] - Math.sin(an + 0.45) * head); ctx.closePath(); ctx.fill(); }
 }
+function gSlide(t) { return win(t, T.ringOn - 0.1, T.q8 + 0.2, 0.45, 0.45); }   // v2.5: while the ring counts, the battery steps left and the ring stands on its own (right)
+const RX = 770, RR = 112;
 function drawGauge(t, a) {
   if (a <= 0.01) return;
-  const { x, y, r } = GA, v = ringVal(t), cap = capAt(t), lv = charge(t);
-  const ringA = win(t, T.ringOn, T.q8 + 0.3, 0.3, 0.35);
+  const { y } = GA, v = ringVal(t), cap = capAt(t), lv = charge(t), sl = E.p2io(gSlide(t)), x = lerp(GA.x, 330, sl);
+  const ringA = win(t, T.ringOn, T.q8 + 0.3, 0.3, 0.35), r = RR;
   ID(); ctx.save(); ctx.globalAlpha = a;
-  // the ring (used, cumulative): two colours for the two halves
+  // the ring (used, cumulative), its own meter on the right: two colours for the two halves
   if (ringA > 0.01) {
     ctx.save(); ctx.globalAlpha = a * ringA;
-    ctx.lineCap = "butt"; ctx.strokeStyle = "rgba(241,240,236,0.14)"; ctx.lineWidth = 26; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
+    ctx.lineCap = "butt"; ctx.strokeStyle = "rgba(241,240,236,0.14)"; ctx.lineWidth = 28; ctx.beginPath(); ctx.arc(RX, y, r, 0, TAU); ctx.stroke();
     const halves = t >= T.a7 - 0.1;
     const segs = halves ? [[0, Math.min(v, 0.5), C.acc], [0.5, Math.max(0.5, v), C.half2]] : [[0, v, C.acc]];
-    for (const [s0, s1, col] of segs) if (s1 > s0 + 0.002) { ctx.strokeStyle = col; ctx.beginPath(); ctx.arc(x, y, r, -Math.PI / 2 + TAU * s0, -Math.PI / 2 + TAU * s1); ctx.stroke(); }
-    // the 咔: a flash where it closes
-    for (const tk of [T.disREnd, T.half2End]) { const u = t - tk; if (u > 0 && u < 0.5) { const fy = y - r, h = ctx.createRadialGradient(x, fy, 0, x, fy, 90); h.addColorStop(0, `rgba(255,138,92,${0.95 * (1 - u / 0.5)})`); h.addColorStop(1, "rgba(255,138,92,0)"); ctx.fillStyle = h; ctx.beginPath(); ctx.arc(x, fy, 90, 0, TAU); ctx.fill(); ctx.strokeStyle = rgba(C.acc, 1 - u / 0.5); ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(x, y, r + 20 + 50 * E.p3out(u / 0.5), 0, TAU); ctx.stroke(); } }
+    for (const [s0, s1, col] of segs) if (s1 > s0 + 0.002) { ctx.strokeStyle = col; ctx.beginPath(); ctx.arc(RX, y, r, -Math.PI / 2 + TAU * s0, -Math.PI / 2 + TAU * s1); ctx.stroke(); }
+    for (const tk of [T.disREnd, T.half2End]) { const u = t - tk; if (u > 0 && u < 0.5) { const fy = y - r, h = ctx.createRadialGradient(RX, fy, 0, RX, fy, 90); h.addColorStop(0, `rgba(255,138,92,${0.95 * (1 - u / 0.5)})`); h.addColorStop(1, "rgba(255,138,92,0)"); ctx.fillStyle = h; ctx.beginPath(); ctx.arc(RX, fy, 90, 0, TAU); ctx.fill(); ctx.strokeStyle = rgba(C.acc, 1 - u / 0.5); ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(RX, y, r + 20 + 50 * E.p3out(u / 0.5), 0, TAU); ctx.stroke(); } }
     ctx.restore();
   }
-  // what is used pours from the battery into the ring: little orange drops from the fill to the ring's growing end
+  // what is used pours from the battery into the ring: orange drops from the battery's end to the ring's growing end
   const dv = ringVal(t + 0.04) - ringVal(t - 0.04);
   if (ringA > 0.5 && dv > 0.002) {
-    const head = -Math.PI / 2 + TAU * v, hx = x + r * Math.cos(head), hy = y + r * Math.sin(head);
-    for (let i = 0; i < 6; i++) { const u = ((t * 2.2 + i / 6) % 1), sx = x + 40, sy = y; const px = lerp(sx, hx, E.p2in(u)), py = lerp(sy, hy, u) - 40 * Math.sin(Math.PI * u); ctx.fillStyle = rgba(C.acc, 0.9 * (1 - u * 0.5)); ctx.beginPath(); ctx.arc(px, py, 8, 0, TAU); ctx.fill(); }
+    const head = -Math.PI / 2 + TAU * v, hx = RX + r * Math.cos(head), hy = y + r * Math.sin(head);
+    for (let i = 0; i < 7; i++) { const u = ((t * 2.2 + i / 7) % 1), sx = x + 130, sy = y; const px = lerp(sx, hx, u), py = lerp(sy, hy, u) - 70 * Math.sin(Math.PI * u); ctx.fillStyle = rgba(C.acc, 0.95 * (1 - u * 0.4)); ctx.beginPath(); ctx.arc(px, py, 9, 0, TAU); ctx.fill(); }
   }
   // the battery: its fill = the lithium in the graphite; its outline = what it can hold (shrinks with age)
   const bw = 220, bh = 112, bx = x - bw / 2, by = y - bh / 2;
@@ -527,22 +528,21 @@ function drawGauge(t, a) {
   ctx.strokeStyle = C.paper; ctx.lineWidth = 8; rr(bx, by, bw * cap, bh, 20); ctx.stroke();
   ctx.fillStyle = C.paper; rr(bx + bw + 6, y - 22, 14, 44, 5); ctx.fill();
   const fw = Math.max(0, (bw * cap - 28) * lv); if (fw > 1) { rr(bx + 14, by + 14, fw, bh - 28, 10); ctx.fillStyle = C.paper; ctx.fill(); }
-  // while it charges / is used: a soft light runs along the fill
   const dl = charge(t + 0.05) - charge(t - 0.05);
   if (Math.abs(dl) > 0.004 && fw > 20) { ctx.save(); rr(bx + 14, by + 14, fw, bh - 28, 10); ctx.clip(); const u = (t * 1.6) % 1, xs = bx + 14 + fw * (dl > 0 ? u : 1 - u); const g = ctx.createLinearGradient(xs - 40, 0, xs + 40, 0); g.addColorStop(0, "rgba(150,150,150,0)"); g.addColorStop(0.5, "rgba(150,150,150,0.6)"); g.addColorStop(1, "rgba(150,150,150,0)"); ctx.fillStyle = g; ctx.fillRect(xs - 40, by, 80, bh); ctx.restore(); }
   ctx.restore();
-  // 示意: the battery the first time (box + 电量), the ring the first time (box + 用掉的电)
+  // 示意: the battery the first time (box + its name under it), the ring the first time (dashed circle + its name under it)
   const bk = win(t, T.barOn, T.chg1 + 1.0, 0.3, 0.3);
   obox(bx - 26, by - 26, bw + 72, bh + 52, E.p3out(prog(t, T.barOn, T.barOn + 0.3)), bk * a, 24);
-  if (t >= T.barOn && t < T.q8) pill(COPY.bar, x - r - 46, y + 14, 44, t, T.barOn, T.q8, { align: "right" });
+  if (t >= T.barOn && t < T.q8) pill(COPY.bar, x + 10, y + 120, 46, t, T.barOn, T.q8, { align: "center" });
   const rk = win(t, T.ringOn, T.disR + 0.5, 0.3, 0.3);
-  if (rk > 0.01) { ID(); ctx.save(); ctx.globalAlpha = rk * a; ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.setLineDash([TAU * (r + 34) * E.p3out(prog(t, T.ringOn, T.ringOn + 0.35)), 4000]); ctx.beginPath(); ctx.arc(x, y, r + 34, -Math.PI / 2, 1.5 * Math.PI); ctx.stroke(); ctx.restore(); }
-  if (t >= T.ringOn && t < T.a7) pill(COPY.used, x + r + 58, y + 16, 50, t, T.ringOn, T.a7, { col: C.acc, edge: true });
-  // the two halves, named
-  if (t >= T.half1End - 0.1 && t < T.q8) pill(COPY.half1, x + r + 46, y + 14, 44, t, T.half1End - 0.1, T.q8, { col: C.acc });
-  if (t >= T.half2End - 0.1 && t < T.q8) pill(COPY.half2, x - r - 46, y + 14, 44, t, T.half2End - 0.1, T.q8, { align: "right", col: C.half2 });
-  // the cell → the gauge: the lithium in the graphite is the charge (a thin leader), until the ageing
-  const lk = win(t, T.barOn + 0.3, T.q8, 0.4, 0.3);
+  if (rk > 0.01) { ID(); ctx.save(); ctx.globalAlpha = rk * a; ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.setLineDash([TAU * (r + 34) * E.p3out(prog(t, T.ringOn, T.ringOn + 0.35)), 4000]); ctx.beginPath(); ctx.arc(RX, y, r + 34, -Math.PI / 2, 1.5 * Math.PI); ctx.stroke(); ctx.restore(); }
+  if (t >= T.ringOn && t < T.half1End) pill(COPY.used, RX, y + r + 66, 50, t, T.ringOn, T.half1End, { align: "center", col: C.acc, edge: true });
+  // the two halves, named under the ring
+  if (t >= T.half1End - 0.1 && t < T.q8) pill(COPY.half1, RX, y + r + 62, 44, t, T.half1End - 0.1, T.q8, { align: "center", col: C.acc });
+  if (t >= T.half2End - 0.1 && t < T.q8) pill(COPY.half2, RX, y + r + 118, 44, t, T.half2End - 0.1, T.q8, { align: "center", col: C.half2 });
+  // the cell → the battery: the lithium in the graphite is the charge (a thin leader)
+  const lk = win(t, T.barOn + 0.3, T.ringOn, 0.4, 0.3);
   if (lk > 0.01) { ID(); ctx.save(); ctx.globalAlpha = lk * a * 0.8; arrowS(850, 1075, x + 112, y - 70, "rgba(241,240,236,0.7)", 5, 18, -0.2, E.p3out(prog(t, T.barOn + 0.3, T.barOn + 0.8))); ctx.restore(); }
 }
 function cellLabels(t, M) {
@@ -550,8 +550,8 @@ function cellLabels(t, M) {
   const ka = win(t, T.tagCath, T.q4 + 0.2, 0.3, 0.3), kb = win(t, T.tagAnode, T.q4 + 0.2, 0.3, 0.3);
   if (ka > 0) { obox(eS(M, CELL.c0, 0)[0] - 8, eS(M, 0, CELL.top)[1] - 8, (CELL.c1 - CELL.c0) * M[0] + 16, (CELL.bot - CELL.top) * M[0] + 16, E.p3out(prog(t, T.tagCath, T.tagCath + 0.35)), ka, 22, 5); }
   if (kb > 0) { obox(eS(M, CELL.a0, 0)[0] - 8, eS(M, 0, CELL.top)[1] - 8, (CELL.a1 - CELL.a0) * M[0] + 16, (CELL.bot - CELL.top) * M[0] + 16, E.p3out(prog(t, T.tagAnode, T.tagAnode + 0.35)), kb, 22, 5); }
-  const tl = win(t, T.tagCath, T.q8, 0.3, 0.3);
-  if (tl > 0.01) { pill(COPY.cath, lc[0], lc[1] + 62, 44, t, T.tagCath, T.q8, { align: "center" }); pill(COPY.anode, la[0], la[1] + 62, 44, t, T.tagAnode, T.q8, { align: "center" }); }
+  const tl = win(t, T.tagCath, T.ringOn, 0.3, 0.3);
+  if (tl > 0.01) { pill(COPY.cath, lc[0], lc[1] + 62, 44, t, T.tagCath, T.ringOn, { align: "center" }); pill(COPY.anode, la[0], la[1] + 62, 44, t, T.tagAnode, T.ringOn, { align: "center" }); }
   if (false) { const w = eS(M, 700, 598); pill(COPY.elec, w[0], w[1] - 22, 44, t, T.chg1, T.q8, { align: "center", col: C.elec }); }
   const lk = win(t, T.h1 + 0.25, T.tagCath, 0.25, 0.3);
   if (lk > 0.01) { const o = IONS[0], q = eS(M, o.c[0], o.c[1]); oring(q[0], q[1], 34, E.p3out(prog(t, T.h1 + 0.25, T.h1 + 0.55)), lk, 5); pill(COPY.li, q[0] + 60, q[1] + 16, 48, t, T.h1 + 0.35, T.tagCath, { col: C.acc }); }
@@ -669,7 +669,7 @@ function drawChart(t, a = 1) {
   }
   // A: 80% held, the dawn fill; B: the flat top = 一直满着; C: the limit
   if (t >= T.hold80 && t < T.q14) cpill(COPY.opt, ...cp(540, yv(0.8) + 76), 46, t, T.hold80, T.q14, { align: "center" });
-  if (t >= T.dawn + 0.2 && t < T.q14) cpill(COPY.dawn, ...cp(xt(0.86), yv(1) - 48), 48, t, T.dawn + 0.2, T.q14, { align: "center" });
+  if (t >= T.dawn + 0.2 && t < T.q14) cpill(COPY.dawn, ...cp(xt(0.82), yv(1) - 48), 52, t, T.dawn + 0.2, T.q14, { align: "center" });
   if (t >= T.a15 + 0.3 && t < T.irisOut + 0.3) cpill(COPY.optTag, ...cp(xt(1) + 20, yv(1) - 44), 46, t, T.a15 + 0.3, T.irisOut + 0.3, { align: "right", col: "rgba(241,240,236,0.6)" });
   if (t >= T.limit + 0.4) cpill(COPY.limTag, ...cp(xt(1) + 20, yv(0.8) + 70), 52, t, T.limit + 0.4, T.irisOut + 0.3, { align: "right", col: C.acc, edge: true });
   const bt = E.p3out(prog(t, T.a14, T.a14 + 0.5)), ba = win(t, T.a14, T.a15 + 0.3, 0.3, 0.3);
@@ -910,7 +910,7 @@ function overlay(t) {
   if (t < T.dive + 0.5) drawRow(t);                                   // above the caption scrim
   if (fl >= 0) textBand(t, fl);
   if (t >= T.hot && t < T.end + 0.2) label(COPY.hot, 80, 622, 46, C.ink, t, T.hot, T.end + 0.2, { align: "center" });   // above the scrim
-  if (t >= T.a7 + 0.3 && t < T.q8) pill(COPY.term, 540, 1418, 44, t, T.term, T.q8, { align: "center" });
+  if (t >= T.a7 + 0.3 && t < T.q8) pill(COPY.term, 340, 1418, 44, t, T.term, T.q8, { align: "center" });
   if (t >= T.end) { ID(); ctx.fillStyle = C.ground; ctx.globalAlpha = E.p2io(prog(t, T.end, T.end + 0.3)); ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; endCard(t); }
 }
 
