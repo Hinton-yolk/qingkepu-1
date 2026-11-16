@@ -1,0 +1,906 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1080">
+<title>EP.08 充电</title>
+<style>
+  @font-face { font-family: "Smiley"; src: url("assets/fonts/smiley.woff2") format("woff2"); }
+  @font-face { font-family: "NotoSC"; font-weight: 700; src: url("assets/fonts/noto-sc-bold.woff2") format("woff2"); }
+  @font-face { font-family: "NotoSC"; font-weight: 400; src: url("assets/fonts/noto-sc-regular.woff2") format("woff2"); }
+  html, body { margin: 0; background: #ECEBE6; }
+  #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="59.5" data-width="1080" data-height="1920">
+  <canvas id="c" width="1080" height="1920"></canvas>
+</div>
+<script src="timeline.js"></script>
+<script>
+"use strict";
+// ============================================================================================
+// EP.08 充电 — a pure function of time. window.seek(t) paints frame t.
+// Worlds:
+//   PHONE (light, 0–10.5 and 49.75–55.75): a phone standing upright, a USB-C plug and its cable, a hand (placeholder until
+//     the user's reference images arrive: 图片prompt.md). Local units = px at zoom 1, origin at the phone's centre.
+//     The dive (7.25–10.25) is one take: x-ray → the battery → its electrode stripes → between two sheets (dark).
+//   CELL (dark, 10.5–36): the space between the cathode (left) and the graphite anode (right), in "E" units = screen px
+//     at the end of the dive. Lithium = light balls (#F1F0EC), never orange; orange only marks (boxes, rings, arrows).
+//   SPLIT (dark, 34–38.5): two small anode surfaces side by side (不满不热 | 满 + 热, a thermometer).
+//   NIGHT (dark, 38.5–49.75): a bedside, a phone on a stand, a window.
+// No timers, no rAF, no state between frames (the context is reset every frame); seeded noise only.
+// ============================================================================================
+const { T, COPY, W, H, DUR, FPS, S16, PLUGS, UNPLUGS, FAST } = TL;
+const cv = document.getElementById("c");
+const MAIN = cv.getContext("2d");
+const OFF = document.createElement("canvas"); OFF.width = W; OFF.height = H;
+const OFFX = OFF.getContext("2d");
+let ctx = MAIN;
+
+const C = {
+  ground: "#ECEBE6", ink: "#141414", acc: "#FF4A1C", paper: "#F1F0EC", dark: "#17191C",
+  skin: "#EBCBA5", skinD: "#D6AD84", skinL: "#F4DEC3", nail: "#F3DCCB",
+  body: "#25282E", bodyL: "#3A3E46", glass: "#0D0E11", plug: "#DAD8D1", plugD: "#B9B6AE", metal: "#9EA3AB", cable: "#E4E2DB", cableD: "#C9C6BE",
+  cath: "#2F3442", cathL: "#454B5B", anode: "#30333A", sheet: "#5A606C", sheetL: "#737A88", elyte: "#17191C", film: "#8F8A80", filmL: "#B3AC9F",
+  ion: "#F1F0EC", night: "#171A21", nightW: "#202737", stand: "#2B2F38", table: "#23262D", tableL: "#333843",
+  caseC: "#5E6570", caseL: "#747C88",
+};
+const DISPLAY = "Smiley", UI = "NotoSC";
+
+// ---------------------------------------------------------------- math
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const TAU = Math.PI * 2, RAD = Math.PI / 180;
+const E = {
+  sine: (x) => 0.5 - 0.5 * Math.cos(Math.PI * x),
+  p2io: (x) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2),
+  p3io: (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2),
+  p2in: (x) => x * x, p3in: (x) => x * x * x,
+  p2out: (x) => 1 - (1 - x) * (1 - x), p3out: (x) => 1 - Math.pow(1 - x, 3), p4out: (x) => 1 - Math.pow(1 - x, 4),
+  smooth: (x) => x * x * (3 - 2 * x),
+};
+function spring(x, w = 15, z = 0.72) {
+  if (x <= 0) return 0;
+  const wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * x) * (Math.cos(wd * x) + ((z * w) / wd) * Math.sin(wd * x));
+}
+function slamScale(u) {                              // 0.17 s: 1.55 -> 0.94 -> 1.0
+  if (u <= 0) return 1.55;
+  if (u < 0.09) return lerp(1.55, 0.94, E.p2in(u / 0.09));
+  if (u < 0.17) return lerp(0.94, 1.0, E.p3out((u - 0.09) / 0.08));
+  return 1;
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const hexRGB = (h) => [0, 1, 2].map((i) => parseInt(h.slice(1 + 2 * i, 3 + 2 * i), 16));
+const mixHex = (a, b, k) => { const p = hexRGB(a), q = hexRGB(b); return `rgb(${[0, 1, 2].map((i) => Math.round(lerp(p[i], q[i], k))).join(",")})`; };
+const rgba = (h, a) => { const p = hexRGB(h); return `rgba(${p[0]},${p[1]},${p[2]},${a})`; };
+function kf(t, K, ease = E.p2io) {
+  if (t <= K[0][0]) return K[0][1];
+  for (let i = 1; i < K.length; i++) if (t < K[i][0]) { const [t0, v0] = K[i - 1], [t1, v1, e] = K[i]; return lerp(v0, v1, (e || ease)(prog(t, t0, t1))); }
+  return K[K.length - 1][1];
+}
+function win(t, a, b, fi = 0.25, fo = 0.25) { return E.p3out(prog(t, a, a + fi)) * (1 - E.p2io(prog(t, b - fo, b))); }
+const hash = (n) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+const vnoise = (x) => { const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); return lerp(hash(i), hash(i + 1), u); };
+
+// a slow, smooth drift (never a shake): incommensurate sines so the picture never stops
+function drift(t) { return [30 * Math.cos(0.8 * t) + 8 * Math.sin(1.7 * t), 22 * Math.sin(0.8 * t) + 6 * Math.cos(1.3 * t), 1 + 0.02 * Math.sin(0.37 * t)]; }   // an ellipse: the speed never drops to zero
+// ---------------------------------------------------------------- camera: screen = A·local + B (log-spiral between keys)
+function key(F, anchor, A) { return { A, B: [anchor[0] - A * F[0], anchor[1] - A * F[1]] }; }
+function interp(k0, k1, u) {
+  const lr = Math.log(k1.A / k0.A), kk = Math.exp(lr), ku = Math.exp(lr * u);
+  let B;
+  if (Math.abs(1 - kk) < 1e-9) B = [lerp(k0.B[0], k1.B[0], u), lerp(k0.B[1], k1.B[1], u)];
+  else { const c0 = k1.B[0] - kk * k0.B[0], c1 = k1.B[1] - kk * k0.B[1], w0 = c0 / (1 - kk), w1 = c1 / (1 - kk); B = [ku * (k0.B[0] - w0) + w0, ku * (k0.B[1] - w1) + w1]; }
+  return { A: k0.A * ku, B };
+}
+const ID = () => ctx.setTransform(1, 0, 0, 1, 0, 0);
+const setK = (K) => ctx.setTransform(K.A, 0, 0, K.A, K.B[0], K.B[1]);
+const toS = (K, p) => [K.A * p[0] + K.B[0], K.A * p[1] + K.B[1]];
+
+// ---------------------------------------------------------------- drawing helpers
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function line(x0, y0, x1, y1) { ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
+const MEASURE = new Map();
+function mw(font, s) { const k = font + "|" + s; let v = MEASURE.get(k); if (v === undefined) { ctx.font = font; v = ctx.measureText(s).width; MEASURE.set(k, v); } return v; }
+function parse(str) { const out = []; let a = 0; for (const ch of str) { if (ch === "[") { a = 1; continue; } if (ch === "]") { a = 0; continue; } out.push({ ch, a }); } return out; }
+const plain = (str) => str.replace(/[\[\]]/g, "");
+function fitSize(str, size, maxW, face = DISPLAY, wt = "") { const f = `${wt} ${size}px ${face}`.trim(), w = mw(f, plain(str)); return w > maxW ? Math.floor(size * maxW / w) : size; }
+// Text band: style none | blur | type | slam | wipe; left aligned at x.
+function lines(L, t, t0, t1, o = {}) {
+  if (t < t0 || t >= t1) return;
+  const three = L.length === 3 && !o.ys;
+  const x = o.x ?? 96, ys = o.ys ?? (three ? [300, 420, 540] : [330, 472]), face = o.face ?? DISPLAY, wt = o.weight ?? "";
+  const col = o.col ?? C.ink, acc = o.acc ?? C.acc, style = o.style ?? "blur";
+  const stag = o.stag ?? 0.055, lineGap = o.lineGap ?? 0.16, exitDur = o.exit ?? 0.16, maxW = o.maxW ?? 930;
+  ID();
+  L.forEach((str, i) => {
+    const size = fitSize(str, Array.isArray(o.size) ? o.size[i] : (o.size ?? (three ? 96 : 112)), maxW, face, wt);
+    const font = `${wt} ${size}px ${face}`.trim();
+    const chars = parse(str), ls = t0 + i * lineGap;
+    if (t < ls) return;
+    let pre = "";
+    ctx.save();
+    if (style === "slam") { const sc0 = slamScale(t - ls), sc = sc0 > 1 ? Math.min(sc0, Math.max(1, (1040 - x) / mw(font, plain(str)))) : sc0, cy = ys[i] - size * 0.35; ctx.translate(x, cy); ctx.scale(sc, sc); ctx.translate(-x, -cy); }
+    if (style === "wipe") { const wv = mw(font, plain(str)); ctx.beginPath(); ctx.rect(0, ys[i] - size * 1.2, x + wv * E.p3out(prog(t, ls, ls + 0.32)) + 4, size * 1.6); ctx.clip(); }
+    ctx.font = font; ctx.textBaseline = "alphabetic";
+    chars.forEach((c, j) => {
+      const cx = x + mw(font, pre); pre += c.ch;
+      const lt = t - (ls + j * stag);
+      let a = 1, blur = 0;
+      if (style === "blur") { const k = clamp(lt / 0.13); a = k; blur = 9 * (1 - k); }
+      else if (style === "type") { a = lt >= 0 ? 1 : 0; }
+      if (t > t1 - exitDur) { const e = clamp((t - (t1 - exitDur)) / exitDur); a *= 1 - e; blur = Math.max(blur, 10 * e); }
+      if (a <= 0.003) return;
+      ctx.globalAlpha = a; ctx.filter = blur > 0.3 ? `blur(${blur.toFixed(1)}px)` : "none";
+      ctx.fillStyle = c.a ? acc : col; ctx.fillText(c.ch, cx, ys[i]);
+    });
+    ctx.restore(); ctx.filter = "none"; ctx.globalAlpha = 1;
+  });
+}
+function label(str, x, y, size, col, t, t0, t1, o = {}) {
+  if (t < t0 || t >= t1) return;
+  ID(); const font = `${o.weight ?? 700} ${size}px ${o.face ?? UI}`; const wv = mw(font, str);
+  const k = E.p3out(prog(t, t0, t0 + 0.28)), e = prog(t, t1 - 0.15, t1);
+  ctx.save(); ctx.font = font; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  const left = o.align === "right" ? x - wv : o.align === "center" ? x - wv / 2 : x;
+  if (o.plate) { ctx.globalAlpha = (1 - e) * k; rr(left - 18, y - size - 4, wv + 36, size + 22, 12); ctx.fillStyle = o.plate; ctx.fill(); }
+  ctx.beginPath(); ctx.rect(left - 4, y - size * 1.2, (wv + 8) * k, size * 1.6); ctx.clip();
+  ctx.globalAlpha = (o.alpha ?? 1) * (1 - e); if (e > 0) ctx.filter = `blur(${(8 * e).toFixed(1)}px)`;
+  ctx.fillStyle = col; ctx.fillText(str, left, y); ctx.restore(); ctx.filter = "none";
+}
+function underline(str, prefix, word, lineIdx, t, t0, t1, ys = [330, 472], size0 = 112) {
+  if (t < t0 || t >= t1) return;
+  const size = fitSize(str, size0, 930), f = `${size}px ${DISPLAY}`;
+  const x0 = 96 + mw(f, prefix), wv = mw(f, word), k = E.p3out(prog(t, t0, t0 + 0.3)), fo = 1 - prog(t, t1 - 0.16, t1);
+  ID(); ctx.globalAlpha = fo; ctx.fillStyle = C.acc; ctx.fillRect(x0 - 4, ys[lineIdx] + 20, (wv + 8) * k, 11); ctx.globalAlpha = 1;
+}
+function leader(x0, y0, x1, y1, col, k = 1, w = 2.5) {
+  ID(); ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(lerp(x0, x1, k), lerp(y0, y1, k)); ctx.stroke();
+  if (k > 0.98) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x1, y1, 6, 0, TAU); ctx.fill(); }
+  ctx.restore();
+}
+function pill(str, x, y, size, t, t0, t1, o = {}) {                     // small text on a dark pill
+  if (t < t0 || t >= t1) return;
+  ID(); const font = `${o.weight ?? 700} ${size}px ${UI}`, wv = mw(font, str), k = E.p3out(prog(t, t0, t0 + 0.25)), e = 1 - prog(t, t1 - 0.15, t1);
+  const left = o.align === "right" ? x - wv : o.align === "center" ? x - wv / 2 : x;
+  ctx.save(); ctx.globalAlpha = k * e; rr(left - 22, y - size - 6, wv + 44, size + 26, (size + 26) / 2); ctx.fillStyle = o.fill ?? "rgba(23,25,28,0.88)"; ctx.fill();
+  if (o.edge) { ctx.strokeStyle = C.acc; ctx.lineWidth = 4; ctx.stroke(); }
+  ctx.font = font; ctx.fillStyle = o.col ?? C.paper; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillText(str, left, y); ctx.restore();
+}
+// an orange box that draws itself (the 示意 frame for a new element)
+function obox(x, y, w, h, k, a = 1, r = 14, lw = 5) {
+  if (k <= 0 || a <= 0) return;
+  ID(); ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = C.acc; ctx.lineWidth = lw; ctx.lineJoin = "round";
+  const per = 2 * (w + h); ctx.setLineDash([per * k, per]); rr(x, y, w, h, r); ctx.stroke(); ctx.restore();
+}
+function oring(x, y, r, k, a = 1, lw = 4) {
+  if (k <= 0 || a <= 0) return;
+  ID(); ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = C.acc; ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + TAU * k); ctx.stroke(); ctx.restore();
+}
+function capsule(P, w, fill) { ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = fill; ctx.lineWidth = w; ctx.beginPath(); P.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke(); ctx.restore(); }
+
+// ================================================================ PHONE world (light)
+const PH = { w: 330, h: 660, r: 54 };                 // the phone, upright, centre at local (0,0)
+const PORT = [0, PH.h / 2];
+const K_HOME = key([0, 30], [540, 1000], 1.0);         // the phone a little above centre; its plug ends above y 1450
+// the plug: how far it is out of the port (0 = home), from the plug / unplug events
+function plugOut(t) {
+  // events: plug(in) at PLUGS; unplug at UNPLUGS; FAST: in at f, out at f+0.25
+  const ev = [[-1, 1]];                                 // [time, target out]
+  PLUGS.forEach((p) => ev.push([p - 0.2, 0]));
+  UNPLUGS.forEach((u) => ev.push([u, 1]));
+  FAST.forEach((f) => { ev.push([f - 0.12, 0]); ev.push([f + 0.2, 1]); });
+  ev.push([FAST[FAST.length - 1] + 0.45, 0]);          // home again before the dive
+  ev.push([T.plugF - 0.2, 0]);
+  ev.sort((a, b) => a[0] - b[0]);
+  // the closing shot: start out
+  if (t >= T.irisOut - 0.01 && t < T.plugF - 0.2) return 1;
+  let v = 1, tl = -1;
+  for (const [a, k] of ev) { if (a > t) break; tl = a; v = k; }
+  // ease from the previous value over 0.2 s
+  let prev = 1; for (const [a, k] of ev) { if (a >= tl) break; prev = k; }
+  const u = E.p3io(prog(t, tl, tl + 0.2));
+  return lerp(prev, v, u);
+}
+function drawPlugAndCable(t, K, out, a = 1) {
+  setK(K); ctx.save(); ctx.globalAlpha = a;
+  const y0 = PORT[1] - 22 + out * 70;                   // the metal tip's top
+  // cable: from the plug's tail, curving off to the right edge
+  const tail = [0, y0 + 22 + 84];
+  ctx.lineCap = "round"; ctx.strokeStyle = C.cableD; ctx.lineWidth = 22;
+  ctx.beginPath(); ctx.moveTo(tail[0], tail[1]); ctx.bezierCurveTo(0, tail[1] + 70, 220, tail[1] + 40, 640, tail[1] - 40); ctx.stroke();
+  ctx.strokeStyle = C.cable; ctx.lineWidth = 16; ctx.stroke();
+  // the boot and the plug body
+  rr(-24, y0 + 22 + 60, 48, 34, 10); ctx.fillStyle = C.plugD; ctx.fill();
+  rr(-34, y0 + 18, 68, 70, 14); const g = ctx.createLinearGradient(-34, 0, 34, 0); g.addColorStop(0, C.plugD); g.addColorStop(0.4, C.plug); g.addColorStop(1, C.plugD); ctx.fillStyle = g; ctx.fill();
+  // the metal tip (hidden inside the phone when home: the phone is drawn on top)
+  rr(-21, y0, 42, 24, 8); ctx.fillStyle = C.metal; ctx.fill();
+  ctx.restore();
+}
+function phoneScreen(t, K, s) {                         // s: { pct, charging, pause, glow, game, bar }
+  setK(K); ctx.save();
+  rr(-PH.w / 2 + 12, -PH.h / 2 + 12, PH.w - 24, PH.h - 24, PH.r - 12); ctx.clip();
+  ctx.fillStyle = C.glass; ctx.fillRect(-PH.w / 2, -PH.h / 2, PH.w, PH.h);
+  const on = s.on ?? 0;
+  if (on > 0) {
+    ctx.globalAlpha = on;
+    const g = ctx.createRadialGradient(0, -60, 20, 0, -60, 360); g.addColorStop(0, "#2A2E38"); g.addColorStop(1, "#121318");
+    ctx.fillStyle = g; ctx.fillRect(-PH.w / 2, -PH.h / 2, PH.w, PH.h);
+    // the battery icon, big, in the middle; the level as a fill
+    const bw = 150, bh = 70, bx = -bw / 2, by = 40;
+    ctx.strokeStyle = C.paper; ctx.lineWidth = 6; rr(bx, by, bw, bh, 16); ctx.stroke();
+    rr(bx + bw + 4, by + 22, 10, 26, 4); ctx.fillStyle = C.paper; ctx.fill();
+    const lv = clamp(s.level ?? 0.37);
+    rr(bx + 9, by + 9, (bw - 18) * lv, bh - 18, 9); ctx.fillStyle = lv > 0.2 ? C.paper : C.acc; ctx.fill();
+    if (s.charging) {                                   // charging: a soft light runs along the fill, again and again
+      ctx.save(); ctx.clip(); const u = (t * 0.9) % 1, xs = bx + 9 + (bw - 18) * lv * u;
+      const g2 = ctx.createLinearGradient(xs - 40, 0, xs + 40, 0); g2.addColorStop(0, "rgba(120,124,132,0)"); g2.addColorStop(0.5, "rgba(120,124,132,0.75)"); g2.addColorStop(1, "rgba(120,124,132,0)");
+      ctx.fillStyle = g2; ctx.fillRect(xs - 40, by, 80, bh); ctx.restore();
+      // and the whole screen breathes a little
+      ctx.fillStyle = `rgba(255,255,255,${0.035 + 0.035 * Math.sin(t * 3.1)})`; ctx.fillRect(-PH.w / 2, -PH.h / 2, PH.w, PH.h);
+    }
+    if (!s.charging) {                                  // not charging (held or full): the icon glows slowly, so the picture never stops
+      const pk = 0.5 + 0.5 * Math.sin(t * 2.6);
+      ctx.strokeStyle = `rgba(241,240,236,${0.12 + 0.25 * pk})`; ctx.lineWidth = 10 + 10 * pk; rr(bx - 10, by - 10, bw + 20, bh + 20, 22); ctx.stroke();
+    }
+    if (s.mark80) { ctx.strokeStyle = C.acc; ctx.lineWidth = 4; const xm = bx + 9 + (bw - 18) * 0.8; line(xm, by - 10, xm, by + bh + 10); }
+    // the percentage, with a bolt or a pause sign
+    if (s.txt) {
+      ctx.font = `700 76px ${UI}`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.fillStyle = C.paper;
+      ctx.fillText(s.txt, 18, -40);
+      const tw = mw(`700 76px ${UI}`, s.txt), ix = 18 - tw / 2 - 34, iy = -68;
+      if (s.pause) { ctx.fillRect(ix - 10, iy - 22, 8, 40); ctx.fillRect(ix + 6, iy - 22, 8, 40); }
+      else if (s.charging) { ctx.beginPath(); ctx.moveTo(ix + 6, iy - 30); ctx.lineTo(ix - 14, iy + 4); ctx.lineTo(ix, iy + 4); ctx.lineTo(ix - 6, iy + 32); ctx.lineTo(ix + 16, iy - 4); ctx.lineTo(ix + 2, iy - 4); ctx.closePath(); ctx.fillStyle = C.paper; ctx.fill(); }
+    }
+  }
+  ctx.restore();
+}
+function drawPhone(t, K, o = {}) {
+  setK(K); ctx.save();
+  // a soft contact shadow under the phone
+  if (o.shadow ?? 1) { ctx.globalAlpha = 0.18 * (o.shadow ?? 1); const g = ctx.createRadialGradient(0, PH.h / 2 + 10, 10, 0, PH.h / 2 + 10, 240); g.addColorStop(0, "#000"); g.addColorStop(1, "rgba(0,0,0,0)"); ctx.fillStyle = g; ctx.fillRect(-260, PH.h / 2 - 40, 520, 110); ctx.globalAlpha = 1; }
+  const body = o.body ?? C.body;
+  rr(-PH.w / 2, -PH.h / 2, PH.w, PH.h, PH.r); ctx.fillStyle = body; ctx.fill();
+  ctx.strokeStyle = o.edge ?? C.bodyL; ctx.lineWidth = 4; ctx.stroke();
+  // side buttons
+  ctx.fillStyle = o.edge ?? C.bodyL; rr(PH.w / 2 - 1, -170, 7, 90, 3); ctx.fill(); rr(-PH.w / 2 - 6, -200, 7, 54, 3); ctx.fill(); rr(-PH.w / 2 - 6, -130, 7, 54, 3); ctx.fill();
+  // the port
+  rr(-24, PH.h / 2 - 8, 48, 10, 5); ctx.fillStyle = "#0A0B0D"; ctx.fill();
+  ctx.restore();
+  phoneScreen(t, K, o.screen ?? {});
+  // the notch / island
+  setK(K); rr(-46, -PH.h / 2 + 32, 92, 26, 13); ctx.fillStyle = "#050506"; ctx.fill();
+}
+
+// ---------------------------------------------------------------- placeholder hands (until the reference images arrive)
+function skinGrad(x0, y0, x1, y1) { const g = ctx.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, C.skinL); g.addColorStop(0.45, C.skin); g.addColorStop(1, C.skinD); return g; }
+// the right hand pinching the plug from below-right; p = the pinch point (local), k = 1 holding
+function handPinch(K, p, a = 1) {
+  setK(K); ctx.save(); ctx.globalAlpha = a; ctx.translate(p[0], p[1]);
+  const fill = skinGrad(-60, -40, 420, 380);
+  // forearm out through the right edge
+  capsule([[230, 190], [520, 330], [760, 430]], 190, C.skinD); capsule([[230, 180], [520, 320], [760, 420]], 176, fill);
+  // palm
+  ctx.save(); ctx.translate(150, 120); ctx.rotate(-0.55); ctx.beginPath(); ctx.ellipse(0, 0, 135, 100, 0, 0, TAU); ctx.fillStyle = fill; ctx.fill(); ctx.restore();
+  // curled middle, ring, little fingers (under the palm)
+  capsule([[120, 40], [70, 70], [80, 120]], 50, C.skinD); capsule([[170, 60], [120, 100], [128, 146]], 46, C.skinD); capsule([[215, 90], [176, 128], [182, 166]], 40, C.skinD);
+  capsule([[120, 40], [70, 70], [80, 120]], 42, fill); capsule([[170, 60], [120, 100], [128, 146]], 38, fill); capsule([[215, 90], [176, 128], [182, 166]], 32, fill);
+  // index finger to the right side of the plug
+  capsule([[150, 30], [96, -10], [44, -6]], 50, C.skinD); capsule([[150, 30], [96, -10], [44, -6]], 42, fill);
+  // thumb to the left side of the plug
+  capsule([[90, 150], [10, 110], [-44, 40]], 56, C.skinD); capsule([[90, 150], [10, 110], [-44, 40]], 46, fill);
+  ctx.fillStyle = C.nail; ctx.beginPath(); ctx.ellipse(-44, 36, 12, 14, 0.6, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+// the right hand coming down from the top to take the phone (local, around the phone)
+function handGrab(K, k, a = 1) {
+  setK(K); ctx.save(); ctx.globalAlpha = a; ctx.translate(0, lerp(-900, -PH.h / 2 + 60, k));
+  const fill = skinGrad(-200, -500, 200, 100);
+  capsule([[40, -700], [30, -260]], 200, C.skinD); capsule([[40, -700], [30, -260]], 186, fill);
+  ctx.beginPath(); ctx.ellipse(10, -150, 150, 130, 0, 0, TAU); ctx.fillStyle = fill; ctx.fill();
+  capsule([[-130, -160], [-178, -40], [-172, 70]], 46, fill);                       // thumb along the left side
+  capsule([[60, -80], [176, 0], [180, 110]], 44, fill); capsule([[110, -110], [182, -40], [184, 40]], 40, fill);
+  ctx.restore();
+}
+// two hands holding the phone sideways (landscape), from the bottom corners
+function handsLandscape(K, a = 1, caseW = 0) {
+  setK(K); ctx.save(); ctx.globalAlpha = a;
+  for (const sx of [-1, 1]) {
+    ctx.save(); ctx.scale(sx, 1);
+    const fill = skinGrad(200, 0, 500, 500);
+    capsule([[300 + caseW, 160], [440, 420], [520, 700]], 170, C.skinD); capsule([[300 + caseW, 150], [440, 410], [520, 690]], 156, fill);
+    ctx.beginPath(); ctx.ellipse(300 + caseW, 120, 110, 120, 0.3, 0, TAU); ctx.fillStyle = fill; ctx.fill();
+    capsule([[250 + caseW, 60], [210 + caseW, -10], [196 + caseW, -60]], 46, C.skinD); capsule([[250 + caseW, 60], [210 + caseW, -10], [196 + caseW, -60]], 38, fill);
+    ctx.fillStyle = C.nail; ctx.beginPath(); ctx.ellipse(196 + caseW, -62, 12, 14, 0, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- the opening state
+function pctAt(t) {
+  if (t < T.pct) return null;
+  if (t < T.tick38) return 37;
+  return 38;
+}
+function screenState(t) {
+  const on = t < T.pct - 0.15 ? 0.25 : 1;
+  const p = pctAt(t);
+  const charging = plugOut(t) < 0.3;
+  if (t >= T.irisOut) { const pp = t >= T.ka ? 37 : null; return { on: t >= T.ka - 0.12 ? 1 : 0.25, txt: pp ? pp + "%" : null, charging: true, level: 0.37 }; }
+  return { on, txt: p ? p + "%" : null, charging, level: p ? p / 100 : 0.37 };
+}
+
+// ---------------------------------------------------------------- the dive: phone → battery → stripes → the cell
+const BATT = { x: -128, y: -230, w: 256, h: 470, r: 24 };   // the battery pack inside the phone (local)
+// the cell world (E): cathode [90,330], electrolyte gap, anode [650,990]; stripes repeat every 1220 E px
+const CELL = { c0: 90, c1: 330, a0: 650, a1: 990, per: 1220, top: 600, bot: 1460, sep: 490 };
+const DIVE_TGT = [540, 1030];                               // where the gap's centre sits on screen at the end
+const KF_A = 46;                                            // the final zoom
+// the final key: local point L* maps to DIVE_TGT; choose L* inside the battery, on the gap between a C and an A stripe
+const LSTAR = [-6, 40];
+const K_DIVE_END = key(LSTAR, DIVE_TGT, KF_A);
+// E → screen: E coords are the screen coords of K_DIVE_END (shifted so that the gap centre (490, 1030) = DIVE_TGT)
+const E0 = [CELL.sep, 1030];
+function eToLocal(e) { return [LSTAR[0] + (e[0] - E0[0]) / KF_A, LSTAR[1] + (e[1] - E0[1]) / KF_A]; }
+function phoneK(t) { const d = drift(t); return key([0, 30], [540 + 0.95 * d[0], 1000 + 0.95 * d[1]], lerp(1.0, 1.09, prog(t, 0, T.dive)) * d[2]); }
+function camPhone(t) {
+  // the light world: a slow push all the time (never still); the dive; the closing; the tip
+  if (t < T.dive) return phoneK(t);
+  if (t < T.diveEnd) {
+    const k0 = phoneK(T.dive), k1 = K_DIVE_END;
+    const u = prog(t, T.dive, T.diveEnd), uu = E.p2io(u);
+    return interp(k0, k1, uu);
+  }
+  return K_DIVE_END;
+}
+function diveK(t) { return clamp((t - T.dive) / (T.diveEnd - T.dive)); }
+// the stripes, in local units, clipped to the battery
+function drawStripes(K, a, detail) {
+  setK(K); ctx.save(); ctx.globalAlpha = a;
+  rr(BATT.x, BATT.y, BATT.w, BATT.h, BATT.r); ctx.clip();
+  ctx.fillStyle = C.elyte; ctx.fillRect(BATT.x, BATT.y, BATT.w, BATT.h);
+  for (let k = -8; k <= 8; k++) {
+    const cA = eToLocal([CELL.c0 + k * CELL.per, 0])[0], cB = eToLocal([CELL.c1 + k * CELL.per, 0])[0];
+    const aA = eToLocal([CELL.a0 + k * CELL.per, 0])[0], aB = eToLocal([CELL.a1 + k * CELL.per, 0])[0];
+    ctx.fillStyle = C.cath; ctx.fillRect(cA, BATT.y, cB - cA, BATT.h);
+    ctx.fillStyle = C.anode; ctx.fillRect(aA, BATT.y, aB - aA, BATT.h);
+  }
+  ctx.restore();
+}
+
+// ================================================================ CELL world (dark): E units, transform M = [s, ox, oy]
+// screen = (ox + s·Ex, oy + s·Ey)
+function cellM(t) {
+  if (t < T.diveEnd) { const K = camPhone(t), s = K.A / KF_A, Ls = eToLocal([0, 0]); const o = toS(K, Ls); return [s, o[0], o[1]]; }
+  // a slow drift so the picture never stops; the lean in on the anode surface (ageing); out again
+  const d = drift(t), d0 = drift(T.diveEnd), ramp = E.smooth(prog(t, T.diveEnd, T.diveEnd + 1)), dx = (d[0] - d0[0]) * ramp, dy = (d[1] - d0[1]) * ramp, drift_ = 1 + (d[2] - d0[2]) * ramp;
+  const zin = kf(t, [[T.zoomA, 0], [T.zoomAEnd, 1], [T.zoomOut, 1], [T.zoomOutEnd, 0]]);
+  const s = drift_ * (1 + 0.85 * zin) * (1 + 0.07 * prog(t, T.diveEnd, T.split)), cx = lerp(540, 690, zin), cy = 1040;    // zoom about the anode face
+  const fx = lerp(540, 650, zin), fy = 1040;                                     // the E point kept at (cx, cy)
+  return [s, cx - s * fx + dx, cy - s * fy + dy];
+}
+const eS = (M, x, y) => [M[1] + M[0] * x, M[2] + M[0] * y];
+const setM = (M) => ctx.setTransform(M[0], 0, 0, M[0], M[1], M[2]);
+
+// the charge state s(t): fraction of the movable lithium in the anode
+function charge(t) {
+  return kf(t, [[0, 0], [T.chg1, 0], [T.chg1End, 1], [T.dis1, 1], [T.dis1End, 0], [T.chgR, 0], [T.chgREnd, 1], [T.disR, 1], [T.disREnd, 0],
+    [T.chgH, 0], [T.chgHEnd, 1], [T.half1, 1], [T.half1End, 0.5], [T.back1, 0.5], [T.back1End, 1], [T.half2, 1], [T.half2End, 0.5],
+    [T.chgA, 0.5], [T.chgAEnd, 1], [T.dis9, 1], [T.dis9End, 0], [DUR, 0]], E.p2io);
+}
+// the cycle ring (counts what is used: the discharge)
+function ringVal(t) {
+  return kf(t, [[0, 0], [T.disR, 0], [T.disREnd, 1, E.sine], [T.clear, 1], [T.clear + 0.3, 0], [T.half1, 0], [T.half1End, 0.5, E.sine], [T.half2, 0.5], [T.half2End, 1, E.sine], [DUR, 1]], E.p2io);
+}
+// lithium: slots in the cathode (3 columns) and between graphite sheets (5 columns)
+const SHEETS = []; for (let y = CELL.top + 40; y < CELL.bot; y += 74) SHEETS.push(y);        // graphite sheets (horizontal)
+const CATH_L = []; for (let y = CELL.top + 30; y < CELL.bot; y += 80) CATH_L.push(y);       // oxide layer lines
+const IONS = (() => {
+  const R = mulberry32(808), out = [];
+  const cSlots = [], aSlots = [];
+  for (let i = 0; i + 1 < CATH_L.length; i++) for (const x of [140, 210, 280]) cSlots.push([x + (R() - 0.5) * 10, (CATH_L[i] + CATH_L[i + 1]) / 2]);
+  for (let i = 0; i + 1 < SHEETS.length; i++) for (const x of [700, 770, 840, 910, 960]) aSlots.push([x + (R() - 0.5) * 8, (SHEETS[i] + SHEETS[i + 1]) / 2]);
+  // keep the slots in the picture band
+  const inBand = (p) => p[1] > 660 && p[1] < 1430;
+  const cs = cSlots.filter(inBand), as = aSlots.filter(inBand);
+  const N = Math.min(cs.length, 27);
+  const order = cs.map((p, i) => i).sort(() => R() - 0.5);
+  const asOrder = as.map((p, i) => i).sort(() => R() - 0.5);
+  for (let i = 0; i < N; i++) {
+    const c = cs[order[i]], movable = i < 18, a = movable ? as[asOrder[i]] : null;
+    out.push({ c, a, movable, rank: movable ? i / 18 : 0, ph: R() * TAU, wob: (R() - 0.5) * 80 });
+  }
+  // three of the movable ones get stuck in the film (the ones nearest the anode face)
+  const mv = out.filter((o) => o.movable).sort((p, q) => p.a[0] - q.a[0]);
+  const stuckY = [820, 1020, 1240];
+  mv.slice(0, 3).forEach((o, j) => { o.stuck = true; o.f = [640, stuckY[j]]; });
+  return out;
+})();
+function filmW(t) { return kf(t, [[0, 6], [T.thick, 6], [T.thickEnd, 20], [DUR, 20]], E.p2io); }
+function ionPos(o, t, s) {
+  if (!o.movable) return o.c;
+  const q = E.smooth(clamp((s - o.rank * 0.62) / 0.38));
+  let p;
+  if (q <= 0) p = o.c; else if (q >= 1) p = o.a;
+  else { const x = lerp(o.c[0], o.a[0], q), y = lerp(o.c[1], o.a[1], q) + Math.sin(q * Math.PI) * o.wob; p = [x, y]; }
+  if (o.stuck && t >= T.stick) {
+    const k = E.p2io(prog(t, T.stick + 0.1 * o.f[1] / 1240, T.stick + 0.5 + 0.1 * o.f[1] / 1240));
+    const from = t < T.stickEnd ? p : o.a;
+    if (t >= T.dis9) return o.f;                                       // they never come back
+    return [lerp(from[0], o.f[0] - 0 - filmW(t) / 2, k), lerp(from[1], o.f[1], k)];
+  }
+  return p;
+}
+function drawCell(t, M, a = 1, detail = 1) {
+  ctx.save(); ctx.globalAlpha = a;
+  ID(); ctx.fillStyle = C.elyte; ctx.fillRect(0, 0, W, H);
+  setM(M);
+  const yA = -4000, yB = 6000;
+  for (let k = -2; k <= 2; k++) {
+    const off = k * CELL.per;
+    ctx.fillStyle = C.cath; ctx.fillRect(CELL.c0 + off, yA, CELL.c1 - CELL.c0, yB - yA);
+    ctx.fillStyle = C.anode; ctx.fillRect(CELL.a0 + off, yA, CELL.a1 - CELL.a0, yB - yA);
+    if (detail > 0.01) {
+      ctx.save(); ctx.globalAlpha = a * detail;
+      ctx.strokeStyle = C.cathL; ctx.lineWidth = 4;
+      for (const y of CATH_L) line(CELL.c0 + off + 14, y, CELL.c1 + off - 14, y);
+      for (const y of SHEETS) { rr(CELL.a0 + off + 18, y - 7, CELL.a1 - CELL.a0 - 36, 14, 7); ctx.fillStyle = C.sheet; ctx.fill(); }
+      // the separator (a faint dashed line in the gap)
+      ctx.strokeStyle = "#2C3038"; ctx.lineWidth = 3; ctx.setLineDash([18, 16]); line(CELL.sep + off, CELL.top - 200, CELL.sep + off, CELL.bot + 200); ctx.setLineDash([]);
+      // the SEI film on the anode's face (always there, thin; it thickens)
+      const fw = filmW(t), fa = t >= T.film - 0.2 ? 1 : 0.55;
+      ctx.globalAlpha = a * detail * fa; ctx.fillStyle = C.film; ctx.fillRect(CELL.a0 + off - fw, yA, fw, yB - yA);
+      ctx.restore();
+    }
+  }
+  // lithium (the k = 0 period only)
+  if (detail > 0.01) {
+    const s = charge(t), R = 12;
+    for (const o of IONS) {
+      const p = ionPos(o, t, s), bob = 6 * Math.sin(t * 2.3 + o.ph);
+      ctx.save(); ctx.globalAlpha = a * detail;
+      ctx.beginPath(); ctx.arc(p[0] + 4 * Math.sin(t * 1.3 + o.ph * 2), p[1] + bob, R, 0, TAU); ctx.fillStyle = o.stuck && t >= T.stickEnd ? "#CFCAC0" : C.ion; ctx.fill();
+      ctx.restore();
+    }
+  }
+  ctx.restore();
+}
+
+// ================================================================ SPLIT (dark): two anode faces side by side
+const PAN = [{ x: 70, y: 700, w: 450, h: 690 }, { x: 560, y: 700, w: 450, h: 690 }];
+function splitK(t) { return E.p2io(prog(t, T.split, T.splitEnd)) * (1 - E.p2io(prog(t, T.pull, T.pull + 0.9))); }
+function panelFilm(t, i) {
+  if (i === 0) return kf(t, [[0, 8], [T.cmpL, 8], [T.cmpL + 2.2, 14, E.sine], [DUR, 14]]);
+  return kf(t, [[0, 8], [T.heat, 8], [T.heatEnd, 34, E.p2io], [DUR, 34]]);
+}
+function drawSplit(t, a) {
+  if (a <= 0.001) return;
+  const pullK = E.p2io(prog(t, T.pull, T.pullEnd));
+  ID(); ctx.save(); ctx.globalAlpha = a;
+  // the pull out: the two panels shrink towards the night phone's screen
+  const dd = drift(t), sc = lerp(1, 0.22, pullK) * (1 + 0.6 * (dd[2] - 1)), cx = lerp(540, 420, pullK) + dd[0], cy = lerp(1045, 1000, pullK) + dd[1];
+  ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.translate(-540, -1045);
+  const lit = [kf(t, [[0, 0.35], [T.cmpL, 1], [T.cmpR, 1], [T.cmpR + 0.3, 0.45]]), kf(t, [[0, 0.35], [T.cmpR - 0.05, 0.35], [T.cmpR + 0.25, 1]])];
+  PAN.forEach((P, i) => {
+    ctx.save(); rr(P.x, P.y, P.w, P.h, 26); ctx.clip();
+    ctx.fillStyle = "#1D2026"; ctx.fillRect(P.x, P.y, P.w, P.h);
+    const ax = P.x + 150, fw = panelFilm(t, i);
+    ctx.fillStyle = C.anode; ctx.fillRect(ax, P.y, P.w, P.h);
+    for (let y = P.y + 50; y < P.y + P.h; y += 74) { rr(ax + 16, y - 7, P.w - 170, 14, 7); ctx.fillStyle = C.sheet; ctx.fill(); }
+    ctx.fillStyle = C.film; ctx.fillRect(ax - fw, P.y, fw, P.h);
+    // lithium: left = some; right = full (fills at T.full)
+    const R = mulberry32(90 + i); const nFull = i === 0 ? 6 : Math.round(lerp(6, 24, E.p2io(prog(t, T.full, T.fullEnd))));
+    let n = 0;
+    for (let y = P.y + 87, row = 0; y < P.y + P.h - 20; y += 74, row++) for (let c = 0; c < 4; c++) {
+      const idx = row * 4 + c, show = (idx * 7) % 24 < nFull; R();
+      if (!show) continue; n++;
+      ctx.beginPath(); ctx.arc(ax + 50 + c * 66, y + 2 * Math.sin(t * 2 + idx), 11, 0, TAU); ctx.fillStyle = C.ion; ctx.fill();
+    }
+    // dim the panel that is not being explained
+    ctx.fillStyle = `rgba(13,14,17,${0.62 * (1 - lit[i])})`; ctx.fillRect(P.x, P.y, P.w, P.h);
+    ctx.restore();
+    ctx.strokeStyle = rgba(C.paper, 0.25 + 0.35 * lit[i]); ctx.lineWidth = 3; rr(P.x, P.y, P.w, P.h, 26); ctx.stroke();
+  });
+  ctx.restore();
+  // the thermometer on the right panel (screen space, inside the transform)
+  ID(); ctx.save(); ctx.globalAlpha = a; ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.translate(-540, -1045);
+  const hk = E.p2io(prog(t, T.heat, T.heatEnd)), lv = 0.18 + 0.72 * hk;
+  thermo(PAN[1].x + 60, PAN[1].y + 110, lv, kf(t, [[0, 0.35], [T.cmpR - 0.05, 0.35], [T.cmpR + 0.25, 1]]) * clamp(prog(t, T.heat - 0.35, T.heat)));
+  ctx.restore();
+}
+function thermo(x, y, lv, a = 1, sc = 1) {          // x, y: the top of the tube (screen); lv 0..1
+  if (a <= 0.01) return;
+  ctx.save(); ctx.globalAlpha *= a; ctx.translate(x, y); ctx.scale(sc, sc);
+  ctx.fillStyle = C.paper; rr(-17, 0, 34, 170, 17); ctx.fill(); ctx.beginPath(); ctx.arc(0, 190, 32, 0, TAU); ctx.fill();
+  ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(0, 190, 22, 0, TAU); ctx.fill();
+  const hh = 150 * lv; rr(-8, 170 - hh, 16, hh + 10, 8); ctx.fill();
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 3; for (let i = 0; i < 4; i++) line(8, 36 + i * 32, 17, 36 + i * 32);
+  ctx.restore();
+}
+
+// ================================================================ NIGHT (dark): a bedside
+const K_NIGHT = key([0, 0], [420, 990], 0.62);
+function nightZ(t) { return 1 + 0.5 * prog(t, T.pull, T.irisOut); }   // a slow push in on the bedside (never still)
+function nightA(t) { return E.p2io(prog(t, T.pull + 0.2, T.pull + 1.2)) * (1 - E.p2io(prog(t, T.irisOut, T.irisOutEnd))); }
+function dawnK(t) { return kf(t, [[0, 0], [T.dawn, 0], [T.fill100End, 1], [T.q14, 1], [T.phone2End, 0]], E.p2io); }
+function drawNight(t) {
+  ID(); const nd = drift(t), nz = nightZ(t); ctx.translate(420, 990); ctx.scale(nz, nz); ctx.translate(-420, -990); ctx.translate(1.25 * nd[0], 1.25 * nd[1]);
+  const dk = dawnK(t);
+  ctx.fillStyle = mixHex(C.night, "#2A2730", dk * 0.6); ctx.fillRect(-100, -100, W + 200, H + 200);
+  // the window (top right): night blue → a first light
+  const wx = 640, wy = 660, ww = 330, wh = 400;
+  const g = ctx.createLinearGradient(0, wy, 0, wy + wh);
+  g.addColorStop(0, mixHex("#26304A", "#3A4A6A", dk)); g.addColorStop(1, mixHex("#33405E", "#E9B48A", dk));
+  rr(wx, wy, ww, wh, 10); ctx.fillStyle = g; ctx.fill();
+  ctx.strokeStyle = "#2E3442"; ctx.lineWidth = 10; ctx.stroke(); line(wx + ww / 2, wy, wx + ww / 2, wy + wh); line(wx, wy + wh / 2, wx + ww, wy + wh / 2);
+  // a small moon (night) / it fades with the dawn
+  ctx.globalAlpha = 1 - dk; ctx.fillStyle = "#D8D6CE"; ctx.beginPath(); ctx.arc(wx + 250, wy + 90, 26, 0, TAU); ctx.fill(); ctx.fillStyle = mixHex("#1F2638", "#3A4A6A", dk); ctx.beginPath(); ctx.arc(wx + 262, wy + 82, 22, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+  ctx.fillStyle = "#D8D6CE"; [[wx + 60, wy + 70], [wx + 140, wy + 150], [wx + 210, wy + 260], [wx + 290, wy + 200], [wx + 90, wy + 300]].forEach(([x, y], i) => { ctx.globalAlpha = (1 - dk) * (0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * (2.1 + i * 0.7) + i * 1.9))); ctx.beginPath(); ctx.arc(x, y, 5, 0, TAU); ctx.fill(); }); ctx.globalAlpha = 1;
+  // the table top
+  ctx.fillStyle = C.table; ctx.fillRect(-100, 1255, W + 200, 260); ctx.fillStyle = "#3E4452"; ctx.fillRect(-100, 1255, W + 200, 12);
+  // the cable along the table, to the right edge
+  ctx.strokeStyle = "#8D8A83"; ctx.lineWidth = 12; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(420, 1215); ctx.bezierCurveTo(420, 1290, 560, 1300, 1100, 1300); ctx.stroke();
+}
+function nightPhoneState(t) {
+  // phone 1 (until it is taken): it charges to 80% (held), then to 100% at dawn
+  if (t < T.q14) {
+    const lv = kf(t, [[0, 0.62], [T.a13, 0.62], [T.hold80, 0.8], [T.fill100, 0.8], [T.fill100End, 1]], E.p2io);
+    const held = t >= T.hold80 - 0.05 && t < T.fill100;
+    return { on: 1, level: lv, txt: t >= T.hold80 - 0.05 ? (t >= T.fill100End - 0.05 ? "100%" : "80%") : null, charging: !held, pause: held };
+  }
+  // phone 2 (no such feature): full; later the limit
+  if (t < T.limit) return { on: 1, level: 1, txt: "100%", charging: t < T.flowStop };
+  const lv = kf(t, [[T.limit, 1], [T.limit + 0.35, 0.55], [T.limitEnd, 0.8]], E.p2io);
+  return { on: 1, level: lv, txt: t >= T.limitEnd - 0.05 ? "80%" : null, charging: t < T.limitEnd - 0.05, pause: t >= T.limitEnd - 0.05, mark80: true };
+}
+function drawNightPhone(t, a) {
+  const nd = drift(t), nz = nightZ(t), K = key([0, 0], [420 + 1.25 * nd[0] * nz, 990 + 1.25 * nd[1] * nz], 0.62 * nd[2] * nz);
+  // phone 1 is lifted away by the hand; phone 2 slides in
+  const lift = E.p2in(prog(t, T.grab + 0.25, T.liftEnd)), in2 = E.p3out(prog(t, T.phone2, T.phone2End));
+  ctx.save(); ctx.globalAlpha = a;
+  // the stand
+  ID(); ctx.translate(420, 990); ctx.scale(nz, nz); ctx.translate(-420, -990); ctx.fillStyle = C.stand; rr(300 + 1.25 * nd[0], 1180 + 1.25 * nd[1], 240, 80, 14); ctx.fill(); ID();
+  if (t < T.liftEnd) {
+    const K1 = { A: K.A, B: [K.B[0], K.B[1] - 1100 * lift] };
+    drawPhone(t, K1, { screen: nightPhoneState(t), shadow: 0 });
+    if (t >= T.grab - 0.3) handGrab(K1, E.p3out(prog(t, T.grab - 0.3, T.grab + 0.15)), 1);
+  }
+  if (t >= T.phone2) {
+    const K2 = { A: K.A, B: [K.B[0] + 700 * (1 - in2), K.B[1]] };
+    drawPhone(t, K2, { screen: nightPhoneState(t), shadow: 0, body: "#3B3F47", edge: "#50555F" });
+  }
+  ctx.restore();
+}
+// the flow along the cable: little arrows moving into the phone; they stop
+function flowArrows(t, a) {
+  if (a <= 0.01) return;
+  const stopK = E.p2io(prog(t, T.flowStop, T.flowStop + 0.4));
+  ID(); ctx.save(); ctx.globalAlpha = a * (1 - stopK); { const nd = drift(t), nz = nightZ(t); ctx.translate(420, 990); ctx.scale(nz, nz); ctx.translate(-420, -990); ctx.translate(1.25 * nd[0], 1.25 * nd[1]); }
+  const path = (u) => { const P0 = [1100, 1300], P1 = [560, 1300], P2 = [420, 1290], P3 = [420, 1215]; const v = 1 - u; return [0, 1].map((i) => v * v * v * P0[i] + 3 * v * v * u * P1[i] + 3 * v * u * u * P2[i] + u * u * u * P3[i]); };
+  for (let i = 0; i < 5; i++) {
+    const u = ((t - T.q14) * 0.5 + i / 5) % 1, p = path(u), q = path(Math.min(1, u + 0.02));
+    const ang = Math.atan2(q[1] - p[1], q[0] - p[0]);
+    ctx.save(); ctx.translate(p[0], p[1] - 22); ctx.rotate(ang); ctx.fillStyle = C.acc; ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-10, -11); ctx.lineTo(-10, 11); ctx.closePath(); ctx.fill(); ctx.restore();
+  }
+  ctx.restore();
+}
+// the settings card: 充电上限 → 80%
+function limitCard(t) {
+  const a = win(t, T.a15, T.stop2 + 0.4, 0.35, 0.3); if (a <= 0.01) return;
+  const k = E.p2io(prog(t, T.toggle, T.toggleEnd));
+  ID(); ctx.save(); ctx.globalAlpha = a;
+  const x = 620, y = 1080 + 30 * (1 - E.p3out(prog(t, T.a15, T.a15 + 0.4))), w = 380, h = 140;
+  rr(x, y, w, h, 28); ctx.fillStyle = "#262A32"; ctx.fill(); ctx.strokeStyle = "#3A3F49"; ctx.lineWidth = 3; ctx.stroke();
+  ctx.font = `700 46px ${UI}`; ctx.fillStyle = C.paper; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(COPY.limit, x + 30, y + h / 2);
+  // the switch
+  const sx = x + w - 130, sy = y + h / 2 - 30;
+  rr(sx, sy, 100, 60, 30); ctx.fillStyle = mixHex("#4A4F59", C.acc, k); ctx.fill();
+  ctx.beginPath(); ctx.arc(sx + 30 + 40 * k, sy + 30, 24, 0, TAU); ctx.fillStyle = C.paper; ctx.fill();
+  ctx.restore();
+}
+
+// ================================================================ the tip (light): sideways, a thick case, the thermometer
+const K_TIP = key([0, 0], [540, 1010], 1.0);
+function tipK(t) { return E.p2io(prog(t, T.tipIn, T.tipInEnd)); }
+function drawTip(t) {
+  const k = tipK(t), ang = lerp(0, -Math.PI / 2, k);
+  const sc = lerp(1, 1.12, k) * (1 + 0.01 * Math.sin(t * 1.1));
+  const td = drift(t), K = { A: sc, B: [540 + 0.95 * td[0], lerp(1000 - 30, 1010, k) + 0.95 * td[1]] };
+  ID(); ctx.save(); ctx.translate(K.B[0], K.B[1]); ctx.rotate(ang); ctx.scale(sc, sc);
+  const K0 = { A: 1, B: [0, 0] };
+  // the case (thick), slides off
+  const off = E.p2in(prog(t, T.caseOff, T.caseOffEnd)), ca = k * (1 - off);
+  if (ca > 0.01) { ctx.save(); ctx.globalAlpha = ca; ctx.translate(-260 * off, 0); rr(-PH.w / 2 - 22, -PH.h / 2 - 22, PH.w + 44, PH.h + 44, PH.r + 20); ctx.fillStyle = C.caseC; ctx.fill(); ctx.strokeStyle = C.caseL; ctx.lineWidth = 5; ctx.stroke(); ctx.restore(); }
+  // the phone with a game on it
+  const saved = ctx.getTransform(); ctx.save();
+  const KK = { A: sc, B: [K.B[0], K.B[1]] };
+  ctx.restore();
+  ctx.save();
+  rr(-PH.w / 2, -PH.h / 2, PH.w, PH.h, PH.r); ctx.fillStyle = C.body; ctx.fill(); ctx.strokeStyle = C.bodyL; ctx.lineWidth = 4; ctx.stroke();
+  rr(-PH.w / 2 + 12, -PH.h / 2 + 12, PH.w - 24, PH.h - 24, PH.r - 12); ctx.clip();
+  const pause = E.p2io(prog(t, T.pause, T.pause + 0.3));
+  // a simple game: a road and a runner (light shapes), moving (stops when paused)
+  const tt = t < T.pause ? t : T.pause + 0.3 * (t - T.pause) * (1 - pause);
+  ctx.fillStyle = "#24364A"; ctx.fillRect(-PH.w / 2, -PH.h / 2, PH.w, PH.h);
+  ctx.fillStyle = "#3A5A48"; ctx.fillRect(-PH.w / 2, -PH.h / 2, PH.w * 0.28, PH.h); ctx.fillRect(PH.w / 2 - PH.w * 0.28, -PH.h / 2, PH.w * 0.28, PH.h);
+  ctx.strokeStyle = C.paper; ctx.lineWidth = 6; ctx.setLineDash([40, 40]); ctx.lineDashOffset = -tt * 260; line(0, -PH.h / 2, 0, PH.h / 2); ctx.setLineDash([]);
+  ctx.fillStyle = C.paper; rr(-50, 120, 100, 150, 20); ctx.fill();
+  ctx.fillStyle = `rgba(10,11,13,${0.55 * pause})`; ctx.fillRect(-PH.w / 2, -PH.h / 2, PH.w, PH.h);
+  if (pause > 0.01) { ctx.globalAlpha = pause; ctx.fillStyle = C.paper; rr(-36, -60, 26, 120, 8); ctx.fill(); rr(10, -60, 26, 120, 8); ctx.fill(); ctx.globalAlpha = 1; }
+  ctx.restore();
+  // the cable at the phone's bottom end (which is now on the right)
+  ctx.save(); ctx.strokeStyle = C.cable; ctx.lineWidth = 16; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(0, PH.h / 2 + 30); ctx.bezierCurveTo(0, PH.h / 2 + 160, -160, PH.h / 2 + 240, -400, PH.h / 2 + 300); ctx.stroke();
+  rr(-30, PH.h / 2 - 4, 60, 60, 12); ctx.fillStyle = C.plug; ctx.fill(); ctx.restore();
+  ctx.restore();
+  // the hands (placeholder), in screen space around the landscape phone
+  if (k > 0.5) handsLandscape(key([0, 0], [K.B[0], K.B[1]], sc), clamp((k - 0.5) * 2), 0);
+  // the thermometer, top right of the phone
+  const hot = E.p2io(prog(t, T.hot, T.hotEnd)), cool = E.p2io(prog(t, T.cool, T.coolEnd));
+  ID(); thermo(900, 700, 0.2 + 0.7 * hot - 0.62 * cool, E.p3out(prog(t, T.hot - 0.3, T.hot)) * (1 - prog(t, T.end, T.end + 0.3)), 0.9);
+  label(COPY.hot, 952, 790, 46, C.ink, t, T.hot, T.end + 0.2);
+}
+
+// ================================================================ overlays (screen space) on the cell
+const BARP = { x: 640, y: 610, w: 330, h: 50 };
+function barK(t) { return win(t, T.barOn, T.split + 0.4, 0.3, 0.35); }
+function drawBar(t, a) {
+  if (a <= 0.01) return;
+  const cap = kf(t, [[0, 1], [T.shrink, 1], [T.shrinkEnd, 0.82]], E.p2io);
+  const s = charge(t) * cap;
+  ID(); ctx.save(); ctx.globalAlpha = a;
+  rr(BARP.x - 130, BARP.y - 18, BARP.w + 190, BARP.h + 36, 22); ctx.fillStyle = "rgba(23,25,28,0.9)"; ctx.fill();
+  ctx.font = `700 44px ${UI}`; ctx.fillStyle = C.paper; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(COPY.bar, BARP.x - 110, BARP.y + BARP.h / 2 + 2);
+  // the lost part of the outline: a dashed grey end
+  if (cap < 0.999) { ctx.strokeStyle = rgba(C.paper, 0.35); ctx.lineWidth = 3; ctx.setLineDash([10, 9]); rr(BARP.x, BARP.y, BARP.w, BARP.h, 12); ctx.stroke(); ctx.setLineDash([]); }
+  ctx.strokeStyle = C.paper; ctx.lineWidth = 5; rr(BARP.x, BARP.y, BARP.w * cap, BARP.h, 12); ctx.stroke();
+  rr(BARP.x + 8, BARP.y + 8, Math.max(0, (BARP.w * cap - 16) * s), BARP.h - 16, 7); ctx.fillStyle = C.paper; ctx.fill();
+  ctx.restore();
+  // 示意: the first time it appears
+  const bk = win(t, T.barOn, T.chg1 + 0.9, 0.3, 0.3); obox(BARP.x - 142, BARP.y - 30, BARP.w + 214, BARP.h + 60, E.p3out(prog(t, T.barOn, T.barOn + 0.3)), bk * a, 26);
+  // the lost capacity: orange box around the dashed end
+  const lk = win(t, T.shrink + 0.3, T.q11, 0.3, 0.3); obox(BARP.x + BARP.w * 0.82 - 8, BARP.y - 12, BARP.w * 0.18 + 20, BARP.h + 24, E.p3out(prog(t, T.shrink + 0.3, T.shrink + 0.6)), lk * a, 12, 4);
+}
+const RINGP = { x: 200, y: 700, r: 52 };
+function ringK(t) { return win(t, T.ringOn, T.q8 + 0.3, 0.3, 0.35); }
+function drawRing(t, a) {
+  if (a <= 0.01) return;
+  const v = ringVal(t);
+  ID(); ctx.save(); ctx.globalAlpha = a;
+  rr(RINGP.x - 90, RINGP.y - 82, 330, 164, 30); ctx.fillStyle = "rgba(23,25,28,0.9)"; ctx.fill();
+  ctx.strokeStyle = rgba(C.paper, 0.22); ctx.lineWidth = 12; ctx.beginPath(); ctx.arc(RINGP.x, RINGP.y, RINGP.r, 0, TAU); ctx.stroke();
+  ctx.strokeStyle = C.acc; ctx.lineCap = "round"; ctx.beginPath(); ctx.arc(RINGP.x, RINGP.y, RINGP.r, -Math.PI / 2, -Math.PI / 2 + TAU * v); if (v > 0.002) ctx.stroke();
+  ctx.font = `700 44px ${UI}`; ctx.fillStyle = C.paper; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(COPY.ring, RINGP.x + 82, RINGP.y + 2);
+  // the 咔 when it closes: a short pop
+  for (const tk of [T.disREnd, T.half2End]) { const u = t - tk; if (u > 0 && u < 0.4) { ctx.strokeStyle = rgba(C.acc, 1 - u / 0.4); ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(RINGP.x, RINGP.y, RINGP.r + 12 + 50 * E.p3out(u / 0.4), 0, TAU); ctx.stroke(); } }
+  ctx.restore();
+  const bk = win(t, T.ringOn, T.disR + 0.4, 0.3, 0.3); obox(RINGP.x - 102, RINGP.y - 94, 354, 188, E.p3out(prog(t, T.ringOn, T.ringOn + 0.3)), bk * a, 34);
+}
+function cellLabels(t, M) {
+  // the two sheets, named (small text), with leaders; first the spot (the rest dim)
+  const lc = eS(M, (CELL.c0 + CELL.c1) / 2, 1180), la = eS(M, (CELL.a0 + CELL.a1) / 2, 1180);
+  const ka = win(t, T.tagCath, T.q4 + 0.2, 0.3, 0.3), kb = win(t, T.tagAnode, T.q4 + 0.2, 0.3, 0.3);
+  if (ka > 0) { pill(COPY.cath, lc[0], 1300, 46, t, T.tagCath, T.q4 + 0.2, { align: "center" }); obox(eS(M, CELL.c0, 0)[0] - 6, 700, (CELL.c1 - CELL.c0) * M[0] + 12, 520, E.p3out(prog(t, T.tagCath, T.tagCath + 0.35)), ka, 18, 4); }
+  if (kb > 0) { pill(COPY.anode, la[0], 1300, 46, t, T.tagAnode, T.q4 + 0.2, { align: "center" }); obox(eS(M, CELL.a0, 0)[0] - 6, 700, (CELL.a1 - CELL.a0) * M[0] + 12, 520, E.p3out(prog(t, T.tagAnode, T.tagAnode + 0.35)), kb, 18, 4); }
+  // the SEI film: an orange box on the anode's face + its name
+  const fk = win(t, T.film, T.a8 + 0.25, 0.3, 0.3);
+  if (fk > 0) { const f0 = eS(M, CELL.a0 - filmW(t), 820), f1 = eS(M, CELL.a0, 1260); obox(f0[0] - 14, f0[1], f1[0] - f0[0] + 28, f1[1] - f0[1], E.p3out(prog(t, T.film, T.film + 0.35)), fk, 12, 4); pill(COPY.sei, f0[0] - 30, 1340, 46, t, T.film, T.a8 + 0.25, { align: "right" }); }
+  // the stuck ones: orange rings (from T.stick, they stay ringed until the zoom out)
+  for (const o of IONS) if (o.stuck) {
+    const k = E.p3out(prog(t, T.stick + 0.45, T.stick + 0.8)), a = win(t, T.stick + 0.45, T.zoomOutEnd, 0.2, 0.3);
+    if (a > 0) { const p = ionPos(o, t, charge(t)), q = eS(M, p[0], p[1]); oring(q[0], q[1], 26 * M[0], k, a, 4); }
+  }
+  if (t >= T.a8 && t < T.a10) pill(COPY.note, 980, 1400, 44, t, T.thick, T.a10, { align: "right" });
+}
+
+// ================================================================ light/dark: the caption band follows the picture
+function darkAt(t) {
+  if (t < T.dive) return 0;
+  if (t < T.diveEnd) { const K = camPhone(t), top = toS(K, [0, BATT.y])[1]; return E.smooth(clamp((640 - top) / 260)); }   // the battery's top reaches the captions
+  if (t < T.irisOut) return 1;
+  return 0;
+}
+function scrimOf(fl, a = 1, gr = "236,235,230") {
+  const STOPS = [[0, 1], [0.66, 1], [0.74, 0.86], [0.82, 0.56], [0.9, 0.24], [1, 0]];
+  ID(); const g = ctx.createLinearGradient(0, 0, 0, 800);
+  STOPS.forEach(([o, k]) => g.addColorStop(o, fl > 0.5 ? `rgba(23,25,28,${a * k * 0.92})` : `rgba(${gr},${a * k})`));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, 800);
+}
+function textBand(t, fl) {
+  const L = C.ink, D = C.paper, M = fl > 0.5 ? D : L;
+  const ORA = t >= T.myth && t < T.a2 + 0.2;
+  // 1 the phenomenon
+  lines(COPY.h1, t, -1, T.q2, { style: "none", col: L });
+  underline(COPY.h1[1], "会", "充坏", 1, t, T.underline, T.q2);
+  // 2 the wrong guess (on orange), struck; the flip
+  lines(COPY.q2, t, T.q2, T.a2, { style: "blur", col: L, acc: C.paper, exit: 0.001 });
+  lines(COPY.a2, t, T.a2, T.q3, { style: "slam", col: L });
+  lines(COPY.q3, t, T.q3, T.h1, { style: "blur", col: M });
+  // 3–4 lithium
+  lines(COPY.h4, t, T.h1, T.q4, { style: "blur", col: D });
+  lines(COPY.q4, t, T.q4, T.q5, { style: "blur", col: D });
+  lines(COPY.q5, t, T.q5, T.a6, { style: "blur", col: D });
+  lines(COPY.a6, t, T.a6, T.q7, { style: "wipe", col: D });
+  lines(COPY.q7, t, T.q7, T.a7, { style: "blur", col: D });
+  lines(COPY.a7, t, T.a7, T.q8, { style: "slam", col: D, lineGap: 0.2 });
+  // 5 ageing
+  lines(COPY.q8, t, T.q8, T.a8, { style: "blur", col: D });
+  lines(COPY.a8, t, T.a8, T.q9, { style: "blur", col: D });
+  lines(COPY.q9, t, T.q9, T.a10, { style: "blur", col: D });
+  lines(COPY.a10, t, T.a10, T.q11, { style: "wipe", col: D });
+  lines(COPY.q11, t, T.q11, T.a12, { style: "blur", col: D });
+  lines(COPY.a12, t, T.a12, T.q13, { style: "slam", col: D, lineGap: 0.35 });
+  // 6 night
+  lines(COPY.q13, t, T.q13, T.a13, { style: "blur", col: D });
+  lines(COPY.a13, t, T.a13, T.q14, { style: "blur", col: D });
+  lines(COPY.q14, t, T.q14, T.a14, { style: "blur", col: D });
+  lines(COPY.a14, t, T.a14, T.a15, { style: "blur", col: D });
+  lines(COPY.a15, t, T.a15, T.stop2 + 0.16, { style: "blur", col: D });
+  // 7 closing
+  lines(COPY.fin, t, T.fin, T.tip, { style: "slam", col: L, lineGap: 0.25 });
+  // 8 the tip (3 lines, 96 px)
+  if (t >= T.tip && t < T.end) {
+    lines([COPY.tipTag + COPY.tip[0], COPY.tip[1], COPY.tip[2]], t, T.tip, T.end, { style: "blur", col: L });
+  }
+}
+
+// ================================================================ end card: the phone + cable become an outline badge
+const BADGE = [200, 600];
+function endCard(t) {
+  if (t < T.end) return;
+  const k = E.p3io(prog(t, T.end, T.endMorph + 0.3));
+  ID(); ctx.save();
+  const sc = lerp(1.12, 0.22, k), cx = lerp(540, BADGE[0], k), cy = lerp(1010, BADGE[1], k), ang = lerp(-Math.PI / 2, 0, k);
+  ctx.translate(cx, cy); ctx.rotate(ang); ctx.scale(sc, sc);
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 9 / sc * 0.35 + 6; rr(-PH.w / 2, -PH.h / 2, PH.w, PH.h, PH.r); ctx.fillStyle = mixHex(C.body, C.ground, k); ctx.fill(); ctx.stroke();
+  ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(0, PH.h / 2 + 10); ctx.bezierCurveTo(0, PH.h / 2 + 140, 120, PH.h / 2 + 160, 260, PH.h / 2 + 120); ctx.stroke();
+  ctx.restore();
+  lines(COPY.end, t, T.title1, DUR + 1, { style: "type", col: C.ink, ys: [905, 1045, 1185], size: 124, stag: 0.045, lineGap: 0.3 });
+  lines([COPY.epNum], t, T.ep, DUR + 1, { style: "slam", col: C.ink, x: 400, ys: [520], size: 150 });
+  lines([COPY.epName], t, T.ep + 0.25, DUR + 1, { style: "blur", col: C.ink, x: 404, ys: [668], size: 112 });
+  if (t >= T.sting) {
+    const s2 = spring(t - T.sting, 16, 0.5);
+    ID(); ctx.save(); ctx.translate(BADGE[0], BADGE[1]); ctx.scale(s2, s2); ctx.font = `150px ${DISPLAY}`; ctx.fillStyle = C.acc; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("?", 4, 4); ctx.restore();
+  }
+}
+
+// ================================================================ the frame
+const orangeK = (t) => E.p2io(prog(t, T.myth, T.myth + 0.3)) * (1 - E.p2io(prog(t, T.unOrange, T.unOrange + 0.3)));
+function groundRGB(t) { const o = orangeK(t), g = hexRGB(C.ground), q = hexRGB(C.acc); return [0, 1, 2].map((i) => Math.round(lerp(g[i], q[i], o))).join(","); }
+function groundCol(t) { const o = orangeK(t); return o > 0 ? mixHex(C.ground, C.acc, o) : C.ground; }
+// the little batteries above the phone (the guess): six; one is struck per plug-in during the guess
+const ROW = { y: 588, x0: 300, dx: 96 };
+function rowK(t) { return win(t, T.row, T.fastEnd + 0.3, 0.35, 0.35); }
+function drawRow(t) {
+  const a = rowK(t); if (a <= 0.01) return;
+  ID(); ctx.save(); ctx.globalAlpha = a;
+  const struckAt = [T.row + 0.25, T.plug3, T.plug4];           // during the guess, one per plug-in
+  for (let i = 0; i < 6; i++) {
+    const x = ROW.x0 + i * ROW.dx, y = ROW.y + 4 * Math.sin(t * 2 + i);
+    const born = E.p3out(prog(t, T.row + i * 0.05, T.row + i * 0.05 + 0.3));
+    ctx.save(); ctx.translate(x, y); ctx.scale(born, born);
+    const sk = i < 3 && t >= struckAt[i] ? E.p3out(prog(t, struckAt[i], struckAt[i] + 0.15)) * (1 - E.p2io(prog(t, T.a2 + 0.25, T.a2 + 0.6))) : 0;
+    ctx.globalAlpha = a * (1 - 0.55 * sk);
+    ctx.strokeStyle = C.ink; ctx.lineWidth = 5; rr(-32, -18, 58, 36, 8); ctx.stroke(); ctx.fillStyle = C.ink; rr(28, -7, 7, 14, 3); ctx.fill();
+    rr(-26, -12, 46, 24, 4); ctx.fill();
+    ctx.globalAlpha = a;
+    if (sk > 0) { ctx.strokeStyle = C.paper; ctx.lineWidth = 7; ctx.lineCap = "round"; line(-40, 22, lerp(-40, 40, sk), lerp(22, -22, sk)); }
+    ctx.restore();
+  }
+  ctx.restore();
+}
+function strike(t, K) {
+  if (t < T.strike || t >= T.a2 + 0.35) return;
+  const c = toS(K, [0, 0]), fo = 1 - prog(t, T.a2, T.a2 + 0.35);
+  ID(); ctx.save(); ctx.globalAlpha = fo; ctx.strokeStyle = C.ink; ctx.lineCap = "round"; ctx.lineWidth = 28;
+  const k1 = E.p3out(prog(t, T.strike, T.strike + 0.1)), k2 = E.p3out(prog(t, T.strike + 0.125, T.strike + 0.225));
+  line(c[0] - 240, c[1] - 220, lerp(c[0] - 240, c[0] + 240, k1), lerp(c[1] - 220, c[1] + 220, k1));
+  if (k2 > 0) line(c[0] + 240, c[1] - 220, lerp(c[0] + 240, c[0] - 240, k2), lerp(c[1] - 220, c[1] + 220, k2));
+  ctx.restore();
+}
+function drawPhoneScene(t, K, o = {}) {
+  ID(); ctx.fillStyle = o.ground ?? groundCol(t); ctx.fillRect(0, 0, W, H);
+  const out = plugOut(t);
+  drawPlugAndCable(t, K, out);
+  // the dive: x-ray → the battery → its stripes
+  const dk = diveK(t), xr = t >= T.dive && t < T.diveEnd ? E.p2io(prog(t, T.xray, T.xray + 0.6)) : 0;
+  drawPhone(t, K, { screen: screenState(t) });
+  if (xr > 0) {
+    setK(K); ctx.save();
+    rr(-PH.w / 2 + 12, -PH.h / 2 + 12, PH.w - 24, PH.h - 24, PH.r - 12); ctx.fillStyle = rgba("#1E2025", xr); ctx.fill();
+    ctx.globalAlpha = xr; rr(BATT.x, BATT.y, BATT.w, BATT.h, BATT.r); ctx.fillStyle = "#5C6370"; ctx.fill(); ctx.strokeStyle = "#9AA1AC"; ctx.lineWidth = 4 / K.A; ctx.stroke();
+    ctx.restore();
+    const st = E.p2io(prog(t, T.cells, T.cells + 0.5));
+    if (st > 0) drawStripes(K, st, 0);
+  }
+  // the hand holds the plug (from the first frame until the dive takes over), and again in the closing shot
+  const handA = t < T.dive ? 1 : t < T.irisOut ? 1 - E.p2io(prog(t, T.dive, T.dive + 0.4)) : 1;
+  if (handA > 0.01) handPinch(K, [0, PORT[1] + 30 + out * 70], handA);
+}
+function frame(t) {
+  ctx.reset(); ID();
+  let fl = darkAt(t);
+  if (t < T.diveEnd) {
+    const K = camPhone(t);
+    drawPhoneScene(t, K);
+    // the cell grows in as the stripes fill the frame
+    const M = cellM(t), det = E.smooth(prog(M[0], 0.25, 0.75)), cA = E.smooth(prog(M[0], 0.12, 0.3));
+    if (cA > 0) { ctx.save(); setK(K); rr(BATT.x, BATT.y, BATT.w, BATT.h, BATT.r); ID(); ctx.restore(); ctx.save(); const P = new Path2D(); const a0 = toS(K, [BATT.x, BATT.y]); P.roundRect(a0[0], a0[1], BATT.w * K.A, BATT.h * K.A, BATT.r * K.A); ctx.clip(P); drawCell(t, M, cA, det); ctx.restore(); }
+    strike(t, K);
+  } else if (t < T.pull + 1.2) {
+    const M = cellM(t), sk = splitK(t);
+    if (t < T.splitEnd + 0.01) drawCell(t, M, 1, 1);
+    if (sk > 0) { if (t >= T.split) { ID(); ctx.fillStyle = rgba(C.dark, sk); ctx.fillRect(0, 0, W, H); } drawSplit(t, sk); }
+    if (t < T.split + 0.4) { drawBar(t, barK(t)); drawRing(t, ringK(t)); cellLabels(t, M); }
+    if (t >= T.split && t < T.pull + 0.2) {
+      const P0 = PAN[0], P1 = PAN[1];
+      pill(COPY.cmpL, P0.x + P0.w / 2, P0.y - 30, 46, t, T.cmpL - 0.1, T.pull, { align: "center" });
+      pill(COPY.cmpR, P1.x + P1.w / 2, P1.y - 30, 46, t, T.cmpR - 0.1, T.pull, { align: "center", edge: t >= T.cmpR && t < T.cmpR + 1.2 });
+    }
+    if (t >= T.pull) { const na = nightA(t); ctx.save(); ctx.globalAlpha = na; drawNight(t); drawNightPhone(t, 1); ctx.restore(); drawSplit(t, splitK(t)); }
+  } else if (t < T.irisOut) {
+    drawNight(t); drawNightPhone(t, 1); flowArrows(t, win(t, T.q14 + 0.3, T.a15, 0.3, 0.3)); limitCard(t);
+    pill(COPY.opt, 420, 1395, 40, t, T.hold80, T.q14, { align: "center" });
+    pill(COPY.dawn, 820, 1120, 40, t, T.dawn + 0.2, T.q14, { align: "center" });
+    if (t >= T.a14) pill(COPY.note, 980, 1400, 40, t, T.a14, T.a15, { align: "right" });
+  } else if (t < T.irisOutEnd) {
+    // dark (night) → light (the first shot): a growing circle, both worlds fully opaque
+    const k = E.p2io(prog(t, T.irisOut, T.irisOutEnd)), R = 6 + 2300 * k * k * (3 - 2 * k);
+    drawNight(t); drawNightPhone(t, 1); limitCard(t);
+    ctx.save(); const P = new Path2D(); P.arc(540, 1000, R, 0, TAU); ID(); ctx.clip(P); { const d = drift(t); drawPhoneScene(t, key([0, 30], [540 + 0.95 * d[0], 1000 + 0.95 * d[1]], d[2])); } ctx.restore();
+    fl = 1 - k;
+  } else if (t < T.tip) {
+    { const d = drift(t); drawPhoneScene(t, key([0, 30], [540 + 0.95 * d[0], 1000 + 0.95 * d[1]], d[2])); }
+  } else {
+    ID(); ctx.fillStyle = C.ground; ctx.fillRect(0, 0, W, H);
+    if (t < T.end + 0.05) drawTip(t);
+  }
+  if (t >= T.irisOut && t < T.irisOutEnd) {                             // the circle: dark scrim outside, light inside (no grey)
+    const k = E.p2io(prog(t, T.irisOut, T.irisOutEnd)), R = 6 + 2300 * k * k * (3 - 2 * k);
+    ctx.save(); let P = new Path2D(); P.rect(0, 0, W, H); P.arc(540, 1000, R, 0, TAU); ID(); ctx.clip(P, "evenodd"); scrimOf(1); textBand(t, 1); ctx.restore();
+    ctx.save(); P = new Path2D(); P.arc(540, 1000, R, 0, TAU); ID(); ctx.clip(P); scrimOf(0); textBand(t, 0); ctx.restore();
+    fl = -1;
+  } else scrimOf(fl, t >= T.end ? 1 - prog(t, T.end, T.end + 0.3) : 1, groundRGB(t));
+  if (t < T.dive + 0.5) drawRow(t);                                   // above the caption scrim
+  if (fl >= 0) textBand(t, fl);
+  if (t >= T.a7 + 0.3 && t < T.q8) pill(COPY.term, 980, 1400, 44, t, T.term, T.q8, { align: "right" });
+  if (t >= T.end) { ID(); ctx.fillStyle = C.ground; ctx.globalAlpha = E.p2io(prog(t, T.end, T.end + 0.3)); ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; endCard(t); }
+}
+
+// ---------------------------------------------------------------- motion blur where things move fast
+const BLUR = [[7.6, 10.3, 8], [38.5, 40, 6], [49.25, 49.9, 8], [52.75, 53.3, 8], [55.75, 56.7, 8]];
+const SHUTTER = 0.5 / FPS;
+window.seek = function seek(t) {
+  t = clamp(t, 0, DUR - 1e-6);
+  const b = BLUR.find(([a, bb]) => t >= a && t < bb);
+  if (!b) { ctx = MAIN; frame(t); return; }
+  const SUB = b[2];
+  MAIN.reset();
+  for (let i = 0; i < SUB; i++) {
+    ctx = OFFX;
+    const ts = t + SHUTTER * (i / (SUB - 1) - 0.5);
+    frame(clamp(ts, 0, DUR - 1e-6));
+    MAIN.setTransform(1, 0, 0, 1, 0, 0); MAIN.globalAlpha = 1 / (i + 1); MAIN.drawImage(OFF, 0, 0);
+  }
+  MAIN.globalAlpha = 1; ctx = MAIN;
+};
+window.DUR = DUR; window.FPS = FPS;
+window.ready = false;
+window.whenReady = Promise.all([
+  document.fonts.load(`100px ${DISPLAY}`, "手机天天充会充坏电池吗"), document.fonts.load(`700 50px ${UI}`, "正极负极电量循环"), document.fonts.load(`400 50px ${UI}`, "示意"),
+]).then(() => document.fonts.ready).then(() => { MEASURE.clear(); window.seek(0); window.ready = true; });
+</script>
+</body>
+</html>
