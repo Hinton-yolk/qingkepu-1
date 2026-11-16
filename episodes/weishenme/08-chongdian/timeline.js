@@ -35,7 +35,7 @@
     q8: 24.25, chgA: 24.35, chgAEnd: 25.0, zoomA: 24.25, zoomAEnd: 25.5, film: 25.25,
     a8: 26.5, thick: 26.6, thickEnd: 27.5, stick: 27.75, stickEnd: 28.6,
     q9: 29.5, dis9: 29.75, dis9End: 31.55,
-    a10: 31.75, zoomOut: 30.0, zoomOutEnd: 30.8, chgS: 32.45, chgSEnd: 32.95, shrink: 33.0, shrinkEnd: 33.6,   // pull back while they go home (the stuck ones are seen staying); fill it up again, then the outline shrinks
+    a10: 31.75, zoomOut: 30.0, zoomOutEnd: 30.8, chgS: 32.2, chgSEnd: 32.7, shrink: 32.75, shrinkEnd: 33.25,   // pull back while they go home (the stuck ones are seen staying); fill it up again, then the outline shrinks
     q11: 34.0, split: 34.25, splitEnd: 35.0,
     a12: 36.0, cmpL: 36.15, cmpR: 36.9, full: 36.9, fullEnd: 37.4, heat: 37.45, heatEnd: 38.25,
     // 38.5–49.75 · night

@@ -482,7 +482,7 @@ function drawCell(t, M, a = 1, detail = 1) {
     for (const o of IONS) {
       const p = ionPos(o, t, s), q = ionPos(o, t - 0.12, s0), bob = 4 * Math.sin(t * 2.3 + o.ph);
       const stuck = o.stuck && t >= T.stick + 0.55;
-      if (stuck) { ctx.save(); ctx.globalAlpha = a * detail; ctx.fillStyle = "#8E877A"; ctx.beginPath(); ctx.arc(p[0], p[1], 15, 0, TAU); ctx.fill(); ctx.restore(); }
+      if (stuck) { ctx.save(); ctx.globalAlpha = a * detail; ctx.fillStyle = "#E0461E"; /* v2.11: the stuck ones are orange (they are the point) */ ctx.beginPath(); ctx.arc(p[0], p[1], 15, 0, TAU); ctx.fill(); ctx.restore(); }
       else { ctx.save(); ctx.globalAlpha = a * detail; glowBall(p[0] + 3 * Math.sin(t * 1.3 + o.ph * 2), p[1] + bob, 15 * (1 + 0.35 * win(t, T.h1 + 0.2, T.h1 + 1.2, 0.3, 0.5)), 1, Math.hypot(p[0] - q[0], p[1] - q[1]) > 2 ? [q[0], q[1] + bob] : null); ctx.restore(); }
     }
   }
@@ -573,7 +573,7 @@ function cellLabels(t, M) {
   if (aa > 0.01) { const o = IONS.find((i) => i.stuck && i.f[1] === Math.max(...IONS.filter((j) => j.stuck).map((j) => j.f[1]))); const p = ionPos(o, t, charge(t)), q = eS(M, p[0], p[1]); ID(); ctx.save(); ctx.globalAlpha = aa; ctx.shadowColor = "rgba(255,74,28,0.8)"; ctx.shadowBlur = 18; arrowS(q[0], q[1] + 30, GA.x + 70, GA.y - 76, C.acc, 9, 26, 0.12, ak); ctx.shadowBlur = 0; ctx.restore(); }
   const ek = win(t, T.dis9End, T.split, 0.3, 0.3);
   if (ek > 0.01) { ID(); ctx.save(); ctx.globalAlpha = ek; ctx.strokeStyle = C.acc; ctx.lineWidth = 6; ctx.setLineDash([10, 8]); let lx = 0, ly = 0; for (const o of IONS) if (o.stuck) { const q = eS(M, o.c[0], o.c[1]); ctx.beginPath(); ctx.arc(q[0], q[1], 22 * M[0], 0, TAU); ctx.stroke(); lx = q[0]; ly = Math.max(ly, q[1]); } ctx.setLineDash([]); ctx.restore(); if (t >= T.dis9End + 0.1) { const q = eS(M, (CELL.c0 + CELL.c1) / 2, CELL.bot); pill(COPY.gap, q[0] + 30, q[1] + 66, 48, t, T.dis9End + 0.1, T.split, { align: "center", col: C.acc }); } }
-  if (t >= T.shrink + 0.2 && t < T.split) pill(COPY.less, GA.x, GA.y + 140, 54, t, T.shrink + 0.2, T.split, { edge: true });
+  if (t >= T.shrink + 0.2 && t < T.split) pill(COPY.less, GA.x, GA.y + 152, 54, t, T.shrink + 0.2, T.split, { edge: true });
 }
 
 // ================================================================ SPLIT (dark): two anode faces side by side (满 + 热 vs not)
@@ -678,7 +678,7 @@ function drawChart(t, a = 1) {
   if (t >= T.hold80 && t < T.q14) cpill(COPY.opt, ...cp(540, yv(0.8) + 76), 46, t, T.hold80, T.q14, { align: "center" });
   if (t >= T.dawn + 0.2 && t < T.q14) cpill(COPY.dawn, ...cp(xt(0.82), yv(1) - 48), 52, t, T.dawn + 0.2, T.q14, { align: "center" });
   if (false) cpill(COPY.optTag, ...cp(xt(1) + 20, yv(1) - 44), 46, t, T.a15 + 0.3, T.irisOut + 0.3, { align: "right", col: "rgba(241,240,236,0.6)" });
-  if (t >= T.toggleEnd) cpill(COPY.limTag, ...cp(xt(1) + 20, yv(0.8) + 70), 52, t, T.toggleEnd, T.irisOut + 0.3, { align: "right", col: C.acc, edge: true });
+  if (t >= T.toggleEnd) cpill(COPY.limTag, ...cp(xt(1) - 20, yv(0.8) + 80), 52, t, T.toggleEnd, T.irisOut + 0.3, { align: "right", col: C.acc, edge: true });
   const bt = E.p3out(prog(t, T.a14, T.a14 + 0.5)), ba = win(t, T.a14, T.a15 + 0.3, 0.3, 0.3);
   if (ba > 0.01) {
     const x0 = xt(0.26), x1 = xt(Math.max(0.26, CURVES.B.u(t)));
