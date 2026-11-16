@@ -418,7 +418,7 @@ function ionPos(o, t, s) {
   let p = q <= 0 ? o.c : q >= 1 ? o.a : [lerp(o.c[0], o.a[0], q), lerp(o.c[1], o.a[1], q) + Math.sin(q * Math.PI) * o.wob];
   if (o.stuck && t >= T.stick) {
     const k = E.p2io(prog(t, T.stick, T.stick + 0.55)), fp = [o.f[0] - filmW(t) * 0.55, o.f[1]];
-    if (t >= T.dis9 - 0.01) return fp;
+    if (t >= T.dis9 - 0.01) { const tug = t < T.dis9End + 0.3 ? Math.max(0, Math.sin((t - T.dis9) * 9)) * 16 * win(t, T.dis9, T.dis9End + 0.3, 0.2, 0.3) : 0; return [fp[0] - tug, fp[1]]; }   // v2.9: they try, and are held
     return [lerp(p[0], fp[0], k), lerp(p[1], fp[1], k)];
   }
   return p;
@@ -566,7 +566,7 @@ function cellLabels(t, M) {
   // the stuck ones: orange rings; their name; the arrow to the gauge (the full battery is shorter)
   const sa = win(t, T.stick + 0.55, T.split, 0.2, 0.3);
   if (sa > 0.01) for (const o of IONS) if (o.stuck) { const p = ionPos(o, t, charge(t)), q = eS(M, p[0], p[1]); const pr = 1 + 0.12 * Math.sin(t * 5); ID(); const hg = ctx.createRadialGradient(q[0], q[1], 0, q[0], q[1], 60 * pr); hg.addColorStop(0, `rgba(255,74,28,${0.45 * sa})`); hg.addColorStop(1, "rgba(255,74,28,0)"); ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(q[0], q[1], 60 * pr, 0, TAU); ctx.fill(); oring(q[0], q[1], 40 * pr, E.p3out(prog(t, T.stick + 0.55, T.stick + 0.85)), sa, 7); }
-  if (t >= T.stick + 0.6 && t < T.zoomOut + 0.3) { const q = eS(M, CELL.a0 - filmW(t), CELL.top + 0.72 * (CELL.bot - CELL.top)); pill(COPY.stuck, q[0] - 44, q[1] + 16, 50, t, T.stick + 0.6, T.zoomOut + 0.3, { align: "right", col: C.acc }); }
+  if (t >= T.stick + 0.6 && t < T.dis9End + 0.1) { const q = eS(M, CELL.a0 - filmW(t), CELL.top + 0.72 * (CELL.bot - CELL.top)); const zk = E.p2io(prog(t, T.zoomOut, T.zoomOutEnd)), qb = eS(M, CELL.a0 - 20, CELL.bot); pill(COPY.stuck, lerp(q[0] - 44, qb[0] + 160, zk), lerp(q[1] + 16, qb[1] + 70, zk), 54, t, T.stick + 0.6, T.dis9End + 0.1, { align: "right", col: C.acc }); }   // under the cell once it is pulled back (clear of the cathode)
   if (t >= T.a8 && t < T.split) pill(COPY.note, 1010, 1418, 44, t, T.thick, T.split, { align: "right" });
   const ak = E.p3out(prog(t, T.a10 + 0.5, T.a10 + 1.05)), aa = win(t, T.a10 + 0.5, T.split, 0.2, 0.3);
   if (aa > 0.01) { const o = IONS.find((i) => i.stuck && i.f[1] === Math.max(...IONS.filter((j) => j.stuck).map((j) => j.f[1]))); const p = ionPos(o, t, charge(t)), q = eS(M, p[0], p[1]); ID(); ctx.save(); ctx.globalAlpha = aa; arrowS(q[0], q[1] + 30, GA.x + 70, GA.y - 76, C.acc, 6, 20, 0.12, ak); ctx.restore(); }
@@ -580,7 +580,7 @@ const PAN = [{ x: 70, y: 700, w: 450, h: 690 }, { x: 560, y: 700, w: 450, h: 690
 function splitK(t) { return E.p2io(prog(t, T.split, T.splitEnd)) * (1 - E.p2io(prog(t, T.pull, T.pull + 0.9))); }
 function panelFilm(t, i) {
   if (i === 0) return kf(t, [[0, 10], [T.cmpL, 10], [T.cmpL + 2.2, 18, E.sine], [DUR, 18]]);
-  return kf(t, [[0, 10], [T.heat, 10], [T.heatEnd, 46, E.p2io], [DUR, 46]]);
+  return kf(t, [[0, 10], [T.heat, 10], [T.heatEnd, 62, E.p2io], [DUR, 62]]);
 }
 function drawSplit(t, a) {
   if (a <= 0.001) return;
@@ -885,7 +885,8 @@ function frame(t) {
       pill(COPY.cmpL, P0.x + P0.w / 2, P0.y - 30, 46, t, T.cmpL - 0.1, T.pull, { align: "center" });
       pill(COPY.cmpR, P1.x + P1.w / 2, P1.y - 30, 46, t, T.cmpR - 0.1, T.pull, { align: "center", edge: t >= T.cmpR && t < T.cmpR + 1.2 });
       if (t >= T.heat) pill(COPY.hot, P1.x + 70, P1.y + 86, 46, t, T.heat, T.pull, { align: "center" });
-      if (t >= T.heat + 0.3) pill(COPY.faster, P1.x + P1.w / 2 + 40, P1.y + P1.h - 40, 46, t, T.heat + 0.3, T.pull, { align: "center", col: C.acc, edge: true });
+      if (t >= T.heat + 0.3) pill(COPY.faster, P1.x + P1.w / 2 + 30, P1.y + P1.h - 40, 52, t, T.heat + 0.3, T.pull, { align: "center", col: C.acc, edge: true });
+      if (t >= T.cmpL + 0.8) pill(COPY.slower, P0.x + P0.w / 2 + 30, P0.y + P0.h - 40, 46, t, T.cmpL + 0.8, T.pull, { align: "center" });
     }
     if (t >= T.pull) { drawChart(t, chartK(t)); drawSplit(t, splitK(t)); }
   } else if (t < T.irisOut) {
