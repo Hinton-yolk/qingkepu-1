@@ -1,3 +1,15 @@
+# 交接（2026-11-16，LIGHTPATH Blockout V1.1；先读这一节）
+
+- 导演看完 V1.0（70/100，有条件通过），给了《Director Review & Blockout Revision V1.1》。**V1.1 已交付，停点：等导演审 V1.1；通过后才做 GPT 照片级关键帧。**
+- 目录 `experiments/lightpath_blockout_v1.1/`（V1.0 在 `lightpath_blockout_v1/`，原样未动）：
+  - `build_scene_v11.py`：模式 `save / stills / check / proj / anim 起 止`，外加信号层用的 `sig_color / sig_cov / plate 起 止`；`package_v11.py`；`sig_overlay_demo.py`。
+  - 文档：`REVISION_REPORT_v1.1.md`（改动、保留、遗留问题、信号层结论、首个 LTX 测试推荐 S04）、`SIGNAL_OVERLAY.md`、`IMAGE_EDITOR_MAPPING.md`。
+  - 集合：`HARDWARE` / `SIGNALS_ELECTRICAL` / `SIGNALS_OPTICAL` / `CAMERAS`；硬件不再有颜色动画。
+- 审核（Sonnet）：「通过」；S01 按它的意见重渲过一次。
+- 坑：Workbench 不支持 holdout，信号层用「硬件涂黑 + 信号涂白」两遍渲染算 alpha。
+
+---
+
 # 交接（2026-11-15 晚，LIGHTPATH 30 秒 Blockout；先读这一节，再读下面 11-15 一节）
 
 - 分支：`claude/optimistic-faraday-7ux180`（已合并 `claude/happy-goodall-o47ilg` 的全部内容，PoC 文件原样）。

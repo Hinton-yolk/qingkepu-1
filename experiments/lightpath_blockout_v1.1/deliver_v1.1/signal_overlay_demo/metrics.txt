@@ -1,0 +1,3 @@
+S03 global frames 341-380
+plate+signals vs normal render: mean |diff| 3.46 / 255 (max per frame 5.40)
+drifted plate (1.5% scale, 6/4 px shift)+signals vs normal render: mean |diff| 5.80 / 255
