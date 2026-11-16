@@ -393,7 +393,7 @@ function charge(t) {
 function ringVal(t) {                                       // the ring counts what is used (the discharge)
   return kf(t, [[0, 0], [T.disR, 0], [T.disREnd, 1, E.sine], [T.clear, 1], [T.clear + 0.3, 0], [T.half1, 0], [T.half1End, 0.5, E.sine], [T.half2, 0.5], [T.half2End, 1, E.sine], [DUR, 1]], E.p2io);
 }
-function capAt(t) { return kf(t, [[0, 1], [T.shrink, 1], [T.shrinkEnd, 0.84]], E.p2io); }
+function capAt(t) { return kf(t, [[0, 1], [T.shrink, 1], [T.shrinkEnd, 0.78]], E.p2io); }   // 示意: exaggerated so it reads
 // the material rows (the same pitch on both sides)
 const ROWS = []; for (let y = CELL.top + 34; y < CELL.bot - 20; y += 66) ROWS.push(y);
 const GAPS = ROWS.slice(0, -1).map((y, i) => (y + ROWS[i + 1]) / 2);
@@ -517,7 +517,7 @@ function drawGauge(t, a) {
   }
   // the battery: its fill = the lithium in the graphite; its outline = what it can hold (shrinks with age)
   const bw = 220, bh = 112, bx = x - bw / 2, by = y - bh / 2;
-  if (cap < 0.999) { ctx.setLineDash([12, 10]); ctx.strokeStyle = "rgba(241,240,236,0.45)"; ctx.lineWidth = 5; rr(bx, by, bw, bh, 20); ctx.stroke(); ctx.setLineDash([]); }
+  if (cap < 0.999) { ctx.setLineDash([12, 10]); ctx.strokeStyle = "rgba(241,240,236,0.45)"; ctx.lineWidth = 5; rr(bx, by, bw, bh, 20); ctx.stroke(); ctx.setLineDash([]); rr(bx + bw * cap + 4, by + 8, bw * (1 - cap) - 8, bh - 16, 10); ctx.fillStyle = `rgba(255,74,28,${0.5 * clamp((1 - cap) / 0.16)})`; ctx.fill(); }
   ctx.strokeStyle = C.paper; ctx.lineWidth = 8; rr(bx, by, bw * cap, bh, 20); ctx.stroke();
   ctx.fillStyle = C.paper; rr(bx + bw + 6, y - 22, 14, 44, 5); ctx.fill();
   const fw = Math.max(0, (bw * cap - 28) * lv); if (fw > 1) { rr(bx + 14, by + 14, fw, bh - 28, 10); ctx.fillStyle = C.paper; ctx.fill(); }
@@ -660,8 +660,8 @@ function drawChart(t, a = 1) {
   // A: 80% held, the dawn fill; B: the flat top = 一直满着; C: the limit
   if (t >= T.hold80 && t < T.q14) cpill(COPY.opt, ...cp(540, yv(0.8) + 76), 46, t, T.hold80, T.q14, { align: "center" });
   if (t >= T.dawn + 0.2 && t < T.q14) cpill(COPY.dawn, ...cp(xt(0.86), yv(1) - 48), 48, t, T.dawn + 0.2, T.q14, { align: "center" });
-  if (t >= T.a15 + 0.3 && t < T.irisOut + 0.3) cpill(COPY.optTag, ...cp(xt(0.86), yv(1) - 46), 44, t, T.a15 + 0.3, T.irisOut + 0.3, { align: "center", col: "rgba(241,240,236,0.6)" });
-  if (t >= T.limit + 0.4) cpill(COPY.limTag, ...cp(xt(0.5), yv(0.8) + 76), 50, t, T.limit + 0.4, T.irisOut + 0.3, { align: "center", col: C.acc, edge: true });
+  if (t >= T.a15 + 0.3 && t < T.irisOut + 0.3) cpill(COPY.optTag, ...cp(xt(0.62), yv(1) - 50), 46, t, T.a15 + 0.3, T.irisOut + 0.3, { align: "center", col: "rgba(241,240,236,0.6)" });
+  if (t >= T.limit + 0.4) cpill(COPY.limTag, ...cp(xt(0.55), yv(0.8) + 80), 52, t, T.limit + 0.4, T.irisOut + 0.3, { align: "center", col: C.acc, edge: true });
   const bt = E.p3out(prog(t, T.a14, T.a14 + 0.5)), ba = win(t, T.a14, T.a15 + 0.3, 0.3, 0.3);
   if (ba > 0.01) {
     const x0 = xt(0.26), x1 = xt(Math.max(0.26, CURVES.B.u(t)));
@@ -862,6 +862,8 @@ function frame(t) {
   } else if (t < T.pull + 1.2) {
     const M = cellM(t), sk = splitK(t);
     if (t < T.splitEnd + 0.01) drawCell(t, M, 1, 1);
+    const back = win(t, T.ringOn, T.q8 - 0.1, 0.35, 0.35);                // while the ring is explained, the cell steps back (one thing to look at)
+    if (back > 0.01 && t < T.split) { ID(); ctx.fillStyle = `rgba(16,17,20,${0.45 * back})`; ctx.fillRect(0, 0, W, 1110); }
     if (sk > 0) { if (t >= T.split) { ID(); ctx.fillStyle = rgba(C.dark, sk); ctx.fillRect(0, 0, W, H); } drawSplit(t, sk); }
     if (t < T.split + 0.4) { drawGauge(t, gaugeK(t)); cellLabels(t, M); }
     if (t >= T.split && t < T.pull + 0.2) {

@@ -81,7 +81,7 @@
     cmpL: "不满、不热", cmpR: "满 + 热", hot: "热", opt: "优化电池充电 · 学会你的作息后", dawn: "快起床时再充满",
     limit: "充电上限", pause: "暂停", next: "下一次充电",
     used: "累计用掉的电", half1: "第一次用掉一半", half2: "第二次用掉一半", elec: "电子", stuck: "被粘住，搬不回去", less: "满格也少一截",
-    night: "夜里", wake: "起床", full: "一直满着", stopped: "充满后不再往里充", gap: "空出来的位置", optTag: "起床前充满", limTag: "上限：最多 80%", li: "锂",
+    night: "夜里", wake: "起床", full: "一直满着", stopped: "充满后不再往里充", gap: "空出来的位置", optTag: "先停 80%，起床前再充满", limTag: "上限：一直停在 80%", li: "锂",
     end: ["你每天都在用，", "但你不知道", "它[怎么工作]"], epNum: "EP.08", epName: "充电",
   };
   const S16 = BEAT / 4;
