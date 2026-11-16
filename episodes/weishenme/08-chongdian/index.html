@@ -577,8 +577,8 @@ function stateB(t) {
   }
   // with a limit: the next charge, up from low, it stops at 80%
   const lv = kf(t, [[T.limit, 0.42], [T.limitEnd, 0.8]], E.p2io);
-  if (t < T.limit) return { on: 1, level: 1, txt: "100%", charging: false };
-  return { on: 1, level: lv, txt: t >= T.limitEnd - 0.05 ? "80%" : null, charging: t < T.limitEnd - 0.05, pause: t >= T.limitEnd - 0.05, mark80: true };
+  if (t < T.limit) return { on: 1 - 0.85 * E.p2io(prog(t, T.limit - 0.25, T.limit)), level: 1, txt: "100%", charging: false };
+  return { on: 0.15 + 0.85 * E.p2io(prog(t, T.limit, T.limit + 0.2)), level: lv, txt: t >= T.limitEnd - 0.05 ? "80%" : null, charging: t < T.limitEnd - 0.05, pause: t >= T.limitEnd - 0.05, mark80: true };
 }
 function drawNightScene(t) {
   const w = whip(t), xa = -W * 1.1 * w, xb = W * 1.1 * (1 - w);
@@ -661,7 +661,6 @@ function drawTip(t) {
   // the thermometer, top right of the phone
   const hot = E.p2io(prog(t, T.hot, T.hotEnd)), cool = E.p2io(prog(t, T.cool, T.coolEnd));
   ID(); thermo(80, 640, 0.2 + 0.7 * hot - 0.62 * cool, E.p3out(prog(t, T.hot - 0.3, T.hot)) * (1 - prog(t, T.end, T.end + 0.3)), 0.9);
-  label(COPY.hot, 80, 622, 46, C.ink, t, T.hot, T.end + 0.2, { align: "center" });
 }
 
 // ================================================================ overlays (screen space) on the cell
@@ -882,6 +881,10 @@ function frame(t) {
     ID(); ctx.fillStyle = C.ground; ctx.fillRect(0, 0, W, H);
     if (t < T.end + 0.05) drawTip(t);
   }
+}
+// the caption layer: drawn once per frame on top (never motion-blurred, so the light ⇄ dark switch of the scrim is a clean cut)
+function overlay(t) {
+  let fl = darkAt(t);
   if (t >= T.irisOut && t < T.irisOutEnd) {                             // the circle: dark scrim outside, light inside (no grey)
     const k = E.p2io(prog(t, T.irisOut, T.irisOutEnd)), R = 6 + 2300 * k * k * (3 - 2 * k);
     ctx.save(); let P = new Path2D(); P.rect(0, 0, W, H); P.arc(IRC[0], IRC[1], R, 0, TAU); ID(); ctx.clip(P, "evenodd"); scrimOf(1); textBand(t, 1); ctx.restore();
@@ -890,6 +893,7 @@ function frame(t) {
   } else scrimOf(fl, t >= T.end ? 1 - prog(t, T.end, T.end + 0.3) : 1, groundRGB(t));
   if (t < T.dive + 0.5) drawRow(t);                                   // above the caption scrim
   if (fl >= 0) textBand(t, fl);
+  if (t >= T.hot && t < T.end + 0.2) label(COPY.hot, 80, 622, 46, C.ink, t, T.hot, T.end + 0.2, { align: "center" });   // above the scrim
   if (t >= T.a7 + 0.3 && t < T.q8) pill(COPY.term, 980, 1400, 44, t, T.term, T.q8, { align: "right" });
   if (t >= T.end) { ID(); ctx.fillStyle = C.ground; ctx.globalAlpha = E.p2io(prog(t, T.end, T.end + 0.3)); ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; endCard(t); }
 }
@@ -900,7 +904,7 @@ const SHUTTER = 0.5 / FPS;
 window.seek = function seek(t) {
   t = clamp(t, 0, DUR - 1e-6);
   const b = BLUR.find(([a, bb]) => t >= a && t < bb);
-  if (!b) { ctx = MAIN; frame(t); return; }
+  if (!b) { ctx = MAIN; frame(t); overlay(t); return; }
   const SUB = b[2];
   MAIN.reset();
   for (let i = 0; i < SUB; i++) {
@@ -909,7 +913,7 @@ window.seek = function seek(t) {
     frame(clamp(ts, 0, DUR - 1e-6));
     MAIN.setTransform(1, 0, 0, 1, 0, 0); MAIN.globalAlpha = 1 / (i + 1); MAIN.drawImage(OFF, 0, 0);
   }
-  MAIN.globalAlpha = 1; ctx = MAIN;
+  MAIN.globalAlpha = 1; ctx = MAIN; overlay(t);
 };
 window.DUR = DUR; window.FPS = FPS;
 window.ready = false;
