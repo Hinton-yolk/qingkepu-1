@@ -15,31 +15,31 @@
 ## 每张图在片子里用在哪
 | 图 | 用在 | 秒数 |
 |---|---|---|
-| 1 右手捏插头（从右下方伸进来） | 开头插线、拔下再插；错误猜测那拍快速插拔；结尾闭环再插一次 | 0–7.25、47.25–50.5 |
-| 2 右手从上方拿起手机 | 「等你快起床，才充满」：手伸过来拿起床头的手机 | 45.0–47.25 |
-| 3 双手横握手机打游戏 | 小提示「边充边打游戏、闷着充」 | 50.5–54.25 |
+| 1 右手捏插头（从右边伸进来，前臂从右边出画） | 开头插线、拔下再插；错误猜测那拍快速插拔；结尾闭环再插一次 | 0–7.25、47.25–50.5 |
+| 2 右手从右边伸过来拿起手机 | 「等你快起床，才充满」：手伸过来拿起床头的手机 | 45.0–47.25 |
+| 3 双手横握手机打游戏（前臂从左右两边出画） | 小提示「边充边打游戏、闷着充」 | 50.5–54.25 |
 
 ---
 
 ## 1. 右手捏插头（基础图）
-竖版 1024×1536，上传 EP.07 基础图作参考：
+横版 1536×1024，上传 EP.07 基础图作参考：
 
 ```
-Use the same illustration style, the same skin tone and the same hand as the reference image. Draw only a young East Asian woman's right hand, seen from the front, coming in from the lower-right corner of the canvas (the wrist leaves through the bottom edge, near the right side). The hand is pinching a small object between the tip of the thumb and the tip of the index finger, holding it vertically and pushing it upward, as if plugging a charging plug into the bottom of a phone that stands upright above it. Leave the pinched object completely EMPTY and transparent: just a narrow vertical gap about 5% of the canvas width and 10% of the canvas height between the thumb and index fingertips, positioned slightly left of centre at about 60% of the canvas height. Middle, ring and little fingers curled loosely and naturally below. Five fingers, anatomically correct, clear knuckles and fingertips, short natural nails, soft gradient shading. Bare hand: no ring, no bracelet, no watch, no sleeve. Warm natural East Asian skin tone (around #EBCBA5, shadows around #D6AD84). Not a photo, not a 3D render, not a cartoon. Transparent background. No phone, no cable, no plug, no text, no watermark, no logos, no hair, wrinkles or dense texture.
+Use the same illustration style, the same skin tone and the same hand as the reference image. Draw only a young East Asian woman's right hand and forearm, seen from the front, coming in horizontally from the RIGHT edge of the canvas (the forearm leaves through the right edge, slightly rising towards it; nothing goes below the hand). The hand is pinching a small object between the tip of the thumb and the tip of the index finger, holding it vertically and pushing it upward, as if plugging a charging plug into the bottom of a phone that stands upright above it: the index finger lies along the top and touches the object's right side, the thumb comes underneath and touches its left side. Leave the pinched object completely EMPTY and transparent: just a narrow vertical gap about 5% of the canvas width and 10% of the canvas height between the thumb and index fingertips, at the left end of the hand, at about 45% of the canvas height. Middle, ring and little fingers curled loosely under the palm, not hanging down. Five fingers, anatomically correct, clear knuckles and fingertips, short natural nails, soft gradient shading. Bare hand: no ring, no bracelet, no watch, no sleeve. Warm natural East Asian skin tone (around #EBCBA5, shadows around #D6AD84). Not a photo, not a 3D render, not a cartoon. Transparent background. No phone, no cable, no plug, no text, no watermark, no logos, no hair, wrinkles or dense texture.
 ```
 
-## 2. 右手从上方拿起手机
-竖版 1024×1536，上传第 1 张作参考：
+## 2. 右手从右边伸过来拿手机
+横版 1536×1024，上传第 1 张作参考：
 
 ```
-Use the same illustration style, the same skin tone and the same right hand as the reference image. Now seen from directly above: the right hand comes down from the top edge of the canvas (the wrist leaves through the top edge) and is about to pick up a smartphone lying flat on a bedside table. The fingers curve gently around the two long sides of an EMPTY upright rectangle (a phone shape about 40% of the canvas width and 45% of the canvas height, centred in the lower half): the thumb along the left long side, the index, middle and ring fingertips along the right long side, the little finger relaxed. Leave the rectangle completely empty and transparent — the phone will be added later. Five fingers, anatomically correct, clear knuckles and fingertips, short natural nails, soft gradient shading. Bare hand, no jewellery, no sleeve. Transparent background. No phone, no table, no text, no watermark, no logos.
+Use the same illustration style, the same skin tone and the same right hand as the reference image. Seen from the front: the right hand and forearm come in horizontally from the RIGHT edge of the canvas (the forearm leaves through the right edge) to take a smartphone that stands upright on a bedside stand. The hand grips an EMPTY upright rectangle (a phone shape about 22% of the canvas width and 70% of the canvas height, at the left-centre of the canvas): the thumb curves over the front of the rectangle near its top-left corner, the index, middle and ring fingers wrap around its right long side and back, the little finger relaxed. Nothing above the rectangle's top edge. Leave the rectangle completely empty and transparent — the phone will be added later. Five fingers, anatomically correct, clear knuckles and fingertips, short natural nails, soft gradient shading. Bare hand, no jewellery, no sleeve. Transparent background. No phone, no table, no text, no watermark, no logos.
 ```
 
 ## 3. 双手横握手机打游戏
 横版 1536×1024，上传第 1 张作参考：
 
 ```
-Use the same illustration style, the same skin tone and the same hands as the reference image. Both hands of the same young East Asian woman, seen from the front, holding a smartphone horizontally like playing a mobile game: the left hand comes in from the lower-left, the right hand from the lower-right, the wrists leave through the bottom edge. The fingers wrap around the back and the short ends of an EMPTY horizontal rectangle (a landscape phone shape about 60% of the canvas width and 30% of the canvas height, centred), and both thumbs rest on its front face near the left and right ends, as if pressing on-screen buttons. Leave the rectangle completely empty and transparent — the phone will be added later. Ten fingers in total, anatomically correct, clear knuckles and thumbnails, soft gradient shading. Bare hands, no jewellery, no sleeves. Transparent background. No phone, no cable, no text, no watermark, no logos.
+Use the same illustration style, the same skin tone and the same hands as the reference image. Both hands of the same young East Asian woman, seen from the front, holding a smartphone horizontally like playing a mobile game: the left hand and forearm come in from the LEFT edge, the right hand and forearm from the RIGHT edge, each forearm sloping slightly down towards its edge (they leave through the side edges, not the bottom edge). The fingers wrap around the back and the short ends of an EMPTY horizontal rectangle (a landscape phone shape about 60% of the canvas width and 30% of the canvas height, centred), and both thumbs rest on its front face near the left and right ends, as if pressing on-screen buttons. Leave the rectangle completely empty and transparent — the phone will be added later. Ten fingers in total, anatomically correct, clear knuckles and thumbnails, soft gradient shading. Bare hands, no jewellery, no sleeves. Transparent background. No phone, no cable, no text, no watermark, no logos.
 ```
 
 ---
