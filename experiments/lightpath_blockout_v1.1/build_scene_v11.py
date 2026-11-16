@@ -1105,6 +1105,33 @@ def main():
         bpy.ops.wm.save_as_mainfile(filepath=os.path.join(HERE, 'lightpath_blockout_v1.1.blend'), compress=True)
     if half:
         sc.render.resolution_percentage = 50
+    if mode == 'clay24':
+        # LTX layout input: one shot re-timed to 24 fps (121 frames, LTX needs 8k+1); frame 120 lands exactly on the
+        # shot's F150, so LTX frame k = shot local frame 1 + k*149/120 (k=72 -> F090.4). Hardware only (signal
+        # collections excluded), uniform grey Workbench clay like PoC 04/05. Camera is the shot camera, unchanged.
+        #   blender ... -- clay24 <shot 1-6> <out dir> [W H]
+        shot = int(argv[1]); d = argv[2]
+        W_ = int(argv[3]) if len(argv) > 3 else 1088
+        H_ = int(argv[4]) if len(argv) > 4 else 1920
+        for s2 in [x for x in bpy.data.scenes if x != sc]:
+            bpy.data.scenes.remove(s2)
+        for nm in ('SIGNALS_ELECTRICAL', 'SIGNALS_OPTICAL'):
+            sc.view_layers[0].layer_collection.children['LIGHTPATH'].children[nm].exclude = True
+        sh = sc.display.shading
+        sh.color_type = 'SINGLE'
+        sh.single_color = (0.62, 0.62, 0.62)
+        sc.render.resolution_x, sc.render.resolution_y = W_, H_
+        sc.render.resolution_percentage = 100
+        cam = [m.camera for m in sc.timeline_markers if m.frame == G(shot, 1)][0]
+        sc.camera = cam
+        os.makedirs(d, exist_ok=True)
+        for k in range(121):
+            x = G(shot, 1) + k * 149 / 120
+            fi = int(math.floor(x)); sub = x - fi
+            sc.frame_set(fi, subframe=sub)
+            sc.camera = cam
+            sc.render.filepath = os.path.join(d, f'c{k:03d}.png')
+            bpy.ops.render.render(write_still=True)
     if mode in ('sig_color', 'sig_cov', 'plate'):
         # signal-only passes for post-LTX compositing (see SIGNAL_OVERLAY.md):
         #   sig_color: hardware painted opaque black (keeps its alpha for the translucent fiber jacket), flat light,

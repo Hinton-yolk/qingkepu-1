@@ -1,3 +1,12 @@
+# 交接（2026-11-16 午，LIGHTPATH S04 三关键帧 LTX 测试；先读这一节）
+
+- 导演任务书《PoC 05: Three-Keyframe Cinematic Video Test》：V1.1 S04 灰模 + 用户的 3 张 GPT 照片 → LTX-2.5 Layout-To-Render。**已跑完、已交付，停点：等导演判断这条工作流能不能用。** 不做其余五镜，不再跑第二次。
+- 目录 `experiments/lightpath_ltx_s04_poc/`，报告 `README.md`。用户批准预算后跑了一次：A100，6.6 分钟，约 $0.24，pod 已删。
+- 结果：相机运动和三个关键时刻都跟住了；三处结构错误（0.8–1.0 s 光缆插进槽底、3.8–4.3 s 机柜面板融化、4.4–4.7 s 光缆变粗拖影），不能直接发布。报告第 8 节列了再试的四种改法（没做）。
+- 灰模的 24 fps 渲染模式：`build_scene_v11.py -- clay24 <镜号> <目录>`。
+
+---
+
 # 交接（2026-11-16，LIGHTPATH Blockout V1.1；先读这一节）
 
 - 导演看完 V1.0（70/100，有条件通过），给了《Director Review & Blockout Revision V1.1》。**V1.1 已交付，停点：等导演审 V1.1；通过后才做 GPT 照片级关键帧。**

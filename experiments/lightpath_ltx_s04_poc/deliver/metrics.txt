@@ -1,0 +1,5 @@
+LTX frames 121
+mean |LTX - GPT keyframe| (0-255 grey, 272x480): frame 0: 3.3, frame 72: 6.5, frame 120: 6.0
+frame-to-frame change: median 19.40, p95 26.24, max 28.33 at frame 35
+frames with change > 3x median (possible jumps/flicker): []
+edge agreement with clay (share of LTX edges within 3 px of a clay edge): mean 0.74, min 0.62 at frame 99; per 0.5 s: 0.74, 0.78, 0.76, 0.78, 0.79, 0.71, 0.70, 0.77, 0.66, 0.75, 0.80
