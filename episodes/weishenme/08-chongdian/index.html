@@ -491,7 +491,7 @@ function drawCell(t, M, a = 1, detail = 1) {
 
 // ================================================================ the gauge (screen space): a big battery inside a ring of "used"
 const GA = { x: 540, y: 1190, r: 158 };
-function gaugeK(t) { return win(t, T.barOn, T.split + 0.35, 0.35, 0.35); }
+function gaugeK(t) { return win(t, T.barOn, T.split + 0.35, 0.35, 0.35) * (1 - 0.65 * win(t, T.q9, T.a10, 0.3, 0.3)); }   // v2.6: the battery steps back while the lithium goes home
 function arrowS(x0, y0, x1, y1, col = C.acc, w = 7, head = 22, bend = 0, k = 1) {   // a curved arrow that draws itself (k 0..1)
   if (k <= 0) return;
   const mx = (x0 + x1) / 2 - bend * (y1 - y0), my = (y0 + y1) / 2 + bend * (x1 - x0);
@@ -510,6 +510,8 @@ function drawGauge(t, a) {
   if (ringA > 0.01) {
     ctx.save(); ctx.globalAlpha = a * ringA;
     ctx.lineCap = "butt"; ctx.strokeStyle = "rgba(241,240,236,0.14)"; ctx.lineWidth = 28; ctx.beginPath(); ctx.arc(RX, y, r, 0, TAU); ctx.stroke();
+    const ghost = t >= T.clear ? 0.28 * (1 - E.p2io(prog(t, T.half2End - 0.2, T.half2End + 0.2))) : 0;   // the first example, kept faint
+    if (ghost > 0.01) { ctx.strokeStyle = rgba(C.acc, ghost); ctx.beginPath(); ctx.arc(RX, y, r, 0, TAU); ctx.stroke(); }
     const halves = t >= T.a7 - 0.1;
     const segs = halves ? [[0, Math.min(v, 0.5), C.acc], [0.5, Math.max(0.5, v), C.half2]] : [[0, v, C.acc]];
     for (const [s0, s1, col] of segs) if (s1 > s0 + 0.002) { ctx.strokeStyle = col; ctx.beginPath(); ctx.arc(RX, y, r, -Math.PI / 2 + TAU * s0, -Math.PI / 2 + TAU * s1); ctx.stroke(); }
@@ -564,10 +566,10 @@ function cellLabels(t, M) {
   if (sa > 0.01) for (const o of IONS) if (o.stuck) { const p = ionPos(o, t, charge(t)), q = eS(M, p[0], p[1]); const pr = 1 + 0.12 * Math.sin(t * 5); ID(); const hg = ctx.createRadialGradient(q[0], q[1], 0, q[0], q[1], 60 * pr); hg.addColorStop(0, `rgba(255,74,28,${0.45 * sa})`); hg.addColorStop(1, "rgba(255,74,28,0)"); ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(q[0], q[1], 60 * pr, 0, TAU); ctx.fill(); oring(q[0], q[1], 40 * pr, E.p3out(prog(t, T.stick + 0.55, T.stick + 0.85)), sa, 7); }
   if (t >= T.stick + 0.6 && t < T.zoomOut + 0.3) { const q = eS(M, CELL.a0 - filmW(t), CELL.top + 0.72 * (CELL.bot - CELL.top)); pill(COPY.stuck, q[0] - 44, q[1] + 16, 50, t, T.stick + 0.6, T.zoomOut + 0.3, { align: "right", col: C.acc }); }
   if (t >= T.a8 && t < T.split) pill(COPY.note, 1010, 1418, 44, t, T.thick, T.split, { align: "right" });
-  const ak = E.p3out(prog(t, T.a10 + 0.2, T.a10 + 0.75)), aa = win(t, T.a10 + 0.2, T.split, 0.2, 0.3);
+  const ak = E.p3out(prog(t, T.a10 + 0.5, T.a10 + 1.05)), aa = win(t, T.a10 + 0.5, T.split, 0.2, 0.3);
   if (aa > 0.01) { const o = IONS.find((i) => i.stuck && i.f[1] === Math.max(...IONS.filter((j) => j.stuck).map((j) => j.f[1]))); const p = ionPos(o, t, charge(t)), q = eS(M, p[0], p[1]); ID(); ctx.save(); ctx.globalAlpha = aa; arrowS(q[0], q[1] + 30, GA.x + 70, GA.y - 76, C.acc, 6, 20, 0.12, ak); ctx.restore(); }
-  const ek = win(t, T.zoomOut + 0.3, T.split, 0.3, 0.3);
-  if (ek > 0.01) { ID(); ctx.save(); ctx.globalAlpha = ek; ctx.strokeStyle = C.acc; ctx.lineWidth = 6; ctx.setLineDash([10, 8]); let lx = 0, ly = 0; for (const o of IONS) if (o.stuck) { const q = eS(M, o.c[0], o.c[1]); ctx.beginPath(); ctx.arc(q[0], q[1], 22 * M[0], 0, TAU); ctx.stroke(); lx = q[0]; ly = Math.max(ly, q[1]); } ctx.setLineDash([]); ctx.restore(); if (t >= T.zoomOut + 0.4) { const q = eS(M, (CELL.c0 + CELL.c1) / 2, CELL.bot); pill(COPY.gap, q[0] + 30, q[1] + 66, 48, t, T.zoomOut + 0.4, T.split, { align: "center", col: C.acc }); } }
+  const ek = win(t, T.dis9End, T.split, 0.3, 0.3);
+  if (ek > 0.01) { ID(); ctx.save(); ctx.globalAlpha = ek; ctx.strokeStyle = C.acc; ctx.lineWidth = 6; ctx.setLineDash([10, 8]); let lx = 0, ly = 0; for (const o of IONS) if (o.stuck) { const q = eS(M, o.c[0], o.c[1]); ctx.beginPath(); ctx.arc(q[0], q[1], 22 * M[0], 0, TAU); ctx.stroke(); lx = q[0]; ly = Math.max(ly, q[1]); } ctx.setLineDash([]); ctx.restore(); if (t >= T.dis9End + 0.1) { const q = eS(M, (CELL.c0 + CELL.c1) / 2, CELL.bot); pill(COPY.gap, q[0] + 30, q[1] + 66, 48, t, T.dis9End + 0.1, T.split, { align: "center", col: C.acc }); } }
   if (t >= T.shrink + 0.2 && t < T.split) pill(COPY.less, GA.x + GA.r + 40, GA.y + 16, 50, t, T.shrink + 0.2, T.split, { edge: true });
 }
 
