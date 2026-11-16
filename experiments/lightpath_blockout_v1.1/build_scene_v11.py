@@ -20,6 +20,7 @@ import math
 import os
 import random
 import sys
+import zlib
 
 import bpy
 from mathutils import Vector
@@ -434,7 +435,7 @@ def build_rack(tag, cx, c, top_server=True, hcm=True):
     z = 8.0
     i = 0
     top_limit = 176.6 if hcm else 186.0
-    rnd = random.Random(hash(tag) & 0xffff)
+    rnd = random.Random(zlib.crc32(tag.encode()))   # deterministic (Python's hash() is salted per process)
     while z + 8.9 <= top_limit + 0.01:
         blank = rnd.random() < 0.12
         box(f'{tag}_srv{i:02d}', c, cx - 22, cx + 22, -42, 44.4, z + 0.1, z + 8.8, C_SERVER if not blank else C_RACK)
@@ -1109,28 +1110,36 @@ def main():
         # LTX layout input: one shot re-timed to 24 fps (121 frames, LTX needs 8k+1); frame 120 lands exactly on the
         # shot's F150, so LTX frame k = shot local frame 1 + k*149/120 (k=72 -> F090.4). Hardware only (signal
         # collections excluded), uniform grey Workbench clay like PoC 04/05. Camera is the shot camera, unchanged.
-        #   blender ... -- clay24 <shot 1-6> <out dir> [W H]
+        #   blender ... -- clay24 <shot 1-6> <out dir> [W H] [--color] [--only k]
+        #   --color: keep the V1.1 object colours (hardware only) instead of uniform grey, e.g. for a GPT keyframe base
+        #   --only k: render just LTX frame k
         shot = int(argv[1]); d = argv[2]
-        W_ = int(argv[3]) if len(argv) > 3 else 1088
-        H_ = int(argv[4]) if len(argv) > 4 else 1920
+        nums = [x for x in argv[3:] if x.isdigit()]
+        only = int(argv[argv.index('--only') + 1]) if '--only' in argv else None
+        if only is not None:
+            nums = [x for x in nums if x != str(only)]
+        W_ = int(nums[0]) if len(nums) > 0 else 1088
+        H_ = int(nums[1]) if len(nums) > 1 else 1920
+        color = '--color' in argv
         for s2 in [x for x in bpy.data.scenes if x != sc]:
             bpy.data.scenes.remove(s2)
         for nm in ('SIGNALS_ELECTRICAL', 'SIGNALS_OPTICAL'):
             sc.view_layers[0].layer_collection.children['LIGHTPATH'].children[nm].exclude = True
         sh = sc.display.shading
-        sh.color_type = 'SINGLE'
-        sh.single_color = (0.62, 0.62, 0.62)
+        if not color:
+            sh.color_type = 'SINGLE'
+            sh.single_color = (0.62, 0.62, 0.62)
         sc.render.resolution_x, sc.render.resolution_y = W_, H_
         sc.render.resolution_percentage = 100
         cam = [m.camera for m in sc.timeline_markers if m.frame == G(shot, 1)][0]
         sc.camera = cam
         os.makedirs(d, exist_ok=True)
-        for k in range(121):
+        for k in ([only] if only is not None else range(121)):
             x = G(shot, 1) + k * 149 / 120
             fi = int(math.floor(x)); sub = x - fi
             sc.frame_set(fi, subframe=sub)
             sc.camera = cam
-            sc.render.filepath = os.path.join(d, f'c{k:03d}.png')
+            sc.render.filepath = os.path.join(d, f'{"k" if color else "c"}{k:03d}{"_color" if color else ""}.png')
             bpy.ops.render.render(write_still=True)
     if mode in ('sig_color', 'sig_cov', 'plate'):
         # signal-only passes for post-LTX compositing (see SIGNAL_OVERLAY.md):
