@@ -525,6 +525,8 @@ function drawGauge(t, a) {
     for (let i = 0; i < 7; i++) { const u = ((t * 2.2 + i / 7) % 1), sx = x + 130, sy = y; const px = lerp(sx, hx, u), py = lerp(sy, hy, u) - 70 * Math.sin(Math.PI * u); ctx.fillStyle = rgba(C.acc, 0.95 * (1 - u * 0.4)); ctx.beginPath(); ctx.arc(px, py, 9, 0, TAU); ctx.fill(); }
   }
   // the battery: its fill = the lithium in the graphite; its outline = what it can hold (shrinks with age)
+  const gz = 1 + 0.28 * win(t, T.shrink - 0.2, T.split, 0.4, 0.4);   // v2.7: the result (满格也少一截) is the biggest change here
+  ctx.translate(x, y); ctx.scale(gz, gz); ctx.translate(-x, -y);
   const bw = 220, bh = 112, bx = x - bw / 2, by = y - bh / 2;
   if (cap < 0.999) { ctx.setLineDash([12, 10]); ctx.strokeStyle = "rgba(241,240,236,0.45)"; ctx.lineWidth = 5; rr(bx, by, bw, bh, 20); ctx.stroke(); ctx.setLineDash([]); rr(bx + bw * cap + 4, by + 8, bw * (1 - cap) - 8, bh - 16, 10); ctx.fillStyle = `rgba(255,74,28,${0.5 * clamp((1 - cap) / 0.16)})`; ctx.fill(); }
   ctx.strokeStyle = C.paper; ctx.lineWidth = 8; rr(bx, by, bw * cap, bh, 20); ctx.stroke();
@@ -539,10 +541,10 @@ function drawGauge(t, a) {
   if (t >= T.barOn && t < T.q8) pill(COPY.bar, x + 10, y + 120, 46, t, T.barOn, T.q8, { align: "center" });
   const rk = win(t, T.ringOn, T.disR + 0.5, 0.3, 0.3);
   if (rk > 0.01) { ID(); ctx.save(); ctx.globalAlpha = rk * a; ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.setLineDash([TAU * (r + 34) * E.p3out(prog(t, T.ringOn, T.ringOn + 0.35)), 4000]); ctx.beginPath(); ctx.arc(RX, y, r + 34, -Math.PI / 2, 1.5 * Math.PI); ctx.stroke(); ctx.restore(); }
-  if (t >= T.ringOn && t < T.half1End) pill(COPY.used, RX, y + r + 66, 50, t, T.ringOn, T.half1End, { align: "center", col: C.acc, edge: true });
+  if (t >= T.ringOn && t < T.half1End) pill(COPY.used, RX, y + r + 70, 56, t, T.ringOn, T.half1End, { align: "center", col: C.acc, edge: true });
   // the two halves, named under the ring
   if (t >= T.half1End - 0.1 && t < T.q8) pill(COPY.half1, RX, y + r + 62, 44, t, T.half1End - 0.1, T.q8, { align: "center", col: C.acc });
-  if (t >= T.half2End - 0.1 && t < T.q8) pill(COPY.half2, RX, y + r + 118, 44, t, T.half2End - 0.1, T.q8, { align: "center", col: C.half2 });
+  if (t >= T.half2End - 0.1 && t < T.q8) pill(COPY.half2, RX, y + r + 124, 44, t, T.half2End - 0.1, T.q8, { align: "center", col: C.half2 });
   // the cell → the battery: the lithium in the graphite is the charge (a thin leader)
   const lk = win(t, T.barOn + 0.3, T.ringOn, 0.4, 0.3);
   if (lk > 0.01) { ID(); ctx.save(); ctx.globalAlpha = lk * a * 0.8; arrowS(850, 1075, x + 112, y - 70, "rgba(241,240,236,0.7)", 5, 18, -0.2, E.p3out(prog(t, T.barOn + 0.3, T.barOn + 0.8))); ctx.restore(); }
@@ -570,7 +572,7 @@ function cellLabels(t, M) {
   if (aa > 0.01) { const o = IONS.find((i) => i.stuck && i.f[1] === Math.max(...IONS.filter((j) => j.stuck).map((j) => j.f[1]))); const p = ionPos(o, t, charge(t)), q = eS(M, p[0], p[1]); ID(); ctx.save(); ctx.globalAlpha = aa; arrowS(q[0], q[1] + 30, GA.x + 70, GA.y - 76, C.acc, 6, 20, 0.12, ak); ctx.restore(); }
   const ek = win(t, T.dis9End, T.split, 0.3, 0.3);
   if (ek > 0.01) { ID(); ctx.save(); ctx.globalAlpha = ek; ctx.strokeStyle = C.acc; ctx.lineWidth = 6; ctx.setLineDash([10, 8]); let lx = 0, ly = 0; for (const o of IONS) if (o.stuck) { const q = eS(M, o.c[0], o.c[1]); ctx.beginPath(); ctx.arc(q[0], q[1], 22 * M[0], 0, TAU); ctx.stroke(); lx = q[0]; ly = Math.max(ly, q[1]); } ctx.setLineDash([]); ctx.restore(); if (t >= T.dis9End + 0.1) { const q = eS(M, (CELL.c0 + CELL.c1) / 2, CELL.bot); pill(COPY.gap, q[0] + 30, q[1] + 66, 48, t, T.dis9End + 0.1, T.split, { align: "center", col: C.acc }); } }
-  if (t >= T.shrink + 0.2 && t < T.split) pill(COPY.less, GA.x + GA.r + 40, GA.y + 16, 50, t, T.shrink + 0.2, T.split, { edge: true });
+  if (t >= T.shrink + 0.2 && t < T.split) pill(COPY.less, GA.x, GA.y + 140, 54, t, T.shrink + 0.2, T.split, { edge: true });
 }
 
 // ================================================================ SPLIT (dark): two anode faces side by side (满 + 热 vs not)
@@ -912,7 +914,7 @@ function overlay(t) {
   if (t < T.dive + 0.5) drawRow(t);                                   // above the caption scrim
   if (fl >= 0) textBand(t, fl);
   if (t >= T.hot && t < T.end + 0.2) label(COPY.hot, 80, 622, 46, C.ink, t, T.hot, T.end + 0.2, { align: "center" });   // above the scrim
-  if (t >= T.a7 + 0.3 && t < T.q8) pill(COPY.term, 340, 1418, 44, t, T.term, T.q8, { align: "center" });
+  if (t >= T.a7 + 0.3 && t < T.q8) pill(COPY.term, RX, GA.y - RR - 40, 48, t, T.term, T.q8 + 0.2, { align: "center", col: C.acc, edge: true });   // above the ring it names
   if (t >= T.end) { ID(); ctx.fillStyle = C.ground; ctx.globalAlpha = E.p2io(prog(t, T.end, T.end + 0.3)); ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; endCard(t); }
 }
 
