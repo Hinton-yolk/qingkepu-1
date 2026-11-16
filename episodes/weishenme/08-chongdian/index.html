@@ -525,10 +525,11 @@ function drawGauge(t, a) {
     for (let i = 0; i < 7; i++) { const u = ((t * 2.2 + i / 7) % 1), sx = x + 130, sy = y; const px = lerp(sx, hx, u), py = lerp(sy, hy, u) - 70 * Math.sin(Math.PI * u); ctx.fillStyle = rgba(C.acc, 0.95 * (1 - u * 0.4)); ctx.beginPath(); ctx.arc(px, py, 9, 0, TAU); ctx.fill(); }
   }
   // the battery: its fill = the lithium in the graphite; its outline = what it can hold (shrinks with age)
+  ctx.globalAlpha = a * (1 - 0.45 * win(t, T.ringOn + 0.6, T.q8, 0.4, 0.4));   // v2.10: while the ring counts, the battery steps back
   const gz = 1 + 0.28 * win(t, T.shrink - 0.2, T.split, 0.4, 0.4);   // v2.7: the result (满格也少一截) is the biggest change here
   ctx.translate(x, y); ctx.scale(gz, gz); ctx.translate(-x, -y);
   const bw = 220, bh = 112, bx = x - bw / 2, by = y - bh / 2;
-  if (cap < 0.999) { ctx.setLineDash([12, 10]); ctx.strokeStyle = "rgba(241,240,236,0.45)"; ctx.lineWidth = 5; rr(bx, by, bw, bh, 20); ctx.stroke(); ctx.setLineDash([]); rr(bx + bw * cap + 4, by + 8, bw * (1 - cap) - 8, bh - 16, 10); ctx.fillStyle = `rgba(255,74,28,${0.5 * clamp((1 - cap) / 0.16)})`; ctx.fill(); }
+  if (cap < 0.999) { ctx.setLineDash([12, 10]); ctx.strokeStyle = "rgba(241,240,236,0.45)"; ctx.lineWidth = 5; rr(bx, by, bw, bh, 20); ctx.stroke(); ctx.setLineDash([]); rr(bx + bw * cap + 4, by + 8, bw * (1 - cap) - 8, bh - 16, 10); ctx.fillStyle = `rgba(255,74,28,${(0.5 + 0.25 * Math.sin(t * 6)) * clamp((1 - cap) / 0.16)})`; ctx.fill(); }
   ctx.strokeStyle = C.paper; ctx.lineWidth = 8; rr(bx, by, bw * cap, bh, 20); ctx.stroke();
   ctx.fillStyle = C.paper; rr(bx + bw + 6, y - 22, 14, 44, 5); ctx.fill();
   const fw = Math.max(0, (bw * cap - 28) * lv); if (fw > 1) { rr(bx + 14, by + 14, fw, bh - 28, 10); ctx.fillStyle = C.paper; ctx.fill(); }
@@ -569,7 +570,7 @@ function cellLabels(t, M) {
   if (t >= T.stick + 0.6 && t < T.dis9End + 0.1) { const q = eS(M, CELL.a0 - filmW(t), CELL.top + 0.72 * (CELL.bot - CELL.top)); const zk = E.p2io(prog(t, T.zoomOut, T.zoomOutEnd)), qb = eS(M, CELL.a0 - 20, CELL.bot); pill(COPY.stuck, lerp(q[0] - 44, qb[0] + 160, zk), lerp(q[1] + 16, qb[1] + 70, zk), 54, t, T.stick + 0.6, T.dis9End + 0.1, { align: "right", col: C.acc }); }   // under the cell once it is pulled back (clear of the cathode)
   if (t >= T.a8 && t < T.split) pill(COPY.note, 1010, 1418, 44, t, T.thick, T.split, { align: "right" });
   const ak = E.p3out(prog(t, T.a10 + 0.5, T.a10 + 1.05)), aa = win(t, T.a10 + 0.5, T.split, 0.2, 0.3);
-  if (aa > 0.01) { const o = IONS.find((i) => i.stuck && i.f[1] === Math.max(...IONS.filter((j) => j.stuck).map((j) => j.f[1]))); const p = ionPos(o, t, charge(t)), q = eS(M, p[0], p[1]); ID(); ctx.save(); ctx.globalAlpha = aa; arrowS(q[0], q[1] + 30, GA.x + 70, GA.y - 76, C.acc, 6, 20, 0.12, ak); ctx.restore(); }
+  if (aa > 0.01) { const o = IONS.find((i) => i.stuck && i.f[1] === Math.max(...IONS.filter((j) => j.stuck).map((j) => j.f[1]))); const p = ionPos(o, t, charge(t)), q = eS(M, p[0], p[1]); ID(); ctx.save(); ctx.globalAlpha = aa; ctx.shadowColor = "rgba(255,74,28,0.8)"; ctx.shadowBlur = 18; arrowS(q[0], q[1] + 30, GA.x + 70, GA.y - 76, C.acc, 9, 26, 0.12, ak); ctx.shadowBlur = 0; ctx.restore(); }
   const ek = win(t, T.dis9End, T.split, 0.3, 0.3);
   if (ek > 0.01) { ID(); ctx.save(); ctx.globalAlpha = ek; ctx.strokeStyle = C.acc; ctx.lineWidth = 6; ctx.setLineDash([10, 8]); let lx = 0, ly = 0; for (const o of IONS) if (o.stuck) { const q = eS(M, o.c[0], o.c[1]); ctx.beginPath(); ctx.arc(q[0], q[1], 22 * M[0], 0, TAU); ctx.stroke(); lx = q[0]; ly = Math.max(ly, q[1]); } ctx.setLineDash([]); ctx.restore(); if (t >= T.dis9End + 0.1) { const q = eS(M, (CELL.c0 + CELL.c1) / 2, CELL.bot); pill(COPY.gap, q[0] + 30, q[1] + 66, 48, t, T.dis9End + 0.1, T.split, { align: "center", col: C.acc }); } }
   if (t >= T.shrink + 0.2 && t < T.split) pill(COPY.less, GA.x, GA.y + 140, 54, t, T.shrink + 0.2, T.split, { edge: true });
@@ -632,7 +633,7 @@ const yv = (v) => lerp(CH.Y1, CH.Y0, v), xt = (u) => lerp(CH.X0, CH.X1, u);
 const CURVES = {
   A: { pts: [[0, 0.45], [0.18, 0.8], [0.78, 0.8], [0.9, 1], [1, 1]], u: (t) => kf(t, [[T.pull + 1.0, 0], [T.hold80, 0.18], [T.dawn, 0.78], [T.fill100End, 0.92], [T.fill100End + 0.4, 1]], (x) => x), on: (t) => kf(t, [[T.q14, 1], [T.q14 + 0.4, 0.12], [T.a15, 0.12], [T.a15 + 0.4, 0]]) },
   B: { pts: [[0, 0.45], [0.26, 1], [1, 1]], u: (t) => kf(t, [[T.q14 + 0.3, 0], [T.a14 - 0.6, 0.26], [T.a14 + 0.6, 1]], (x) => x), on: (t) => kf(t, [[T.a15, 1], [T.a15 + 0.4, 0]]) },
-  C: { pts: [[0, 0.4], [0.2, 0.8], [1, 0.8]], u: (t) => kf(t, [[T.limit, 0], [T.limit + 0.35, 0.2], [T.irisOut + 0.1, 1]], (x) => x), on: () => 1 },
+  C: { pts: [[0, 0.4], [0.2, 0.8], [1, 0.8]], u: (t) => kf(t, [[T.limit, 0], [T.limit + 0.35, 0.2], [T.irisOut - 0.35, 1]], (x) => x), on: () => 1 },
 };
 function curvePts(c, u) {                                  // the polyline up to u (0..1 in time)
   const P = c.pts, out = [P[0]];
@@ -670,6 +671,8 @@ function drawChart(t, a = 1) {
     ctx.strokeStyle = rgba(C.paper, 0.2 * Math.min(1, on / 0.12) + 0.8 * on); if (on <= 0.005) continue; ctx.lineWidth = 6 + 4 * on; ctx.lineJoin = "round"; ctx.lineCap = "round";
     ctx.beginPath(); P.forEach(([uu, vv], i) => (i ? ctx.lineTo(xt(uu), yv(vv)) : ctx.moveTo(xt(uu), yv(vv)))); ctx.stroke();
     const hd = P[P.length - 1]; if (on > 0.5) glowBall(xt(hd[0]), yv(hd[1]), 15 + 4 * Math.sin(t * 5), on);
+    if (id === "A" && u > 0.78 && on > 0.5) { const Q = curvePts(c, u).filter(([uu]) => uu >= 0.78); ctx.save(); ctx.strokeStyle = C.acc; ctx.lineWidth = 11; ctx.beginPath(); ctx.moveTo(xt(0.78), yv(0.8)); Q.forEach(([uu, vv]) => ctx.lineTo(xt(uu), yv(vv))); ctx.stroke(); ctx.restore(); }
+    if (id === "C" && u > 0.95) { ctx.save(); ctx.strokeStyle = C.acc; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(xt(1), yv(0.8), 26 + 3 * Math.sin(t * 5), 0, TAU); ctx.stroke(); ctx.restore(); }
   }
   // A: 80% held, the dawn fill; B: the flat top = 一直满着; C: the limit
   if (t >= T.hold80 && t < T.q14) cpill(COPY.opt, ...cp(540, yv(0.8) + 76), 46, t, T.hold80, T.q14, { align: "center" });
