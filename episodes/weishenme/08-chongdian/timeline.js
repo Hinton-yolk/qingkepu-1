@@ -34,7 +34,7 @@
     // 24.25–38.5 · ageing
     q8: 24.25, chgA: 24.35, chgAEnd: 25.0, zoomA: 24.25, zoomAEnd: 25.5, film: 25.25,
     a8: 26.5, thick: 26.6, thickEnd: 27.5, stick: 27.75, stickEnd: 28.6,
-    q9: 29.5, dis9: 29.75, dis9End: 31.0,
+    q9: 29.5, dis9: 29.75, dis9End: 31.55,
     a10: 31.75, zoomOut: 31.75, zoomOutEnd: 32.4, chgS: 32.45, chgSEnd: 32.95, shrink: 33.0, shrinkEnd: 33.6,   // fill it up again, then the outline shrinks (满格也装得少了)
     q11: 34.0, split: 34.25, splitEnd: 35.0,
     a12: 36.0, cmpL: 36.15, cmpR: 36.9, full: 36.9, fullEnd: 37.4, heat: 37.45, heatEnd: 38.25,
@@ -80,6 +80,8 @@
     cath: "正极", anode: "负极 · 石墨", bar: "电量", ring: "循环", term: "这叫一次充电循环", sei: "SEI 膜", note: "示意",
     cmpL: "不满、不热", cmpR: "满 + 热", hot: "热", opt: "优化电池充电 · 学会你的作息后", dawn: "快起床时再充满",
     limit: "充电上限", pause: "暂停", next: "下一次充电",
+    used: "用掉的电", half1: "第一次用掉一半", half2: "第二次用掉一半", elec: "电子", stuck: "被粘住，搬不回去", less: "满格也少一截",
+    night: "夜里", wake: "起床", full: "一直满着", stopped: "充满后不再往里充",
     end: ["你每天都在用，", "但你不知道", "它[怎么工作]"], epNum: "EP.08", epName: "充电",
   };
   const S16 = BEAT / 4;

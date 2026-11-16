@@ -341,183 +341,259 @@ function screenState(t) {
 
 // ---------------------------------------------------------------- the dive: phone → battery → stripes → the cell
 const BATT = { x: -128, y: -230, w: 256, h: 470, r: 24 };   // the battery pack inside the phone (local)
-// the cell world (E): cathode [90,330], electrolyte gap, anode [650,990]; stripes repeat every 1220 E px
-const CELL = { c0: 90, c1: 330, a0: 650, a1: 990, per: 1220, top: 600, bot: 1460, sep: 490 };
-const DIVE_TGT = [540, 1030];                               // where the gap's centre sits on screen at the end
+// the cell world (E): v2 (user 11-16 样张): a blue layered cathode | the electrolyte | graphite; a window 640–1010 is lit,
+// the stripes continue dimmed above and below (the dive lands in it); an outer wire on top (electrons); lithium = glowing balls.
+const CELL = { c0: 70, c1: 360, a0: 690, a1: 1010, per: 1220, top: 640, bot: 1010, sep: 525 };
+Object.assign(C, { cath: "#2C4A8C", cathD: "#22386B", cathL: "#5577C4", anode: "#24262B", sheet: "#4B4F58", sheetL: "#7A808C", li: "#FFF3DC", film: "#9C8463", filmL: "#C2A77E", wire: "#5B606B", elec: "#AEB4BF", half2: "#FF8A5C" });
+const LIG = "255,214,150";
+const DIVE_TGT = [540, 825];                                // where the gap's centre sits on screen at the end of the dive
 const KF_A = 46;                                            // the final zoom
-// the final key: local point L* maps to DIVE_TGT; choose L* inside the battery, on the gap between a C and an A stripe
 const LSTAR = [-6, 40];
 const K_DIVE_END = key(LSTAR, DIVE_TGT, KF_A);
-// E → screen: E coords are the screen coords of K_DIVE_END (shifted so that the gap centre (490, 1030) = DIVE_TGT)
-const E0 = [CELL.sep, 1030];
+const E0 = [CELL.sep, 825];
 function eToLocal(e) { return [LSTAR[0] + (e[0] - E0[0]) / KF_A, LSTAR[1] + (e[1] - E0[1]) / KF_A]; }
 const PHS = 0.86, PHY = 930;                           // the light shots: the phone's scale and height (hand, plug and cable stay above y 1450)
 function phoneK(t) { const d = drift(t); return key([0, 30], [540 + 0.95 * d[0], PHY + 0.95 * d[1]], PHS * lerp(1.0, 1.09, prog(t, 0, T.dive)) * d[2]); }
 function camPhone(t) {
-  // the light world: a slow push all the time (never still); the dive; the closing; the tip
   if (t < T.dive) return phoneK(t);
-  if (t < T.diveEnd) {
-    const k0 = phoneK(T.dive), k1 = K_DIVE_END;
-    const u = prog(t, T.dive, T.diveEnd), uu = E.p2io(u);
-    return interp(k0, k1, uu);
-  }
+  if (t < T.diveEnd) { const u = prog(t, T.dive, T.diveEnd); return interp(phoneK(T.dive), K_DIVE_END, E.p2io(u)); }
   return K_DIVE_END;
 }
 function diveK(t) { return clamp((t - T.dive) / (T.diveEnd - T.dive)); }
-// the stripes, in local units, clipped to the battery
-function drawStripes(K, a, detail) {
+function drawStripes(K, a) {
   setK(K); ctx.save(); ctx.globalAlpha = a;
   rr(BATT.x, BATT.y, BATT.w, BATT.h, BATT.r); ctx.clip();
   ctx.fillStyle = C.elyte; ctx.fillRect(BATT.x, BATT.y, BATT.w, BATT.h);
   for (let k = -8; k <= 8; k++) {
     const cA = eToLocal([CELL.c0 + k * CELL.per, 0])[0], cB = eToLocal([CELL.c1 + k * CELL.per, 0])[0];
     const aA = eToLocal([CELL.a0 + k * CELL.per, 0])[0], aB = eToLocal([CELL.a1 + k * CELL.per, 0])[0];
-    ctx.fillStyle = C.cath; ctx.fillRect(cA, BATT.y, cB - cA, BATT.h);
+    ctx.fillStyle = C.cathD; ctx.fillRect(cA, BATT.y, cB - cA, BATT.h);
     ctx.fillStyle = C.anode; ctx.fillRect(aA, BATT.y, aB - aA, BATT.h);
   }
   ctx.restore();
 }
-
-// ================================================================ CELL world (dark): E units, transform M = [s, ox, oy]
-// screen = (ox + s·Ex, oy + s·Ey)
+// E → screen: [s, ox, oy]
 function cellM(t) {
-  if (t < T.diveEnd) { const K = camPhone(t), s = K.A / KF_A, Ls = eToLocal([0, 0]); const o = toS(K, Ls); return [s, o[0], o[1]]; }
-  // a slow drift so the picture never stops; the lean in on the anode surface (ageing); out again
-  const d = drift(t), d0 = drift(T.diveEnd), ramp = E.smooth(prog(t, T.diveEnd, T.diveEnd + 1)), dx = (d[0] - d0[0]) * ramp, dy = (d[1] - d0[1]) * ramp, drift_ = 1 + (d[2] - d0[2]) * ramp;
+  if (t < T.diveEnd) { const K = camPhone(t), s = K.A / KF_A, o = toS(K, eToLocal([0, 0])); return [s, o[0], o[1]]; }
+  const d = drift(t), d0 = drift(T.diveEnd), ramp = E.smooth(prog(t, T.diveEnd, T.diveEnd + 1));
+  const dx = 1.1 * (d[0] - d0[0]) * ramp, dy = 0.9 * (d[1] - d0[1]) * ramp, dr = 1 + 1.5 * (d[2] - d0[2]) * ramp;
   const zin = kf(t, [[T.zoomA, 0], [T.zoomAEnd, 1], [T.zoomOut, 1], [T.zoomOutEnd, 0]]);
-  const s = drift_ * (1 + 0.85 * zin) * (1 + 0.07 * prog(t, T.diveEnd, T.split)), cx = lerp(540, 690, zin), cy = 1040;    // zoom about the anode face
-  const fx = lerp(540, 650, zin), fy = 1040;                                     // the E point kept at (cx, cy)
+  const s = dr * (1 + 0.8 * zin) * (1 + 0.12 * prog(t, T.diveEnd, T.split));
+  const cx = lerp(540, 600, zin), cy = 825, fx = lerp(540, CELL.a0 - 20, zin), fy = 825;   // zoom about the anode face
   return [s, cx - s * fx + dx, cy - s * fy + dy];
 }
 const eS = (M, x, y) => [M[1] + M[0] * x, M[2] + M[0] * y];
 const setM = (M) => ctx.setTransform(M[0], 0, 0, M[0], M[1], M[2]);
-
-// the charge state s(t): fraction of the movable lithium in the anode
+// the charge state: fraction of the movable lithium in the graphite
 function charge(t) {
   return kf(t, [[0, 0], [T.chg1, 0], [T.chg1End, 1], [T.dis1, 1], [T.dis1End, 0], [T.chgR, 0], [T.chgREnd, 1], [T.disR, 1], [T.disREnd, 0],
     [T.chgH, 0], [T.chgHEnd, 1], [T.half1, 1], [T.half1End, 0.5], [T.back1, 0.5], [T.back1End, 1], [T.half2, 1], [T.half2End, 0.5],
     [T.chgA, 0.5], [T.chgAEnd, 1], [T.dis9, 1], [T.dis9End, 0], [T.chgS, 0], [T.chgSEnd, 1], [DUR, 1]], E.p2io);
 }
-// the cycle ring (counts what is used: the discharge)
-function ringVal(t) {
+function ringVal(t) {                                       // the ring counts what is used (the discharge)
   return kf(t, [[0, 0], [T.disR, 0], [T.disREnd, 1, E.sine], [T.clear, 1], [T.clear + 0.3, 0], [T.half1, 0], [T.half1End, 0.5, E.sine], [T.half2, 0.5], [T.half2End, 1, E.sine], [DUR, 1]], E.p2io);
 }
-// lithium: slots in the cathode (3 columns) and between graphite sheets (5 columns)
-const SHEETS = []; for (let y = CELL.top + 40; y < CELL.bot; y += 74) SHEETS.push(y);        // graphite sheets (horizontal)
-const CATH_L = []; for (let y = CELL.top + 30; y < CELL.bot; y += 80) CATH_L.push(y);       // oxide layer lines
+function capAt(t) { return kf(t, [[0, 1], [T.shrink, 1], [T.shrinkEnd, 0.84]], E.p2io); }
+// the material rows (the same pitch on both sides)
+const ROWS = []; for (let y = CELL.top + 34; y < CELL.bot - 20; y += 66) ROWS.push(y);
+const GAPS = ROWS.slice(0, -1).map((y, i) => (y + ROWS[i + 1]) / 2);
 const IONS = (() => {
   const R = mulberry32(808), out = [];
-  const cSlots = [], aSlots = [];
-  for (let i = 0; i + 1 < CATH_L.length; i++) for (const x of [140, 210, 280]) cSlots.push([x + (R() - 0.5) * 10, (CATH_L[i] + CATH_L[i + 1]) / 2]);
-  for (let i = 0; i + 1 < SHEETS.length; i++) for (const x of [700, 770, 840, 910, 960]) aSlots.push([x + (R() - 0.5) * 8, (SHEETS[i] + SHEETS[i + 1]) / 2]);
-  // keep the slots in the picture band
-  const inBand = (p) => p[1] > 660 && p[1] < 1430;
-  const cs = cSlots.filter(inBand), as = aSlots.filter(inBand);
-  const N = Math.min(cs.length, 27);
-  const order = cs.map((p, i) => i).sort(() => R() - 0.5);
-  const asOrder = as.map((p, i) => i).sort(() => R() - 0.5);
-  for (let i = 0; i < N; i++) {
-    const c = cs[order[i]], movable = i < 18, a = movable ? as[asOrder[i]] : null;
-    out.push({ c, a, movable, rank: movable ? i / 18 : 0, ph: R() * TAU, wob: (R() - 0.5) * 80 });
-  }
-  // three of the movable ones get stuck in the film (the ones nearest the anode face)
-  const mv = out.filter((o) => o.movable).sort((p, q) => p.a[0] - q.a[0]);
-  const stuckY = [900, 1050, 1200];
-  mv.slice(0, 3).forEach((o, j) => { o.stuck = true; o.f = [640, stuckY[j]]; });
+  const cs = [], as = [];
+  GAPS.forEach((y) => [130, 215, 300].forEach((x) => cs.push([x, y])));
+  GAPS.forEach((y) => [760, 840, 920].forEach((x) => as.push([x, y])));
+  const order = cs.map((p, i) => i).sort(() => R() - 0.5), asOrder = as.map((p, i) => i).sort(() => R() - 0.5);
+  cs.forEach((p, i) => {
+    const movable = i < 8;                                  // 8 of 12 move; a third stays home (LiCoO2 is never emptied)
+    out.push({ c: cs[order[i]], a: movable ? as[asOrder[i]] : null, movable, rank: movable ? i / 8 : 0, ph: R() * TAU, wob: (R() - 0.5) * 70 });
+  });
+  const mv = out.filter((o) => o.movable).sort((p, q) => p.a[1] - q.a[1]);
+  [mv[0], mv[3], mv[6]].forEach((o, j) => { o.stuck = true; o.f = [CELL.a0, [GAPS[0], GAPS[1] + 30, GAPS[3]][j]]; });
   return out;
 })();
-function filmW(t) { return kf(t, [[0, 6], [T.thick, 6], [T.thickEnd, 20], [DUR, 20]], E.p2io); }
+function filmW(t) { return kf(t, [[0, 9], [T.thick, 9], [T.thickEnd, 30], [DUR, 30]], E.p2io); }
 function ionPos(o, t, s) {
   if (!o.movable) return o.c;
-  const q = E.smooth(clamp((s - o.rank * 0.62) / 0.38));
-  let p;
-  if (q <= 0) p = o.c; else if (q >= 1) p = o.a;
-  else { const x = lerp(o.c[0], o.a[0], q), y = lerp(o.c[1], o.a[1], q) + Math.sin(q * Math.PI) * o.wob; p = [x, y]; }
+  const q = E.smooth(clamp((s - o.rank * 0.55) / 0.45));
+  let p = q <= 0 ? o.c : q >= 1 ? o.a : [lerp(o.c[0], o.a[0], q), lerp(o.c[1], o.a[1], q) + Math.sin(q * Math.PI) * o.wob];
   if (o.stuck && t >= T.stick) {
-    const k = E.p2io(prog(t, T.stick + 0.1 * o.f[1] / 1240, T.stick + 0.5 + 0.1 * o.f[1] / 1240));
-    const from = t < T.stickEnd ? p : o.a;
-    if (t >= T.dis9) return o.f;                                       // they never come back
-    return [lerp(from[0], o.f[0] - 0 - filmW(t) / 2, k), lerp(from[1], o.f[1], k)];
+    const k = E.p2io(prog(t, T.stick, T.stick + 0.55)), fp = [o.f[0] - filmW(t) * 0.55, o.f[1]];
+    if (t >= T.dis9 - 0.01) return fp;
+    return [lerp(p[0], fp[0], k), lerp(p[1], fp[1], k)];
   }
   return p;
 }
+function glowBall(x, y, r, a = 1, trail = null, col = C.li, glow = LIG) {
+  if (a <= 0.01) return;
+  if (trail && Math.hypot(trail[0] - x, trail[1] - y) > 3) {
+    const g = ctx.createLinearGradient(trail[0], trail[1], x, y); g.addColorStop(0, `rgba(${glow},0)`); g.addColorStop(1, `rgba(${glow},${0.6 * a})`);
+    ctx.strokeStyle = g; ctx.lineWidth = r * 1.5; ctx.lineCap = "round"; line(trail[0], trail[1], x, y);
+  }
+  const h = ctx.createRadialGradient(x, y, 0, x, y, r * 2.6); h.addColorStop(0, `rgba(${glow},${0.5 * a})`); h.addColorStop(1, `rgba(${glow},0)`);
+  ctx.fillStyle = h; ctx.beginPath(); ctx.arc(x, y, r * 2.6, 0, TAU); ctx.fill();
+  ctx.save(); ctx.globalAlpha *= a; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); ctx.restore();
+}
+function slab(x0, x1, y0, y1, side, lit) {             // one electrode slab, E units; lit = the window's brightness
+  const g = ctx.createLinearGradient(x0, 0, x1, 0);
+  if (side === "c") { g.addColorStop(0, C.cathD); g.addColorStop(1, C.cath); } else { g.addColorStop(0, "#2A2D33"); g.addColorStop(1, C.anode); }
+  rr(x0, y0, x1 - x0, y1 - y0, 18); ctx.fillStyle = g; ctx.fill();
+  for (const y of ROWS) {
+    if (y < y0 + 10 || y > y1 - 10) continue;
+    if (side === "c") { rr(x0 + 16, y - 9, x1 - x0 - 32, 18, 9); ctx.fillStyle = C.cathL; ctx.fill(); ctx.fillStyle = "rgba(255,255,255,0.10)"; rr(x0 + 16, y - 9, x1 - x0 - 32, 6, 3); ctx.fill(); }
+    else { const gg = ctx.createLinearGradient(0, y - 8, 0, y + 8); gg.addColorStop(0, C.sheetL); gg.addColorStop(1, C.sheet); rr(x0 + 16, y - 8, x1 - x0 - 32, 16, 8); ctx.fillStyle = gg; ctx.fill(); }
+  }
+}
+function wireFlow(t) {                                       // electrons: their position follows the charge (they move only while it changes)
+  return charge(t) * 3.2;
+}
 function drawCell(t, M, a = 1, detail = 1) {
   ctx.save(); ctx.globalAlpha = a;
-  ID(); ctx.fillStyle = C.elyte; ctx.fillRect(0, 0, W, H);
+  ID(); const bg = ctx.createRadialGradient(540, 900, 100, 540, 900, 1100); bg.addColorStop(0, "#22252B"); bg.addColorStop(1, "#141518"); ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
   setM(M);
-  const yA = -4000, yB = 6000;
-  for (let k = -2; k <= 2; k++) {
+  for (let k = -2; k <= 2; k++) {                          // the stripes beyond the window (dim): where the dive lands
     const off = k * CELL.per;
-    ctx.fillStyle = C.cath; ctx.fillRect(CELL.c0 + off, yA, CELL.c1 - CELL.c0, yB - yA);
-    ctx.fillStyle = C.anode; ctx.fillRect(CELL.a0 + off, yA, CELL.a1 - CELL.a0, yB - yA);
-    if (detail > 0.01) {
-      ctx.save(); ctx.globalAlpha = a * detail;
-      ctx.strokeStyle = C.cathL; ctx.lineWidth = 4;
-      for (const y of CATH_L) line(CELL.c0 + off + 14, y, CELL.c1 + off - 14, y);
-      for (const y of SHEETS) { rr(CELL.a0 + off + 18, y - 7, CELL.a1 - CELL.a0 - 36, 14, 7); ctx.fillStyle = C.sheet; ctx.fill(); }
-      // the separator (a faint dashed line in the gap)
-      ctx.strokeStyle = "#2C3038"; ctx.lineWidth = 3; ctx.setLineDash([18, 16]); line(CELL.sep + off, CELL.top - 200, CELL.sep + off, CELL.bot + 200); ctx.setLineDash([]);
-      // the SEI film on the anode's face (always there, thin; it thickens)
-      const fw = filmW(t), fa = t >= T.film - 0.2 ? 1 : 0.55;
-      ctx.globalAlpha = a * detail * fa; ctx.fillStyle = C.film; ctx.fillRect(CELL.a0 + off - fw, yA, fw, yB - yA);
+    ctx.fillStyle = C.cathD; ctx.fillRect(CELL.c0 + off, -4000, CELL.c1 - CELL.c0, 10000);
+    ctx.fillStyle = "#1F2125"; ctx.fillRect(CELL.a0 + off, -4000, CELL.a1 - CELL.a0, 10000);
+  }
+  ctx.fillStyle = `rgba(16,17,20,${0.8 * detail})`; ctx.fillRect(-4000, -4000, 10000, 10000);   // 聚光: dim all
+  if (detail > 0.01) {
+    ctx.save(); ctx.globalAlpha = a * detail;
+    slab(CELL.c0, CELL.c1, CELL.top, CELL.bot, "c"); slab(CELL.a0, CELL.a1, CELL.top, CELL.bot, "a");
+    ctx.strokeStyle = "rgba(255,255,255,0.10)"; ctx.lineWidth = 3; ctx.setLineDash([16, 14]); line(CELL.sep, CELL.top + 10, CELL.sep, CELL.bot - 10); ctx.setLineDash([]);
+    // the SEI film: always there (thin), thickens
+    const fw = filmW(t), fg = ctx.createLinearGradient(CELL.a0 - fw, 0, CELL.a0, 0); fg.addColorStop(0, C.filmL); fg.addColorStop(1, C.film);
+    rr(CELL.a0 - fw, CELL.top, fw + 8, CELL.bot - CELL.top, 8); ctx.fillStyle = fg; ctx.fill();
+    // the outer wire with electrons (only while the cell is explained, not in the close-up)
+    const wa = win(t, T.h1 + 0.3, T.q8 + 0.2, 0.4, 0.4);
+    if (wa > 0.01) {
+      ctx.save(); ctx.globalAlpha *= wa; const top = 598, xl = 215, xr = 850;
+      ctx.strokeStyle = C.wire; ctx.lineWidth = 8; ctx.lineJoin = "round"; ctx.beginPath(); ctx.moveTo(xl, CELL.top); ctx.lineTo(xl, top); ctx.lineTo(xr, top); ctx.lineTo(xr, CELL.top); ctx.stroke();
+      const ph = wireFlow(t);
+      for (let i = 0; i < 9; i++) { const u = ((i / 9 + ph) % 1 + 1) % 1; glowBall(lerp(xl + 30, xr - 30, u), top, 7, 1, null, C.elec, "190,200,215"); }
       ctx.restore();
     }
+    ctx.restore();
   }
-  // lithium (the k = 0 period only)
+  // lithium
   if (detail > 0.01) {
-    const s = charge(t), R = 12;
+    const s = charge(t), s0 = charge(t - 0.12);
     for (const o of IONS) {
-      const p = ionPos(o, t, s), bob = 6 * Math.sin(t * 2.3 + o.ph);
-      ctx.save(); ctx.globalAlpha = a * detail;
-      ctx.beginPath(); ctx.arc(p[0] + 4 * Math.sin(t * 1.3 + o.ph * 2), p[1] + bob, R, 0, TAU); ctx.fillStyle = o.stuck && t >= T.stickEnd ? "#CFCAC0" : C.ion; ctx.fill();
-      ctx.restore();
+      const p = ionPos(o, t, s), q = ionPos(o, t - 0.12, s0), bob = 4 * Math.sin(t * 2.3 + o.ph);
+      const stuck = o.stuck && t >= T.stick + 0.55;
+      if (stuck) { ctx.save(); ctx.globalAlpha = a * detail; ctx.fillStyle = "#8E877A"; ctx.beginPath(); ctx.arc(p[0], p[1], 15, 0, TAU); ctx.fill(); ctx.restore(); }
+      else { ctx.save(); ctx.globalAlpha = a * detail; glowBall(p[0] + 3 * Math.sin(t * 1.3 + o.ph * 2), p[1] + bob, 15, 1, Math.hypot(p[0] - q[0], p[1] - q[1]) > 2 ? [q[0], q[1] + bob] : null); ctx.restore(); }
     }
   }
   ctx.restore();
-  ID(); const gf = ctx.createLinearGradient(0, 1380, 0, 1450); gf.addColorStop(0, "rgba(23,25,28,0)"); gf.addColorStop(1, "rgba(23,25,28,1)");
-  ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = gf; ctx.fillRect(0, 1380, W, 70); ctx.fillStyle = C.elyte; ctx.fillRect(0, 1450, W, H - 1450); ctx.restore();
 }
 
-// ================================================================ SPLIT (dark): two anode faces side by side
+// ================================================================ the gauge (screen space): a big battery inside a ring of "used"
+const GA = { x: 540, y: 1215, r: 158 };
+function gaugeK(t) { return win(t, T.barOn, T.split + 0.35, 0.35, 0.35); }
+function arrowS(x0, y0, x1, y1, col = C.acc, w = 7, head = 22, bend = 0, k = 1) {   // a curved arrow that draws itself (k 0..1)
+  if (k <= 0) return;
+  const mx = (x0 + x1) / 2 - bend * (y1 - y0), my = (y0 + y1) / 2 + bend * (x1 - x0);
+  const P = (u) => [(1 - u) * (1 - u) * x0 + 2 * (1 - u) * u * mx + u * u * x1, (1 - u) * (1 - u) * y0 + 2 * (1 - u) * u * my + u * u * y1];
+  ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = "round"; ctx.beginPath(); for (let i = 0; i <= 24; i++) { const p = P(k * i / 24); i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); } ctx.stroke();
+  if (k > 0.9) { const e = P(k), b = P(k - 0.05), an = Math.atan2(e[1] - b[1], e[0] - b[0]); ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(e[0] + Math.cos(an) * 6, e[1] + Math.sin(an) * 6); ctx.lineTo(e[0] - Math.cos(an - 0.45) * head, e[1] - Math.sin(an - 0.45) * head); ctx.lineTo(e[0] - Math.cos(an + 0.45) * head, e[1] - Math.sin(an + 0.45) * head); ctx.closePath(); ctx.fill(); }
+}
+function drawGauge(t, a) {
+  if (a <= 0.01) return;
+  const { x, y, r } = GA, v = ringVal(t), cap = capAt(t), lv = charge(t);
+  const ringA = win(t, T.ringOn, T.q8 + 0.3, 0.3, 0.35);
+  ID(); ctx.save(); ctx.globalAlpha = a;
+  // the ring (used, cumulative): two colours for the two halves
+  if (ringA > 0.01) {
+    ctx.save(); ctx.globalAlpha = a * ringA;
+    ctx.lineCap = "butt"; ctx.strokeStyle = "rgba(241,240,236,0.14)"; ctx.lineWidth = 26; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
+    const halves = t >= T.a7 - 0.1;
+    const segs = halves ? [[0, Math.min(v, 0.5), C.acc], [0.5, Math.max(0.5, v), C.half2]] : [[0, v, C.acc]];
+    for (const [s0, s1, col] of segs) if (s1 > s0 + 0.002) { ctx.strokeStyle = col; ctx.beginPath(); ctx.arc(x, y, r, -Math.PI / 2 + TAU * s0, -Math.PI / 2 + TAU * s1); ctx.stroke(); }
+    // the 咔: a flash where it closes
+    for (const tk of [T.disREnd, T.half2End]) { const u = t - tk; if (u > 0 && u < 0.5) { const fy = y - r, h = ctx.createRadialGradient(x, fy, 0, x, fy, 90); h.addColorStop(0, `rgba(255,138,92,${0.95 * (1 - u / 0.5)})`); h.addColorStop(1, "rgba(255,138,92,0)"); ctx.fillStyle = h; ctx.beginPath(); ctx.arc(x, fy, 90, 0, TAU); ctx.fill(); ctx.strokeStyle = rgba(C.acc, 1 - u / 0.5); ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(x, y, r + 20 + 50 * E.p3out(u / 0.5), 0, TAU); ctx.stroke(); } }
+    ctx.restore();
+  }
+  // the battery: its fill = the lithium in the graphite; its outline = what it can hold (shrinks with age)
+  const bw = 220, bh = 112, bx = x - bw / 2, by = y - bh / 2;
+  if (cap < 0.999) { ctx.setLineDash([12, 10]); ctx.strokeStyle = "rgba(241,240,236,0.45)"; ctx.lineWidth = 5; rr(bx, by, bw, bh, 20); ctx.stroke(); ctx.setLineDash([]); }
+  ctx.strokeStyle = C.paper; ctx.lineWidth = 8; rr(bx, by, bw * cap, bh, 20); ctx.stroke();
+  ctx.fillStyle = C.paper; rr(bx + bw + 6, y - 22, 14, 44, 5); ctx.fill();
+  const fw = Math.max(0, (bw * cap - 28) * lv); if (fw > 1) { rr(bx + 14, by + 14, fw, bh - 28, 10); ctx.fillStyle = C.paper; ctx.fill(); }
+  // while it charges / is used: a soft light runs along the fill
+  const dl = charge(t + 0.05) - charge(t - 0.05);
+  if (Math.abs(dl) > 0.004 && fw > 20) { ctx.save(); rr(bx + 14, by + 14, fw, bh - 28, 10); ctx.clip(); const u = (t * 1.6) % 1, xs = bx + 14 + fw * (dl > 0 ? u : 1 - u); const g = ctx.createLinearGradient(xs - 40, 0, xs + 40, 0); g.addColorStop(0, "rgba(150,150,150,0)"); g.addColorStop(0.5, "rgba(150,150,150,0.6)"); g.addColorStop(1, "rgba(150,150,150,0)"); ctx.fillStyle = g; ctx.fillRect(xs - 40, by, 80, bh); ctx.restore(); }
+  ctx.restore();
+  // 示意: the battery the first time (box + 电量), the ring the first time (box + 用掉的电)
+  const bk = win(t, T.barOn, T.chg1 + 1.0, 0.3, 0.3);
+  obox(bx - 26, by - 26, bw + 72, bh + 52, E.p3out(prog(t, T.barOn, T.barOn + 0.3)), bk * a, 24);
+  if (t >= T.barOn && t < T.q8) pill(COPY.bar, x - r - 46, y + 14, 44, t, T.barOn, T.q8, { align: "right" });
+  const rk = win(t, T.ringOn, T.disR + 0.5, 0.3, 0.3);
+  if (rk > 0.01) { ID(); ctx.save(); ctx.globalAlpha = rk * a; ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.setLineDash([TAU * (r + 34) * E.p3out(prog(t, T.ringOn, T.ringOn + 0.35)), 4000]); ctx.beginPath(); ctx.arc(x, y, r + 34, -Math.PI / 2, 1.5 * Math.PI); ctx.stroke(); ctx.restore(); }
+  if (t >= T.ringOn && t < T.a7) pill(COPY.used, x + r + 46, y + 14, 44, t, T.ringOn, T.a7, {});
+  // the two halves, named
+  if (t >= T.half1End - 0.1 && t < T.q8) pill(COPY.half1, x + r + 46, y + 14, 44, t, T.half1End - 0.1, T.q8, { col: C.acc });
+  if (t >= T.half2End - 0.1 && t < T.q8) pill(COPY.half2, x - r - 46, y + 14, 44, t, T.half2End - 0.1, T.q8, { align: "right", col: C.half2 });
+  // the cell → the gauge: the lithium in the graphite is the charge (a thin leader), until the ageing
+  const lk = win(t, T.barOn + 0.3, T.q8, 0.4, 0.3);
+  if (lk > 0.01) { ID(); ctx.save(); ctx.globalAlpha = lk * a * 0.8; arrowS(850, 1075, x + 112, y - 70, "rgba(241,240,236,0.7)", 5, 18, -0.2, E.p3out(prog(t, T.barOn + 0.3, T.barOn + 0.8))); ctx.restore(); }
+}
+function cellLabels(t, M) {
+  const lc = eS(M, (CELL.c0 + CELL.c1) / 2, CELL.bot), la = eS(M, (CELL.a0 + CELL.a1) / 2, CELL.bot);
+  const ka = win(t, T.tagCath, T.q4 + 0.2, 0.3, 0.3), kb = win(t, T.tagAnode, T.q4 + 0.2, 0.3, 0.3);
+  if (ka > 0) { obox(eS(M, CELL.c0, 0)[0] - 8, eS(M, 0, CELL.top)[1] - 8, (CELL.c1 - CELL.c0) * M[0] + 16, (CELL.bot - CELL.top) * M[0] + 16, E.p3out(prog(t, T.tagCath, T.tagCath + 0.35)), ka, 22, 5); }
+  if (kb > 0) { obox(eS(M, CELL.a0, 0)[0] - 8, eS(M, 0, CELL.top)[1] - 8, (CELL.a1 - CELL.a0) * M[0] + 16, (CELL.bot - CELL.top) * M[0] + 16, E.p3out(prog(t, T.tagAnode, T.tagAnode + 0.35)), kb, 22, 5); }
+  const tl = win(t, T.tagCath, T.q8, 0.3, 0.3);
+  if (tl > 0.01) { pill(COPY.cath, lc[0], lc[1] + 62, 44, t, T.tagCath, T.q8, { align: "center" }); pill(COPY.anode, la[0], la[1] + 62, 44, t, T.tagAnode, T.q8, { align: "center" }); }
+  if (t >= T.h1 + 0.6 && t < T.q8) { const w = eS(M, 700, 598); pill(COPY.elec, w[0], w[1] - 22, 44, t, T.h1 + 0.6, T.q8, { align: "center", col: C.elec }); }
+  // the SEI film: an orange box + its name (first time)
+  const fk = win(t, T.film, T.a8 + 0.25, 0.3, 0.3);
+  if (fk > 0) { const f0 = eS(M, CELL.a0 - filmW(t), CELL.top), f1 = eS(M, CELL.a0 + 8, CELL.bot); obox(f0[0] - 14, f0[1] - 10, f1[0] - f0[0] + 28, f1[1] - f0[1] + 20, E.p3out(prog(t, T.film, T.film + 0.35)), fk, 12, 5); }
+  if (t >= T.film && t < T.split) { const f0 = eS(M, CELL.a0 - filmW(t), CELL.top); pill(COPY.sei, f0[0] - 26, f0[1] + 60, 44, t, T.film, T.split, { align: "right" }); }
+  // the stuck ones: orange rings; their name; the arrow to the gauge (the full battery is shorter)
+  const sa = win(t, T.stick + 0.55, T.split, 0.2, 0.3);
+  if (sa > 0.01) for (const o of IONS) if (o.stuck) { const p = ionPos(o, t, charge(t)), q = eS(M, p[0], p[1]); oring(q[0], q[1], 30 * Math.max(1, M[0] * 0.8), E.p3out(prog(t, T.stick + 0.55, T.stick + 0.85)), sa, 5); }
+  if (t >= T.stick + 0.6 && t < T.split) { const q = eS(M, CELL.a0 - 140, CELL.bot); pill(COPY.stuck, q[0], Math.min(1120, q[1] + 64), 44, t, T.stick + 0.6, T.split, { align: "center", col: C.acc }); }
+  if (t >= T.a8 && t < T.split) pill(COPY.note, 1010, 1440, 44, t, T.thick, T.split, { align: "right" });
+  const ak = E.p3out(prog(t, T.a10 + 0.2, T.a10 + 0.75)), aa = win(t, T.a10 + 0.2, T.split, 0.2, 0.3);
+  if (aa > 0.01) { const o = IONS.find((i) => i.stuck && i.f[1] === Math.max(...IONS.filter((j) => j.stuck).map((j) => j.f[1]))); const p = ionPos(o, t, charge(t)), q = eS(M, p[0], p[1]); ID(); ctx.save(); ctx.globalAlpha = aa; arrowS(q[0], q[1] + 30, GA.x + 70, GA.y - 76, C.acc, 6, 20, 0.12, ak); ctx.restore(); }
+  if (t >= T.shrink + 0.2 && t < T.split) pill(COPY.less, GA.x + GA.r + 46, GA.y + 14, 44, t, T.shrink + 0.2, T.split, { edge: true });
+}
+
+// ================================================================ SPLIT (dark): two anode faces side by side (满 + 热 vs not)
 const PAN = [{ x: 70, y: 700, w: 450, h: 690 }, { x: 560, y: 700, w: 450, h: 690 }];
 function splitK(t) { return E.p2io(prog(t, T.split, T.splitEnd)) * (1 - E.p2io(prog(t, T.pull, T.pull + 0.9))); }
 function panelFilm(t, i) {
-  if (i === 0) return kf(t, [[0, 8], [T.cmpL, 8], [T.cmpL + 2.2, 14, E.sine], [DUR, 14]]);
-  return kf(t, [[0, 8], [T.heat, 8], [T.heatEnd, 34, E.p2io], [DUR, 34]]);
+  if (i === 0) return kf(t, [[0, 10], [T.cmpL, 10], [T.cmpL + 2.2, 18, E.sine], [DUR, 18]]);
+  return kf(t, [[0, 10], [T.heat, 10], [T.heatEnd, 46, E.p2io], [DUR, 46]]);
 }
 function drawSplit(t, a) {
   if (a <= 0.001) return;
   const pullK = E.p2io(prog(t, T.pull, T.pullEnd));
   ID(); ctx.save(); ctx.globalAlpha = a;
-  // the pull out: the two panels shrink towards the night phone's screen
-  const dd = drift(t), sc = lerp(1, 0.22, pullK) * (1 + 0.6 * (dd[2] - 1)), cx = lerp(540, 420, pullK) + dd[0], cy = lerp(1045, 1000, pullK) + dd[1];
+  const dd = drift(t), sc = lerp(1, 0.25, pullK) * (1 + 0.6 * (dd[2] - 1)), cx = lerp(540, 540, pullK) + 0.6 * dd[0], cy = lerp(1045, 1045, pullK) + 0.6 * dd[1];
   ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.translate(-540, -1045);
   const lit = [kf(t, [[0, 0.35], [T.cmpL, 1], [T.cmpR, 1], [T.cmpR + 0.3, 0.45]]), kf(t, [[0, 0.35], [T.cmpR - 0.05, 0.35], [T.cmpR + 0.25, 1]])];
   PAN.forEach((P, i) => {
     ctx.save(); rr(P.x, P.y, P.w, P.h, 26); ctx.clip();
     ctx.fillStyle = "#1D2026"; ctx.fillRect(P.x, P.y, P.w, P.h);
-    const ax = P.x + 150, fw = panelFilm(t, i);
+    const ax = P.x + 170, fw = panelFilm(t, i);
     ctx.fillStyle = C.anode; ctx.fillRect(ax, P.y, P.w, P.h);
-    for (let y = P.y + 50; y < P.y + P.h; y += 74) { rr(ax + 16, y - 7, P.w - 170, 14, 7); ctx.fillStyle = C.sheet; ctx.fill(); }
-    ctx.fillStyle = C.film; ctx.fillRect(ax - fw, P.y, fw, P.h);
-    // lithium: left = some; right = full (fills at T.full)
-    const R = mulberry32(90 + i); const nFull = i === 0 ? 6 : Math.round(lerp(6, 24, E.p2io(prog(t, T.full, T.fullEnd))));
-    let n = 0;
-    for (let y = P.y + 87, row = 0; y < P.y + P.h - 20; y += 74, row++) for (let c = 0; c < 4; c++) {
-      const idx = row * 4 + c, show = (idx * 7) % 24 < nFull; R();
-      if (!show) continue; n++;
-      ctx.beginPath(); ctx.arc(ax + 50 + c * 66, y + 2 * Math.sin(t * 2 + idx), 11, 0, TAU); ctx.fillStyle = C.ion; ctx.fill();
+    for (let y = P.y + 50; y < P.y + P.h; y += 74) { const gg = ctx.createLinearGradient(0, y - 8, 0, y + 8); gg.addColorStop(0, C.sheetL); gg.addColorStop(1, C.sheet); rr(ax + 16, y - 8, P.w - 190, 16, 8); ctx.fillStyle = gg; ctx.fill(); }
+    const fg = ctx.createLinearGradient(ax - fw, 0, ax, 0); fg.addColorStop(0, C.filmL); fg.addColorStop(1, C.film); ctx.fillStyle = fg; ctx.fillRect(ax - fw, P.y, fw, P.h);
+    const nFull = i === 0 ? 5 : Math.round(lerp(5, 16, E.p2io(prog(t, T.full, T.fullEnd))));
+    for (let y = P.y + 87, row = 0; y < P.y + P.h - 20; y += 74, row++) for (let c = 0; c < 3; c++) {
+      const idx = row * 3 + c; if ((idx * 7) % 24 >= nFull * 24 / 16) continue;
+      glowBall(ax + 60 + c * 80, y + 2 * Math.sin(t * 2 + idx), 13, 1);
     }
-    // dim the panel that is not being explained
+    // stuck ones in the film: more on the hot, full side
+    const nStuck = i === 0 ? 1 + (t > T.cmpL + 1.2 ? 1 : 0) : 1 + Math.floor(5 * E.p2io(prog(t, T.heat, T.heatEnd)));
+    for (let k = 0; k < nStuck; k++) { const y = P.y + 120 + k * 110; ctx.fillStyle = "#8E877A"; ctx.beginPath(); ctx.arc(ax - fw / 2, y, 13, 0, TAU); ctx.fill(); }
     ctx.fillStyle = `rgba(13,14,17,${0.62 * (1 - lit[i])})`; ctx.fillRect(P.x, P.y, P.w, P.h);
     ctx.restore();
     ctx.strokeStyle = rgba(C.paper, 0.25 + 0.35 * lit[i]); ctx.lineWidth = 3; rr(P.x, P.y, P.w, P.h, 26); ctx.stroke();
   });
-  ctx.restore();
-  // the thermometer on the right panel (screen space, inside the transform)
-  ID(); ctx.save(); ctx.globalAlpha = a; ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.translate(-540, -1045);
   const hk = E.p2io(prog(t, T.heat, T.heatEnd)), lv = 0.18 + 0.72 * hk;
-  thermo(PAN[1].x + 60, PAN[1].y + 110, lv, kf(t, [[0, 0.35], [T.cmpR - 0.05, 0.35], [T.cmpR + 0.25, 1]]) * clamp(prog(t, T.heat - 0.35, T.heat)));
+  thermo(PAN[1].x + 70, PAN[1].y + 110, lv, kf(t, [[0, 0.35], [T.cmpR - 0.05, 0.35], [T.cmpR + 0.25, 1]]) * clamp(prog(t, T.heat - 0.35, T.heat)));
   ctx.restore();
 }
 function thermo(x, y, lv, a = 1, sc = 1) {          // x, y: the top of the tube (screen); lv 0..1
@@ -530,96 +606,69 @@ function thermo(x, y, lv, a = 1, sc = 1) {          // x, y: the top of the tube
   ctx.restore();
 }
 
-// ================================================================ NIGHT (dark): two bedsides
-// room A (38.5–43.25): phone A (dark) on a stand at x 420, the window on the right; it holds at 80%, dawn, it fills, it is taken.
-// room B (43.25–49.85): a whip pan to another bedside: phone B (silver) at x 650, the window on the left, still night.
-const ROOM = { A: { px: 420, wx: 640 }, B: { px: 650, wx: 90 } };
-function nightZ(t) { return 1 + 0.5 * prog(t, T.pull, T.irisOut); }   // a slow push in (never still)
-function nightA(t) { return E.p2io(prog(t, T.pull + 0.2, T.pull + 0.7)); }
-function dawnK(t) { return kf(t, [[0, 0], [T.dawn, 0], [T.fill100End, 1], [DUR, 1]], E.p2io); }
-function whip(t) { return E.p3io(prog(t, T.phone2, T.phone2End)); }    // 0 = room A, 1 = room B
-function roomT(t, xoff) {                                                // the room's transform: push in about its phone, drift, the whip
-  const nd = drift(t), nz = nightZ(t); ID(); ctx.translate(xoff, 0); ctx.translate(540, 990); ctx.scale(nz, nz); ctx.translate(-540, -990); ctx.translate(1.25 * nd[0], 1.25 * nd[1]);
+// ================================================================ NIGHT (dark): one chart of a night's charge (user 11-16: 样张 3)
+const CH = { X0: 170, X1: 960, Y0: 790, Y1: 1290 };
+const yv = (v) => lerp(CH.Y1, CH.Y0, v), xt = (u) => lerp(CH.X0, CH.X1, u);
+const CURVES = {
+  A: { pts: [[0, 0.45], [0.18, 0.8], [0.78, 0.8], [0.9, 1], [1, 1]], u: (t) => kf(t, [[T.pull + 1.0, 0], [T.hold80, 0.18], [T.dawn, 0.78], [T.fill100End, 0.92], [T.fill100End + 0.4, 1]], (x) => x), on: (t) => kf(t, [[T.q14, 1], [T.q14 + 0.4, 0.22]]) },
+  B: { pts: [[0, 0.45], [0.26, 1], [1, 1]], u: (t) => kf(t, [[T.q14 + 0.3, 0], [T.a14 - 0.6, 0.26], [T.a14 + 0.6, 1]], (x) => x), on: (t) => kf(t, [[T.a15, 1], [T.a15 + 0.4, 0.22]]) },
+  C: { pts: [[0, 0.4], [0.2, 0.8], [1, 0.8]], u: (t) => kf(t, [[T.limit, 0], [T.limit + 0.35, 0.2], [T.irisOut + 0.1, 1]], (x) => x), on: () => 1 },
+};
+function curvePts(c, u) {                                  // the polyline up to u (0..1 in time)
+  const P = c.pts, out = [P[0]];
+  for (let i = 1; i < P.length; i++) { if (P[i][0] <= u) out.push(P[i]); else { const a = P[i - 1], b = P[i], k = (u - a[0]) / (b[0] - a[0]); out.push([u, lerp(a[1], b[1], k)]); break; } }
+  return out;
 }
-function drawRoom(t, r, xoff) {
-  const R_ = ROOM[r], dk = r === "A" ? dawnK(t) : 0;
-  ctx.save(); roomT(t, xoff);
-  ctx.fillStyle = mixHex(r === "A" ? C.night : "#191C24", "#2A2730", dk * 0.6); ctx.fillRect(-200, -200, W + 400, H + 400);
-  const wx = R_.wx, wy = 660, ww = 330, wh = 400;
-  const g = ctx.createLinearGradient(0, wy, 0, wy + wh);
-  g.addColorStop(0, mixHex("#26304A", "#3A4A6A", dk)); g.addColorStop(1, mixHex("#33405E", "#E9B48A", dk));
-  rr(wx, wy, ww, wh, 10); ctx.fillStyle = g; ctx.fill();
-  ctx.strokeStyle = "#2E3442"; ctx.lineWidth = 10; ctx.stroke(); line(wx + ww / 2, wy, wx + ww / 2, wy + wh); line(wx, wy + wh / 2, wx + ww, wy + wh / 2);
-  ctx.globalAlpha = 1 - dk; ctx.fillStyle = "#D8D6CE"; ctx.beginPath(); ctx.arc(wx + (r === "A" ? 250 : 80), wy + 90, 26, 0, TAU); ctx.fill();
-  ctx.fillStyle = mixHex("#26304A", "#3A4A6A", dk); ctx.beginPath(); ctx.arc(wx + (r === "A" ? 262 : 92), wy + 82, 22, 0, TAU); ctx.fill();
-  ctx.fillStyle = "#D8D6CE"; [[60, 70], [140, 150], [210, 260], [290, 200], [90, 300]].forEach(([x, y], i) => { ctx.globalAlpha = (1 - dk) * (0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * (2.1 + i * 0.7) + i * 1.9))); ctx.beginPath(); ctx.arc(wx + (r === "A" ? x : ww - x), wy + y, 5, 0, TAU); ctx.fill(); }); ctx.globalAlpha = 1;
-  // the table top (room B: a lighter wood edge), the stand, the cable
-  ctx.fillStyle = r === "A" ? C.table : "#2A2622"; ctx.fillRect(-200, 1255, W + 400, 260); ctx.fillStyle = r === "A" ? "#3E4452" : "#4A4038"; ctx.fillRect(-200, 1255, W + 400, 12);
-  ctx.strokeStyle = "#8D8A83"; ctx.lineWidth = 12; ctx.lineCap = "round";
-  ctx.beginPath(); ctx.moveTo(R_.px, 1215); ctx.bezierCurveTo(R_.px, 1290, R_.px + 140, 1300, 1300, 1300); ctx.stroke();
-  ctx.fillStyle = C.stand; rr(R_.px - 120, 1180, 240, 80, 14); ctx.fill();
-  ctx.restore();
-}
-function phoneKIn(t, r, xoff) {                                          // the phone's key inside its room transform
-  const nd = drift(t), nz = nightZ(t), px = ROOM[r].px;
-  const x = 540 + (px + 1.25 * nd[0] - 540) * nz + xoff, y = 990 + (990 + 1.25 * nd[1] - 990) * nz;
-  return key([0, 0], [x, y], 0.62 * nz);
-}
-function stateA(t) {
-  const lv = kf(t, [[0, 0.62], [T.a13, 0.62], [T.hold80, 0.8], [T.fill100, 0.8], [T.fill100End, 1]], E.p2io);
-  const held = t >= T.hold80 - 0.05 && t < T.fill100;
-  return { on: 1, level: lv, txt: t >= T.hold80 - 0.05 ? (t >= T.fill100End - 0.05 ? "100%" : "80%") : null, charging: !held, pause: held };
-}
-function stateB(t) {
-  if (t < T.a15) {                                                       // no such feature: it fills to the top, then the current stops
-    const lv = kf(t, [[0, 0.9], [T.phone2End, 0.9], [T.flowStop, 1]], E.p2io);
-    return { on: 1, level: lv, txt: t >= T.flowStop - 0.05 ? "100%" : null, charging: t < T.flowStop };
-  }
-  // with a limit: the next charge, up from low, it stops at 80%
-  const lv = kf(t, [[T.limit, 0.42], [T.limitEnd, 0.8]], E.p2io);
-  if (t < T.limit) return { on: 1 - 0.85 * E.p2io(prog(t, T.limit - 0.25, T.limit)), level: 1, txt: "100%", charging: false };
-  return { on: 0.15 + 0.85 * E.p2io(prog(t, T.limit, T.limit + 0.2)), level: lv, txt: t >= T.limitEnd - 0.05 ? "80%" : null, charging: t < T.limitEnd - 0.05, pause: t >= T.limitEnd - 0.05, mark80: true };
-}
-function drawNightScene(t) {
-  const w = whip(t), xa = -W * 1.1 * w, xb = W * 1.1 * (1 - w);
-  if (w < 0.999) {
-    drawRoom(t, "A", xa);
-    const K = phoneKIn(t, "A", xa), go = E.p2in(prog(t, T.grab + 0.25, T.liftEnd));
-    const K1 = { A: K.A, B: [K.B[0] + 900 * go, K.B[1] - 60 * go] };
-    if (t < T.liftEnd + 0.3) drawPhone(t, K1, { screen: stateA(t), shadow: 0 });
-    if (t >= T.grab - 0.3 && t < T.liftEnd + 0.3) handGrab(K1, E.p3out(prog(t, T.grab - 0.3, T.grab + 0.15)), 1);
-  }
-  if (w > 0.001) {
-    drawRoom(t, "B", xb);
-    drawPhone(t, phoneKIn(t, "B", xb), { screen: stateB(t), shadow: 0, body: "#C9CCD2", edge: "#E2E4E8" });
-    flowArrows(t, win(t, T.phone2End - 0.1, T.flowStop + 0.5, 0.3, 0.1), xb);
-    limitCard(t, xb);
-  }
-}
-// the flow along room B's cable: little arrows moving into the phone; they stop when it is full
-function flowArrows(t, a, xoff) {
+function chartK(t) { return E.p2io(prog(t, T.pull + 0.3, T.pull + 1.0)); }
+function drawChart(t, a = 1) {
   if (a <= 0.01) return;
-  const stopK = E.p2io(prog(t, T.flowStop - 0.1, T.flowStop + 0.3));
-  ctx.save(); roomT(t, xoff); ctx.globalAlpha = a * (1 - stopK);
-  const px = ROOM.B.px, path = (u) => { const P0 = [1300, 1300], P1 = [px + 140, 1300], P2 = [px, 1290], P3 = [px, 1215]; const v = 1 - u; return [0, 1].map((i) => v * v * v * P0[i] + 3 * v * v * u * P1[i] + 3 * v * u * u * P2[i] + u * u * u * P3[i]); };
-  for (let i = 0; i < 4; i++) {
-    const u = ((t - T.q14) * 0.55 + i / 4) % 1, p = path(u), q = path(Math.min(1, u + 0.02));
-    const ang = Math.atan2(q[1] - p[1], q[0] - p[0]);
-    ctx.save(); ctx.translate(p[0], p[1] - 22); ctx.rotate(ang); ctx.fillStyle = C.acc; ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-10, -11); ctx.lineTo(-10, 11); ctx.closePath(); ctx.fill(); ctx.restore();
+  const d = drift(t), z = 1 + 0.16 * prog(t, T.pull, T.irisOut) + 0.1 * E.sine(prog(t, T.pull + 0.8, T.a13 + 0.6));   // a lean in while the night starts
+  ID(); const bg = ctx.createRadialGradient(540, 1000, 100, 540, 1000, 1100); bg.addColorStop(0, "#21242B"); bg.addColorStop(1, "#131418");
+  ctx.save(); ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = a;   // the ground is opaque at once (no grey veil); the chart fades in
+  ctx.translate(540 + 1.1 * d[0], 1040 + 0.9 * d[1]); ctx.scale(z, z); ctx.translate(-540, -1040);
+  const ax = E.p3out(prog(t, T.pull + 0.4, T.pull + 1.1));
+  rr(80, 700, 920, 720, 30); ctx.fillStyle = "rgba(255,255,255,0.035)"; ctx.fill();
+  ctx.strokeStyle = "rgba(241,240,236,0.4)"; ctx.lineWidth = 3; line(CH.X0, CH.Y1, CH.X0, lerp(CH.Y1, CH.Y0 - 40, ax)); line(CH.X0, CH.Y1, lerp(CH.X0, CH.X1, ax), CH.Y1);
+  ctx.setLineDash([10, 10]); ctx.strokeStyle = `rgba(241,240,236,${0.28 * ax})`; line(CH.X0, yv(1), CH.X1, yv(1)); line(CH.X0, yv(0.8), CH.X1, yv(0.8)); ctx.setLineDash([]);
+  ctx.globalAlpha = a * ax;
+  ctx.font = `700 44px ${UI}`; ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillStyle = "rgba(241,240,236,0.85)"; ctx.fillText("100%", CH.X0 - 16, yv(1)); ctx.fillText("80%", CH.X0 - 16, yv(0.8));
+  // night → wake: the moon and the sun (the sun glows at dawn)
+  const dawn = E.p2io(prog(t, T.dawn, T.fill100End));
+  ctx.fillStyle = "#D8D6CE"; ctx.beginPath(); ctx.arc(CH.X0 + 30, CH.Y1 + 64, 20, 0, TAU); ctx.fill(); ctx.fillStyle = "#1E2025"; ctx.beginPath(); ctx.arc(CH.X0 + 40, CH.Y1 + 57, 17, 0, TAU); ctx.fill();
+  ctx.textAlign = "left"; ctx.fillStyle = "rgba(241,240,236,0.85)"; ctx.fillText(COPY.night, CH.X0 + 64, CH.Y1 + 66);
+  const sx = CH.X1 - 150, sy = CH.Y1 + 64;
+  if (dawn > 0.01 && t < T.q14 + 0.5) { const h = ctx.createRadialGradient(sx, sy, 0, sx, sy, 110); h.addColorStop(0, `rgba(242,194,122,${0.5 * dawn})`); h.addColorStop(1, "rgba(242,194,122,0)"); ctx.fillStyle = h; ctx.beginPath(); ctx.arc(sx, sy, 110, 0, TAU); ctx.fill(); }
+  ctx.fillStyle = "#F2C27A"; ctx.beginPath(); ctx.arc(sx, sy, 18, 0, TAU); ctx.fill(); ctx.strokeStyle = "#F2C27A"; ctx.lineWidth = 4; for (let i = 0; i < 8; i++) { const an = i * TAU / 8 + t * 0.4; line(sx + Math.cos(an) * 26, sy + Math.sin(an) * 26, sx + Math.cos(an) * 34, sy + Math.sin(an) * 34); }
+  ctx.fillStyle = "rgba(241,240,236,0.85)"; ctx.fillText(COPY.wake, sx + 44, sy + 2);
+  ctx.globalAlpha = a;
+  // the curves, one bright at a time; a glowing head where each one is drawing
+  for (const id of ["A", "B", "C"]) {
+    const c = CURVES[id], u = c.u(t); if (u <= 0.001) continue;
+    const on = c.on(t), P = curvePts(c, u);
+    ctx.strokeStyle = rgba(C.paper, 0.2 + 0.8 * on); ctx.lineWidth = 6 + 4 * on; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    ctx.beginPath(); P.forEach(([uu, vv], i) => (i ? ctx.lineTo(xt(uu), yv(vv)) : ctx.moveTo(xt(uu), yv(vv)))); ctx.stroke();
+    const hd = P[P.length - 1]; if (on > 0.5) glowBall(xt(hd[0]), yv(hd[1]), 15 + 4 * Math.sin(t * 5), on);
   }
-  ctx.restore();
-}
-// the settings card in room B: 充电上限 → on; then 下一次充电
-function limitCard(t, xoff) {
-  const a = win(t, T.a15, T.irisOutEnd, 0.35, 0.1); if (a <= 0.01) return;
-  const k = E.p2io(prog(t, T.toggle, T.toggleEnd));
-  ctx.save(); ID(); { const nd = drift(t); ctx.translate(xoff + 0.6 * nd[0], 0.6 * nd[1]); } ctx.globalAlpha = a;   // screen space (not pushed out of frame)
-  const x = 70, y = 1080 + 30 * (1 - E.p3out(prog(t, T.a15, T.a15 + 0.4))), w = 380, h = 140;
-  rr(x, y, w, h, 28); ctx.fillStyle = "#262A32"; ctx.fill(); ctx.strokeStyle = "#3A3F49"; ctx.lineWidth = 3; ctx.stroke();
-  ctx.font = `700 46px ${UI}`; ctx.fillStyle = C.paper; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(COPY.limit, x + 30, y + h / 2);
-  const sx = x + w - 130, sy = y + h / 2 - 30;
-  rr(sx, sy, 100, 60, 30); ctx.fillStyle = mixHex("#4A4F59", C.acc, k); ctx.fill();
-  ctx.beginPath(); ctx.arc(sx + 30 + 40 * k, sy + 30, 24, 0, TAU); ctx.fillStyle = C.paper; ctx.fill();
+  // A: 80% held, the dawn fill; B: the flat top = 一直满着; C: the limit
+  if (t >= T.hold80 && t < T.q14) pill(COPY.opt, 540, yv(0.8) + 76, 44, t, T.hold80, T.q14, { align: "center" });
+  if (t >= T.dawn + 0.2 && t < T.q14) pill(COPY.dawn, xt(0.86), yv(1) - 48, 44, t, T.dawn + 0.2, T.q14, { align: "center" });
+  const bt = E.p3out(prog(t, T.a14, T.a14 + 0.5)), ba = win(t, T.a14, T.a15 + 0.3, 0.3, 0.3);
+  if (ba > 0.01) {
+    const x0 = xt(0.26), x1 = xt(Math.max(0.26, CURVES.B.u(t)));
+    ctx.save(); ctx.globalAlpha = a * ba; ctx.fillStyle = "rgba(255,74,28,0.22)"; ctx.fillRect(x0, yv(1) - 26, (x1 - x0) * bt, 52); ctx.strokeStyle = C.acc; ctx.lineWidth = 10; line(x0, yv(1), x0 + (x1 - x0) * bt, yv(1)); ctx.restore();
+    ctx.save(); ctx.globalAlpha = a * ba; ctx.font = `700 48px ${UI}`; ctx.fillStyle = C.acc; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.fillText(COPY.full, (x0 + x1) / 2, yv(1) - 48); ctx.restore();
+  }
+  if (t >= T.flowStop && t < T.a15 + 0.3) { pill(COPY.stopped, xt(0.52), yv(0.42), 44, t, T.flowStop, T.a15 + 0.3, { align: "center" }); ctx.save(); ctx.globalAlpha = a * win(t, T.flowStop, T.a15 + 0.3, 0.3, 0.3); arrowS(xt(0.4), yv(0.42) - 62, xt(0.3), yv(1) + 26, "rgba(241,240,236,0.6)", 4, 16, 0, E.p3out(prog(t, T.flowStop, T.flowStop + 0.4))); ctx.restore(); }
+  if (t >= T.a14 && t < T.a15) pill(COPY.note, 990, 760, 44, t, T.a14, T.a15, { align: "right" });
+  // the settings card (C)
+  const ca = win(t, T.a15, T.irisOutEnd, 0.35, 0.1);
+  if (ca > 0.01) {
+    const k = E.p2io(prog(t, T.toggle, T.toggleEnd)), x = 560, y = 1120, w = 380, h = 120;
+    ctx.save(); ctx.globalAlpha = a * ca; rr(x, y, w, h, 28); ctx.fillStyle = "#262A32"; ctx.fill(); ctx.strokeStyle = "#3A3F49"; ctx.lineWidth = 3; ctx.stroke();
+    ctx.font = `700 46px ${UI}`; ctx.fillStyle = C.paper; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(COPY.limit, x + 30, y + h / 2);
+    const sx2 = x + w - 130, sy2 = y + h / 2 - 30; rr(sx2, sy2, 100, 60, 30); ctx.fillStyle = mixHex("#4A4F59", C.acc, k); ctx.fill();
+    ctx.beginPath(); ctx.arc(sx2 + 30 + 40 * k, sy2 + 30, 24, 0, TAU); ctx.fillStyle = C.paper; ctx.fill(); ctx.restore();
+  }
   ctx.restore();
 }
 
@@ -661,58 +710,6 @@ function drawTip(t) {
   // the thermometer, top right of the phone
   const hot = E.p2io(prog(t, T.hot, T.hotEnd)), cool = E.p2io(prog(t, T.cool, T.coolEnd));
   ID(); thermo(80, 640, 0.2 + 0.7 * hot - 0.62 * cool, E.p3out(prog(t, T.hot - 0.3, T.hot)) * (1 - prog(t, T.end, T.end + 0.3)), 0.9);
-}
-
-// ================================================================ overlays (screen space) on the cell
-const BARP = { x: 640, y: 610, w: 330, h: 50 };
-function barK(t) { return win(t, T.barOn, T.split + 0.4, 0.3, 0.35); }
-function drawBar(t, a) {
-  if (a <= 0.01) return;
-  const cap = kf(t, [[0, 1], [T.shrink, 1], [T.shrinkEnd, 0.82]], E.p2io);
-  const s = charge(t) * cap;
-  ID(); ctx.save(); ctx.globalAlpha = a;
-  rr(BARP.x - 130, BARP.y - 18, BARP.w + 190, BARP.h + 36, 22); ctx.fillStyle = "rgba(23,25,28,0.9)"; ctx.fill();
-  ctx.font = `700 44px ${UI}`; ctx.fillStyle = C.paper; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(COPY.bar, BARP.x - 110, BARP.y + BARP.h / 2 + 2);
-  // the lost part of the outline: a dashed grey end
-  if (cap < 0.999) { ctx.strokeStyle = rgba(C.paper, 0.35); ctx.lineWidth = 3; ctx.setLineDash([10, 9]); rr(BARP.x, BARP.y, BARP.w, BARP.h, 12); ctx.stroke(); ctx.setLineDash([]); }
-  ctx.strokeStyle = C.paper; ctx.lineWidth = 5; rr(BARP.x, BARP.y, BARP.w * cap, BARP.h, 12); ctx.stroke();
-  rr(BARP.x + 8, BARP.y + 8, Math.max(0, (BARP.w * cap - 16) * s), BARP.h - 16, 7); ctx.fillStyle = C.paper; ctx.fill();
-  ctx.restore();
-  // 示意: the first time it appears
-  const bk = win(t, T.barOn, T.chg1 + 0.9, 0.3, 0.3); obox(BARP.x - 142, BARP.y - 30, BARP.w + 214, BARP.h + 60, E.p3out(prog(t, T.barOn, T.barOn + 0.3)), bk * a, 26);
-  // the lost capacity: orange box around the dashed end
-  const lk = win(t, T.shrink + 0.3, T.q11, 0.3, 0.3); obox(BARP.x + BARP.w * 0.82 - 8, BARP.y - 12, BARP.w * 0.18 + 20, BARP.h + 24, E.p3out(prog(t, T.shrink + 0.3, T.shrink + 0.6)), lk * a, 12, 4);
-}
-const RINGP = { x: 200, y: 700, r: 52 };
-function ringK(t) { return win(t, T.ringOn, T.q8 + 0.3, 0.3, 0.35); }
-function drawRing(t, a) {
-  if (a <= 0.01) return;
-  const v = ringVal(t);
-  ID(); ctx.save(); ctx.globalAlpha = a;
-  rr(RINGP.x - 90, RINGP.y - 82, 330, 164, 30); ctx.fillStyle = "rgba(23,25,28,0.9)"; ctx.fill();
-  ctx.strokeStyle = rgba(C.paper, 0.22); ctx.lineWidth = 12; ctx.beginPath(); ctx.arc(RINGP.x, RINGP.y, RINGP.r, 0, TAU); ctx.stroke();
-  ctx.strokeStyle = C.acc; ctx.lineCap = "round"; ctx.beginPath(); ctx.arc(RINGP.x, RINGP.y, RINGP.r, -Math.PI / 2, -Math.PI / 2 + TAU * v); if (v > 0.002) ctx.stroke();
-  ctx.font = `700 44px ${UI}`; ctx.fillStyle = C.paper; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(COPY.ring, RINGP.x + 82, RINGP.y + 2);
-  // the 咔 when it closes: a short pop
-  for (const tk of [T.disREnd, T.half2End]) { const u = t - tk; if (u > 0 && u < 0.4) { ctx.strokeStyle = rgba(C.acc, 1 - u / 0.4); ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(RINGP.x, RINGP.y, RINGP.r + 12 + 50 * E.p3out(u / 0.4), 0, TAU); ctx.stroke(); } }
-  ctx.restore();
-  const bk = win(t, T.ringOn, T.disR + 0.4, 0.3, 0.3); obox(RINGP.x - 102, RINGP.y - 94, 354, 188, E.p3out(prog(t, T.ringOn, T.ringOn + 0.3)), bk * a, 34);
-}
-function cellLabels(t, M) {
-  // the two sheets, named (small text), with leaders; first the spot (the rest dim)
-  const lc = eS(M, (CELL.c0 + CELL.c1) / 2, 1180), la = eS(M, (CELL.a0 + CELL.a1) / 2, 1180);
-  const ka = win(t, T.tagCath, T.q4 + 0.2, 0.3, 0.3), kb = win(t, T.tagAnode, T.q4 + 0.2, 0.3, 0.3);
-  if (ka > 0) { pill(COPY.cath, lc[0], 1300, 46, t, T.tagCath, T.q4 + 0.2, { align: "center" }); obox(eS(M, CELL.c0, 0)[0] - 6, 700, (CELL.c1 - CELL.c0) * M[0] + 12, 520, E.p3out(prog(t, T.tagCath, T.tagCath + 0.35)), ka, 18, 4); }
-  if (kb > 0) { pill(COPY.anode, la[0], 1300, 46, t, T.tagAnode, T.q4 + 0.2, { align: "center" }); obox(eS(M, CELL.a0, 0)[0] - 6, 700, (CELL.a1 - CELL.a0) * M[0] + 12, 520, E.p3out(prog(t, T.tagAnode, T.tagAnode + 0.35)), kb, 18, 4); }
-  // the SEI film: an orange box on the anode's face + its name
-  const fk = win(t, T.film, T.a8 + 0.25, 0.3, 0.3);
-  if (fk > 0) { const f0 = eS(M, CELL.a0 - filmW(t), 820), f1 = eS(M, CELL.a0, 1260); obox(f0[0] - 14, f0[1], f1[0] - f0[0] + 28, f1[1] - f0[1], E.p3out(prog(t, T.film, T.film + 0.35)), fk, 12, 4); pill(COPY.sei, f0[0] - 30, 1340, 46, t, T.film, T.a8 + 0.25, { align: "right" }); }
-  // the stuck ones: orange rings (from T.stick, they stay ringed until the zoom out)
-  for (const o of IONS) if (o.stuck) {
-    const k = E.p3out(prog(t, T.stick + 0.45, T.stick + 0.8)), a = win(t, T.stick + 0.45, T.zoomOutEnd, 0.2, 0.3);
-    if (a > 0) { const p = ionPos(o, t, charge(t)), q = eS(M, p[0], p[1]); oring(q[0], q[1], 26 * M[0], k, a, 4); }
-  }
-  if (t >= T.a8 && t < T.a10) pill(COPY.note, 980, 1400, 44, t, T.thick, T.a10, { align: "right" });
 }
 
 // ================================================================ light/dark: the caption band follows the picture
@@ -856,23 +853,19 @@ function frame(t) {
     const M = cellM(t), sk = splitK(t);
     if (t < T.splitEnd + 0.01) drawCell(t, M, 1, 1);
     if (sk > 0) { if (t >= T.split) { ID(); ctx.fillStyle = rgba(C.dark, sk); ctx.fillRect(0, 0, W, H); } drawSplit(t, sk); }
-    if (t < T.split + 0.4) { drawBar(t, barK(t)); drawRing(t, ringK(t)); cellLabels(t, M); }
+    if (t < T.split + 0.4) { drawGauge(t, gaugeK(t)); cellLabels(t, M); }
     if (t >= T.split && t < T.pull + 0.2) {
       const P0 = PAN[0], P1 = PAN[1];
       pill(COPY.cmpL, P0.x + P0.w / 2, P0.y - 30, 46, t, T.cmpL - 0.1, T.pull, { align: "center" });
       pill(COPY.cmpR, P1.x + P1.w / 2, P1.y - 30, 46, t, T.cmpR - 0.1, T.pull, { align: "center", edge: t >= T.cmpR && t < T.cmpR + 1.2 });
     }
-    if (t >= T.pull) { const na = nightA(t); ctx.save(); ctx.globalAlpha = na; drawNightScene(t); ctx.restore(); drawSplit(t, splitK(t)); }
+    if (t >= T.pull) { drawChart(t, chartK(t)); drawSplit(t, splitK(t)); }
   } else if (t < T.irisOut) {
-    drawNightScene(t);
-    pill(COPY.opt, 420, 1395, 44, t, T.hold80, T.q14, { align: "center" });
-    pill(COPY.dawn, 805, 1120, 44, t, T.dawn + 0.2, T.q14 - 0.1, { align: "center" });
-    if (t >= T.limit - 0.1) pill(COPY.next, 650, 1395, 44, t, T.limit - 0.1, T.irisOut + 0.2, { align: "center" });
-    if (t >= T.a14) pill(COPY.note, 980, 1400, 44, t, T.a14, T.a15, { align: "right" });
+    drawChart(t, 1);
   } else if (t < T.irisOutEnd) {
     // dark (night) → light (the first shot): a growing circle, both worlds fully opaque
     const k = E.p2io(prog(t, T.irisOut, T.irisOutEnd)), R = 6 + 2300 * k * k * (3 - 2 * k);
-    drawNightScene(t);
+    drawChart(t, 1);
     ctx.save(); const P = new Path2D(); P.arc(IRC[0], IRC[1], R, 0, TAU); ID(); ctx.clip(P); { const d = drift(t); drawPhoneScene(t, key([0, 30], [540 + 0.95 * d[0], PHY + 0.95 * d[1]], PHS * d[2])); } ctx.restore();
     fl = 1 - k;
   } else if (t < T.tip) {
@@ -894,7 +887,7 @@ function overlay(t) {
   if (t < T.dive + 0.5) drawRow(t);                                   // above the caption scrim
   if (fl >= 0) textBand(t, fl);
   if (t >= T.hot && t < T.end + 0.2) label(COPY.hot, 80, 622, 46, C.ink, t, T.hot, T.end + 0.2, { align: "center" });   // above the scrim
-  if (t >= T.a7 + 0.3 && t < T.q8) pill(COPY.term, 980, 1400, 44, t, T.term, T.q8, { align: "right" });
+  if (t >= T.a7 + 0.3 && t < T.q8) pill(COPY.term, 540, 1440, 44, t, T.term, T.q8, { align: "center" });
   if (t >= T.end) { ID(); ctx.fillStyle = C.ground; ctx.globalAlpha = E.p2io(prog(t, T.end, T.end + 0.3)); ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; endCard(t); }
 }
 
