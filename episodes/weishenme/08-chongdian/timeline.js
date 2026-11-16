@@ -35,7 +35,7 @@
     q8: 24.25, chgA: 24.35, chgAEnd: 25.0, zoomA: 24.25, zoomAEnd: 25.5, film: 25.25,
     a8: 26.5, thick: 26.6, thickEnd: 27.5, stick: 27.75, stickEnd: 28.6,
     q9: 29.5, dis9: 29.75, dis9End: 31.55,
-    a10: 31.75, zoomOut: 31.75, zoomOutEnd: 32.4, chgS: 32.45, chgSEnd: 32.95, shrink: 33.0, shrinkEnd: 33.6,   // fill it up again, then the outline shrinks (满格也装得少了)
+    a10: 31.75, zoomOut: 30.0, zoomOutEnd: 30.8, chgS: 32.45, chgSEnd: 32.95, shrink: 33.0, shrinkEnd: 33.6,   // pull back while they go home (the stuck ones are seen staying); fill it up again, then the outline shrinks
     q11: 34.0, split: 34.25, splitEnd: 35.0,
     a12: 36.0, cmpL: 36.15, cmpR: 36.9, full: 36.9, fullEnd: 37.4, heat: 37.45, heatEnd: 38.25,
     // 38.5–49.75 · night
@@ -77,11 +77,11 @@
     fin: ["想充就充，", "别让它[又满又热]"],
     tipTag: "小提示：", tip: ["边充边打游戏、", "闷着充，", "最容易[发烫]"],
     // small text (terms and notes only as small text)
-    cath: "正极", anode: "负极 · 石墨", bar: "电量", ring: "循环", term: "这叫一次充电循环", sei: "SEI 膜", note: "示意",
+    cath: "正极", anode: "负极 · 石墨", bar: "现在的电量", ring: "循环", term: "这叫一次充电循环", sei: "SEI 膜", note: "示意",
     cmpL: "不满、不热", cmpR: "满 + 热", hot: "热", opt: "优化电池充电 · 学会你的作息后", dawn: "快起床时再充满",
     limit: "充电上限", pause: "暂停", next: "下一次充电",
     used: "累计用掉的电", half1: "第一次用掉一半", half2: "第二次用掉一半", elec: "电子", stuck: "被粘住，搬不回去", less: "满格也少一截",
-    night: "夜里", wake: "起床", full: "一直满着", stopped: "充满后不再往里充", gap: "空出来的位置", optTag: "先停 80%，起床前再充满", limTag: "上限：一直停在 80%", li: "锂",
+    night: "夜里", wake: "起床", full: "一直满着", stopped: "充满后不再往里充", gap: "空出来的位置", optTag: "起床前充满", limTag: "一直停在 80%", li: "锂",
     end: ["你每天都在用，", "但你不知道", "它[怎么工作]"], epNum: "EP.08", epName: "充电",
   };
   const S16 = BEAT / 4;
