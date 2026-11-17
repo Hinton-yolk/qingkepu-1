@@ -211,7 +211,7 @@ function plugOut(t) {
   let prev = 1; for (const [a, k] of ev) { if (a >= tl) break; prev = k; }
   return lerp(prev, v, E.p3io(prog(t, tl, tl + 0.2)));
 }
-const PLUG = { tip: 26, body: 140, th: 116, boot: 44 };   // the plug, horizontal: metal tip, overmould (thick enough for the fingers), boot
+const PLUG = { tip: 26, body: 150, th: 142, boot: 44 };   // thick enough to sit right between index and thumb   // the plug, horizontal: metal tip, overmould (thick enough for the fingers), boot
 function plugX(out) { return PORT[0] - PLUG.tip + 6 + out * 60; }   // the metal tip's left end (local)
 function drawPlugAndCable(t, K, out, a = 1) {
   setK(K); ctx.save(); ctx.globalAlpha = a;
@@ -281,9 +281,9 @@ const HPTS = (() => {
   return i0 >= 0 && i1 > i0 ? [...Q.slice(0, i0), ...web, ...Q.slice(i1 + 1)] : Q;
 })();
 const HDET = {
-  nails: [[1286, 56, 20, 11, -0.05], [1262, 266, 22, 18, 0.1], [1424, 424, 12, 8, 0.3], [1430, 470, 11, 7, 0.2]],   // small and pale, near the tips
-  tips: [[1268, 62, 30], [1258, 268, 34], [1404, 432, 22], [1408, 476, 20]],                                         // warmer fingertips
-  touch: [[[1392, 448], [1420, 452], [1448, 458]], [[1398, 494], [1424, 498], [1446, 503]], [[1380, 360], [1404, 368], [1428, 374]]],   // where fingers touch: short creases from the front back
+  nails: [[1286, 56, 20, 11, -0.05], [1262, 266, 22, 18, 0.1]],   // small and pale, near the tips
+  tips: [[1268, 62, 30], [1258, 268, 34]],                                         // warmer fingertips
+  touch: [[[1384, 446], [1424, 452], [1468, 462]], [[1390, 492], [1426, 498], [1462, 508]], [[1380, 360], [1412, 370], [1446, 380]]],   // where fingers touch: short creases from the front back
   knuckle: [[[1452, 70], [1458, 88]]],
 };
 function smoothPath(P) {                                 // a closed Catmull-Rom-like curve through the points (quadratics through midpoints)
@@ -306,13 +306,13 @@ function drawHand(p, s, mirror = 1, a = 1, ang = 0) {
   ctx.restore();
   // the few lines: where fingers touch, one knuckle
   ctx.lineCap = "round";
-  for (const c of HDET.touch) { const g = ctx.createLinearGradient(c[0][0], c[0][1], c[2][0], c[2][1]); g.addColorStop(0, "rgba(110,62,30,0)"); g.addColorStop(0.45, "rgba(110,62,30,0.5)"); g.addColorStop(1, "rgba(110,62,30,0.7)"); ctx.strokeStyle = g; ctx.lineWidth = 1.6 / s; ctx.beginPath(); ctx.moveTo(c[0][0], c[0][1]); ctx.quadraticCurveTo(c[1][0], c[1][1], c[2][0], c[2][1]); ctx.stroke(); }
+  for (const c of HDET.touch) { const g = ctx.createLinearGradient(c[0][0], c[0][1], c[2][0], c[2][1]); g.addColorStop(0, "rgba(60,34,16,0.75)"); g.addColorStop(0.6, "rgba(90,50,24,0.55)"); g.addColorStop(1, "rgba(110,62,30,0)"); ctx.strokeStyle = g; ctx.lineWidth = 2.2 / s; ctx.beginPath(); ctx.moveTo(c[0][0], c[0][1]); ctx.quadraticCurveTo(c[1][0], c[1][1], c[2][0], c[2][1]); ctx.stroke(); }
   for (const c of HDET.knuckle) { ctx.strokeStyle = "rgba(20,20,20,0.25)"; ctx.lineWidth = 1.4 / s; ctx.beginPath(); ctx.moveTo(c[0][0], c[0][1]); ctx.lineTo(c[1][0], c[1][1]); ctx.stroke(); }
   // the nails: small, pale, with a thin edge and one highlight
   for (const [cx, cy, ra, rb, an] of HDET.nails) {
     ctx.save(); ctx.translate(cx, cy); ctx.rotate(an);
-    ctx.beginPath(); ctx.ellipse(0, 0, ra, rb, 0, 0, TAU); ctx.fillStyle = C.nail; ctx.fill(); ctx.strokeStyle = "rgba(154,106,78,0.55)"; ctx.lineWidth = 1.2 / s; ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(-ra * 0.2, -rb * 0.3, ra * 0.35, rb * 0.25, 0, 0, TAU); ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.fill(); ctx.restore();
+    ctx.beginPath(); ctx.ellipse(0, 0, ra, rb, 0, 0, TAU); ctx.fillStyle = "#F0D3C2"; ctx.fill(); ctx.strokeStyle = "rgba(154,106,78,0.55)"; ctx.lineWidth = 1.2 / s; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-ra * 0.2, -rb * 0.3, ra * 0.35, rb * 0.22, 0, 0, TAU); ctx.fillStyle = "rgba(255,255,255,0.32)"; ctx.fill(); ctx.restore();
   }
   // the ink outline (as EP.05)
   smoothPath(HPTS); ctx.lineJoin = "round"; ctx.strokeStyle = C.ink; ctx.lineWidth = 2.8 / s; ctx.stroke();
@@ -320,8 +320,8 @@ function drawHand(p, s, mirror = 1, a = 1, ang = 0) {
 }
 // the plug hand: the pinch on the plug's body
 function handPinch(K, out, a = 1) {
-  const x = plugX(out) + PLUG.tip + PLUG.body * 0.45, q = toS(K, [x, 0]);
-  drawHand([q[0], q[1] + 4 * K.A], 1.02 * K.A, 1, a);
+  const s_ = PLUG.th * K.A / 150, x = plugX(out) + PLUG.tip + PLUG.body * 0.3, q = toS(K, [x, 0]);   // the gap between index pad (y 88) and thumb pad (y 238) = the plug's thickness
+  drawHand([q[0] + (HPINCH[0] - 1258) * s_, q[1] + (HPINCH[1] - 163) * s_], s_, 1, a);   // fingertips on the plug's body, clear of the phone   // the fingertips on the plug's body, the gap centred on it
 }
 
 // ---------------------------------------------------------------- the opening state
@@ -351,7 +351,7 @@ const LSTAR = [-6, 6];
 const K_DIVE_END = key(LSTAR, DIVE_TGT, KF_A);
 const E0 = [CELL.sep, 825];
 function eToLocal(e) { return [LSTAR[0] + (e[0] - E0[0]) / KF_A, LSTAR[1] + (e[1] - E0[1]) / KF_A]; }
-const PHS = 1.0, PHY = 960, PHX = 470;                           // the light shots: the phone's scale and height (hand, plug and cable stay above y 1450)
+const PHS = 1.0, PHY = 960, PHX = 390;   // the phone a bit left: more of the hand on screen                           // the light shots: the phone's scale and height (hand, plug and cable stay above y 1450)
 function phoneK(t) { const d = drift(t); return key([0, 30], [PHX + 0.95 * d[0], PHY + 0.95 * d[1]], PHS * lerp(1.0, 1.09, prog(t, 0, T.dive)) * d[2]); }
 function camPhone(t) {
   if (t < T.dive) return phoneK(t);
@@ -768,7 +768,7 @@ function drawTip(t) {
   ctx.restore();
   // the two hands (from the photo) hold the phone's ends: thumbs on the screen, index fingers on top
   const ha = E.p2io(prog(t, T.tipIn + 0.15, T.tipInEnd + 0.1));
-  const ex = (PH.w / 2 - 40) * sc;
+  const ex = 230 * sc;   // the phone's short edges sit in the web of each hand
   drawHand([cx + ex, cy + 8], 1.15 * sc, 1, ha); drawHand([cx - ex, cy + 8], 1.15 * sc, -1, ha);
 }
 function tipThermo(t) {                                              // above the caption scrim
