@@ -331,8 +331,8 @@ const LSTAR = [-6, 6];
 const K_DIVE_END = key(LSTAR, DIVE_TGT, KF_A);
 const E0 = [CELL.sep, 825];
 function eToLocal(e) { return [LSTAR[0] + (e[0] - E0[0]) / KF_A, LSTAR[1] + (e[1] - E0[1]) / KF_A]; }
-const PHS = 0.86, PHY = 930;                           // the light shots: the phone's scale and height (hand, plug and cable stay above y 1450)
-function phoneK(t) { const d = drift(t); return key([0, 30], [540 + 0.95 * d[0], PHY + 0.95 * d[1]], PHS * lerp(1.0, 1.09, prog(t, 0, T.dive)) * d[2]); }
+const PHS = 1.0, PHY = 960, PHX = 470;                           // the light shots: the phone's scale and height (hand, plug and cable stay above y 1450)
+function phoneK(t) { const d = drift(t); return key([0, 30], [PHX + 0.95 * d[0], PHY + 0.95 * d[1]], PHS * lerp(1.0, 1.09, prog(t, 0, T.dive)) * d[2]); }
 function camPhone(t) {
   if (t < T.dive) return phoneK(t);
   if (t < T.diveEnd) { const u = prog(t, T.dive, T.diveEnd); return interp(phoneK(T.dive), K_DIVE_END, E.p2io(u)); }
@@ -526,7 +526,7 @@ function drawGauge(t, a) {
   // the meaning, said where it happens
   if (t >= T.disREnd && t < T.q7 + 0.2) pill(COPY.full1, RX + 10, y - 104, 48, t, T.disREnd, T.q7 + 0.2, { align: "center", col: C.acc, edge: true });
   if (t >= T.half1End - 0.1 && t < T.q8) pill(COPY.half1, RX + 10, y + 186, 44, t, T.half1End - 0.1, T.q8, { align: "center", col: C.acc });
-  if (t >= T.back1 && t < T.half2End) pill(COPY.back, x + 10, y - 104, 46, t, T.back1, T.half2End, { align: "center" });
+  if (t >= T.back1 && t < T.half2End) pill(COPY.back, x + 10, y - 104, 52, t, T.back1, T.half2End, { align: "center", edge: true });
   if (t >= T.half2End - 0.1 && t < T.q8) pill(COPY.half2, RX + 10, y + 240, 44, t, T.half2End - 0.1, T.q8, { align: "center", col: C.half2 });
   if (t >= T.term && t < T.q8 + 0.2) pill(COPY.term, RX + 10, y - 104, 48, t, T.term, T.q8 + 0.2, { align: "center", col: C.acc, edge: true });
   // the cell → the battery: the lithium in the graphite is the charge (a thin leader)
@@ -544,8 +544,8 @@ function moveArrow(t, M) {
   const yA = CELL.top + (CELL.bot - CELL.top) * 0.5, xa = CELL.c1 + 10, xb = CELL.a0 - 30;
   const p0 = eS(M, dir > 0 ? xa : xb, yA), p1 = eS(M, dir > 0 ? xb : xa, yA);
   ID(); ctx.save(); ctx.globalAlpha = k * 0.95; arrowS(p0[0], p0[1], p1[0], p1[1], C.acc, 12, 30, 0, E.p3out(prog(t, mv[0] - 0.15, mv[0] + 0.2))); ctx.restore();
-  const lp = eS(M, (CELL.c1 + CELL.a0) / 2, yA);
-  pill(dir > 0 ? COPY.chg : COPY.use, lp[0], lp[1] + 86, 46, t, mv[0] - 0.15, end, { align: "center", col: C.acc, edge: true });
+  const lp = eS(M, (CELL.c1 + CELL.a0) / 2, CELL.bot);
+  pill(dir > 0 ? COPY.chg : COPY.use, lp[0], lp[1] + 58, 46, t, mv[0] - 0.15, end, { align: "center", col: C.acc, edge: true });
 }
 function cellLabels(t, M) {
   moveArrow(t, M);
@@ -649,7 +649,7 @@ function miniAnode(cx, cy, full, filmW_, a, lab, hot) {
   const ax = x0 + 90; ctx.fillStyle = C.anode; ctx.fillRect(ax, y0, w, h);
   for (let y = y0 + 34; y < y0 + h; y += 50) { rr(ax + 12, y - 6, w - 110, 12, 6); ctx.fillStyle = C.sheet; ctx.fill(); }
   const fg = ctx.createLinearGradient(ax - filmW_, 0, ax, 0); fg.addColorStop(0, C.filmL); fg.addColorStop(1, C.film); ctx.fillStyle = fg; ctx.fillRect(ax - filmW_, y0, filmW_, h);
-  let n = 0; for (let y = y0 + 59, r_ = 0; y < y0 + h - 10; y += 50, r_++) for (let c = 0; c < 4; c++) { if ((r_ * 4 + c) % (full ? 1 : 2)) continue; glowBall(ax + 40 + c * 52, y + 2 * Math.sin(t_ * 2 + c), 10, 1); n++; }
+  let n = 0; for (let y = y0 + 59, r_ = 0; y < y0 + h - 10; y += 50, r_++) for (let c = 0; c < 4; c++) { if (!full && c === 3) continue; glowBall(ax + 40 + c * 52, y + 2 * Math.sin(t_ * 2 + c), 10, 1); n++; }
   for (let k = 0; k < (full ? 3 : 1); k++) { ctx.fillStyle = "#E0461E"; ctx.beginPath(); ctx.arc(ax - filmW_ / 2, y0 + 40 + k * 50, 10, 0, TAU); ctx.fill(); }
   ctx.restore();
   if (hot) thermo(x0 + 40, y0 + 18, 0.85, 1, 0.42);
@@ -663,7 +663,7 @@ function drawChart(t, a = 1) {
   const d = drift(t), z = 1 + 0.05 * prog(t, T.pull, T.irisOut) + 0.07 * E.sine(prog(t, T.pull + 0.8, T.a13 + 0.6)) * (1 - E.sine(prog(t, T.a13 + 0.6, T.q14)));   // a lean in while the night starts
   ID(); const bg = ctx.createRadialGradient(540, 1000, 100, 540, 1000, 1100); bg.addColorStop(0, "#21242B"); bg.addColorStop(1, "#131418");
   ctx.save(); ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = a;   // the ground is opaque at once (no grey veil); the chart fades in
-  ctx.translate(540 + 0.8 * d[0], 1040 + 0.9 * d[1]); ctx.scale(z, z); ctx.translate(-540, -1040);
+  ctx.translate(540 + 0.35 * d[0], 1040 + 0.9 * d[1]); ctx.scale(z, z); ctx.translate(-540, -1040);
   const CHM = ctx.getTransform(), cp = (x, y) => { const q = CHM.transformPoint(new DOMPoint(x, y)); return [q.x, q.y]; };   // chart → screen (the pills draw in screen space)
   const cpill = (...args) => { pill(...args); ctx.setTransform(CHM); };   // pill() resets the transform: put the chart's back
   const ax = E.p3out(prog(t, T.pull + 0.4, T.pull + 1.1));
@@ -702,14 +702,14 @@ function drawChart(t, a = 1) {
     ctx.save(); ctx.globalAlpha = a * ba; ctx.fillStyle = "rgba(255,74,28,0.22)"; ctx.fillRect(x0, yv(1) - 26, (x1 - x0) * bt, 52); ctx.strokeStyle = C.acc; ctx.lineWidth = 10; line(x0, yv(1), x0 + (x1 - x0) * bt, yv(1)); ctx.restore();
     ctx.save(); ctx.globalAlpha = a * ba; ctx.font = `700 48px ${UI}`; ctx.fillStyle = C.acc; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.fillText(COPY.full, (x0 + x1) / 2, yv(1) - 48); ctx.restore();
   }
-  if (t >= T.flowStop && t < T.a15 + 0.3) { cpill(COPY.stopped, ...cp(xt(0.3), yv(0.62)), 46, t, T.flowStop, T.a15 + 0.3, { align: "center" }); ctx.save(); ctx.globalAlpha = a * win(t, T.flowStop, T.a15 + 0.3, 0.3, 0.3); arrowS(xt(0.3), yv(0.62) - 58, xt(0.28), yv(1) + 26, "rgba(241,240,236,0.6)", 4, 16, 0, E.p3out(prog(t, T.flowStop, T.flowStop + 0.4))); ctx.restore(); }
+  if (t >= T.flowStop && t < T.a15 + 0.3) { cpill(COPY.stopped, ...cp(xt(0.27), yv(0.2)), 46, t, T.flowStop, T.a15 + 0.3, { align: "center" }); ctx.save(); ctx.globalAlpha = a * win(t, T.flowStop, T.a15 + 0.3, 0.3, 0.3); arrowS(xt(0.2), yv(0.2) - 58, xt(0.255), yv(1) + 26, "rgba(241,240,236,0.6)", 4, 16, 0, E.p3out(prog(t, T.flowStop, T.flowStop + 0.4))); ctx.restore(); }
   if (t >= T.a14 && t < T.a15) cpill(COPY.note, ...cp(990, 745), 44, t, T.a14, T.a15, { align: "right" });
   // why 80% helps: the small window (A: held at 80%; B: kept full; C: the limit)
   t_ = t; const IC = [xt(0.72), yv(0.27)];
   const iA = win(t, T.hold80 + 0.2, T.q14, 0.3, 0.3), iB = win(t, T.a14 + 0.4, T.a15, 0.3, 0.3), iC = win(t, T.limitEnd, T.irisOutEnd, 0.3, 0.1);
-  const lA = miniAnode(IC[0], IC[1], false, 10, iA, null, false); if (lA && t >= T.hold80 + 0.2 && t < T.q14) cpill(COPY.inA, ...cp(lA[0], lA[1]), 46, t, T.hold80 + 0.2, T.q14, { align: "center", col: C.acc, edge: true });
-  const lB = miniAnode(IC[0], IC[1], true, 30, iB, null, false); if (lB && t >= T.a14 + 0.4 && t < T.a15) cpill(COPY.inB, ...cp(lB[0], lB[1]), 46, t, T.a14 + 0.4, T.a15, { align: "center", col: C.acc, edge: true });
-  const lC = miniAnode(IC[0], IC[1], false, 10, iC, null, false); if (lC && t >= T.limitEnd) cpill(COPY.inA, ...cp(lC[0], lC[1]), 46, t, T.limitEnd, T.irisOutEnd, { align: "center", col: C.acc, edge: true });
+  const lA = miniAnode(IC[0], IC[1], false, 10, iA, null, false); if (lA && t >= T.hold80 + 0.2 && t < T.q14) cpill(COPY.inA, ...cp(lA[0], lA[1]), 52, t, T.hold80 + 0.2, T.q14, { align: "center", col: C.acc, edge: true });
+  const lB = miniAnode(IC[0], IC[1], true, 30, iB, null, false); if (lB && t >= T.a14 + 0.4 && t < T.a15) cpill(COPY.inB, ...cp(lB[0], lB[1]), 52, t, T.a14 + 0.4, T.a15, { align: "center", col: C.acc, edge: true });
+  const lC = miniAnode(IC[0], IC[1], false, 10, iC, null, false); 
   // the settings card (C)
   const ca = win(t, T.a15, T.irisOutEnd, 0.35, 0.1);
   if (ca > 0.01) {
@@ -727,7 +727,7 @@ const K_TIP = key([0, 0], [540, 1010], 1.0);
 function tipK(t) { return E.p2io(prog(t, T.tipIn, T.tipInEnd)); }
 function drawTip(t) {
   const k = tipK(t), sc = lerp(PHS, 0.9, k) * (1 + 0.06 * prog(t, T.tipInEnd, T.end));   // a slow push in (never still)
-  const td = drift(t), cx = 540 + 1.0 * td[0], cy = lerp(PHY - 30 * PHS, 870, k) + 1.0 * td[1];
+  const td = drift(t), cx = lerp(PHX, 540, k) + 1.0 * td[0], cy = lerp(PHY - 30 * PHS, 870, k) + 1.0 * td[1];
   ID(); ctx.save(); ctx.translate(cx, cy); ctx.scale(sc, sc);
   const off = E.p2in(prog(t, T.caseOff, T.caseOffEnd)), ca = k * (1 - off);
   if (ca > 0.01) { ctx.save(); ctx.globalAlpha = ca; ctx.translate(0, 300 * off); rr(-PH.w / 2 - 24, -PH.h / 2 - 24, PH.w + 48, PH.h + 48, PH.r + 22); ctx.fillStyle = C.caseC; ctx.fill(); ctx.strokeStyle = C.caseL; ctx.lineWidth = 5; ctx.stroke(); ctx.restore(); }
@@ -754,7 +754,7 @@ function drawTip(t) {
 function tipThermo(t) {                                              // above the caption scrim
   if (t < T.hot - 0.3 || t > T.end + 0.3) return;
   const hot = E.p2io(prog(t, T.hot, T.hotEnd)), cool = E.p2io(prog(t, T.cool, T.coolEnd));
-  ID(); thermo(990, 505, 0.2 + 0.7 * hot - 0.62 * cool, E.p3out(prog(t, T.hot - 0.3, T.hot)) * (1 - prog(t, T.end, T.end + 0.3)), 0.72);
+  ID(); thermo(960, 505, 0.2 + 0.7 * hot - 0.62 * cool, E.p3out(prog(t, T.hot - 0.3, T.hot)) * (1 - prog(t, T.end, T.end + 0.3)), 0.72);
 }
 
 // ================================================================ light/dark: the caption band follows the picture
@@ -898,7 +898,7 @@ function frame(t) {
     const M = cellM(t), sk = splitK(t);
     if (t < T.splitEnd + 0.01) drawCell(t, M, 1, 1);
     const back = Math.max(win(t, T.ringOn, T.q8 - 0.1, 0.35, 0.35), 1.2 * win(t, T.shrink - 0.2, T.split, 0.35, 0.3));   // one thing to look at: the ring; later the shorter battery
-    if (back > 0.01 && t < T.split) { ID(); ctx.fillStyle = `rgba(16,17,20,${0.45 * back})`; ctx.fillRect(0, 0, W, 1110); }
+    if (back > 0.01 && t < T.split) { ID(); ctx.fillStyle = `rgba(16,17,20,${0.6 * back})`; ctx.fillRect(0, 0, W, 1110); }
     if (sk > 0) { if (t >= T.split) { ID(); ctx.fillStyle = rgba(C.dark, sk); ctx.fillRect(0, 0, W, H); } drawSplit(t, sk); }
     if (t < T.split + 0.4) { drawGauge(t, gaugeK(t)); cellLabels(t, M); }
     if (t >= T.split && t < T.pull + 0.2) {
@@ -916,10 +916,10 @@ function frame(t) {
     // dark (night) → light (the first shot): a growing circle, both worlds fully opaque
     const k = E.p2io(prog(t, T.irisOut, T.irisOutEnd)), R = 6 + 2300 * k * k * (3 - 2 * k);
     drawChart(t, 1);
-    ctx.save(); const P = new Path2D(); P.arc(IRC[0], IRC[1], R, 0, TAU); ID(); ctx.clip(P); { const d = drift(t); drawPhoneScene(t, key([0, 30], [540 + 0.95 * d[0], PHY + 0.95 * d[1]], PHS * d[2])); } ctx.restore();
+    ctx.save(); const P = new Path2D(); P.arc(IRC[0], IRC[1], R, 0, TAU); ID(); ctx.clip(P); { const d = drift(t); drawPhoneScene(t, key([0, 30], [PHX + 0.95 * d[0], PHY + 0.95 * d[1]], PHS * d[2])); } ctx.restore();
     fl = 1 - k;
   } else if (t < T.tip) {
-    { const d = drift(t); drawPhoneScene(t, key([0, 30], [540 + 0.95 * d[0], PHY + 0.95 * d[1]], PHS * d[2])); }
+    { const d = drift(t); drawPhoneScene(t, key([0, 30], [PHX + 0.95 * d[0], PHY + 0.95 * d[1]], PHS * d[2])); }
   } else {
     ID(); ctx.fillStyle = C.ground; ctx.fillRect(0, 0, W, H);
     if (t < T.end + 0.05) drawTip(t);
@@ -937,7 +937,7 @@ function overlay(t) {
   if (t < T.dive + 0.5) drawRow(t);                                   // above the caption scrim
   if (fl >= 0) textBand(t, fl);
   tipThermo(t);
-  if (t >= T.hot && t < T.end + 0.2) label(COPY.hot, 1040, 600, 46, C.ink, t, T.hot, T.end + 0.2, { align: "center" });   // above the scrim
+  if (t >= T.hot && t < T.end + 0.2) label(COPY.hot, 1010, 600, 46, C.ink, t, T.hot, T.end + 0.2, { align: "center" });   // above the scrim
   if (t >= T.end) { ID(); ctx.fillStyle = C.ground; ctx.globalAlpha = E.p2io(prog(t, T.end, T.end + 0.3)); ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; endCard(t); }
 }
 
