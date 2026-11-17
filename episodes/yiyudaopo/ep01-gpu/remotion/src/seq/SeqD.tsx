@@ -153,7 +153,7 @@ export const SeqD: React.FC<{from: number}> = ({from}) => {
         {gpuIn > 0 && (
           <AbsoluteFill style={{opacity: gpuIn}}>
             <Big y={200} o={1}>GPU</Big>
-            <Sub y={340} o={1}>更多资源给并行运算：一大批相似运算，一起算</Sub>
+            <Sub y={340} o={1}>更多资源给并行运算</Sub>
             {Array.from({length: 12 * 11}, (_, i) => {
               const c = i % 12, r = Math.floor(i / 12);
               const blk = Math.floor(r / 4) * 3 + Math.floor(c / 4);   // 9 块一组一组地吞

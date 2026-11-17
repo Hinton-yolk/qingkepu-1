@@ -8,7 +8,7 @@ import {Drift, Kicker, Note} from '../lib/ui';
 // 小岛 → 很多块同时在算（分块各自闪）→ 三块：数不同、规则相同 → 排队一块一块 vs 一起算 → GPU 擅长大量并行任务。
 // 着色仍是 terrain.ts 里真实的漫反射（亮度 ∝ n·l），只是向量不再上屏。
 const TRIS = buildScene();
-export const VP = {x: 30, y: 250, w: 1020, h: 1060};
+export const VP = {x: 30, y: 272, w: 1020, h: 1040};
 const COLS = 4, ROWS = 5, TILES = COLS * ROWS;
 const r2 = (x: number) => Math.round(x * 100) / 100;
 
@@ -117,7 +117,7 @@ export const SeqB: React.FC<{from: number}> = ({from}) => {
               const c = i % COLS, r = Math.floor(i / COLS);
               const fl = flash(i);
               return <rect key={i} x={c * (VP.w / COLS) + 3} y={r * (VP.h / ROWS) + 3} width={VP.w / COLS - 6} height={VP.h / ROWS - 6} rx={10}
-                fill="none" stroke={fl > 0.4 ? C.game : 'rgba(255,255,255,0.55)'} strokeWidth={fl > 0.4 ? 5 : 2} opacity={grid * (0.35 + 0.65 * fl) * (1 - ex * 0.7)} />;
+                fill="none" stroke={fl > 0.4 ? C.game : 'rgba(255,255,255,0.8)'} strokeWidth={fl > 0.4 ? 6 : 3} opacity={grid * (0.6 + 0.4 * fl) * (1 - ex * 0.7)} />;
             })}
             {/* B3：三块示例，同一条规则、不同的数 */}
             {ex > 0 && Pp.map((p, k) => {
