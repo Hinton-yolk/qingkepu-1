@@ -4,7 +4,7 @@ import json, os
 HERE = os.path.dirname(os.path.abspath(__file__)); EP = os.path.dirname(HERE)
 T = json.load(open(os.path.join(EP, 'remotion', 'src', 'timing.json')))
 N = {l['id']: l for l in json.load(open(os.path.join(HERE, 'narration.json')))['lines']}
-SEQ = {'A': 'A 钩子', 'B': 'B GPU 为什么而造', 'C': 'C AI 实际在算什么', 'D': 'D 揭晓', 'E': 'E 通往下一个问题'}
+SEQ = {'A': 'A 钩子', 'B': 'B 游戏的计算', 'C': 'C AI 的计算', 'D': 'D 揭晓', 'E': 'E 芯片与下一个问题'}
 ts = lambda s: f'{int(s // 60)}:{s % 60:05.2f}'
 md = [f"# EP01 开头旁白与时间轴（{T['version']}）", '',
       f"- 配音：{'Piper 本地临时 TTS（zh_CN-huayan-medium），不是终版声音' if T['engine'] == 'piper' else T['engine']}",

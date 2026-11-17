@@ -153,7 +153,7 @@ export const SeqB: React.FC<{from: number}> = ({from}) => {
           </div>
         </div>
       </Drift>
-      <Note top={1490} opacity={prog(f, b3, 10) * 0.9}>示意：每块按同一公式算亮度（漫反射）；真实渲染步骤更多，有些要等前一步</Note>
+      <Note top={1490} opacity={prog(f, b3, 10) * 0.9}>示意：同一公式算亮度（漫反射）；真实渲染步骤更多</Note>
     </AbsoluteFill>
   );
 };

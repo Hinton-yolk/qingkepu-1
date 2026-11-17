@@ -69,7 +69,7 @@ export const SeqA: React.FC<{from: number}> = ({from}) => {
         <Plate name="DC" rate={dcRate} />
         <AbsoluteFill style={{background: 'linear-gradient(180deg, rgba(8,9,11,0.75) 0%, rgba(8,9,11,0.1) 36%, rgba(8,9,11,0) 70%, rgba(8,9,11,0.55) 100%)'}} />
         <Tag x={540} y={1280} text="数据中心里，一排排 GPU 服务器" anchor="center" size={44} opacity={prog(f, T_DC + sec(0.6), 10)} />
-        <Note top={1490} opacity={prog(f, T_DC + sec(0.6), 10) * 0.85}>示意场景；通用 AI 加速器模组，非特定型号</Note>
+        <Note top={1490} opacity={prog(f, T_DC + sec(0.6), 10) * 0.85}>示意场景</Note>
       </AbsoluteFill>
     </Sequence>
   );

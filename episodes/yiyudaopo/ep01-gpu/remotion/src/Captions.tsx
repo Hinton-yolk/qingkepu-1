@@ -9,12 +9,14 @@ type Chunk = {text: string; a: number; b: number};
 // 显示宽度：汉字算 1，拉丁字母 / 数字 / 空格算 0.55
 const vlen = (x: string) => [...x.replace(/[，。：；？！、「」]/g, '')].reduce((n, ch) => n + (/[\x00-\x7f]/.test(ch) ? 0.55 : 1), 0);
 // 没有标点、又超长的一段，按显示宽度从中间切开（不切断英文词）
+const NOSPLIT = ['大量', '矩阵', '计算', '并行', '任务', '处理', '数据', '芯片', '运算', '神经', '网络', '模型', '数字', '结果', '输出', '规则', '光照', '颜色'];
 const cut = (p: string): string[] => {
   if (vlen(p) <= MAX) return [p];
   const n = Math.ceil(vlen(p) / MAX), target = vlen(p) / n;
   const out: string[] = []; let cur = '';
   for (const ch of [...p]) {
-    if (vlen(cur) >= target && out.length < n - 1 && !/[A-Za-z0-9]/.test(ch) && !/[，。：；？！、]/.test(ch)) { out.push(cur); cur = ''; }
+    const keep = NOSPLIT.some((w) => (cur.slice(-1) + ch) === w);   // 不在词中间断开
+    if (vlen(cur) >= target && out.length < n - 1 && !keep && !/[A-Za-z0-9]/.test(ch) && !/[，。：；？！、]/.test(ch)) { out.push(cur); cur = ''; }
     cur += ch;
   }
   out.push(cur);

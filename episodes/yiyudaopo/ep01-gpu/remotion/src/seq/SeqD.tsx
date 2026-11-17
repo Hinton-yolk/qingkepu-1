@@ -192,7 +192,6 @@ export const SeqD: React.FC<{from: number}> = ({from}) => {
         {fitIn > 0 && (
           <AbsoluteFill style={{opacity: fitIn}}>
             <Sub y={240} o={1} color={C.ink}>AI 的很多矩阵运算</Sub>
-            <Sub y={1300 - 70} o={fit} color={C.ink}>恰好适合 GPU 的设计</Sub>
             <div style={{position: 'absolute', left: 120, top: 760, width: 840, height: 430, borderRadius: 18, border: `3px solid ${C.ink}`, background: '#101216'}}>
               <div style={{position: 'absolute', left: 20, top: -60, fontFamily: FONT.hei, fontWeight: 700, fontSize: 40, color: C.sub}}>GPU 的运算单元</div>
               {Array.from({length: 32}, (_, k) => (

@@ -44,7 +44,7 @@ export const SeqC: React.FC<{from: number}> = ({from}) => {
   // C7：标注
   const lab = prog(f, c7, 12);
 
-  const IX = [340, 540], IY = 520, R1Y = 860, R2Y = 1110, OX = 915;
+  const IX = [330, 530], IY = 520, R1Y = 860, R2Y = 1110, OX = 855;   // 输出格右边缘 ≤ 940（抖音右侧按钮）
   // C6 网格的几何（第 1、2 行就是上面两行，缩小到这里）
   const G = {x0: 170, y0: 600, pitch: 78, cell: 66, cols: 6, rows: 9, iy: 500, ox: 790};
   const gx = (j: number) => G.x0 + j * G.pitch, gy = (r: number) => G.y0 + r * G.pitch;
@@ -92,27 +92,27 @@ export const SeqC: React.FC<{from: number}> = ({from}) => {
               <path d={`M${IX[1] + 60},${IY + 78} C ${IX[1] + 120},${IY + 260} ${IX[1] + 120},${R2Y - 200} ${IX[1] + 30},${R2Y - 78}`} fill="none" stroke={C.ai}
                 strokeWidth={6} strokeDasharray="16 12" opacity={link2 * (1 - zoom)} />
               {/* 箭头到输出 */}
-              {[[R1Y, o1], [R2Y, o2]].map(([y, o], k) => <line key={k} x1={IX[1] + 90} y1={y} x2={IX[1] + 90 + (OX - 95 - IX[1] - 90) * o} y2={y} stroke={C.ink} strokeWidth={5} opacity={(1 - zoom) * (k === 0 ? 1 - dim1 : 1)} />)}
+              {[[R1Y, o1], [R2Y, o2]].map(([y, o], k) => <line key={k} x1={IX[1] + 90} y1={y} x2={IX[1] + 90 + (OX - 80 - IX[1] - 90) * o} y2={y} stroke={C.ink} strokeWidth={5} opacity={(1 - zoom) * (k === 0 ? 1 - dim1 : 1)} />)}
             </svg>
             {/* 第 1 行 */}
             <div style={{opacity: 1 - dim1}}>
               <div style={{position: 'absolute', left: 50, top: R1Y - 26, fontFamily: FONT.hei, fontWeight: 700, fontSize: 40, color: C.sub, opacity: r1 * (1 - zoom)}}>参数 ①</div>
               <Chip x={IX[0]} y={R1Y} v="4" color={C.ink} o={r1} glow={p1a * (1 - p1b)} />
               <Chip x={IX[1]} y={R1Y} v="5" color={C.ink} o={r1} glow={p1b * (1 - o1)} />
-              <div style={{position: 'absolute', left: IX[1] + 135, width: OX - 95 - IX[1] - 135, top: R1Y - 82, textAlign: 'center', fontFamily: FONT.num, fontSize: 40, color: C.game,
+              <div style={{position: 'absolute', left: IX[1] + 105, width: OX - 75 - IX[1] - 105, top: R1Y - 74, textAlign: 'center', fontFamily: FONT.num, fontSize: 34, color: C.game,
                 opacity: (1 - zoom)}}>
                 <span style={{opacity: p1a}}>8</span><span style={{opacity: p1b}}> + 15</span>
               </div>
-              <Chip x={OX} y={R1Y} v="23" color={C.ai} o={o1} size={170} glow={o1 * (1 - o2) * 0.8} fill="rgba(104,168,255,0.16)" />
+              <Chip x={OX} y={R1Y} v="23" color={C.ai} o={o1} size={150} glow={o1 * (1 - o2) * 0.8} fill="rgba(104,168,255,0.16)" />
             </div>
             {/* 第 2 行 */}
             <div style={{position: 'absolute', left: 50, top: R2Y - 26, fontFamily: FONT.hei, fontWeight: 700, fontSize: 40, color: C.sub, opacity: r2 * (1 - zoom)}}>参数 ②</div>
             <Chip x={IX[0]} y={R2Y} v="1" color={C.ink} o={r2} glow={p2a * (1 - p2b)} />
             <Chip x={IX[1]} y={R2Y} v="6" color={C.ink} o={r2} glow={p2b * (1 - o2)} />
-            <div style={{position: 'absolute', left: IX[1] + 135, width: OX - 95 - IX[1] - 135, top: R2Y - 82, textAlign: 'center', fontFamily: FONT.num, fontSize: 40, color: C.game, opacity: 1 - zoom}}>
+            <div style={{position: 'absolute', left: IX[1] + 105, width: OX - 75 - IX[1] - 105, top: R2Y - 74, textAlign: 'center', fontFamily: FONT.num, fontSize: 34, color: C.game, opacity: 1 - zoom}}>
               <span style={{opacity: p2a}}>2</span><span style={{opacity: p2b}}> + 18</span>
             </div>
-            <Chip x={OX} y={R2Y} v="20" color={C.ai} o={o2} size={170} glow={o2 * 0.8 * (1 - zoom)} fill="rgba(104,168,255,0.16)" />
+            <Chip x={OX} y={R2Y} v="20" color={C.ai} o={o2} size={150} glow={o2 * 0.8 * (1 - zoom)} fill="rgba(104,168,255,0.16)" />
           </AbsoluteFill>
         )}
 
@@ -143,9 +143,9 @@ export const SeqC: React.FC<{from: number}> = ({from}) => {
             <div style={{position: 'absolute', left: gx(0) - 40, top: G.iy - 96, fontFamily: FONT.hei, fontWeight: 700, fontSize: 38, color: C.ai, opacity: lab}}>输入向量（同一个）</div>
             <div style={{position: 'absolute', left: G.ox - 70, top: G.y0 - 100, fontFamily: FONT.hei, fontWeight: 700, fontSize: 38, color: C.ai, opacity: lab}}>输出</div>
             <div style={{position: 'absolute', left: 40, top: gy(G.rows - 1) + 60, right: 40, fontFamily: FONT.hei, fontWeight: 700, fontSize: 40, color: C.sub, opacity: lab}}>
-              每一行参数 × 同一个输入 → 一个输出
+              每一行参数 × 同一个输入 → 一个输出（其余项省略）
             </div>
-            <div style={{position: 'absolute', left: 0, right: 0, top: 262, textAlign: 'center', fontFamily: FONT.title, fontSize: 88, color: C.ink, opacity: lab}}>矩阵 × 向量</div>
+            <div style={{position: 'absolute', left: 0, right: 0, top: 262, textAlign: 'center', fontFamily: FONT.hei, fontWeight: 700, fontSize: 80, color: C.ink, opacity: lab}}>矩阵 × 向量</div>
           </AbsoluteFill>
         )}
       </Drift>
