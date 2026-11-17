@@ -55,6 +55,13 @@ const COVERS = [
   { out: "ep07-xiaohongshu", W: 1080, H: 1440, ep: "EP.07", title: ["手表背面的绿光，", "在<b>看</b>什么？"],
     hero: "ep07-hero", heroDy: -170, anchor: [527, 1080], inset: { img: "ep07-inset", cx: 520, cy: 760, src: 230, x: 870, y: 1130, r: 160 }, tag: "它在用光看血",
     ser: 108, t1: 252, t2: 398, size: 120, wash: 440 },
+  // EP.08: the film's first frame (the hand plugs in, ⚡37%) + the two bars: what is left | what is used (two halves = one)
+  { out: "ep08-douyin", W: 1080, H: 1920, ep: "EP.08", title: ["手机天天充，", "会<b>充坏</b>电池吗？"],
+    hero: "ep08-hero", heroDy: 60, anchor: [540, 942], inset: { img: "ep08-inset", cx: 532, cy: 1195, src: 372, x: 330, y: 1390, r: 220 }, tag: "它数的不是次数",
+    ser: 300, t1: 452, t2: 602, size: 128, wash: 690 },
+  { out: "ep08-xiaohongshu", W: 1080, H: 1440, ep: "EP.08", title: ["手机天天充，", "会<b>充坏</b>电池吗？"],
+    hero: "ep08-hero", heroDy: -300, anchor: [540, 942], inset: { img: "ep08-inset", cx: 532, cy: 1195, src: 372, x: 300, y: 1180, r: 150 }, tag: "它数的不是次数",
+    ser: 108, t1: 252, t2: 398, size: 124, wash: 440 },
 ];
 const ONLY = process.argv[2];                                   // node make.mjs ep04 → only those covers
 
