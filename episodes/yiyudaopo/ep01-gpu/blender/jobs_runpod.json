@@ -1,0 +1,60 @@
+{
+ "scene_dir": "episodes/yiyudaopo/ep01-gpu/blender",
+ "script": "ep01_scenes.py",
+ "out_dir": "episodes/yiyudaopo/ep01-gpu/blender/out",
+ "sec_per_unit": 5,
+ "tasks": [
+  {
+   "args": [
+    "anim",
+    "DC",
+    "{out}/DC",
+    "1",
+    "135",
+    "1080x1920",
+    "64",
+    "gpu"
+   ],
+   "units": 135
+  },
+  {
+   "args": [
+    "anim",
+    "MACRO",
+    "{out}/MACRO",
+    "1",
+    "135",
+    "1080x1920",
+    "64",
+    "gpu"
+   ],
+   "units": 135
+  },
+  {
+   "args": [
+    "anim",
+    "CHIP",
+    "{out}/CHIP",
+    "1",
+    "150",
+    "1080x1920",
+    "64",
+    "gpu"
+   ],
+   "units": 150
+  },
+  {
+   "args": [
+    "anim",
+    "CHIP",
+    "{out}/CHIP",
+    "151",
+    "300",
+    "1080x1920",
+    "64",
+    "gpu"
+   ],
+   "units": 150
+  }
+ ]
+}

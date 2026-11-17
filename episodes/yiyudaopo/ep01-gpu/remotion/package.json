@@ -1,0 +1,24 @@
+{
+  "name": "yiyudaopo-ep01-gpu",
+  "version": "0.1.0",
+  "description": "一语道破 EP01：AI 又不打游戏，为什么还要用显卡？—— Remotion 合成工程",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "draft": "remotion render src/index.ts EP01Pilot out/EP01_Pilot_draft_540x960.mp4 --scale=0.5 --crf=30 --jpeg-quality=70 --concurrency=4",
+    "render": "remotion render src/index.ts EP01Pilot out/EP01_Pilot_v01.mp4 --crf=18 --jpeg-quality=92 --concurrency=4",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.543",
+    "@remotion/media": "4.0.543",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remotion": "4.0.543"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "typescript": "5.9.3"
+  }
+}

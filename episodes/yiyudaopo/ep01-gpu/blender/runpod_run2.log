@@ -1,0 +1,58 @@
+  pod 0: 4 个任务，570 单位
+预计墙钟 52 分钟；GPU 总时长 0.87 小时；按每卡每小时 $1.09 估约 $0.95（含每台约 2 分钟装环境；按秒计费）
+场景包 0.0 MB
+NVIDIA GeForce RTX 4090: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA GeForce RTX 5090: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA L40S: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA RTX 6000 Ada Generation: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA L40: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA RTX A6000: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA A40: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+Community Cloud 没空卡，改用 Secure Cloud
+NVIDIA GeForce RTX 4090: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA GeForce RTX 5090: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA L40S: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA RTX 6000 Ada Generation: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA L40: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+建好 pod 0: dcgmsdpu0oq378  每小时 $0.69  NVIDIA RTX A6000  SECURE
+[  0.0 分] dcgmsdpu0oq378 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+[  0.3 分] dcgmsdpu0oq378 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+[  0.5 分] dcgmsdpu0oq378 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+dcgmsdpu0oq378 场景已上传
+[  0.8 分] dcgmsdpu0oq378 download_blender  已拉回 0
+[  1.1 分] dcgmsdpu0oq378 rendering 1/4 已拉回 1
+[  1.4 分] dcgmsdpu0oq378 rendering 1/4 已拉回 3
+[  1.7 分] dcgmsdpu0oq378 rendering 1/4 已拉回 6
+[  2.1 分] dcgmsdpu0oq378 rendering 1/4 已拉回 10
+[  2.4 分] dcgmsdpu0oq378 rendering 1/4 已拉回 13
+[  2.7 分] dcgmsdpu0oq378 rendering 1/4 已拉回 16
+[  3.1 分] dcgmsdpu0oq378 rendering 1/4 已拉回 20
+[  3.4 分] dcgmsdpu0oq378 rendering 1/4 已拉回 23
+[  3.7 分] dcgmsdpu0oq378 rendering 1/4 已拉回 26
+[  4.1 分] dcgmsdpu0oq378 rendering 1/4 已拉回 30
+[  4.4 分] dcgmsdpu0oq378 rendering 1/4 已拉回 33
+[  4.7 分] dcgmsdpu0oq378 rendering 1/4 已拉回 36
+[  5.1 分] dcgmsdpu0oq378 rendering 1/4 已拉回 40
+[  5.4 分] dcgmsdpu0oq378 rendering 1/4 已拉回 43
+[  5.7 分] dcgmsdpu0oq378 rendering 1/4 已拉回 46
+[  6.1 分] dcgmsdpu0oq378 rendering 1/4 已拉回 50
+[  6.4 分] dcgmsdpu0oq378 rendering 1/4 已拉回 53
+[  6.7 分] dcgmsdpu0oq378 rendering 1/4 已拉回 56
+[  7.1 分] dcgmsdpu0oq378 rendering 1/4 已拉回 60
+[  7.4 分] dcgmsdpu0oq378 rendering 1/4 已拉回 63
+[  7.7 分] dcgmsdpu0oq378 rendering 1/4 已拉回 66
+[  8.0 分] dcgmsdpu0oq378 rendering 1/4 已拉回 69
+[  8.4 分] dcgmsdpu0oq378 rendering 1/4 已拉回 73
+[  8.7 分] dcgmsdpu0oq378 rendering 1/4 已拉回 76
+[  9.0 分] dcgmsdpu0oq378 rendering 1/4 已拉回 79
+[  9.4 分] dcgmsdpu0oq378 rendering 1/4 已拉回 83
+[  9.7 分] dcgmsdpu0oq378 rendering 1/4 已拉回 86
+[ 10.0 分] dcgmsdpu0oq378 rendering 1/4 已拉回 89
+[ 10.3 分] dcgmsdpu0oq378 rendering 1/4 已拉回 92
+[ 10.7 分] dcgmsdpu0oq378 rendering 1/4 已拉回 96
+[ 11.0 分] dcgmsdpu0oq378 rendering 1/4 已拉回 99
+[ 11.3 分] dcgmsdpu0oq378 rendering 1/4 已拉回 102
+[ 11.6 分] dcgmsdpu0oq378 rendering 1/4 已拉回 105
+[ 12.0 分] dcgmsdpu0oq378 rendering 1/4 已拉回 109
+[ 12.3 分] dcgmsdpu0oq378 rendering 1/4 已拉回 112
+[ 12.6 分] dcgmsdpu0oq378 rendering 1/4 已拉回 115
