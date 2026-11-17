@@ -492,7 +492,7 @@ function batteryShape(x, y, fill, o = {}) {             // one battery-like bar:
 }
 function drawGauge(t, a) {
   if (a <= 0.01) return;
-  const { y } = GA, v = ringVal(t), cap = capAt(t), lv = charge(t), sl = E.p2io(gSlide(t)), x = lerp(GA.x, 300, sl);
+  const { y } = GA, v = ringVal(t), cap = capAt(t), lv = t >= T.q8 ? 1 : charge(t),   /* v3.2: from the ageing on the battery reads full: only what it can hold changes */ sl = E.p2io(gSlide(t)), x = lerp(GA.x, 300, sl);
   const accA = win(t, T.ringOn, T.q8 + 0.3, 0.3, 0.35);
   ID(); ctx.save(); ctx.globalAlpha = a;
   // the second bar: 累计用掉的电 (orange); its two halves in two oranges
@@ -516,7 +516,7 @@ function drawGauge(t, a) {
   ctx.translate(x, y); ctx.scale(gz, gz); ctx.translate(-x, -y);
   const B_ = batteryShape(x, y, lv, { cap, t });
   const fw = Math.max(0, (B_.bw * cap - 28) * lv), dl = charge(t + 0.05) - charge(t - 0.05);
-  if (Math.abs(dl) > 0.004 && fw > 20) { ctx.save(); rr(B_.bx + 14, B_.by + 14, fw, B_.bh - 28, 8); ctx.clip(); const u = (t * 1.6) % 1, xs = B_.bx + 14 + fw * (dl > 0 ? u : 1 - u); const g = ctx.createLinearGradient(xs - 40, 0, xs + 40, 0); g.addColorStop(0, "rgba(150,150,150,0)"); g.addColorStop(0.5, "rgba(150,150,150,0.6)"); g.addColorStop(1, "rgba(150,150,150,0)"); ctx.fillStyle = g; ctx.fillRect(xs - 40, B_.by, 80, B_.bh); ctx.restore(); }
+  if (t < T.q8 && Math.abs(dl) > 0.004 && fw > 20) { ctx.save(); rr(B_.bx + 14, B_.by + 14, fw, B_.bh - 28, 8); ctx.clip(); const u = (t * 1.6) % 1, xs = B_.bx + 14 + fw * (dl > 0 ? u : 1 - u); const g = ctx.createLinearGradient(xs - 40, 0, xs + 40, 0); g.addColorStop(0, "rgba(150,150,150,0)"); g.addColorStop(0.5, "rgba(150,150,150,0.6)"); g.addColorStop(1, "rgba(150,150,150,0)"); ctx.fillStyle = g; ctx.fillRect(xs - 40, B_.by, 80, B_.bh); ctx.restore(); }
   ctx.restore();
   // names (示意: the first time each appears gets an orange box)
   const bk = win(t, T.barOn, T.chg1 + 1.0, 0.3, 0.3);
@@ -544,8 +544,8 @@ function moveArrow(t, M) {
   const yA = CELL.top + (CELL.bot - CELL.top) * 0.5, xa = CELL.c1 + 10, xb = CELL.a0 - 30;
   const p0 = eS(M, dir > 0 ? xa : xb, yA), p1 = eS(M, dir > 0 ? xb : xa, yA);
   ID(); ctx.save(); ctx.globalAlpha = k * 0.95; arrowS(p0[0], p0[1], p1[0], p1[1], C.acc, 12, 30, 0, E.p3out(prog(t, mv[0] - 0.15, mv[0] + 0.2))); ctx.restore();
-  const lp = eS(M, (CELL.c1 + CELL.a0) / 2, CELL.bot);
-  pill(dir > 0 ? COPY.chg : COPY.use, lp[0], lp[1] + 58, 46, t, mv[0] - 0.15, end, { align: "center", col: C.acc, edge: true });
+  const lp = eS(M, (CELL.c1 + CELL.a0) / 2, CELL.top);
+  pill(dir > 0 ? COPY.chg : COPY.use, lp[0], lp[1] + 62, 44, t, mv[0] - 0.15, end, { align: "center", col: C.acc, edge: true });
 }
 function cellLabels(t, M) {
   moveArrow(t, M);
@@ -677,7 +677,7 @@ function drawChart(t, a = 1) {
   ctx.fillStyle = "#D8D6CE"; ctx.beginPath(); ctx.arc(CH.X0 + 30, CH.Y1 + 64, 20, 0, TAU); ctx.fill(); ctx.fillStyle = "#1E2025"; ctx.beginPath(); ctx.arc(CH.X0 + 40, CH.Y1 + 57, 17, 0, TAU); ctx.fill();
   ctx.textAlign = "left"; ctx.fillStyle = "rgba(241,240,236,0.85)"; ctx.fillText(COPY.night, CH.X0 + 64, CH.Y1 + 66);
   const sx = CH.X1 - 150, sy = CH.Y1 + 64;
-  if (dawn > 0.01 && t < T.q14 + 0.5) { const h = ctx.createRadialGradient(sx, sy, 0, sx, sy, 110); h.addColorStop(0, `rgba(242,194,122,${0.5 * dawn})`); h.addColorStop(1, "rgba(242,194,122,0)"); ctx.fillStyle = h; ctx.beginPath(); ctx.arc(sx, sy, 110, 0, TAU); ctx.fill(); }
+  if (dawn > 0.01 && t < T.q14 + 0.5) { const h = ctx.createRadialGradient(sx, sy, 0, sx, sy, 80); h.addColorStop(0, `rgba(242,194,122,${0.5 * dawn})`); h.addColorStop(1, "rgba(242,194,122,0)"); ctx.fillStyle = h; ctx.beginPath(); ctx.arc(sx, sy, 80, 0, TAU); ctx.fill(); }
   ctx.fillStyle = "#F2C27A"; ctx.beginPath(); ctx.arc(sx, sy, 18, 0, TAU); ctx.fill(); ctx.strokeStyle = "#F2C27A"; ctx.lineWidth = 4; for (let i = 0; i < 8; i++) { const an = i * TAU / 8 + t * 0.4; line(sx + Math.cos(an) * 26, sy + Math.sin(an) * 26, sx + Math.cos(an) * 34, sy + Math.sin(an) * 34); }
   ctx.fillStyle = "rgba(241,240,236,0.85)"; ctx.fillText(COPY.wake, sx + 44, sy + 2);
   ctx.globalAlpha = a;
@@ -766,9 +766,10 @@ function darkAt(t) {
 }
 function scrimOf(fl, a = 1, gr = "236,235,230") {
   const STOPS = [[0, 1], [0.66, 1], [0.74, 0.86], [0.82, 0.56], [0.9, 0.24], [1, 0]];
-  ID(); const g = ctx.createLinearGradient(0, 0, 0, 800);
+  const SH = fl > 0.5 ? 660 : 800;                                      // v3.2: on the dark ground the scrim stops sooner (the direction names under it stay bright)
+  ID(); const g = ctx.createLinearGradient(0, 0, 0, SH);
   STOPS.forEach(([o, k]) => g.addColorStop(o, fl > 0.5 ? `rgba(23,25,28,${a * k * 0.92})` : `rgba(${gr},${a * k})`));
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, 800);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, SH);
 }
 function textBand(t, fl) {
   const L = C.ink, D = C.paper, M = fl > 0.5 ? D : L;
