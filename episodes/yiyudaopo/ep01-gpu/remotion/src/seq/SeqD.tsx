@@ -35,7 +35,7 @@ const Cell: React.FC<{v: string; color: string; box: number; size: number}> = ({
 );
 
 // GPU 示意版图：8×4 个流多处理器块，每块 8×4 个运算单元（32 条通道）+ 一条控制/调度 + 一条缓存
-export const GPU_BOX = {x: 100, y: 880, w: 880, h: 500};
+export const GPU_BOX = {x: 100, y: 800, w: 880, h: 500};
 export const GPU_GRID = {cols: 6, rows: 4};
 export const GpuDie: React.FC<{f: number; build: number; fire: number; instr: number; label?: number}> = ({f, build, fire, instr, label = 1}) => {
   const {x, y, w, h} = GPU_BOX;
@@ -69,7 +69,7 @@ export const GpuDie: React.FC<{f: number; build: number; fire: number; instr: nu
 };
 
 // CPU 示意版图：8 个大核心（每个：大块控制、少量运算单元、私有缓存）+ 一大块共享缓存
-const CPU_BOX = {x: 100, y: 300, w: 880, h: 500};
+const CPU_BOX = {x: 100, y: 250, w: 880, h: 470};
 const INSTR = [['读', '比较', '跳转', '×'], ['如果', '读', '写', '+'], ['×', '跳转', '比较', '读'], ['写', '如果', '+', '跳转'], ['比较', '写', '读', '如果'], ['+', '读', '如果', '写'], ['跳转', '×', '写', '比较'], ['读', '+', '跳转', '如果']];
 const CpuDie: React.FC<{f: number; build: number; active: number; hiArea: number; stream: number}> = ({f, build, active, hiArea, stream}) => {
   const {x, y, w, h} = CPU_BOX;
@@ -141,6 +141,7 @@ export const SeqD: React.FC<{from: number}> = ({from}) => {
   const notLine = prog(f, d7 + sec(0.3), 10);
   const strike = prog(f, d7 + sec(2.2), 10, ease);
   const claimUp = prog(f, d8, 12, easeIO);
+  const gridIn = prog(f, d8 + 12, 8);                    // 标题升到顶以后，两块方阵才出现（不和标题叠）
   const fit = prog(f, d8 + sec(0.9), 22, easeIO);
   const fitFlash = prog(f, d8 + sec(1.75), 4) * (1 - prog(f, d8 + sec(2.6), 14));
   const endTxt = prog(f, d8 + sec(1.9), 12);
@@ -196,7 +197,7 @@ export const SeqD: React.FC<{from: number}> = ({from}) => {
           )}
           <div style={{position: 'absolute', left: 0, right: 0, top: 1240, textAlign: 'center', fontFamily: FONT.hei, fontWeight: 700, fontSize: 50, color: C.ink, textShadow: '0 2px 12px rgba(0,0,0,0.95)',
             opacity: prog(f, d4 + sec(2.0), 10)}}>同一步里：一大批，<span style={{color: C.op}}>同时算</span>
-            <div style={{fontSize: 30, fontWeight: 400, color: C.sub, marginTop: 8}}>步与步之间，仍要按顺序</div></div>
+            <div style={{fontSize: 38, fontWeight: 700, color: C.sub, marginTop: 8}}>步与步之间，仍要按顺序</div></div>
         </AbsoluteFill>
       )}
 
@@ -204,10 +205,10 @@ export const SeqD: React.FC<{from: number}> = ({from}) => {
       {cpuIn > 0 && dieOut < 1 && (
         <AbsoluteFill style={{opacity: 1 - dieOut}}>
           <CpuDie f={f} build={cpuIn} active={cpuActive} hiArea={cpuArea} stream={cpuStream} />
-          <div style={{position: 'absolute', left: 260, top: 236, fontFamily: FONT.hei, fontSize: 32, color: C.sub, opacity: cpuActive}}>
+          <div style={{position: 'absolute', left: 260, top: 186, fontFamily: FONT.hei, fontSize: 32, color: C.sub, opacity: cpuActive}}>
             8 个核心，也在同时干活（示意）
           </div>
-          <div style={{position: 'absolute', left: 100, right: 100, top: 820, textAlign: 'center', fontFamily: FONT.hei, fontWeight: 700, fontSize: 40, color: C.ink,
+          <div style={{position: 'absolute', left: 100, right: 100, top: 760, textAlign: 'center', fontFamily: FONT.hei, fontWeight: 700, fontSize: 40, color: C.ink,
             opacity: prog(f, d5b + sec(2.9), 10) * (1 - gpuBuild)}}>
             每个核心可以各干各的，<span style={{color: C.game}}>随时分支</span>
           </div>
@@ -235,7 +236,7 @@ export const SeqD: React.FC<{from: number}> = ({from}) => {
           {claimUp > 0 && (
             <>
               {/* GPU 的运算单元阵列（下）和一批 AI 的乘加（上，落下来正好对上） */}
-              <div style={{position: 'absolute', left: 140, top: 900, width: 800, height: 420, borderRadius: 14, border: `3px solid ${C.ink}`, opacity: claimUp, background: '#101216'}}>
+              <div style={{position: 'absolute', left: 140, top: 850, width: 800, height: 420, borderRadius: 14, border: `3px solid ${C.ink}`, opacity: gridIn, background: '#101216'}}>
                 {Array.from({length: 8 * 4}, (_, k) => {
                   const c = k % 8, r = Math.floor(k / 8);
                   return <div key={k} style={{position: 'absolute', left: 22 + c * 96, top: 24 + r * 98, width: 84, height: 84, borderRadius: 6,
@@ -243,7 +244,7 @@ export const SeqD: React.FC<{from: number}> = ({from}) => {
                 })}
                 <div style={{position: 'absolute', left: 20, top: -56, fontFamily: FONT.hei, fontWeight: 700, fontSize: 36, color: C.ink}}>GPU 的运算单元</div>
               </div>
-              <div style={{position: 'absolute', left: 140, top: lerp(560, 900, fit), width: 800, height: 420, opacity: claimUp * (fit < 0.99 ? 1 : 1 - fitFlash * 0.5)}}>
+              <div style={{position: 'absolute', left: 140, top: lerp(560, 850, fit), width: 800, height: 420, opacity: gridIn * (fit < 0.99 ? 1 : 1 - fitFlash * 0.5)}}>
                 {Array.from({length: 8 * 4}, (_, k) => {
                   const c = k % 8, r = Math.floor(k / 8);
                   return <div key={k} style={{position: 'absolute', left: 22 + c * 96, top: 24 + r * 98, width: 84, height: 84, borderRadius: 6, border: `3px solid ${C.ai}`,
@@ -251,7 +252,7 @@ export const SeqD: React.FC<{from: number}> = ({from}) => {
                 })}
                 <div style={{position: 'absolute', left: 20, top: -56, fontFamily: FONT.hei, fontWeight: 700, fontSize: 36, color: C.ai, opacity: 1 - fit}}>AI 的一批乘加</div>
               </div>
-              <div style={{position: 'absolute', left: 0, right: 0, top: 1328, textAlign: 'center', fontFamily: FONT.hei, fontWeight: 700, fontSize: 46, color: C.ink, opacity: endTxt}}>
+              <div style={{position: 'absolute', left: 0, right: 0, top: 640, textAlign: 'center', fontFamily: FONT.hei, fontWeight: 700, fontSize: 46, color: C.ink, opacity: endTxt}}>
                 <span style={{color: C.ai}}>AI 的很多计算</span>，正好是 GPU 擅长的形状
               </div>
             </>

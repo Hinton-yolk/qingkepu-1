@@ -1,12 +1,12 @@
 {
  "DC": {
-  "rendered": 1,
-  "contiguous": 1,
+  "rendered": 119,
+  "contiguous": 119,
   "needed": 135
  },
  "MACRO": {
-  "rendered": 0,
-  "contiguous": 0,
+  "rendered": 135,
+  "contiguous": 135,
   "needed": 135
  },
  "CHIP": {

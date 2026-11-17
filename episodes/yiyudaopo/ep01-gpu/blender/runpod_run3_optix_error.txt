@@ -1,0 +1,6 @@
+ OptiX kernel from '/w/bl/5.2/scripts/addons_core/cycles/lib/kernel_optix.ptx.zst' (OPTIX_ERROR_INTERNAL_COMPILER_ERROR)
+Traceback (most recent call last):
+RuntimeError: Error: Failed to load OptiX kernel from '/w/bl/5.2/scripts/addons_core/cycles/lib/kernel_optix.ptx.zst' (OPTIX_ERROR_INTERNAL_COMPILER_ERROR)
+Error: Failed to load OptiX kernel from '/w/bl/5.2/scripts/addons_core/cycles/lib/kernel_optix.ptx.zst' (OPTIX_ERROR_INTERNAL_COMPILER_ERROR)
+Error: Failed to load OptiX kernel from '/w/bl/5.2/scripts/addons_core/cycles/lib/kernel_optix.ptx.zst' (OPTIX_ERROR_INTERNAL_COMPILER_ERROR)
+Error: Failed to load OptiX kernel from '/w/bl/5.2/scripts/addons_core/cycles/lib/kernel_optix.ptx.zst' (OPTIX_ERROR_INTERNAL_COMPILER_ERROR)

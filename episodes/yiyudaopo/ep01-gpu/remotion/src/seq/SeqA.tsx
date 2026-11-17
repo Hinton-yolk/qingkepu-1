@@ -73,7 +73,7 @@ export const SeqA: React.FC<{from: number}> = ({from}) => {
   const phone = (
     <AbsoluteFill style={{background: 'radial-gradient(120% 70% at 18% 8%, #2a241c 0%, #121214 46%, #0a0a0c 100%)'}}>
       <div style={{position: 'absolute', inset: 0, transform: `translateY(${-whip * 2300}px)`, filter: whip > 0.02 ? `blur(${whip * 26}px)` : undefined}}>
-        <div style={{position: 'absolute', inset: 0, transform: `scale(${1 + push * 0.16 + pre * 0.006}) translate(${push * 30 + 10 * Math.cos(pre * 1.3)}px, ${-push * 120 + 8 * Math.sin(pre * 1.3)}px)`, transformOrigin: '50% 40%'}}>
+        <div style={{position: 'absolute', inset: 0, transform: `scale(${1 + push * 0.16 + pre * 0.006}) translate(${push * 30 + 18 * Math.cos(pre * 1.4)}px, ${-push * 120 + 14 * Math.sin(pre * 1.4)}px)`, transformOrigin: '50% 40%'}}>
           {/* 桌面反光 */}
           <div style={{position: 'absolute', left: PH.x - 60, top: PH.y + PH.h - 80, width: PH.w + 120, height: 260, borderRadius: '50%',
             background: 'radial-gradient(closest-side, rgba(120,140,170,0.16), transparent)'}} />
@@ -89,7 +89,9 @@ export const SeqA: React.FC<{from: number}> = ({from}) => {
           </div>
         </div>
       </div>
-      <BigQ l1="AI 又不打游戏" l2="为什么还要用显卡？" o={titleO} />
+      <div style={{position: 'absolute', inset: 0, transform: `translate(${7 * Math.sin(pre * 1.1)}px, ${6 * Math.cos(pre * 1.1)}px) scale(${1 + pre * 0.008})`}}>
+        <BigQ l1="AI 又不打游戏" l2="为什么还要用显卡？" o={titleO} />
+      </div>
     </AbsoluteFill>
   );
 

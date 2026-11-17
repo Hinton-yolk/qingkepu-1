@@ -9,7 +9,7 @@ import {T_MACRO} from './SeqA';
 // B 段：游戏画面由三角形拼成 → 挑一块，演示它的亮度怎么算（三对数相乘再相加）→ 同一束光、同一个公式、
 // 不同的数 → 画面按屏幕分块，一块一批同时算（GPU 当初就是为这个设计的）
 const TRIS = buildScene();
-export const VP = {x: 40, y: 250, w: 1000, h: 820};
+export const VP = {x: 40, y: 272, w: 1000, h: 800};
 const r2 = (x: number) => Math.round(x * 100) / 100;
 const f2 = (x: number) => x.toFixed(2);
 
@@ -67,7 +67,7 @@ export const GameView: React.FC<{f: number; wire: number; focus: number; lit?: (
         const isPick = p.tri.id === pick;
         const L = lit ? lit(p) : 1;
         const k = isPick ? 1.15 : 1 - dimOthers * 0.5;
-        const fill = L >= 1 ? shadeColor(p.tri.base, p.shade, k) : `rgb(${Math.round(14 + 0 * L)},${Math.round(15)},${Math.round(18)})`;
+        const fill = L >= 1 ? shadeColor(p.tri.base, p.shade, k) : shadeColor(p.tri.base, p.shade, 0.32);   // 还没算的块压暗到约 1/3，不是全黑
         const d = `M${p.pts[0][0]},${p.pts[0][1]}L${p.pts[1][0]},${p.pts[1][1]}L${p.pts[2][0]},${p.pts[2][1]}Z`;
         return (
           <g key={p.tri.id}>
@@ -150,7 +150,7 @@ export const SeqB: React.FC<{from: number}> = ({from}) => {
   return (
     <AbsoluteFill style={{background: interpolate(bgIn, [0, 1], [0, 1]) > 0 ? `rgba(12,13,16,${bgIn})` : undefined}}>
       <Kicker text="游戏画面" color={C.game} opacity={prog(f, from + 10, 12)} />
-      <Drift from={from} amp={0.7} push={0.03}>
+      <Drift from={from} amp={1.0} push={0.0015}>
       {/* 视口 */}
       <div style={{position: 'absolute', left: rect.x, top: rect.y, width: rect.w, height: rect.h, borderRadius: lerp(4, 26, m), overflow: 'hidden',
         boxShadow: `0 0 0 2px ${C.line}`}}>
@@ -171,7 +171,7 @@ export const SeqB: React.FC<{from: number}> = ({from}) => {
             </svg>
           )}
          </div>
-          {arrows > 0 && <div style={{position: 'absolute', left: VP.w * 0.83 - 230, top: VP.h * 0.13 + 40, fontFamily: FONT.hei, fontWeight: 700, fontSize: 36, color: C.sun, opacity: arrows, textShadow: '0 2px 8px rgba(0,0,0,0.6)'}}>← 光源方向</div>}
+          {arrows > 0 && <div style={{position: 'absolute', left: VP.w * 0.83 - 230, top: VP.h * 0.13 + 40, fontFamily: FONT.hei, fontWeight: 700, fontSize: 36, color: C.sun, opacity: arrows, textShadow: '0 2px 8px rgba(0,0,0,0.6)'}}>光源方向 ↗</div>}
           {/* B5 分块边界和当前一批的闪光 */}
           {inB5 && f >= W0 && (
             <svg width={VP.w} height={VP.h} style={{position: 'absolute', left: 0, top: 0}}>
@@ -243,7 +243,7 @@ export const SeqB: React.FC<{from: number}> = ({from}) => {
         </div>
       )}
       {inB5 && f >= W0 && f < W0 + tiles * WAVE + 10 && (
-        <div style={{position: 'absolute', left: 40 + ((Math.min(tiles - 1, Math.max(0, wave)) % 3) + 0.5) * (VP.w / 3), top: 250 + (Math.floor(Math.min(tiles - 1, Math.max(0, wave)) / 3) + 0.5) * (VP.h / 2),
+        <div style={{position: 'absolute', left: 40 + ((Math.min(tiles - 1, Math.max(0, wave)) % 3) + 0.5) * (VP.w / 3), top: VP.y + (Math.floor(Math.min(tiles - 1, Math.max(0, wave)) / 3) + 0.5) * (VP.h / 2),
           transform: 'translate(-50%,-50%)', fontFamily: FONT.hei, fontWeight: 700, fontSize: 40, color: C.op, textShadow: '0 2px 10px rgba(0,0,0,0.9)'}}>
           一批，同时算
         </div>

@@ -6,13 +6,27 @@ import {FPS, T} from './lib/time';
 const MAX = 15;
 type Chunk = {text: string; a: number; b: number};
 
+// 显示宽度：汉字算 1，拉丁字母 / 数字 / 空格算 0.55
+const vlen = (x: string) => [...x.replace(/[，。：；？！、「」]/g, '')].reduce((n, ch) => n + (/[\x00-\x7f]/.test(ch) ? 0.55 : 1), 0);
+// 没有标点、又超长的一段，按显示宽度从中间切开（不切断英文词）
+const cut = (p: string): string[] => {
+  if (vlen(p) <= MAX) return [p];
+  const n = Math.ceil(vlen(p) / MAX), target = vlen(p) / n;
+  const out: string[] = []; let cur = '';
+  for (const ch of [...p]) {
+    if (vlen(cur) >= target && out.length < n - 1 && !/[A-Za-z0-9]/.test(ch) && !/[，。：；？！、]/.test(ch)) { out.push(cur); cur = ''; }
+    cur += ch;
+  }
+  out.push(cur);
+  return out;
+};
 const split = (s: string): string[] => {
-  const parts = s.match(/[^，。：；？！、]+[，。：；？！、]?/g) ?? [s];
+  const parts = (s.match(/[^，。：；？！、]+[，。：；？！、]?/g) ?? [s]).flatMap(cut);
   const out: string[] = [];
   let cur = '';
   for (const p of parts) {
-    const len = (x: string) => x.replace(/[，。：；？！、「」\s]/g, '').length;
-    if (cur && len(cur + p) > MAX) {
+    const len = vlen;
+    if (cur && (len(cur + p) > MAX || /。$/.test(cur))) {
       out.push(cur);
       cur = p;
     } else cur += p;

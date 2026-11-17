@@ -30,7 +30,8 @@ export const SeqC: React.FC<{from: number}> = ({from}) => {
 
   // ---- C1：问题气泡 → 切成几段
   const c1 = cue('C1');
-  const split = prog(f, c1 + sec(1.7), 14, easeIO);
+  const split = prog(f, c1 + sec(1.25), 16, easeIO);
+  const arrive = prog(f, from + 4, sec(1.1), ease);   // 问题气泡落进来（就是 A 段手机里那句问题）
   // ---- C2：每段下面长出一列数字
   const c2 = cue('C2');
   const colIn = (i: number) => prog(f, c2 + sec(0.15) + i * 4, 14);
@@ -73,7 +74,7 @@ export const SeqC: React.FC<{from: number}> = ({from}) => {
 
       {/* C1–C3：问题和切出来的几段 */}
       {tokOut < 1 && (
-        <div style={{position: 'absolute', left: 0, right: 0, top: lerp(640, 300, tokUp), opacity: 1 - tokOut}}>
+        <div style={{position: 'absolute', left: 0, right: 0, top: lerp(640, 300, tokUp) - (1 - arrive) * 260, opacity: (1 - tokOut) * arrive, transform: `scale(${lerp(0.8, 1, arrive)})`}}>
           <div style={{display: 'flex', justifyContent: 'center', gap: lerp(0, 34, split)}}>
             {TOKENS.map((t, i) => (
               <div key={i} style={{position: 'relative', fontFamily: FONT.hei, fontSize: lerp(78, 66, tokUp), color: C.ink, background: split > 0.05 ? C.bg2 : '#2B3038',
@@ -94,7 +95,7 @@ export const SeqC: React.FC<{from: number}> = ({from}) => {
           </div>
         </div>
       )}
-      <Note top={1490} opacity={(prog(f, c1 + sec(2), 10) * (1 - prog(f, c2 + sec(0.6), 8))) * 0.9}>示意：怎么切因模型而异</Note>
+      <Note top={1490} opacity={(prog(f, c1 + sec(1.6), 10) * (1 - prog(f, c2 + sec(0.6), 8))) * 0.9}>示意：怎么切因模型而异</Note>
       <Note top={1490} opacity={(prog(f, c2 + sec(0.8), 10) * (1 - tokOut)) * 0.9}>示意数字：真实模型里每段有几千个数</Note>
       {/* C3 的 × 和 + */}
       {symOut < 1 && (
@@ -189,12 +190,12 @@ export const SeqC: React.FC<{from: number}> = ({from}) => {
         opacity: prog(f, c8 + sec(0.9), 10) * (1 - stackK)}}>
         每一行各算各的，<span style={{color: C.ai}}>同时</span>出结果
       </div>
-      <div style={{position: 'absolute', left: 0, right: 0, top: 1060, textAlign: 'center', fontFamily: FONT.hei, color: C.ink, opacity: bigNum}}>
+      <div style={{position: 'absolute', left: 0, right: 0, top: 900, textAlign: 'center', fontFamily: FONT.hei, color: C.ink, opacity: bigNum}}>
         <div style={{fontSize: 44, color: C.sub}}>每吐出一个字</div>
         <div style={{fontFamily: FONT.title, fontSize: 112, color: C.ai, lineHeight: 1.15}}>几十亿～上千亿次</div>
         <div style={{fontSize: 44, color: C.sub}}>乘加</div>
         <div style={{fontFamily: FONT.num, fontSize: 40, color: C.ink, marginTop: 22, opacity: prog(f, c9 + sec(1.2), 8)}}>
-          {Math.round(7e9 * prog(f, c9 + sec(1.2), sec(2.4), (x) => x)).toLocaleString('en-US')}
+          {Math.round(7e9 * prog(f, c9 + sec(1.0), sec(1.7), (x) => x)).toLocaleString('en-US')}
         </div>
         <div style={{fontSize: 28, color: C.sub, opacity: prog(f, c9 + sec(1.2), 8)}}>以 70 亿参数的模型为例，生成一个字</div>
       </div>

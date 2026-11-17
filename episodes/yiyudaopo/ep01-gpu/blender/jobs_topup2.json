@@ -1,0 +1,21 @@
+{
+ "scene_dir": "episodes/yiyudaopo/ep01-gpu/blender",
+ "script": "ep01_scenes.py",
+ "out_dir": "episodes/yiyudaopo/ep01-gpu/blender/out",
+ "sec_per_unit": 7.5,
+ "tasks": [
+  {
+   "args": [
+    "anim",
+    "MACRO",
+    "{out}/MACRO",
+    "1",
+    "30",
+    "1080x1920",
+    "64",
+    "cuda"
+   ],
+   "units": 30
+  }
+ ]
+}

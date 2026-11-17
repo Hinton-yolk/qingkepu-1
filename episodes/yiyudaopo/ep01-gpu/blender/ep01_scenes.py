@@ -374,9 +374,9 @@ def setup_render(sc, w, h, samples, device):
     sc.cycles.samples = samples
     sc.cycles.use_adaptive_sampling = True
     sc.render.image_settings.file_format = 'PNG'; sc.render.image_settings.color_mode = 'RGB'
-    if device == 'gpu':
+    if device in ('gpu', 'cuda'):        # cuda：有的 RunPod 机器 OptiX 内核编译失败（OPTIX_ERROR_INTERNAL_COMPILER_ERROR），改走 CUDA
         prefs = bpy.context.preferences.addons['cycles'].preferences
-        for dev_type in ('OPTIX', 'CUDA'):
+        for dev_type in (('CUDA',) if device == 'cuda' else ('OPTIX', 'CUDA')):
             try:
                 prefs.compute_device_type = dev_type; prefs.get_devices()
                 if any(d.type == dev_type for d in prefs.devices): break

@@ -35,7 +35,9 @@ export const SeqE: React.FC<{from: number}> = ({from}) => {
     <AbsoluteFill style={{background: C.bg}}>
       {/* 写实：俯视 → 拉远 */}
       <Sequence from={T_CHIP - from} layout="none">
-        <AbsoluteFill style={{opacity: xfade}}>
+        {/* 写实镜头开头 1.5 秒俯视静止：在合成里加一点慢推（从 1.0 开始，对齐不受影响） */}
+        <AbsoluteFill style={{opacity: xfade, transform: `scale(${1 + 0.018 * Math.min(1.6, Math.max(0, (f - T_CHIP) / 30))})`,
+          transformOrigin: `${(xs[0] + xs[1] + xs[2] + xs[3]) / 4}px ${(ys[0] + ys[1] + ys[2] + ys[3]) / 4}px`}}>
           <Plate name="CHIP" />
           <AbsoluteFill style={{background: 'linear-gradient(180deg, rgba(8,9,11,0.65) 0%, rgba(8,9,11,0) 26%, rgba(8,9,11,0) 70%, rgba(8,9,11,0.6) 100%)'}} />
           {/* HBM：标签 + 送数据的点（从每颗 HBM 中心流向芯片边缘，示意） */}

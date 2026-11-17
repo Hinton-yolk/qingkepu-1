@@ -1,0 +1,27 @@
+  pod 0: 1 个任务，30 单位
+预计墙钟 6 分钟；GPU 总时长 0.11 小时；按每卡每小时 $0.74 估约 $0.08（含每台约 2 分钟装环境；按秒计费）
+场景包 0.0 MB
+NVIDIA RTX A6000: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA GeForce RTX 4090: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA RTX 6000 Ada Generation: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA L40S: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA A40: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA L40: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+Community Cloud 没空卡，改用 Secure Cloud
+NVIDIA RTX A6000: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA GeForce RTX 4090: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+建好 pod 0: wyn812zumaam68  每小时 $1.09  NVIDIA RTX 6000 Ada Generation  SECURE
+[  0.0 分] wyn812zumaam68 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+[  0.3 分] wyn812zumaam68 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+wyn812zumaam68 场景已上传
+[  0.5 分] wyn812zumaam68 wait_bundle  已拉回 0
+[  0.8 分] wyn812zumaam68 rendering 1/1 已拉回 2
+[  1.1 分] wyn812zumaam68 rendering 1/1 已拉回 6
+[  1.4 分] wyn812zumaam68 rendering 1/1 已拉回 10
+[  1.7 分] wyn812zumaam68 rendering 1/1 已拉回 15
+[  2.0 分] wyn812zumaam68 rendering 1/1 已拉回 19
+[  2.3 分] wyn812zumaam68 rendering 1/1 已拉回 23
+[  2.6 分] wyn812zumaam68 rendering 1/1 已拉回 27
+[  2.9 分] wyn812zumaam68 done 1/1 已拉回 30
+wyn812zumaam68 完成，已删除
+全部完成：墙钟 3.1 分钟，约 $0.06（上限估计，按秒计费，以 RunPod 账单为准）

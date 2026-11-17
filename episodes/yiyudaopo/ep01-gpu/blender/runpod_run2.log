@@ -140,3 +140,56 @@ dcgmsdpu0oq378 场景已上传
 [ 39.0 分] dcgmsdpu0oq378 rendering 3/4 已拉回 344
 [ 39.3 分] dcgmsdpu0oq378 rendering 3/4 已拉回 345
 [ 39.6 分] dcgmsdpu0oq378 rendering 3/4 已拉回 347
+[ 39.9 分] dcgmsdpu0oq378 rendering 3/4 已拉回 349
+[ 40.2 分] dcgmsdpu0oq378 rendering 3/4 已拉回 350
+[ 40.5 分] dcgmsdpu0oq378 rendering 3/4 已拉回 352
+[ 40.8 分] dcgmsdpu0oq378 rendering 3/4 已拉回 354
+[ 41.1 分] dcgmsdpu0oq378 rendering 3/4 已拉回 355
+[ 41.4 分] dcgmsdpu0oq378 rendering 3/4 已拉回 357
+[ 41.7 分] dcgmsdpu0oq378 rendering 3/4 已拉回 359
+[ 42.0 分] dcgmsdpu0oq378 rendering 3/4 已拉回 360
+[ 42.3 分] dcgmsdpu0oq378 rendering 3/4 已拉回 362
+[ 42.6 分] dcgmsdpu0oq378 rendering 3/4 已拉回 364
+[ 42.9 分] dcgmsdpu0oq378 rendering 3/4 已拉回 365
+[ 43.2 分] dcgmsdpu0oq378 rendering 3/4 已拉回 367
+[ 43.5 分] dcgmsdpu0oq378 rendering 3/4 已拉回 369
+[ 43.8 分] dcgmsdpu0oq378 rendering 3/4 已拉回 370
+[ 44.1 分] dcgmsdpu0oq378 rendering 3/4 已拉回 372
+[ 44.4 分] dcgmsdpu0oq378 rendering 3/4 已拉回 374
+[ 44.7 分] dcgmsdpu0oq378 rendering 3/4 已拉回 375
+[ 45.0 分] dcgmsdpu0oq378 rendering 3/4 已拉回 377
+[ 45.3 分] dcgmsdpu0oq378 rendering 3/4 已拉回 378
+[ 45.6 分] dcgmsdpu0oq378 rendering 3/4 已拉回 380
+[ 45.9 分] dcgmsdpu0oq378 rendering 3/4 已拉回 382
+[ 46.2 分] dcgmsdpu0oq378 rendering 3/4 已拉回 383
+[ 46.5 分] dcgmsdpu0oq378 rendering 3/4 已拉回 385
+[ 46.8 分] dcgmsdpu0oq378 rendering 3/4 已拉回 387
+[ 47.1 分] dcgmsdpu0oq378 rendering 3/4 已拉回 388
+[ 47.4 分] dcgmsdpu0oq378 rendering 3/4 已拉回 390
+[ 47.7 分] dcgmsdpu0oq378 rendering 3/4 已拉回 392
+[ 48.0 分] dcgmsdpu0oq378 rendering 3/4 已拉回 393
+[ 48.3 分] dcgmsdpu0oq378 rendering 3/4 已拉回 395
+[ 48.6 分] dcgmsdpu0oq378 rendering 3/4 已拉回 396
+[ 48.9 分] dcgmsdpu0oq378 rendering 3/4 已拉回 398
+[ 49.2 分] dcgmsdpu0oq378 rendering 3/4 已拉回 400
+[ 49.5 分] dcgmsdpu0oq378 rendering 3/4 已拉回 401
+[ 49.8 分] dcgmsdpu0oq378 rendering 3/4 已拉回 403
+[ 50.0 分] dcgmsdpu0oq378 rendering 3/4 已拉回 404
+[ 50.3 分] dcgmsdpu0oq378 rendering 3/4 已拉回 406
+[ 50.6 分] dcgmsdpu0oq378 rendering 3/4 已拉回 407
+[ 50.9 分] dcgmsdpu0oq378 rendering 3/4 已拉回 409
+[ 51.2 分] dcgmsdpu0oq378 rendering 3/4 已拉回 411
+[ 51.5 分] dcgmsdpu0oq378 rendering 3/4 已拉回 412
+[ 51.8 分] dcgmsdpu0oq378 rendering 3/4 已拉回 414
+[ 52.1 分] dcgmsdpu0oq378 rendering 3/4 已拉回 416
+[ 52.4 分] dcgmsdpu0oq378 rendering 3/4 已拉回 417
+[ 52.7 分] dcgmsdpu0oq378 rendering 3/4 已拉回 419
+收尾删除 dcgmsdpu0oq378
+Traceback (most recent call last):
+  File "/home/user/kepu-studio/tools/runpod_render_gql.py", line 62, in <module>
+    sys.argv[0] = 'runpod_render_gql.py'; R.main()
+                                          ~~~~~~^^
+  File "/home/user/kepu-studio/tools/runpod_render.py", line 203, in main
+    time.sleep(15)
+    ~~~~~~~~~~^^^^
+KeyboardInterrupt

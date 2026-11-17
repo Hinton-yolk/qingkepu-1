@@ -162,7 +162,7 @@ B5 = cue('B5'); W0 = B5 + 0.15
 for i in range(6): add(sfx, W0 + i * 9 / fps, pluck(76 + [0, 2, 4, 7, 9, 12][i], 0.3, 0.07))
 add(sfx, tC, whoosh(0.45, 0.16))
 C1, C2, C4, C5, C6, C7, C8 = (cue(x) for x in ('C1', 'C2', 'C4', 'C5', 'C6', 'C7', 'C8'))
-add(sfx, C1 + 1.7, noise_burst(0.08, 0.14, 2000, 9000, decay=40))                                  # 切开
+add(sfx, C1 + 1.25, noise_burst(0.08, 0.14, 2000, 9000, decay=40))                                  # 切开
 for i in range(4): add(sfx, C2 + 0.15 + i * 4 / fps, tick(0.07, 2200))
 add(sfx, C4 + 0.45, tick(0.14, 1400)); add(sfx, C4 + 1.05, bell(79, 1.0, 0.1))
 add(sfx, C5 + 0.05, tick(0.14, 1400)); add(sfx, C5 + 0.75, bell(81, 1.0, 0.1))
