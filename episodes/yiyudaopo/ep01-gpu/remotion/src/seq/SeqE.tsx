@@ -57,8 +57,9 @@ export const SeqE: React.FC<{from: number}> = ({from}) => {
             </svg>
           )}
           {hbmTag > 0 && (() => {
-            const h = fr.hbm[2];
-            return <Tag x={Math.min(820, h[0] * 1080 + 40)} y={h[1] * 1920 + 90} text="HBM 显存" opacity={hbmTag} size={44} />;
+            // 左边一列 HBM（0–2）里最上面那颗的上方，不压在 GPU 芯片上
+            const top = [fr.hbm[0], fr.hbm[1], fr.hbm[2]].reduce((m, h) => (h[1] < m[1] ? h : m));
+            return <Tag x={Math.max(150, top[0] * 1080)} y={top[1] * 1920 - 80} text="HBM 显存" anchor="center" opacity={hbmTag} size={44} />;
           })()}
           {hbmTag > 0 && <Tag x={dc[0]} y={dc[1] - 40} text="GPU" anchor="center" opacity={hbmTag * (1 - q * 0.6)} size={44} />}
         </AbsoluteFill>

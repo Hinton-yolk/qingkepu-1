@@ -1,0 +1,16 @@
+  pod 0: 1 个任务，60 单位
+预计墙钟 9 分钟；GPU 总时长 0.15 小时；按每卡每小时 $0.69 估约 $0.11（含每台约 2 分钟装环境；按秒计费）
+场景包 0.0 MB
+NVIDIA GeForce RTX 4090: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA GeForce RTX 5090: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA RTX A6000: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA L40S: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA A40: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+建好 pod 0: xsnft4w9y9owjy  每小时 $0.74  NVIDIA RTX 6000 Ada Generation  COMMUNITY
+[  0.0 分] xsnft4w9y9owjy 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+[  0.3 分] xsnft4w9y9owjy 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+xsnft4w9y9owjy 场景已上传
+[  0.5 分] xsnft4w9y9owjy wait_bundle  已拉回 0
+[  0.8 分] xsnft4w9y9owjy done 1/1 已拉回 0 失败：task 1 failed: anim MACRO /w/out/MACRO 76 135 1080x1920 64 gpu
+xsnft4w9y9owjy 完成，已删除
+全部完成：墙钟 1.1 分钟，约 $0.01（上限估计，按秒计费，以 RunPod 账单为准）
