@@ -29,8 +29,8 @@
     q4: 13.0, barOn: 13.25, chg1: 13.55, chg1End: 15.0,
     q5: 15.5, dis1: 15.75, dis1End: 17.25,
     a6: 17.75, ringOn: 17.85, chgR: 18.3, chgREnd: 18.75, disR: 18.85, disREnd: 19.85,
-    q7: 20.0, clear: 20.0, chgH: 20.25, chgHEnd: 20.75,
-    a7: 21.5, half1: 21.75, half1End: 22.5, back1: 22.55, back1End: 22.95, half2: 23.0, half2End: 23.7, term: 23.25,
+    q7: 20.0, clear: 20.0, chgH: 20.0, chgHEnd: 20.4,   // v3 (user 11-17): the half example starts under its question, slower, with 充回来 between
+    a7: 21.5, half1: 20.5, half1End: 21.3, back1: 21.45, back1End: 21.95, half2: 22.05, half2End: 22.85, term: 23.0,
     // 24.25–38.5 · ageing
     q8: 24.25, chgA: 24.35, chgAEnd: 25.0, zoomA: 24.25, zoomAEnd: 25.5, film: 25.25,
     a8: 26.5, thick: 26.6, thickEnd: 27.5, stick: 27.75, stickEnd: 28.6,
@@ -80,8 +80,8 @@
     cath: "正极", anode: "负极 · 石墨", bar: "现在的电量", ring: "循环", term: "这叫一次充电循环", sei: "SEI 膜", note: "示意",
     cmpL: "不满、不热", cmpR: "满 + 热", hot: "热", opt: "优化电池充电 · 学会你的作息后", dawn: "快起床时再充满",
     limit: "充电上限", pause: "暂停", next: "下一次充电",
-    used: "累计用掉的电", half1: "第一次用掉一半", half2: "第二次用掉一半", elec: "电子", stuck: "被粘住，搬不回去", less: "满格也少一截",
-    night: "夜里", wake: "起床", faster: "膜长得更快", slower: "膜长得慢", full: "一直满着", stopped: "充满后不再往里充", gap: "空出来的位置", optTag: "起床前充满", limTag: "一直停在 80%，不再充满", li: "锂",
+    used: "累计用掉的电", full1: "攒满一条，才算一次", back: "充回来：不算", chg: "充电：正极 → 负极", use: "用电：负极 → 正极", half1: "第一次用掉一半", half2: "第二次用掉一半", elec: "电子", stuck: "被粘住，搬不回去", less: "满格也少一截",
+    night: "夜里", wake: "起床", inA: "没塞满 → 粘得慢", inB: "一直塞满 → 粘得快", faster: "膜长得更快", slower: "膜长得慢", full: "一直满着", stopped: "充满后不再往里充", gap: "空出来的位置", optTag: "起床前充满", limTag: "一直停在 80%，不再充满", li: "锂",
     end: ["你每天都在用，", "但你不知道", "它[怎么工作]"], epNum: "EP.08", epName: "充电",
   };
   const S16 = BEAT / 4;
