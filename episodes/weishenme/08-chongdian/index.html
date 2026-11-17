@@ -522,7 +522,7 @@ function drawGauge(t, a) {
   const bk = win(t, T.barOn, T.chg1 + 1.0, 0.3, 0.3);
   obox(x - 136, y - 82, 292, 164, E.p3out(prog(t, T.barOn, T.barOn + 0.3)), bk * a, 24);
   if (t >= T.barOn && t < T.q8) pill(COPY.bar, x + 10, y + 124, 46, t, T.barOn, T.q8, { align: "center" });
-  if (t >= T.ringOn && t < T.q8) pill(COPY.used, RX + 10, y + 124, 50, t, T.ringOn, T.q8, { align: "center", col: C.acc, edge: t < T.disR + 0.5 });
+  if (t >= T.ringOn && t < T.q8) pill(COPY.used, RX + 10, y + 128, 56, t, T.ringOn, T.q8, { align: "center", col: C.acc, edge: t < T.disR + 0.5 });
   // the meaning, said where it happens
   if (t >= T.disREnd && t < T.q7 + 0.2) pill(COPY.full1, RX + 10, y - 104, 48, t, T.disREnd, T.q7 + 0.2, { align: "center", col: C.acc, edge: true });
   if (t >= T.half1End - 0.1 && t < T.q8) pill(COPY.half1, RX + 10, y + 186, 44, t, T.half1End - 0.1, T.q8, { align: "center", col: C.acc });
@@ -629,7 +629,7 @@ function thermo(x, y, lv, a = 1, sc = 1) {          // x, y: the top of the tube
 const CH = { X0: 170, X1: 960, Y0: 790, Y1: 1290 };
 const yv = (v) => lerp(CH.Y1, CH.Y0, v), xt = (u) => lerp(CH.X0, CH.X1, u);
 const CURVES = {
-  A: { pts: [[0, 0.45], [0.18, 0.8], [0.78, 0.8], [0.9, 1], [1, 1]], u: (t) => kf(t, [[T.pull + 1.0, 0], [T.hold80, 0.18], [T.dawn, 0.78], [T.fill100End, 0.92], [T.fill100End + 0.4, 1]], (x) => x), on: (t) => kf(t, [[T.q14, 1], [T.q14 + 0.4, 0.12], [T.a15, 0.12], [T.a15 + 0.4, 0]]) },
+  A: { pts: [[0, 0.45], [0.18, 0.8], [0.78, 0.8], [0.9, 1], [1, 1]], u: (t) => kf(t, [[T.pull + 1.0, 0], [T.hold80, 0.18], [T.dawn, 0.78], [T.fill100End, 0.92], [T.fill100End + 0.4, 1]], (x) => x), on: (t) => kf(t, [[T.q14, 1], [T.q14 + 0.4, 0]]) },
   B: { pts: [[0, 0.45], [0.26, 1], [1, 1]], u: (t) => kf(t, [[T.q14 + 0.3, 0], [T.a14 - 0.6, 0.26], [T.a14 + 0.6, 1]], (x) => x), on: (t) => kf(t, [[T.a15, 1], [T.a15 + 0.4, 0]]) },
   C: { pts: [[0, 0.4], [0.2, 0.8], [1, 0.8]], u: (t) => kf(t, [[T.limit, 0], [T.limit + 0.35, 0.2], [T.irisOut - 0.35, 1]], (x) => x), on: () => 1 },
 };
