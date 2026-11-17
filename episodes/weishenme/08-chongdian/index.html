@@ -267,35 +267,55 @@ function drawPhone(t, K, o = {}) {
 
 // ---------------------------------------------------------------- the hands, drawn from the user's photo (assets/people/model.js)
 // The photo's right hand pinches between index (top) and thumb (bottom); the pinch centre is image (1350, 170).
+// v3.4 (user 11-17: 「手部模型必须优化，还是仿照体脂秤的来改」): drawn like EP.05's feet — one smooth skin with an ink
+// outline, a soft shading towards the edges, a few short creases where fingers touch, small pale nails with warm tips.
 const HM = window.HAND_MODEL.RH;
 const HPINCH = [1352, 172];
-const HDET = {                                          // read off the photo (qa/rh-grid.jpg): nails as ellipses, finger gaps, folds
-  nails: [[1292, 56, 28, 13, -0.05], [1268, 268, 30, 24, 0.12], [1430, 421, 17, 12, 0.25], [1438, 468, 15, 11, 0.15]],
-  gaps: [[[1388, 368], [1440, 386], [1500, 404]], [[1390, 442], [1440, 452], [1476, 458]], [[1398, 490], [1446, 500], [1478, 508]]],
-  folds: [[[1442, 72], [1454, 96]], [[1335, 250], [1342, 296]], [[1508, 300], [1540, 336], [1572, 380]], [[1608, 420], [1640, 470]]],
+// the traced outline, with the straight cut where the photo's object was (x ≈ 1455, y 154–293) replaced by the soft web
+const HPTS = (() => {
+  const P = HM.pts.slice(), i0 = P.findIndex((p) => p[0] === 1453 && p[1] === 293.5), i1 = P.findIndex((p) => p[0] === 1459.5 && p[1] === 150);
+  const web = [[1440, 286], [1460, 262], [1471, 232], [1473, 200], [1467, 172], [1457, 148]];
+  // the forearm leaves the photo at its right and bottom edges: carry it on, out of the frame (no cut line)
+  const ext = { "1999,666.5": [2790, 1000], "1818,666.5": [2718, 1044], "1999.5,529": [2800, 769] };
+  const Q = P.map((p) => ext[p.join(",")] ?? p);
+  return i0 >= 0 && i1 > i0 ? [...Q.slice(0, i0), ...web, ...Q.slice(i1 + 1)] : Q;
+})();
+const HDET = {
+  nails: [[1286, 56, 20, 11, -0.05], [1262, 266, 22, 18, 0.1], [1424, 424, 12, 8, 0.3], [1430, 470, 11, 7, 0.2]],   // small and pale, near the tips
+  tips: [[1268, 62, 30], [1258, 268, 34], [1404, 432, 22], [1408, 476, 20]],                                         // warmer fingertips
+  touch: [[[1392, 448], [1420, 452], [1448, 458]], [[1398, 494], [1424, 498], [1446, 503]], [[1380, 360], [1404, 368], [1428, 374]]],   // where fingers touch: short creases from the front back
+  knuckle: [[[1452, 70], [1458, 88]]],
 };
-const SKIN_STOPS = [[0, "#E3BE97"], [0.24, "#F8E6CF"], [0.5, "#F0D4B2"], [0.82, "#E2BA92"], [1, "#D3A77E"]];
-// draw the right hand (mirror = −1: the left hand) so that the pinch centre lands on screen point p, scale s px per image px, turned by ang
+function smoothPath(P) {                                 // a closed Catmull-Rom-like curve through the points (quadratics through midpoints)
+  const n = P.length, m = (i) => [(P[i % n][0] + P[(i + 1) % n][0]) / 2, (P[i % n][1] + P[(i + 1) % n][1]) / 2];
+  const p0 = m(n - 1); ctx.beginPath(); ctx.moveTo(p0[0], p0[1]);
+  for (let i = 0; i < n; i++) { const q = m(i); ctx.quadraticCurveTo(P[i][0], P[i][1], q[0], q[1]); }
+  ctx.closePath();
+}
+// draw the right hand (mirror = −1: the left hand) so that the pinch centre lands on screen point p, scale s px per image px
 function drawHand(p, s, mirror = 1, a = 1, ang = 0) {
   if (a <= 0.01) return;
   ID(); ctx.save(); ctx.globalAlpha *= a; ctx.translate(p[0], p[1]); ctx.rotate(ang); ctx.scale(s * mirror, s); ctx.translate(-HPINCH[0], -HPINCH[1]);
-  const path = () => { ctx.beginPath(); HM.pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); };
-  const g = ctx.createLinearGradient(1300, 20, 1700, 600); for (const [o, c] of SKIN_STOPS) g.addColorStop(o, c);
-  path(); ctx.fillStyle = g; ctx.fill();
-  ctx.save(); path(); ctx.clip();
-  ctx.filter = `blur(${(7 / s).toFixed(1)}px)`; ctx.strokeStyle = "rgba(176,118,78,0.32)"; ctx.lineWidth = 26; path(); ctx.stroke(); ctx.filter = "none";   // a soft inner rim (volume)
-  const hl = ctx.createRadialGradient(1520, 260, 10, 1520, 260, 240); hl.addColorStop(0, "rgba(255,246,232,0.35)"); hl.addColorStop(1, "rgba(255,246,232,0)"); ctx.fillStyle = hl; ctx.fillRect(1200, 0, 800, 667);
-  ctx.lineCap = "round"; ctx.lineJoin = "round";
-  for (const c of HDET.gaps) { ctx.beginPath(); c.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.strokeStyle = "rgba(132,82,48,0.5)"; ctx.lineWidth = 4; ctx.stroke(); ctx.beginPath(); c.forEach(([x, y], i) => (i ? ctx.lineTo(x, y - 4) : ctx.moveTo(x, y - 4))); ctx.strokeStyle = "rgba(255,240,222,0.4)"; ctx.lineWidth = 3; ctx.stroke(); }
-  for (const c of HDET.folds) { ctx.beginPath(); c.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.strokeStyle = "rgba(160,104,66,0.35)"; ctx.lineWidth = 2.5; ctx.stroke(); }
+  smoothPath(HPTS); ctx.fillStyle = C.skin; ctx.fill();
+  ctx.save(); smoothPath(HPTS); ctx.clip();
+  // shading like EP.05: darker towards the edges, light down the middle of the back of the hand and along the forearm
+  ctx.filter = `blur(${(14 / s).toFixed(1)}px)`; ctx.strokeStyle = "rgba(110,62,28,0.22)"; ctx.lineWidth = 60; smoothPath(HPTS); ctx.stroke(); ctx.filter = "none";
+  ctx.lineCap = "round"; ctx.strokeStyle = "rgba(255,246,232,0.22)"; ctx.lineWidth = 46; ctx.filter = `blur(${(10 / s).toFixed(1)}px)`;
+  ctx.beginPath(); ctx.moveTo(1330, 60); ctx.quadraticCurveTo(1480, 90, 1560, 250); ctx.quadraticCurveTo(1660, 440, 1990, 560); ctx.stroke(); ctx.filter = "none";
+  for (const [x, y, r] of HDET.tips) { const gr = ctx.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, "rgba(222,140,118,0.26)"); gr.addColorStop(1, "rgba(222,140,118,0)"); ctx.fillStyle = gr; ctx.fillRect(x - r, y - r, 2 * r, 2 * r); }
+  ctx.restore();
+  // the few lines: where fingers touch, one knuckle
+  ctx.lineCap = "round";
+  for (const c of HDET.touch) { const g = ctx.createLinearGradient(c[0][0], c[0][1], c[2][0], c[2][1]); g.addColorStop(0, "rgba(110,62,30,0)"); g.addColorStop(0.45, "rgba(110,62,30,0.5)"); g.addColorStop(1, "rgba(110,62,30,0.7)"); ctx.strokeStyle = g; ctx.lineWidth = 1.6 / s; ctx.beginPath(); ctx.moveTo(c[0][0], c[0][1]); ctx.quadraticCurveTo(c[1][0], c[1][1], c[2][0], c[2][1]); ctx.stroke(); }
+  for (const c of HDET.knuckle) { ctx.strokeStyle = "rgba(20,20,20,0.25)"; ctx.lineWidth = 1.4 / s; ctx.beginPath(); ctx.moveTo(c[0][0], c[0][1]); ctx.lineTo(c[1][0], c[1][1]); ctx.stroke(); }
+  // the nails: small, pale, with a thin edge and one highlight
   for (const [cx, cy, ra, rb, an] of HDET.nails) {
     ctx.save(); ctx.translate(cx, cy); ctx.rotate(an);
-    ctx.beginPath(); ctx.ellipse(0, 0, ra, rb, 0, 0, TAU); const ng = ctx.createLinearGradient(0, -rb, 0, rb); ng.addColorStop(0, "#F7E6DA"); ng.addColorStop(1, "#EBC9B6"); ctx.fillStyle = ng; ctx.fill();
-    ctx.strokeStyle = "rgba(170,112,90,0.6)"; ctx.lineWidth = 2; ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(-ra * 0.15, -rb * 0.35, ra * 0.55, rb * 0.22, 0, 0, TAU); ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.fill(); ctx.restore();
+    ctx.beginPath(); ctx.ellipse(0, 0, ra, rb, 0, 0, TAU); ctx.fillStyle = C.nail; ctx.fill(); ctx.strokeStyle = "rgba(154,106,78,0.55)"; ctx.lineWidth = 1.2 / s; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-ra * 0.2, -rb * 0.3, ra * 0.35, rb * 0.25, 0, 0, TAU); ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.fill(); ctx.restore();
   }
-  ctx.restore();
-  path(); ctx.lineJoin = "round"; ctx.strokeStyle = "rgba(120,78,44,0.55)"; ctx.lineWidth = 2.6 / s; ctx.stroke();
+  // the ink outline (as EP.05)
+  smoothPath(HPTS); ctx.lineJoin = "round"; ctx.strokeStyle = C.ink; ctx.lineWidth = 2.8 / s; ctx.stroke();
   ctx.restore();
 }
 // the plug hand: the pinch on the plug's body
