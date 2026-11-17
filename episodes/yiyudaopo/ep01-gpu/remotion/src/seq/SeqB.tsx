@@ -3,7 +3,7 @@ import macro from '../anchors/MACRO.json';
 import {C, FONT} from '../lib/theme';
 import {area, buildScene, Cam, LIGHT, project, Proj, shadeColor} from '../lib/terrain';
 import {cue, ease, easeIO, lerp, prog, sec} from '../lib/time';
-import {Kicker, Note} from '../lib/ui';
+import {Drift, Kicker, Note} from '../lib/ui';
 import {T_MACRO} from './SeqA';
 
 // B 段：游戏画面由三角形拼成 → 挑一块，演示它的亮度怎么算（三对数相乘再相加）→ 同一束光、同一个公式、
@@ -15,19 +15,28 @@ const f2 = (x: number) => x.toFixed(2);
 
 export const camAt = (f: number): Cam => {
   const orbit = prog(f, cue('B1') - sec(0.4), cue('B2') - cue('B1') + sec(0.4), easeIO); // B2 开始时停住
-  const drift = Math.max(0, f - cue('B2')) * 0.00012;                                    // 停住后极慢的漂移，画面不死
+  const drift = Math.max(0, f - cue('B2')) * 0.0016;                                     // 停住后继续慢慢转（n·l 和相机无关，算式不变）
   return {az: lerp(0.25, 0.7, orbit) + drift, el: lerp(0.42, 0.5, orbit), dist: lerp(12.5, 10.8, orbit), fov: 0.78, target: [0.2, 0.7, 0]};
 };
 
 // 被挑出来演示的那块：停住时，正对相机、受光中等、在画面中间附近、面积够大的一块地面
 const pick = (() => {
-  const P = project(TRIS, camAt(cue('B2')), VP.w, VP.h);
+  const cam = camAt(cue('B2'));
+  const P = project(TRIS, cam, VP.w, VP.h);
+  const cen = (q: Proj) => [(q.pts[0][0] + q.pts[1][0] + q.pts[2][0]) / 3, (q.pts[0][1] + q.pts[1][1] + q.pts[2][1]) / 3];
+  const trees = P.filter((q) => q.tri.kind === 'tree').map(cen);
   let best: Proj | null = null, score = -1;
   for (const p of P) {
     if (!p.facing || p.tri.kind !== 'land' || p.tri.base[2] > 110) continue;
-    const cx = (p.pts[0][0] + p.pts[1][0] + p.pts[2][0]) / 3, cy = (p.pts[0][1] + p.pts[1][1] + p.pts[2][1]) / 3;
+    const [cx, cy] = cen(p);
     if (p.shade < 0.55 || p.shade > 0.93) continue;
-    const s = area(p.pts) * Math.exp(-(((cx - VP.w * 0.45) / 260) ** 2) - (((cy - VP.h * 0.52) / 220) ** 2));
+    if (trees.some(([tx, ty]) => Math.hypot(tx - cx, ty - cy) < 75)) continue;     // 不要被树挡住的
+    // 法线在屏幕上要看得出方向：把中心沿 n 移 0.9 个单位，投影后的长度
+    const c3 = [0, 1, 2].map((k) => (p.tri.p[0][k] + p.tri.p[1][k] + p.tri.p[2][k]) / 3) as [number, number, number];
+    const tip = project([{...p.tri, p: [c3.map((v, k) => v + p.tri.n[k] * 0.9), c3, c3] as typeof p.tri.p}], cam, VP.w, VP.h)[0].pts[0];
+    const nl = Math.hypot(tip[0] - cx, tip[1] - cy);
+    if (nl < 45) continue;
+    const s = area(p.pts) * Math.min(1, nl / 70) * Math.exp(-(((cx - VP.w * 0.45) / 260) ** 2) - (((cy - VP.h * 0.55) / 220) ** 2));
     if (s > score) { score = s; best = p; }
   }
   return best!.tri.id;
@@ -89,7 +98,7 @@ export const SeqB: React.FC<{from: number}> = ({from}) => {
   const rect = {x: lerp(r0.x, VP.x, m), y: lerp(r0.y, VP.y, m), w: lerp(r0.w, VP.w, m), h: lerp(r0.h, VP.h, m)};
   const bgIn = prog(f, from, 10);
 
-  const wire = prog(f, cue('B1') + sec(1.6), sec(1.0)) * (1 - prog(f, cue('B2') + sec(0.2), 10));
+  const wire = prog(f, cue('B1') + sec(0.8), sec(1.0)) * (1 - prog(f, cue('B2') + sec(0.2), 10));
   const focus = prog(f, cue('B2') + sec(0.1), 10);
   const dimOthers = prog(f, cue('B2') + sec(0.1), 14) * (1 - prog(f, cue('B5') - 6, 8));
 
@@ -119,7 +128,7 @@ export const SeqB: React.FC<{from: number}> = ({from}) => {
   const fan = prog(f, B4 + sec(0.9), 20);
   // B5：画面分块，一块一批同时点亮
   const B5 = cue('B5');
-  const W0 = B5 + sec(0.15), WAVE = 9;
+  const W0 = B5 + sec(0.15), WAVE = 5;
   const tiles = 6;
   const tileOf = (p: Proj) => {
     const cxp = (p.pts[0][0] + p.pts[1][0] + p.pts[2][0]) / 3, cyp = (p.pts[0][1] + p.pts[1][1] + p.pts[2][1]) / 3;
@@ -141,6 +150,7 @@ export const SeqB: React.FC<{from: number}> = ({from}) => {
   return (
     <AbsoluteFill style={{background: interpolate(bgIn, [0, 1], [0, 1]) > 0 ? `rgba(12,13,16,${bgIn})` : undefined}}>
       <Kicker text="游戏画面" color={C.game} opacity={prog(f, from + 10, 12)} />
+      <Drift from={from} amp={0.7} push={0.03}>
       {/* 视口 */}
       <div style={{position: 'absolute', left: rect.x, top: rect.y, width: rect.w, height: rect.h, borderRadius: lerp(4, 26, m), overflow: 'hidden',
         boxShadow: `0 0 0 2px ${C.line}`}}>
@@ -156,12 +166,12 @@ export const SeqB: React.FC<{from: number}> = ({from}) => {
               </defs>
               <line x1={cx} y1={cy} x2={lerp(cx, tipP[0], arrows)} y2={lerp(cy, tipP[1], arrows)} stroke={C.op} strokeWidth={5 / Z} markerEnd="url(#ah)" />
               <text x={tipP[0] - 40 / Z} y={tipP[1] - 22 / Z} fill={C.op} fontFamily={FONT.hei} fontWeight={700} fontSize={36 / Z} opacity={arrows}>朝向</text>
-              <line x1={(VP.w * 0.83 - 20 - zx) / Z} y1={(VP.h * 0.13 + 30 - zy) / Z} x2={lerp((VP.w * 0.83 - 20 - zx) / Z, cx + 6, arrows)} y2={lerp((VP.h * 0.13 + 30 - zy) / Z, cy - 4, arrows)}
+              <line x1={cx + 6} y1={cy - 4} x2={lerp(cx + 6, (VP.w * 0.83 - 20 - zx) / Z, arrows)} y2={lerp(cy - 4, (VP.h * 0.13 + 30 - zy) / Z, arrows)}
                 stroke={C.sun} strokeWidth={5 / Z} strokeDasharray={`${14 / Z} ${10 / Z}`} markerEnd="url(#ahs)" />
             </svg>
           )}
          </div>
-          {arrows > 0 && <div style={{position: 'absolute', left: VP.w * 0.83 - 250, top: VP.h * 0.13 - 22, fontFamily: FONT.hei, fontWeight: 700, fontSize: 36, color: C.sun, opacity: arrows, textShadow: '0 2px 8px rgba(0,0,0,0.6)'}}>光从这来 →</div>}
+          {arrows > 0 && <div style={{position: 'absolute', left: VP.w * 0.83 - 230, top: VP.h * 0.13 + 40, fontFamily: FONT.hei, fontWeight: 700, fontSize: 36, color: C.sun, opacity: arrows, textShadow: '0 2px 8px rgba(0,0,0,0.6)'}}>← 光源方向</div>}
           {/* B5 分块边界和当前一批的闪光 */}
           {inB5 && f >= W0 && (
             <svg width={VP.w} height={VP.h} style={{position: 'absolute', left: 0, top: 0}}>
@@ -176,9 +186,9 @@ export const SeqB: React.FC<{from: number}> = ({from}) => {
 
       {/* B3 公式：三对数，竖着对应相乘，再相加 */}
       {panelIn > 0 && (
-        <div style={{position: 'absolute', left: 40, right: 40, top: 1100, height: 330, opacity: panelIn, fontFamily: FONT.hei}}>
+        <div style={{position: 'absolute', left: 40, right: 40, top: 1088, height: 330, opacity: panelIn, fontFamily: FONT.hei}}>
           <div style={{position: 'absolute', left: 0, top: 18, width: 160, color: C.op, fontSize: 34, fontWeight: 700}}>朝向</div>
-          <div style={{position: 'absolute', left: 0, top: 104, width: 160, color: C.sun, fontSize: 34, fontWeight: 700}}>光线</div>
+          <div style={{position: 'absolute', left: 0, top: 104, width: 180, color: C.sun, fontSize: 30, fontWeight: 700}}>光源方向</div>
           {[0, 1, 2].map((i) => {
             const x = 190 + i * 250;
             return (
@@ -187,33 +197,33 @@ export const SeqB: React.FC<{from: number}> = ({from}) => {
                 <div style={{height: 14}} />
                 <div><Num v={f2(LV[i])} color={C.sun} /></div>
                 <div style={{position: 'absolute', left: 0, right: 0, top: 70, color: C.sub, fontSize: 40, opacity: mul[i]}}>×</div>
-                <div style={{position: 'absolute', left: 20, right: 20, top: 168, height: 3, background: C.line, opacity: mul[i]}} />
-                <div style={{position: 'absolute', left: 0, right: 0, top: 180 + (1 - mul[i]) * -40, opacity: mul[i]}}>
+                <div style={{position: 'absolute', left: 20, right: 20, top: 162, height: 3, background: C.line, opacity: mul[i]}} />
+                <div style={{position: 'absolute', left: 0, right: 0, top: 172 + (1 - mul[i]) * -40, opacity: mul[i]}}>
                   <Num v={f2(PROD[i])} color={C.game} glow={mul[i] * (1 - add)} />
                 </div>
-                {i < 2 && <div style={{position: 'absolute', left: 205, top: 186, color: C.ink, fontSize: 52, opacity: add}}>+</div>}
+                {i < 2 && <div style={{position: 'absolute', left: 205, top: 178, color: C.ink, fontSize: 52, opacity: add}}>+</div>}
               </div>
             );
           })}
-          <div style={{position: 'absolute', left: 0, top: 192, color: C.sub, fontSize: 30, opacity: mul[0]}}>相乘</div>
-          <div style={{position: 'absolute', left: 190, top: 268, opacity: add, display: 'flex', alignItems: 'baseline', gap: 18}}>
+          <div style={{position: 'absolute', left: 0, top: 184, color: C.sub, fontSize: 30, opacity: mul[0]}}>相乘</div>
+          <div style={{position: 'absolute', left: 190, top: 232, opacity: add, display: 'flex', alignItems: 'baseline', gap: 18}}>
             <span style={{color: C.ink, fontSize: 40, fontWeight: 700}}>相加 =</span>
             <Num v={f2(SUM)} color={C.op} size={72} glow={sumGlow} />
-            <span style={{color: C.sub, fontSize: 34}}>→ 这一块的亮度</span>
+            <span style={{color: C.sub, fontSize: 34}}>→ 这一块的漫反射亮度</span>
           </div>
         </div>
       )}
 
       {/* B4–B5 一整批：左边是同一束光 l，右边每格是一块三角形（各自的 n 不同） */}
       {gridIn > 0 && (
-        <div style={{position: 'absolute', left: 40, top: 1110, width: 1000, height: 320, opacity: gridIn * (1 - prog(f, cue('C1') - sec(0.5), 8))}}>
+        <div style={{position: 'absolute', left: 40, top: 1092, width: 1000, height: 300, opacity: gridIn * (1 - prog(f, cue('C1') - sec(0.5), 8))}}>
           <div style={{position: 'absolute', left: 0, top: 70, width: 150, textAlign: 'center', fontFamily: FONT.hei}}>
             <div style={{color: C.sun, fontSize: 30, fontWeight: 700}}>同一束光</div>
             {LV.map((v, i) => <div key={i}><Num v={f2(v)} color={C.sun} size={40} /></div>)}
           </div>
           <svg width={1000} height={320} style={{position: 'absolute', left: 0, top: 0}}>
             {Array.from({length: cellRows}, (_, r) => (
-              <path key={r} d={`M150,${160} C 200,160 190,${36 + r * 76} ${200 + 790 * fan},${36 + r * 76}`} stroke={C.sun} strokeWidth={2} fill="none" opacity={0.55 * fan} />
+              <path key={r} d={`M150,${160} C 200,160 190,${36 + r * 70} ${200 + 790 * fan},${36 + r * 70}`} stroke={C.sun} strokeWidth={2} fill="none" opacity={0.55 * fan} />
             ))}
           </svg>
           {cellNs.map((t, i) => {
@@ -222,7 +232,7 @@ export const SeqB: React.FC<{from: number}> = ({from}) => {
             const flash = inB5 ? tileFlash(Math.min(tiles - 1, wave)) : 0;
             const v = r2(Math.max(0, t.n[0] * LIGHT[0] + t.n[1] * LIGHT[1] + t.n[2] * LIGHT[2]));
             return (
-              <div key={i} style={{position: 'absolute', left: 205 + c * 132, top: r * 76 + 4, width: 120, height: 64, borderRadius: 10,
+              <div key={i} style={{position: 'absolute', left: 205 + c * 132, top: r * 70 + 4, width: 120, height: 64, borderRadius: 10,
                 background: flash > 0 ? `rgba(240,160,64,${0.22 + 0.5 * flash})` : C.bg2, border: `2px solid ${flash > 0.3 ? C.game : C.line}`, opacity: appear,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, fontFamily: FONT.num}}>
                 <svg width={26} height={24}><path d="M2,22 L13,2 L24,22 Z" fill={shadeColor(t.base, Math.max(0, v))} /></svg>
@@ -244,8 +254,10 @@ export const SeqB: React.FC<{from: number}> = ({from}) => {
           GPU：为成批的同类计算而设计
         </span>
       </div>
-      <Note top={1585} opacity={note * 0.9}>简化：只演示漫反射亮度；真实渲染还有很多步骤，有些要等前一步的结果</Note>
-      <Note top={1585} opacity={prog(f, cue('B1') + sec(1.8), 10) * (1 - note) * 0.9}>示意：真实游戏画面的三角形多得多</Note>
+      <Note top={1490} opacity={prog(f, B5 + sec(2.4), 8) * 0.9}>简化：只算漫反射（另有环境光）；有些渲染步骤要等前一步</Note>
+      <Note top={1490} opacity={prog(f, cue('B1') + sec(1.8), 10) * (1 - prog(f, cue('B5') - 10, 8)) * 0.9}>示意：真实游戏画面的三角形多得多，也是逐像素着色</Note>
+      </Drift>
+      <Note top={1490} opacity={note * (1 - prog(f, B5 + sec(2.4), 8)) * 0.9}>示意：实际是成千上万个线程同时在跑</Note>
     </AbsoluteFill>
   );
 };

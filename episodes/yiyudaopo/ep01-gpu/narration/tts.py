@@ -14,8 +14,9 @@ EP = os.path.dirname(HERE)
 PUB = os.path.join(EP, 'remotion', 'public', 'vo')
 SRC_TIMING = os.path.join(EP, 'remotion', 'src', 'timing.json')
 RAW = os.path.join(HERE, 'vo_src')
-LEAD_IN = 0.45          # 片头第一句前留的时间（秒）
-LENGTH_SCALE = 0.98     # Piper 默认约 6 字/秒，略放慢到约 5.3 字/秒
+LEAD_IN = 0.15          # 片头第一句前留的时间（秒）
+TEMPO = 1.03            # 后期整体略提速（不变调），把总长收进 100 秒
+LENGTH_SCALE = 0.92     # Piper 默认约 6 字/秒，略放慢到约 5.3 字/秒
 
 # espeak 读英文缩写会乱读，这里只在「念」的时候替换，字幕仍然用原文
 SAY = [('GPU', 'G P U'), ('CPU', 'C P U'), ('AI', 'A I'), ('「', ''), ('」', '')]
@@ -38,12 +39,12 @@ def main():
             say = L.get('say', L['text'])
             for a, b in SAY: say = say.replace(a, b)
             subprocess.run([sys.executable, '-m', 'piper', '-m', os.path.join(voices, 'zh_CN-huayan-medium.onnx'),
-                            '-f', raw, '--length-scale', str(LENGTH_SCALE), '--sentence-silence', '0'],
+                            '-f', raw, '--length-scale', str(L.get('ls', LENGTH_SCALE)), '--sentence-silence', '0'],
                            input=say.encode(), check=True, capture_output=True)
         # 去掉首尾静音 → 48 kHz 单声道 → -20 LUFS
         subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', raw, '-af',
                         'silenceremove=start_periods=1:start_threshold=-45dB,areverse,silenceremove=start_periods=1:start_threshold=-45dB,areverse,'
-                        'loudnorm=I=-20:TP=-2:LRA=7,aresample=48000', '-ac', '1', dst], check=True)
+                        f"atempo={L.get('tempo', TEMPO)},loudnorm=I=-20:TP=-2:LRA=7,aresample=48000", '-ac', '1', dst], check=True)
         d = dur(dst)
         out.append(dict(id=L['id'], seq=L['seq'], text=L['text'], start=round(t, 3), end=round(t + d, 3), file=f"vo/{L['id']}.wav"))
         t += d + L['pause']

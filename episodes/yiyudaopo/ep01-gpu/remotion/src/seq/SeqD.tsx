@@ -1,7 +1,7 @@
 import {AbsoluteFill, useCurrentFrame} from 'remotion';
 import {C, FONT} from '../lib/theme';
 import {cue, ease, easeIO, lerp, prog, sec} from '../lib/time';
-import {Kicker, Note} from '../lib/ui';
+import {Drift, Kicker, Note} from '../lib/ui';
 import {LV, NV, PROD, SUM} from './SeqB';
 
 // D 段：把 B 段（游戏算亮度）和 C 段（AI 算下一层）的两道算式摆在一起 → 它们的「形状」一样：成对相乘、再相加
@@ -127,11 +127,11 @@ export const SeqD: React.FC<{from: number}> = ({from}) => {
   const batchFire = (Math.floor((f - d4) / 6) % 2 === 0 ? 1 : 0.55) * batch;
   const partOut = prog(f, cue('D5') - 8, 10);
   // D5：CPU
-  const d5 = cue('D5'), d6 = cue('D6'), d7 = cue('D7'), d8 = cue('D8');
+  const d5 = cue('D5'), d5b = cue('D5b'), d6 = cue('D6'), d7 = cue('D7'), d8 = cue('D8');
   const cpuIn = prog(f, d5 - 4, 14);
   const cpuActive = prog(f, d5 + sec(0.6), 6);
-  const cpuArea = prog(f, d5 + sec(2.6), 10) * (1 - prog(f, d5 + sec(5.0), 10));
-  const cpuStream = prog(f, d5 + sec(5.1), 8);
+  const cpuArea = prog(f, d5b + sec(0.2), 10) * (1 - prog(f, d5b + sec(2.6), 10));
+  const cpuStream = prog(f, d5b + sec(2.7), 8);
   // D6：GPU
   const gpuBuild = prog(f, d6 - 4, 24);
   const instr = prog(f, d6 + sec(2.3), 6);
@@ -151,6 +151,7 @@ export const SeqD: React.FC<{from: number}> = ({from}) => {
   return (
     <AbsoluteFill style={{background: C.bg, transform: `translateX(${(1 - slideIn) * 1080}px)`}}>
       {/* D1–D4 */}
+      <Drift from={from}>
       {partOut < 1 && (
         <AbsoluteFill style={{opacity: 1 - partOut}}>
           <div style={{position: 'absolute', left: 40, right: 40, top: lerp(300, 560, merge), height: 340, borderRadius: 22, border: `3px solid ${C.game}`, opacity: topIn * (1 - merge),
@@ -165,7 +166,7 @@ export const SeqD: React.FC<{from: number}> = ({from}) => {
           </div>
           <div style={{position: 'absolute', left: 40, right: 40, top: lerp(780, 560, merge), height: 340, borderRadius: 22, border: `3px solid ${C.ai}`, opacity: botIn * (1 - merge),
             background: 'rgba(104,168,255,0.05)'}}>
-            <div style={{position: 'absolute', left: 30, top: 24, fontFamily: FONT.hei, fontWeight: 700, fontSize: 38, color: C.ai}}>AI · 算下一层的一个数</div>
+            <div style={{position: 'absolute', left: 30, top: 24, fontFamily: FONT.hei, fontWeight: 700, fontSize: 38, color: C.ai}}>AI · 算下一层的一个数（示意数字）</div>
             <div style={{position: 'absolute', left: 0, right: 0, top: 150}}>
               <Formula terms={botTerms} result="23" color={C.ai} hiMul={mulBot} plus={plusBot} box={boxK} size={60} />
             </div>
@@ -194,7 +195,8 @@ export const SeqD: React.FC<{from: number}> = ({from}) => {
             </div>
           )}
           <div style={{position: 'absolute', left: 0, right: 0, top: 1240, textAlign: 'center', fontFamily: FONT.hei, fontWeight: 700, fontSize: 50, color: C.ink, textShadow: '0 2px 12px rgba(0,0,0,0.95)',
-            opacity: prog(f, d4 + sec(2.0), 10)}}>一大批，<span style={{color: C.op}}>互不等待</span></div>
+            opacity: prog(f, d4 + sec(2.0), 10)}}>同一步里：一大批，<span style={{color: C.op}}>同时算</span>
+            <div style={{fontSize: 30, fontWeight: 400, color: C.sub, marginTop: 8}}>步与步之间，仍要按顺序</div></div>
         </AbsoluteFill>
       )}
 
@@ -206,8 +208,8 @@ export const SeqD: React.FC<{from: number}> = ({from}) => {
             8 个核心，也在同时干活（示意）
           </div>
           <div style={{position: 'absolute', left: 100, right: 100, top: 820, textAlign: 'center', fontFamily: FONT.hei, fontWeight: 700, fontSize: 40, color: C.ink,
-            opacity: prog(f, d5 + sec(5.3), 10) * (1 - gpuBuild)}}>
-            每个核心干的事都不一样，<span style={{color: C.game}}>随时分支</span>
+            opacity: prog(f, d5b + sec(2.9), 10) * (1 - gpuBuild)}}>
+            每个核心可以各干各的，<span style={{color: C.game}}>随时分支</span>
           </div>
           {gpuBuild > 0 && <GpuDie f={f} build={gpuBuild} fire={gpuFire} instr={instr} />}
           {instr > 0 && (
@@ -216,7 +218,7 @@ export const SeqD: React.FC<{from: number}> = ({from}) => {
               <span style={{fontFamily: FONT.hei, fontSize: 32, color: C.game, opacity: prog(f, d6 + sec(3.3), 8)}}>→ 一大批数据同时算</span>
             </div>
           )}
-          <Note top={1585} opacity={prog(f, d5 + sec(2.6), 10) * 0.9}>面积比例为示意，只表示两种芯片的设计取向；GPU 也不是什么活都比 CPU 快</Note>
+          <Note top={1490} opacity={prog(f, d5b, 10) * 0.9}>面积比例为示意；GPU 也不是什么活都比 CPU 快</Note>
         </AbsoluteFill>
       )}
 
@@ -249,13 +251,14 @@ export const SeqD: React.FC<{from: number}> = ({from}) => {
                 })}
                 <div style={{position: 'absolute', left: 20, top: -56, fontFamily: FONT.hei, fontWeight: 700, fontSize: 36, color: C.ai, opacity: 1 - fit}}>AI 的一批乘加</div>
               </div>
-              <div style={{position: 'absolute', left: 0, right: 0, top: 1340, textAlign: 'center', fontFamily: FONT.hei, fontWeight: 700, fontSize: 48, color: C.ink, opacity: endTxt}}>
+              <div style={{position: 'absolute', left: 0, right: 0, top: 1328, textAlign: 'center', fontFamily: FONT.hei, fontWeight: 700, fontSize: 46, color: C.ink, opacity: endTxt}}>
                 <span style={{color: C.ai}}>AI 的很多计算</span>，正好是 GPU 擅长的形状
               </div>
             </>
           )}
         </AbsoluteFill>
       )}
+      </Drift>
     </AbsoluteFill>
   );
 };

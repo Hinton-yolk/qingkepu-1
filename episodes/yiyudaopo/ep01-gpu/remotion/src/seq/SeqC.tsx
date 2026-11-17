@@ -1,7 +1,7 @@
 import {AbsoluteFill, useCurrentFrame} from 'remotion';
 import {C, FONT} from '../lib/theme';
 import {cue, ease, easeIO, lerp, prog, sec} from '../lib/time';
-import {Kicker, Note} from '../lib/ui';
+import {Drift, Kicker, Note} from '../lib/ui';
 
 // C 段：「黑洞是什么？」→ 切成几段 → 每段换成一长串数字 → 一个看得懂的例子 2×4 + 3×5 = 23（两次乘法分开演，
 // 再相加，留停顿）→ 真实模型里一次几千对 → 很多行排整齐 = 矩阵乘法 → 每个字要做几十亿到上千亿次
@@ -69,6 +69,7 @@ export const SeqC: React.FC<{from: number}> = ({from}) => {
   return (
     <AbsoluteFill style={{background: C.bg, transform: `translateX(${(1 - slideIn) * 1080}px)`, opacity: 1 - outro * 0.0}}>
       <Kicker text="AI 模型" color={C.ai} opacity={inK} />
+      <Drift from={from} amp={1.35}>
 
       {/* C1–C3：问题和切出来的几段 */}
       {tokOut < 1 && (
@@ -93,8 +94,8 @@ export const SeqC: React.FC<{from: number}> = ({from}) => {
           </div>
         </div>
       )}
-      <Note top={1585} opacity={(prog(f, c1 + sec(2), 10) * (1 - prog(f, c2 + sec(0.6), 8))) * 0.9}>示意：怎么切因模型而异</Note>
-      <Note top={1585} opacity={(prog(f, c2 + sec(0.8), 10) * (1 - tokOut)) * 0.9}>示意数字：真实模型里每段有几千个数</Note>
+      <Note top={1490} opacity={(prog(f, c1 + sec(2), 10) * (1 - prog(f, c2 + sec(0.6), 8))) * 0.9}>示意：怎么切因模型而异</Note>
+      <Note top={1490} opacity={(prog(f, c2 + sec(0.8), 10) * (1 - tokOut)) * 0.9}>示意数字：真实模型里每段有几千个数</Note>
       {/* C3 的 × 和 + */}
       {symOut < 1 && (
         <div style={{position: 'absolute', left: 0, right: 0, top: 1030, display: 'flex', justifyContent: 'center', gap: 160, opacity: 1 - symOut}}>
@@ -180,9 +181,9 @@ export const SeqC: React.FC<{from: number}> = ({from}) => {
         </AbsoluteFill>
       )}
       {/* C7 说明：几千对 → 一个数 */}
-      <div style={{position: 'absolute', left: 0, right: 0, top: 1240, textAlign: 'center', fontFamily: FONT.hei, fontSize: 46, fontWeight: 700, color: C.ink,
+      <div style={{position: 'absolute', left: 0, right: 0, top: 1250, textAlign: 'center', fontFamily: FONT.hei, fontSize: 46, fontWeight: 700, color: C.ink,
         opacity: prog(f, c7 + sec(2.2), 10) * (1 - prog(f, c8 - 4, 8))}}>
-        几千对数，各自相乘，加成 <span style={{color: C.ai}}>1 个</span>输出
+        几千到几万对数，各自相乘，加成 <span style={{color: C.ai}}>1 个</span>输出
       </div>
       <div style={{position: 'absolute', left: 0, right: 0, top: 1300, textAlign: 'center', fontFamily: FONT.hei, fontSize: 50, fontWeight: 700, color: C.ink,
         opacity: prog(f, c8 + sec(0.9), 10) * (1 - stackK)}}>
@@ -192,8 +193,14 @@ export const SeqC: React.FC<{from: number}> = ({from}) => {
         <div style={{fontSize: 44, color: C.sub}}>每吐出一个字</div>
         <div style={{fontFamily: FONT.title, fontSize: 112, color: C.ai, lineHeight: 1.15}}>几十亿～上千亿次</div>
         <div style={{fontSize: 44, color: C.sub}}>乘加</div>
+        <div style={{fontFamily: FONT.num, fontSize: 40, color: C.ink, marginTop: 22, opacity: prog(f, c9 + sec(1.2), 8)}}>
+          {Math.round(7e9 * prog(f, c9 + sec(1.2), sec(2.4), (x) => x)).toLocaleString('en-US')}
+        </div>
+        <div style={{fontSize: 28, color: C.sub, opacity: prog(f, c9 + sec(1.2), 8)}}>以 70 亿参数的模型为例，生成一个字</div>
       </div>
-      <Note top={1585} opacity={bigNum * 0.9}>粗略量级：约等于模型参数个数（几十亿到上千亿个）</Note>
+      </Drift>
+      <Note top={1490} opacity={stageIn * (1 - shrink) * 0.9}>示意：只取两对整数举例；真实模型每次有几千对</Note>
+      <Note top={1490} opacity={bigNum * 0.9}>粗略量级：约等于模型参数个数（几十亿到上千亿个）</Note>
     </AbsoluteFill>
   );
 };

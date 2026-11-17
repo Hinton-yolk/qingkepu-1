@@ -66,13 +66,14 @@ export const SeqA: React.FC<{from: number}> = ({from}) => {
   const ansStart = sec(2.85);
   const answered = Math.max(0, Math.floor((f - ansStart) * 1.0));
   const push = prog(f, sec(2.6), sec(2.9), easeIO);                      // 慢慢推近回答
+  const pre = f / 30;                                                     // 开头就有的很慢的推近和漂移，画面一开始就在动
   const whip = prog(f, T_DC - 7, 9, easeIO);                             // 甩镜：手机往上甩出
   const titleO = 1 - prog(f, cue('A2') + sec(0.9), 10);
   // 灯光：左上一盏暖色台灯，手机屏幕的冷光打在桌面上
   const phone = (
     <AbsoluteFill style={{background: 'radial-gradient(120% 70% at 18% 8%, #2a241c 0%, #121214 46%, #0a0a0c 100%)'}}>
       <div style={{position: 'absolute', inset: 0, transform: `translateY(${-whip * 2300}px)`, filter: whip > 0.02 ? `blur(${whip * 26}px)` : undefined}}>
-        <div style={{position: 'absolute', inset: 0, transform: `scale(${1 + push * 0.16}) translate(${push * 30}px, ${-push * 120}px)`, transformOrigin: '50% 40%'}}>
+        <div style={{position: 'absolute', inset: 0, transform: `scale(${1 + push * 0.16 + pre * 0.006}) translate(${push * 30 + 10 * Math.cos(pre * 1.3)}px, ${-push * 120 + 8 * Math.sin(pre * 1.3)}px)`, transformOrigin: '50% 40%'}}>
           {/* 桌面反光 */}
           <div style={{position: 'absolute', left: PH.x - 60, top: PH.y + PH.h - 80, width: PH.w + 120, height: 260, borderRadius: '50%',
             background: 'radial-gradient(closest-side, rgba(120,140,170,0.16), transparent)'}} />
@@ -102,7 +103,7 @@ export const SeqA: React.FC<{from: number}> = ({from}) => {
         <AbsoluteFill style={{background: 'linear-gradient(180deg, rgba(8,9,11,0.55) 0%, rgba(8,9,11,0) 22%, rgba(8,9,11,0) 70%, rgba(8,9,11,0.6) 100%)'}} />
         <Tag x={64} y={1290} text="数据中心 · GPU 服务器" opacity={dcLabel} size={40} />
         <div style={{position: 'absolute', left: 64, top: 1322, width: 420 * dcLabel, height: 3, background: C.ink, opacity: 0.7 * dcLabel}} />
-        <Note top={1585} opacity={dcLabel * 0.85}>示意场景</Note>
+        <Note top={1490} opacity={dcLabel * 0.85}>示意场景</Note>
       </AbsoluteFill>
     </Sequence>
   );
@@ -125,7 +126,7 @@ export const SeqA: React.FC<{from: number}> = ({from}) => {
         <div style={{position: 'absolute', left: cx + 8, top: cy - 8, width: 140 * tagO, height: 3, background: C.ink, transform: 'rotate(-35deg)', transformOrigin: '0 50%', opacity: tagO}} />
         <Tag x={cx + 120} y={cy - 100} text="GPU 芯片" opacity={tagO} size={44} />
         <BigQ l1="画游戏的芯片" l2="怎么成了 AI 的主力？" o={q2} y={180} accent={C.ai} />
-        <Note top={1585} opacity={tagO * 0.85}>示意：通用 AI 加速器模组，非特定型号</Note>
+        <Note top={1490} opacity={tagO * 0.85}>示意：通用 AI 加速器模组，非特定型号</Note>
       </AbsoluteFill>
     </Sequence>
   );

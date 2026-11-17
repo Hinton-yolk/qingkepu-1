@@ -42,7 +42,7 @@ export const Captions: React.FC<{hideIds?: string[]}> = () => {
   if (!c) return null;
   const k = Math.min(1, (t - (c.a - 0.05)) / 0.1);
   return (
-    <div style={{position: 'absolute', left: 60, right: 60, top: 1452, display: 'flex', justifyContent: 'center', pointerEvents: 'none'}}>
+    <div style={{position: 'absolute', left: 60, right: 60, top: 1398, display: 'flex', justifyContent: 'center', pointerEvents: 'none'}}>
       <div
         style={{
           fontFamily: FONT.hei, fontWeight: 700, fontSize: 52, lineHeight: 1.25, color: C.ink, letterSpacing: 1,

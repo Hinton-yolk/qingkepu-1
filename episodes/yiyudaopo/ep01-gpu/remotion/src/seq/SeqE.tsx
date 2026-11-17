@@ -43,7 +43,7 @@ export const SeqE: React.FC<{from: number}> = ({from}) => {
             <svg width={1080} height={1920} style={{position: 'absolute', left: 0, top: 0}}>
               {fr.hbm.map((h, i) => {
                 const hx = h[0] * 1080, hy = h[1] * 1920;
-                const ex = lerp(hx, dc[0], 0.62), ey = lerp(hy, dc[1], 0.62);
+                const ex = lerp(hx, dc[0], 0.36), ey = lerp(hy, dc[1], 0.36);   // 停在芯片边缘（数据经中介层布线进芯片边上的接口）
                 return (
                   <g key={i} opacity={hbmTag}>
                     <circle cx={hx} cy={hy} r={10} fill="none" stroke={C.ink} strokeWidth={3} />
@@ -85,6 +85,7 @@ export const SeqE: React.FC<{from: number}> = ({from}) => {
           </div>
           <div style={{position: 'absolute', left: 0, right: 0, top: 560, textAlign: 'center', fontFamily: FONT.num, fontSize: 52, color: C.ink, opacity: tc * (1 - grow)}}>
             D = A × B + C
+            <div style={{fontFamily: FONT.hei, fontSize: 30, color: C.sub, marginTop: 10}}>A、B、C、D 都是小矩阵（如 4×4）</div>
           </div>
         </AbsoluteFill>
       )}
@@ -95,9 +96,9 @@ export const SeqE: React.FC<{from: number}> = ({from}) => {
         <div style={{fontSize: 100, color: C.ink}}>算得再快</div>
         <div style={{fontSize: 100, color: C.ai}}>数字怎么及时送到？</div>
       </div>
-      <div style={{position: 'absolute', right: 64, top: 1365, fontFamily: FONT.hei, fontWeight: 700, fontSize: 34, color: C.ink, opacity: nextK,
+      <div style={{position: 'absolute', right: 64, top: 1300, fontFamily: FONT.hei, fontWeight: 700, fontSize: 34, color: C.ink, opacity: nextK,
         padding: '8px 18px', border: `2px solid ${C.ink}`, borderRadius: 10, background: 'rgba(12,13,16,0.6)'}}>下一段：显存与数据搬运 →</div>
-      <Note top={1585} opacity={prog(f, T_CHIP + sec(0.6), 10) * 0.9}>示意：通用 AI 加速器（中间 GPU 芯片 + 两侧 6 颗 HBM），非特定型号</Note>
+      <Note top={1490} opacity={prog(f, T_CHIP + sec(0.6), 10) * 0.9}>示意：通用 AI 加速器，非特定型号；数据流向为示意</Note>
     </AbsoluteFill>
   );
 };

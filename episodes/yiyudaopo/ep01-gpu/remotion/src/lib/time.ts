@@ -7,7 +7,7 @@ export const T = timing as unknown as {
   lines: {id: string; seq: string; text: string; start: number; end: number; file: string}[];
   seqs: Record<string, [number, number]>;
 };
-export const TOTAL_FRAMES = Math.ceil((T.total + 0.4) * FPS);
+export const TOTAL_FRAMES = Math.ceil((T.total + 0.12) * FPS);
 const byId = Object.fromEntries(T.lines.map((l) => [l.id, l]));
 /** 某句旁白开始 / 结束的帧（全片帧号） */
 export const cue = (id: string, at: 'start' | 'end' = 'start') => Math.round(byId[id][at] * FPS);
