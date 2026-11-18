@@ -4,7 +4,7 @@ import {C, FONT} from '../lib/theme';
 import {cue, ease, easeIO, lerp, prog, sec} from '../lib/time';
 import {Note, Plate, Tag} from '../lib/ui';
 
-// G 段（一块 GPU 不够）：写实镜头从一块 GPU 封装慢慢拉远 → 模组 → 一台服务器里的 8 块加速器（Blender 灰模级底片，本机渲）
+// G 段（一块 GPU 不够）：写实镜头从一块 GPU 封装慢慢拉远 → 模组 → 一台服务器里的 8 块加速器（Blender Cycles 底片，RunPod 精渲 1080×1920）
 // 叠加层：一块 GPU 的两个上限（显存、算力）→ 模型太大装不下 → 任务太多排长队 →「怎么办？」
 // → 拉远看到 8 块 → 模型拆成几份放到几块上（分担不同部分）、一大批任务分给另外几块（一起处理更大的任务）。
 type P = number[];
