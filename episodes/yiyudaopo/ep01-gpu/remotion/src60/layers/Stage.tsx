@@ -60,7 +60,7 @@ const Line: React.FC<{y: number; size: number; o: number; dy?: number; color?: s
   );
 const Note: React.FC<{y: number; o: number; children: React.ReactNode}> = ({y, o, children}) =>
   o <= 0.001 ? null : (
-    <div style={{position: 'absolute', left: 72, top: y, fontFamily: FONT, fontSize: 30, color: C.sub, opacity: o, letterSpacing: 1,
+    <div style={{position: 'absolute', left: 72, top: y, fontFamily: FONT, fontSize: 38, color: '#C3C8CE', opacity: o, letterSpacing: 1,
       background: 'rgba(16,17,20,0.6)', padding: '4px 14px', borderRadius: 10}}>{children}</div>
   );
 
@@ -83,14 +83,14 @@ export const Texts: React.FC = () => {
       <Line y={262} size={74} o={win(t, 36.0, 0.4, 41.2, 0.5)} dy={(1 - prog(t, 36.0, 0.4)) * 20}>同一种运算，许多组结果</Line>
       <Line y={262} size={74} o={win(t, T.reveal5, 0.45, 49.3, 0.6)} dy={(1 - prog(t, T.reveal5, 0.45)) * 20}>共同点：大量计算可以并行</Line>
 
-      <Note y={1556} o={win(t, 8.7, 0.4, 13.8, 0.4)}>示意：每个地块按同一规则算明暗</Note>
-      <Note y={1556} o={win(t, 18.7, 0.4, 29.4, 0.4)}>示意：真实模型的数字多得多，且多为小数</Note>
-      <Note y={1556} o={win(t, 46.2, 0.5, 55.6, 0.5)}>示意：方块代表计算任务，不是 GPU 核心</Note>
+      <Note y={318} o={win(t, 8.7, 0.4, 13.8, 0.4)}>示意：每个地块按同一规则算明暗</Note>
+      <Note y={1330} o={win(t, 18.7, 0.4, 29.4, 0.4)}>示意：真实模型的数字多得多，且多为小数</Note>
+      <Note y={1420} o={win(t, 48.0, 0.5, 55.6, 0.5)}>示意：方块代表计算任务，不代表核心或分区</Note>
 
-      <Line y={300} size={62} o={aQ * (1 - prog(t, 59.5, 0.3))} dy={(1 - aQ) * 18} color={C.sub} weight={700}>GPU 为什么适合 AI？</Line>
-      <Line y={418} size={92} o={aA * (1 - prog(t, 59.5, 0.3))} dy={(1 - aA) * 22}>因为大量计算，</Line>
-      <Line y={532} size={92} o={prog(t, T.ansA + 0.25, 0.5) * (1 - prog(t, 59.5, 0.3))} dy={(1 - prog(t, T.ansA + 0.25, 0.5)) * 22}>可以高效并行。</Line>
-      <Line y={1470} size={38} o={sig * 0.9 * (1 - prog(t, 59.6, 0.25))} color={C.ink} weight={400} spacing={16}>一语道破</Line>
+      <Line y={300} size={62} o={aQ} dy={(1 - aQ) * 18} color={C.sub} weight={700}>GPU 为什么适合 AI？</Line>
+      <Line y={418} size={92} o={aA} dy={(1 - aA) * 22}>因为大量计算，</Line>
+      <Line y={532} size={92} o={prog(t, T.ansA + 0.25, 0.5)} dy={(1 - prog(t, T.ansA + 0.25, 0.5)) * 22}>可以高效并行。</Line>
+      <Line y={1470} size={38} o={sig * 0.9} color={C.ink} weight={400} spacing={16}>一语道破</Line>
       {/* 只在最后几帧落黑 */}
       <AbsoluteFill style={{background: '#000', opacity: prog(t, T.black, 1.8 / 30 * 8, settle)}} />
     </>

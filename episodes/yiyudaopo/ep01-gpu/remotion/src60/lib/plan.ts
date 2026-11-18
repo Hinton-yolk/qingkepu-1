@@ -16,15 +16,15 @@ export const T = {
   pull: 10.8, drainAll: 11.25, tilesAll: 11.35, cue: 12.2, compAll: 12.6, outAll: 13.1, litAll: 13.4,
   lift: 14.0, fly0: 14.3, fly1: 16.9, pan0: 14.5, pan1: 17.1,
   // SHOT 03
-  type0: 16.15, split: 17.4, nums: 18.15, select: 20.0, center: 20.8, params: 22.55,
-  f1: 23.9, f2: 24.45, prod: 25.15, sum: 25.8, contract: 27.0, row2: 28.8,
+  type0: 16.15, split: 17.4, nums: 18.15, select: 20.0, center: 20.8, params: 22.35,
+  f1: 23.55, f2: 24.0, prod: 25.15, sum: 26.05, contract: 27.0, row2: 28.8,
   // SHOT 04
   op2: 30.4, both: 33.0, rows: 36.2, all: 37.6, pullAI: 39.0,
   // SHOT 05
   act1: 42.3, act2: 43.25, act3: 44.4, reveal5: 44.0, fadeOld: 45.2, dieIn: 45.3, stream0: 45.6, lock: 48.5,
   plateIn: 48.5, plateFull: 50.3,
   // SHOT 06
-  g1: 51.3, g2: 52.1, g3: 52.9, recede: 54.0, ansQ: 56.8, ansA: 57.5, sig: 58.5, black: 59.72,
+  g1: 51.3, g2: 52.1, g3: 52.9, recede: 54.0, ansQ: 56.6, ansA: 57.2, sig: 58.5, black: 59.72,
 };
 
 // ------------------------------------------------------------------ 世界里的三个区域（世界坐标，单位 = 相机 z=1 时的屏幕像素）

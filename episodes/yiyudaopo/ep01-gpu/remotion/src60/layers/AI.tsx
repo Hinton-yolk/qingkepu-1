@@ -15,7 +15,7 @@ const SEGS = [
   {txt: '黑洞', from: [0, 1], x: 215, v: [2, 3]},
   {txt: '是', from: [2], x: 425, v: [1, 4]},
   {txt: '什么', from: [3, 4], x: 655, v: [5, 2]},
-  {txt: '？', from: [5], x: 865, v: [3, 1]},
+  {txt: '？', from: [5], x: 865, v: [6, 1]},
 ];
 // 行：参数向量 → 结果方块。前两行是讲解的主角，后面三行小一号，再往后五行只有形状（拉远时才看得到）
 export const ROWS = [
@@ -72,7 +72,7 @@ export const AI: React.FC = () => {
   const nums = prog(t, T.nums, 0.5);
   // 算式
   const f1 = prog(t, T.f1, 0.5, glide), f2 = prog(t, T.f2, 0.5, glide);
-  const prod = prog(t, T.prod, 0.35), sum = prog(t, T.sum, 0.5, glide), res = prog(t, T.sum + 0.25, 0.35);
+  const prod = prog(t, T.prod + 0.15, 0.25), sum = prog(t, T.sum, 0.4, glide), res = prog(t, T.sum + 0.32, 0.25);
   const fly23 = prog(t, T.contract, 0.9, glide);
   const guides = prog(t, 29.9, 0.6) * old;
   const lastRow = t < T.rows ? 1010 : t < 39.4 ? 1420 : 1985;
@@ -146,7 +146,7 @@ export const AI: React.FC = () => {
           const a = prog(t, row.enter, 1.05, settle);
           if (a <= 0) return null;
           const sc = row.sc;
-          const slide = (1 - a) * 520;
+          const slide = 0, rise = (1 - a) * 90;
           const cx = VC, w = 350 * sc, h = 140 * sc, px1 = X1, px2 = X2, size = NS * sc;
           const tileOn = i === 0 ? 1 : prog(t, row.enter + 0.5, 0.5);
           const {fill, lit} = cycle(t, row.cyc, 0.5);
@@ -155,19 +155,19 @@ export const AI: React.FC = () => {
           const departed = t >= departAI(j);
           return (
             <React.Fragment key={i}>
-              <Box x={cx + slide} y={row.y} w={w} h={h} o={a * old * (row.p ? 1 : 0.6)} bw={2.5 * Math.max(sc, 0.8)} r={30 * sc} />
+              <Box x={cx + slide} y={row.y + rise} w={w} h={h} o={a * old * (row.p ? 1 : 0.6)} bw={2.5 * Math.max(sc, 0.8)} r={30 * sc} />
               {row.p ? (
                 <>
-                  <Txt x={px1 + slide} y={row.y} size={size} o={a * old} w={160}>{row.p[0]}</Txt>
-                  <Txt x={px2 + slide} y={row.y} size={size} o={a * old} w={160}>{row.p[1]}</Txt>
+                  <Txt x={px1 + slide} y={row.y + rise} size={size} o={a * old} w={160}>{row.p[0]}</Txt>
+                  <Txt x={px2 + slide} y={row.y + rise} size={size} o={a * old} w={160}>{row.p[1]}</Txt>
                 </>
               ) : (
                 <>
-                  <div style={{position: 'absolute', left: X1 - 40 + slide, top: row.y - 7, width: 80, height: 14, borderRadius: 7, background: `rgba(${C.aiRGB},0.35)`, opacity: a * old}} />
-                  <div style={{position: 'absolute', left: X2 - 40 + slide, top: row.y - 7, width: 80, height: 14, borderRadius: 7, background: `rgba(${C.aiRGB},0.35)`, opacity: a * old}} />
+                  <div style={{position: 'absolute', left: X1 - 40 + slide, top: row.y + rise - 7, width: 80, height: 14, borderRadius: 7, background: `rgba(${C.aiRGB},0.35)`, opacity: a * old}} />
+                  <div style={{position: 'absolute', left: X2 - 40 + slide, top: row.y + rise - 7, width: 80, height: 14, borderRadius: 7, background: `rgba(${C.aiRGB},0.35)`, opacity: a * old}} />
                 </>
               )}
-              <Txt x={680 + slide} y={row.y} size={56 * sc} o={(i === 0 ? prog(t, T.contract + 0.6, 0.4) : a) * old * 0.55} color={C.sub} w={100}>→</Txt>
+              <Txt x={680 + slide} y={row.y + rise} size={56 * sc} o={(i === 0 ? prog(t, T.contract + 0.6, 0.4) : a) * old * 0.55} color={C.sub} w={100}>→</Txt>
               {i === 0 && t >= 28.2 && !departed && (
                 <Tile x={TX} y={row.y} s={AI_TILE} kind="ai" fill={fill} lit={lit} lift={0.6} label="23" labelSize={64} />
               )}
@@ -184,7 +184,7 @@ export const AI: React.FC = () => {
         <Label x={rowC - rowW / 2 - 22} y={830} text="示例参数" o={prog(t, T.params + 0.4, 0.4) * (1 - nb)} />
         {/* 第一道算式：2×4 + 3×5 = 23 */}
         {t > T.f1 && t < T.contract + 1.0 && (() => {
-          const o1 = 1 - prod;
+          const o1 = 1 - prog(t, T.prod, 0.15);
           return (
             <>
               <Txt x={lerp(X1, 250, f1) - 110 * 4 * f1 * (1 - f1)} y={lerp(640, 1010, f1)} size={lerp(NS, 84, f1)} o={o1} w={160}>2</Txt>
@@ -197,9 +197,9 @@ export const AI: React.FC = () => {
                   <Txt x={560} y={1010} size={70} o={prog(t, T.f2 + 0.3, 0.2) * o1} color={C.sub} w={80}>×</Txt>
                 </>
               )}
-              <Txt x={VC} y={1010} size={78} o={prog(t, T.f2 + 0.3, 0.2) * (1 - sum)} color={C.sub} w={80}>+</Txt>
-              <Txt x={lerp(X1, VC, sum)} y={lerp(1010, 1190, sum)} size={lerp(60, 104, prod) * (1 - 0.3 * sum)} o={prod * (1 - prog(t, T.sum + 0.3, 0.2))} w={200}>8</Txt>
-              <Txt x={lerp(X2, VC, sum)} y={lerp(1010, 1190, sum)} size={lerp(60, 104, prod) * (1 - 0.3 * sum)} o={prod * (1 - prog(t, T.sum + 0.3, 0.2))} w={200}>15</Txt>
+              <Txt x={VC} y={1010} size={78} o={prog(t, T.f2 + 0.3, 0.2) * (1 - prog(t, T.sum, 0.12))} color={C.sub} w={80}>+</Txt>
+              <Txt x={lerp(X1, VC, sum)} y={lerp(1010, 1190, sum)} size={lerp(60, 104, prod) * (1 - 0.3 * sum)} o={prod * (1 - prog(t, T.sum + 0.16, 0.14))} w={200}>8</Txt>
+              <Txt x={lerp(X2, VC, sum)} y={lerp(1010, 1190, sum)} size={lerp(60, 104, prod) * (1 - 0.3 * sum)} o={prod * (1 - prog(t, T.sum + 0.16, 0.14))} w={200}>15</Txt>
               <Txt x={lerp(VC, TX, fly23)} y={lerp(1190, DOCK[1], fly23)} size={lerp(150 * (0.7 + 0.3 * res), 64, fly23)} o={res * (1 - prog(t, T.contract + 0.85, 0.12))} color="#FFFFFF" w={300}>23</Txt>
             </>
           );
