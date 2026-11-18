@@ -19,11 +19,17 @@ def load(src):
         A = fg * 255.0
     return R, G, B, A
 
-def poly(mask, tol=1.4, pad=2):
+from scipy import ndimage as ndi
+def smoothmask(m, r=4):
+    m = morphology.binary_closing(m, morphology.disk(r)); m = morphology.binary_opening(m, morphology.disk(r))
+    return ndi.gaussian_filter(m.astype(float), r * 0.8) > 0.5
+def poly(mask, tol=1.4, pad=2, smooth=0, holes=0):
     out = []
+    if holes: mask = morphology.remove_small_holes(mask, holes)
+    if smooth: mask = smoothmask(mask, smooth)
     lab = measure.label(mask)
     for rg in measure.regionprops(lab):
-        if rg.area < 200: continue
+        if rg.area < 1500: continue
         m = lab == rg.label
         c = max(measure.find_contours(np.pad(m.astype(float), pad), 0.5), key=len)
         P = measure.approximate_polygon(c, tol)
@@ -49,8 +55,9 @@ model = {}
 # ---------------- ARM
 R, G, B, A = load("assets/people/arm-flat-palmup.webp")
 m = A > 128; L = (0.3 * R + 0.59 * G + 0.11 * B) / 255
-P = poly(m, 1.2)[0]
-model["ARM"] = {"w": m.shape[1], "h": m.shape[0], "pts": P["pts"], "creases": creases(L, m, 98.0, 50, 12)}
+P = poly(m, 1.0, smooth=3, holes=200000)[0]
+hand = np.zeros_like(m); hand[:, 1250:] = True
+model["ARM"] = {"w": m.shape[1], "h": m.shape[0], "pts": P["pts"], "creases": creases(L, m & hand, 99.0, 60, 6)}
 
 # ---------------- SIDE poses
 CLS = {"hair": (45, 33, 28), "skin": (236, 203, 172), "shirt": (138, 147, 124), "pants": (214, 200, 184)}
@@ -73,7 +80,7 @@ for pose in ["heart", "raised", "down"]:
         if nm == "hair":   # one head of hair: the largest piece, its highlights filled
             lab_ = measure.label(mk); big = max(measure.regionprops(lab_), key=lambda r: r.area).label
             mk = morphology.remove_small_holes(lab_ == big, 20000)
-        regs[nm] = poly(mk, 1.4)
+        regs[nm] = poly(mk, 1.4, smooth=5 if nm == "hair" else 3, holes=3000)
     skin = (k == 1)
     feats = {"dark": [], "lips": []}
     ys, xs = np.nonzero(fg); top = ys.min()

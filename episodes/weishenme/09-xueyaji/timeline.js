@@ -35,7 +35,7 @@
     a6: 28.75, mkHi: 28.9, mkLo: 29.2, hold: 29.5,
     // 31.5–46 · why each time differs
     q7: 31.5, line: 31.5, a7: 33.5, win1: 34.5,
-    a8: 35.25, a9: 37.25, sat: 37.4, win2: 38.3,
+    a8: 35.25, a9: 37.25, sat: 37.4, win2: 37.9,
     q10: 39.5, side: 39.5, sideIn: 40.0,
     a10: 41.5, lower: 41.5, col: 42.25, up: 42.9,
     a11: 44.0, raise: 44.0, gapC: 44.75, down: 45.4,
