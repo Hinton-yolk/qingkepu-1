@@ -1,0 +1,959 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1080">
+<title>EP.09 血压计</title>
+<style>
+  @font-face { font-family: "Smiley"; src: url("assets/fonts/smiley.woff2") format("woff2"); }
+  @font-face { font-family: "NotoSC"; font-weight: 700; src: url("assets/fonts/noto-sc-bold.woff2") format("woff2"); }
+  @font-face { font-family: "NotoSC"; font-weight: 400; src: url("assets/fonts/noto-sc-regular.woff2") format("woff2"); }
+  html, body { margin: 0; background: #ECEBE6; }
+  #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="59.75" data-width="1080" data-height="1920">
+  <canvas id="c" width="1080" height="1920"></canvas>
+</div>
+<script src="timeline.js"></script>
+<script src="assets/people/model.js"></script>
+<script>
+"use strict";
+// ============================================================================================
+// EP.09 血压计 — a pure function of time. window.seek(t) paints frame t.
+// Worlds:
+//   ROOM (light, 0–6.75, 45.75–48): an arm lying on a table with a cuff, a tube, the monitor. World units = screen px at rest.
+//     The dive (6.75–9.5) is one take: the camera pushes into the cuff and turns so the upper arm lies level; the cuff
+//     and the skin turn see-through and the SECTION (dark) takes over.
+//   SECTION (dark, 6.75–31.5): a side cut along the upper arm (artery, bone), the cuff's bladder with air, the tube, and a
+//     cut-open panel of the machine (pressure sensor, the cuff-pressure bar, a small screen of spikes → the hill).
+//     "E" units = screen px at the end of the dive, origin at the cuff's centre.
+//   LINE (light, 31.5–39.5): one long line of "your blood pressure", two measuring windows.
+//   SIDE (light, 39.5–45.75, 48–50.5): the woman in profile (traced from the user's references), the heart-level line.
+//   TIPS (light, 48–56.25): a checklist card builds up.
+// No timers, no rAF, no state between frames (the context is reset every frame); seeded noise only.
+// ============================================================================================
+const { T, COPY, W, H, DUR, FPS, S16, BEATS } = TL;
+const PM = window.PEOPLE;
+const cv = document.getElementById("c");
+const MAIN = cv.getContext("2d");
+const OFF = document.createElement("canvas"); OFF.width = W; OFF.height = H;
+const OFFX = OFF.getContext("2d");
+let ctx = MAIN;
+
+const C = {
+  ground: "#ECEBE6", ink: "#141414", acc: "#FF4A1C", paper: "#F1F0EC", dark: "#17191C",
+  skin: "#EBCBA5", skinD: "#D6AD84", skinL: "#F4DEC3",
+  blood: "#C93F48", bloodL: "#E8868B", bloodD: "#8E2A33", tissue: "#3A2B2D", tissueL: "#4B3739", boneC: "#D8CFBE", boneD: "#B8AE9B",
+  cuff: "#3B4252", cuffL: "#4F586B", cuffD: "#2B313D", bladder: "#59647A", airC: "#F1F0EC",
+  dev: "#F4F3EF", devD: "#D6D4CC", lcd: "#C6D0C0", lcdD: "#25302A", tube: "#6C7383", tubeL: "#8A91A0",
+  panel: "#23262D", panelL: "#30343D", table: "#DCD9D1", tableD: "#CBC7BD",
+  hair: "#2E231E", shirt: "#8C957E", shirtD: "#76806A", pants: "#D7CABB", pantsD: "#C2B4A3",
+};
+const DISPLAY = "Smiley", UI = "NotoSC";
+
+// ---------------------------------------------------------------- math
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const TAU = Math.PI * 2, RAD = Math.PI / 180;
+const E = {
+  sine: (x) => 0.5 - 0.5 * Math.cos(Math.PI * x),
+  p2io: (x) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2),
+  p3io: (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2),
+  p2in: (x) => x * x, p3in: (x) => x * x * x,
+  p2out: (x) => 1 - (1 - x) * (1 - x), p3out: (x) => 1 - Math.pow(1 - x, 3), p4out: (x) => 1 - Math.pow(1 - x, 4),
+  smooth: (x) => x * x * (3 - 2 * x),
+};
+function spring(x, w = 15, z = 0.72) {
+  if (x <= 0) return 0;
+  const wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * x) * (Math.cos(wd * x) + ((z * w) / wd) * Math.sin(wd * x));
+}
+function slamScale(u) {                              // 0.17 s: 1.55 -> 0.94 -> 1.0
+  if (u <= 0) return 1.55;
+  if (u < 0.09) return lerp(1.55, 0.94, E.p2in(u / 0.09));
+  if (u < 0.17) return lerp(0.94, 1.0, E.p3out((u - 0.09) / 0.08));
+  return 1;
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const hexRGB = (h) => [0, 1, 2].map((i) => parseInt(h.slice(1 + 2 * i, 3 + 2 * i), 16));
+const mixHex = (a, b, k) => { const p = hexRGB(a), q = hexRGB(b); return `rgb(${[0, 1, 2].map((i) => Math.round(lerp(p[i], q[i], k))).join(",")})`; };
+const rgba = (h, a) => { const p = hexRGB(h); return `rgba(${p[0]},${p[1]},${p[2]},${a})`; };
+function kf(t, K, ease = E.p2io) {
+  if (t <= K[0][0]) return K[0][1];
+  for (let i = 1; i < K.length; i++) if (t < K[i][0]) { const [t0, v0] = K[i - 1], [t1, v1, e] = K[i]; return lerp(v0, v1, (e || ease)(prog(t, t0, t1))); }
+  return K[K.length - 1][1];
+}
+function win(t, a, b, fi = 0.25, fo = 0.25) { return E.p3out(prog(t, a, a + fi)) * (1 - E.p2io(prog(t, b - fo, b))); }
+const hash = (n) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+const vnoise = (x) => { const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); return lerp(hash(i), hash(i + 1), u); };
+
+// a slow, smooth drift (never a shake): incommensurate sines so the picture never stops
+function drift(t) { return [30 * Math.cos(0.8 * t) + 8 * Math.sin(1.7 * t), 22 * Math.sin(0.8 * t) + 6 * Math.cos(1.3 * t), 1 + 0.02 * Math.sin(0.37 * t)]; }   // an ellipse: the speed never drops to zero
+// ---------------------------------------------------------------- camera: screen = A·R(phi)·local + B
+function key(F, anchor, A, phi = 0) { const c = Math.cos(phi), s_ = Math.sin(phi); return { A, phi, F, anchor, B: [anchor[0] - A * (c * F[0] - s_ * F[1]), anchor[1] - A * (s_ * F[0] + c * F[1])] }; }
+function interpK(k0, k1, u) {             // k1's focus: where k0 shows it slides to where k1 puts it; log-zoom, linear turn
+  k0 = key(k1.F, toS(k0, k1.F), k0.A, k0.phi);
+  return key(k0.F, [lerp(k0.anchor[0], k1.anchor[0], u), lerp(k0.anchor[1], k1.anchor[1], u)], Math.exp(lerp(Math.log(k0.A), Math.log(k1.A), u)), lerp(k0.phi, k1.phi, u));
+}
+let VX = 0, VY = 0;                       // the scene's slow drift (screen px); 0 for the captions
+const ID = () => ctx.setTransform(1, 0, 0, 1, VX, VY);
+const setK = (K) => { const c = Math.cos(K.phi), s_ = Math.sin(K.phi); ctx.setTransform(K.A * c, K.A * s_, -K.A * s_, K.A * c, K.B[0], K.B[1]); };
+const toS = (K, p) => { const c = Math.cos(K.phi), s_ = Math.sin(K.phi); return [K.A * (c * p[0] - s_ * p[1]) + K.B[0], K.A * (s_ * p[0] + c * p[1]) + K.B[1]]; };
+
+// ---------------------------------------------------------------- drawing helpers
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function line(x0, y0, x1, y1) { ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
+const MEASURE = new Map();
+function mw(font, s) { const k = font + "|" + s; let v = MEASURE.get(k); if (v === undefined) { ctx.font = font; v = ctx.measureText(s).width; MEASURE.set(k, v); } return v; }
+function parse(str) { const out = []; let a = 0; for (const ch of str) { if (ch === "[") { a = 1; continue; } if (ch === "]") { a = 0; continue; } out.push({ ch, a }); } return out; }
+const plain = (str) => str.replace(/[\[\]]/g, "");
+function fitSize(str, size, maxW, face = DISPLAY, wt = "") { const f = `${wt} ${size}px ${face}`.trim(), w = mw(f, plain(str)); return w > maxW ? Math.floor(size * maxW / w) : size; }
+// Text band: style none | blur | type | slam | wipe; left aligned at x.
+function lines(L, t, t0, t1, o = {}) {
+  if (t < t0 || t >= t1) return;
+  const three = L.length === 3 && !o.ys;
+  const x = o.x ?? 96, ys = o.ys ?? (three ? [300, 420, 540] : [330, 472]), face = o.face ?? DISPLAY, wt = o.weight ?? "";
+  const col = o.col ?? C.ink, acc = o.acc ?? C.acc, style = o.style ?? "blur";
+  const stag = o.stag ?? 0.055, lineGap = o.lineGap ?? 0.16, exitDur = o.exit ?? 0.16, maxW = o.maxW ?? 930;
+  ID();
+  L.forEach((str, i) => {
+    const size = fitSize(str, Array.isArray(o.size) ? o.size[i] : (o.size ?? (three ? 96 : 112)), maxW, face, wt);
+    const font = `${wt} ${size}px ${face}`.trim();
+    const chars = parse(str), ls = t0 + i * lineGap;
+    if (t < ls) return;
+    let pre = "";
+    ctx.save();
+    if (style === "slam") { const sc0 = slamScale(t - ls), sc = sc0 > 1 ? Math.min(sc0, Math.max(1, (1040 - x) / mw(font, plain(str)))) : sc0, cy = ys[i] - size * 0.35; ctx.translate(x, cy); ctx.scale(sc, sc); ctx.translate(-x, -cy); }
+    if (style === "wipe") { const wv = mw(font, plain(str)); ctx.beginPath(); ctx.rect(0, ys[i] - size * 1.2, x + wv * E.p3out(prog(t, ls, ls + 0.32)) + 4, size * 1.6); ctx.clip(); }
+    ctx.font = font; ctx.textBaseline = "alphabetic";
+    chars.forEach((c, j) => {
+      const cx = x + mw(font, pre); pre += c.ch;
+      const lt = t - (ls + j * stag);
+      let a = 1, blur = 0;
+      if (style === "blur") { const k = clamp(lt / 0.13); a = k; blur = 9 * (1 - k); }
+      else if (style === "type") { a = lt >= 0 ? 1 : 0; }
+      if (t > t1 - exitDur) { const e = clamp((t - (t1 - exitDur)) / exitDur); a *= 1 - e; blur = Math.max(blur, 10 * e); }
+      if (a <= 0.003) return;
+      ctx.globalAlpha = a; ctx.filter = blur > 0.3 ? `blur(${blur.toFixed(1)}px)` : "none";
+      ctx.fillStyle = c.a ? acc : col; ctx.fillText(c.ch, cx, ys[i]);
+    });
+    ctx.restore(); ctx.filter = "none"; ctx.globalAlpha = 1;
+  });
+}
+function label(str, x, y, size, col, t, t0, t1, o = {}) {
+  if (t < t0 || t >= t1) return;
+  ID(); const font = `${o.weight ?? 700} ${size}px ${o.face ?? UI}`; const wv = mw(font, str);
+  const k = E.p3out(prog(t, t0, t0 + 0.28)), e = prog(t, t1 - 0.15, t1);
+  ctx.save(); ctx.font = font; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  const left = o.align === "right" ? x - wv : o.align === "center" ? x - wv / 2 : x;
+  if (o.plate) { ctx.globalAlpha = (1 - e) * k; rr(left - 18, y - size - 4, wv + 36, size + 22, 12); ctx.fillStyle = o.plate; ctx.fill(); }
+  ctx.beginPath(); ctx.rect(left - 4, y - size * 1.2, (wv + 8) * k, size * 1.6); ctx.clip();
+  ctx.globalAlpha = (o.alpha ?? 1) * (1 - e); if (e > 0) ctx.filter = `blur(${(8 * e).toFixed(1)}px)`;
+  ctx.fillStyle = col; ctx.fillText(str, left, y); ctx.restore(); ctx.filter = "none";
+}
+function underline(str, prefix, word, lineIdx, t, t0, t1, ys = [330, 472], size0 = 112) {
+  if (t < t0 || t >= t1) return;
+  const size = fitSize(str, size0, 930), f = `${size}px ${DISPLAY}`;
+  const x0 = 96 + mw(f, prefix), wv = mw(f, word), k = E.p3out(prog(t, t0, t0 + 0.3)), fo = 1 - prog(t, t1 - 0.16, t1);
+  ID(); ctx.globalAlpha = fo; ctx.fillStyle = C.acc; ctx.fillRect(x0 - 4, ys[lineIdx] + 20, (wv + 8) * k, 11); ctx.globalAlpha = 1;
+}
+function leader(x0, y0, x1, y1, col, k = 1, w = 2.5) {
+  ID(); ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(lerp(x0, x1, k), lerp(y0, y1, k)); ctx.stroke();
+  if (k > 0.98) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x1, y1, 6, 0, TAU); ctx.fill(); }
+  ctx.restore();
+}
+function pill(str, x, y, size, t, t0, t1, o = {}) {                     // small text on a dark pill
+  if (t < t0 || t >= t1) return;
+  ID(); const font = `${o.weight ?? 700} ${size}px ${UI}`, wv = mw(font, str), k = E.p3out(prog(t, t0, t0 + 0.25)), e = 1 - prog(t, t1 - 0.15, t1);
+  const left = o.align === "right" ? x - wv : o.align === "center" ? x - wv / 2 : x;
+  ctx.save(); ctx.globalAlpha = k * e; rr(left - 22, y - size - 6, wv + 44, size + 26, (size + 26) / 2); ctx.fillStyle = o.fill ?? "rgba(23,25,28,0.88)"; ctx.fill();
+  if (o.edge) { ctx.strokeStyle = C.acc; ctx.lineWidth = 4; ctx.stroke(); }
+  ctx.font = font; ctx.fillStyle = o.col ?? C.paper; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillText(str, left, y); ctx.restore();
+}
+// an orange box that draws itself (the 示意 frame for a new element)
+function obox(x, y, w, h, k, a = 1, r = 14, lw = 5) {
+  if (k <= 0 || a <= 0) return;
+  ID(); ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = C.acc; ctx.lineWidth = lw; ctx.lineJoin = "round";
+  const per = 2 * (w + h); ctx.setLineDash([per * k, per]); rr(x, y, w, h, r); ctx.stroke(); ctx.restore();
+}
+function oring(x, y, r, k, a = 1, lw = 4) {
+  if (k <= 0 || a <= 0) return;
+  ID(); ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = C.acc; ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + TAU * k); ctx.stroke(); ctx.restore();
+}
+function capsule(P, w, fill) { ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = fill; ctx.lineWidth = w; ctx.beginPath(); P.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke(); ctx.restore(); }
+
+// ================================================================ people (drawn from the user's references, assets/people/model.js)
+function smoothPath(P) {                                 // a closed curve through the points (quadratics through midpoints)
+  const n = P.length, m = (i) => [(P[i % n][0] + P[(i + 1) % n][0]) / 2, (P[i % n][1] + P[(i + 1) % n][1]) / 2];
+  const p0 = m(n - 1); ctx.beginPath(); ctx.moveTo(p0[0], p0[1]);
+  for (let i = 0; i < n; i++) { const q = m(i); ctx.quadraticCurveTo(P[i][0], P[i][1], q[0], q[1]); }
+  ctx.closePath();
+}
+// a skin shape like EP.05 / EP.08: flat skin, darker towards the edges, a soft light, an ink outline
+function skinShape(P, s, o = {}) {
+  smoothPath(P); ctx.fillStyle = C.skin; ctx.fill();
+  ctx.save(); smoothPath(P); ctx.clip();
+  ctx.filter = `blur(${(12 / s).toFixed(1)}px)`; ctx.strokeStyle = "rgba(120,66,30,0.20)"; ctx.lineWidth = 46 / Math.max(s, 0.3); smoothPath(P); ctx.stroke(); ctx.filter = "none";
+  if (o.light) { ctx.lineCap = "round"; ctx.strokeStyle = "rgba(255,246,232,0.26)"; ctx.lineWidth = o.light[1]; ctx.filter = `blur(${(10 / s).toFixed(1)}px)`; ctx.beginPath(); o.light[0].forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke(); ctx.filter = "none"; }
+  ctx.restore();
+  if (o.creases) { ctx.lineCap = "round"; for (const c of o.creases) { ctx.strokeStyle = "rgba(110,62,30,0.38)"; ctx.lineWidth = 2.0 / s; ctx.beginPath(); c.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke(); } }
+  smoothPath(P); ctx.lineJoin = "round"; ctx.strokeStyle = C.ink; ctx.lineWidth = (o.lw ?? 2.6) / s; ctx.stroke();
+}
+// the arm (ARM): image px → world: x' = 0.5·x, y' = 0.5·y + 967; the arm leaves the picture at the left edge: carry it on
+const AM = PM.ARM, ARM_S = 0.5, ARM_T = [0, 967];
+const ARM_PTS = AM.pts.map((p) => (p[0] < 4 ? [-900, p[1] + (p[1] < 300 ? -60 : 60)] : p));
+const ARM_CREASES = AM.creases.filter((c) => c.length > 1 && c[0][0] > 1150);   // only the hand's few lines
+function drawArmImg(a = 1) {
+  if (a <= 0.01) return;
+  ctx.save(); ctx.globalAlpha *= a; ctx.translate(ARM_T[0], ARM_T[1]); ctx.scale(ARM_S, ARM_S);
+  const s = ctx.getTransform().a;
+  skinShape(ARM_PTS, s, { light: [[[-200, 250], [300, 285], [700, 380], [1300, 380]], 60], creases: ARM_CREASES });
+  ctx.restore();
+}
+// the cuff on the arm: centre and direction in world units (from the image: elbow crease x ≈ 550, the cuff 2–3 cm above it)
+const CU = [135, 1150], CANG = 12 * RAD, CLEN = 200, CTH = 148;
+// inflation 0..1 over the whole film (the bladder's fullness)
+function inflate(t) {
+  return kf(t, [[0, 0.5], [T.r1, 0], [T.inflate2, 0], [1.25, 1], [1.95, 0.05], [T.r2, 0], [T.squeeze, 0], [T.squeezeEnd, 1], [T.release, 1],
+    [T.beat1, 0.78], [26.6, 0.12], [T.big, 0.1], [DUR, 0.1]], E.p2io);
+}
+// the cuff pressure (mmHg-like, a 示意 scale) during the measurement in the section
+function cuffP(t) { return kf(t, [[0, 0], [T.squeeze, 0], [T.squeezeEnd, 175], [T.release, 175], [T.beat1, 128], [23.0, 100], [26.5, 58], [27.5, 40], [DUR, 40]], (x) => x); }
+// the arterial pressure wave (systolic 128, diastolic 82): a quick rise after each beat, a slow fall
+function artP(t) {
+  let last = -10; for (const b of BEATS) if (b <= t) last = b;
+  const dt = t - last; if (last < 0 || dt > 0.8) return 82;
+  const up = 0.09, w = dt < up ? E.sine(dt / up) : Math.exp(-(dt - up) / 0.32);
+  return 82 + 46 * w;
+}
+// how far the squeezed artery is open (0 = flat, 1 = round)
+function openness(t) {
+  const P = cuffP(t);
+  if (t < T.squeeze || P < 1) return 1;
+  return clamp((artP(t) - P + 4) / 34);
+}
+function drawCuffRoom(t, a = 1) {
+  const inf = inflate(t);
+  ctx.save(); ctx.globalAlpha *= a; ctx.translate(CU[0], CU[1]); ctx.rotate(CANG);
+  const th = CTH + 14 * inf, L = CLEN;
+  ctx.shadowColor = "rgba(0,0,0,0.18)"; ctx.shadowBlur = 18; ctx.shadowOffsetY = 6;
+  rr(-L / 2, -th / 2, L, th, 26 + 6 * inf); const g = ctx.createLinearGradient(0, -th / 2, 0, th / 2); g.addColorStop(0, C.cuffL); g.addColorStop(0.5, C.cuff); g.addColorStop(1, C.cuffD); ctx.fillStyle = g; ctx.fill();
+  ctx.shadowColor = "transparent";
+  ctx.strokeStyle = "rgba(255,255,255,0.16)"; ctx.lineWidth = 3; rr(-L / 2 + 10, -th / 2 + 10, L - 20, th - 20, 18); ctx.stroke();   // the stitched hem
+  ctx.fillStyle = "rgba(255,255,255,0.10)"; rr(-L / 2 + 6, -th / 2 + 8, L - 12, 16, 8); ctx.fill();
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 2.6; rr(-L / 2, -th / 2, L, th, 26 + 6 * inf); ctx.stroke();
+  ctx.restore();
+}
+// the monitor
+const MO = [730, 860], MOW = 380, MOH = 300;
+function lcdState(t) {
+  if (t >= T.iris) return { txt: "126", sub: COPY.second };
+  if (t < T.r1) return { dash: true };
+  if (t < T.inflate2) return { txt: "138", sub: null };
+  if (t < T.r2) return { dash: true, heartBlink: true };
+  return { txt: "126", sub: COPY.second };
+}
+function drawMonitor(t, a = 1, st = lcdState(t), at = MO, sc = 1) {
+  ctx.save(); ctx.globalAlpha *= a; ctx.translate(at[0], at[1]); ctx.scale(sc, sc);
+  ctx.shadowColor = "rgba(0,0,0,0.16)"; ctx.shadowBlur = 26; ctx.shadowOffsetY = 10;
+  rr(-MOW / 2, -MOH / 2, MOW, MOH, 46); const g = ctx.createLinearGradient(0, -MOH / 2, 0, MOH / 2); g.addColorStop(0, "#FBFAF7"); g.addColorStop(1, C.devD); ctx.fillStyle = g; ctx.fill();
+  ctx.shadowColor = "transparent"; ctx.strokeStyle = C.ink; ctx.lineWidth = 2.6; ctx.stroke();
+  rr(-MOW / 2 - 10, 2, 14, 30, 5); ctx.fillStyle = C.tube; ctx.fill();                     // the tube's port (left side)
+  rr(-150, -118, 300, 160, 18); ctx.fillStyle = C.lcd; ctx.fill(); ctx.strokeStyle = "rgba(20,20,20,0.35)"; ctx.lineWidth = 3; ctx.stroke();
+  ctx.fillStyle = C.lcdD; ctx.textBaseline = "alphabetic";
+  if (st.dash) { ctx.font = `700 64px ${UI}`; ctx.textAlign = "center"; ctx.fillText("- - -", 0, -16); }
+  else if (st.txt) { ctx.font = `700 118px ${UI}`; ctx.textAlign = "center"; ctx.fillText(st.txt, 0, 4); }
+  if (st.dash && st.heartBlink && Math.sin(t * 9) > -0.2) heartIcon(118, -86, 18, C.lcdD, true);
+  if (st.sub) { ctx.font = `700 26px ${UI}`; ctx.textAlign = "left"; ctx.fillStyle = "rgba(37,48,42,0.8)"; ctx.fillText(st.sub, -136, -86); }
+  ctx.beginPath(); ctx.arc(0, 98, 30, 0, TAU); ctx.fillStyle = "#E7E5DE"; ctx.fill(); ctx.strokeStyle = "rgba(20,20,20,0.4)"; ctx.lineWidth = 3; ctx.stroke();   // the start button
+  ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(0, 98, 9, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+function heartIcon(x, y, r, col, fill = false, lw = 3) {
+  ctx.save(); ctx.translate(x, y); ctx.beginPath();
+  ctx.moveTo(0, r * 0.95); ctx.bezierCurveTo(-r * 1.25, r * 0.1, -r * 0.95, -r * 0.95, 0, -r * 0.35); ctx.bezierCurveTo(r * 0.95, -r * 0.95, r * 1.25, r * 0.1, 0, r * 0.95); ctx.closePath();
+  if (fill) { ctx.fillStyle = col; ctx.fill(); } else { ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineJoin = "round"; ctx.stroke(); }
+  ctx.restore();
+}
+// the tube: from the cuff's top edge to the monitor's port
+function tubePath(t) {
+  const c = Math.cos(CANG), s_ = Math.sin(CANG), th = CTH + 14 * inflate(t);
+  const p0 = [CU[0] + 40 * c + (th / 2) * s_, CU[1] + 40 * s_ - (th / 2) * c];
+  const p1 = [MO[0] - MOW / 2 - 6, MO[1] + 17];
+  return [p0, [p0[0] + 60, p0[1] - 200], [p1[0] - 220, p1[1] + 10], p1];
+}
+function drawTubeRoom(t, a = 1) {
+  const P = tubePath(t);
+  ctx.save(); ctx.globalAlpha *= a; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(P[0][0], P[0][1]); ctx.bezierCurveTo(P[1][0], P[1][1], P[2][0], P[2][1], P[3][0], P[3][1]);
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 17; ctx.stroke(); ctx.strokeStyle = C.tube; ctx.lineWidth = 12; ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,0.25)"; ctx.lineWidth = 3; ctx.stroke();
+  ctx.restore();
+}
+// the first reading, kept as a card beside the monitor
+const CARD1 = [330, 800];
+function card138(t, a = 1, at = CARD1) {
+  const k = E.p3out(prog(t, T.inflate2, T.inflate2 + 0.45)); if (k <= 0 || a <= 0.01) return;
+  const p = [lerp(MO[0], at[0], k), lerp(MO[1] - 40, at[1], k)];
+  ctx.save(); ctx.globalAlpha *= a; ctx.translate(p[0], p[1]);
+  rr(-130, -96, 260, 170, 26); ctx.fillStyle = C.lcd; ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = 2.6; ctx.stroke();
+  ctx.fillStyle = C.lcdD; ctx.font = `700 118px ${UI}`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.fillText("138", 0, 40);
+  ctx.font = `700 26px ${UI}`; ctx.textAlign = "left"; ctx.fillStyle = "rgba(37,48,42,0.8)"; ctx.fillText(COPY.first, -112, -62);
+  ctx.restore();
+}
+function drawTable(a = 1) {
+  ctx.save(); ctx.globalAlpha *= a;
+  const g = ctx.createLinearGradient(0, 1235, 0, 1500); g.addColorStop(0, C.table); g.addColorStop(1, C.tableD); ctx.fillStyle = g; ctx.fillRect(-2000, 1235, 5000, 1000);
+  ctx.strokeStyle = "rgba(20,20,20,0.25)"; ctx.lineWidth = 3; line(-2000, 1235, 3000, 1235);
+  ctx.restore();
+}
+function drawRoom(t, K, o = {}) {
+  setK(K);
+  drawTable(o.table ?? 1);
+  drawTubeRoom(t);
+  drawArmImg(o.arm ?? 1);
+  drawCuffRoom(t, o.cuff ?? 1);
+  drawMonitor(t, o.mon ?? 1);
+  if (t < T.dive + 0.6 || t >= T.iris) card138(t, o.mon ?? 1);
+}
+// the light shot's camera (a slow drift; a gentle push before the dive)
+function roomK(t) { const d = drift(t); return key([540, 1000], [620 + 0.8 * d[0], 1040 + 0.8 * d[1]], 1.12 * lerp(1.0, 1.05, prog(t, 0, T.dive)) * (1 + 0.5 * (d[2] - 1))); }
+// the section's camera: the cuff centre at (540, 850), the upper arm level, 1 E unit = 1 px
+const SEC_A = 2.27, SEC_C = [540, 850];
+const K_SEC = key(CU, SEC_C, SEC_A, -CANG);
+function camRoom(t) {
+  if (t < T.dive) return roomK(t);
+  if (t < T.diveEnd) return interpK(roomK(T.dive), K_SEC, E.p2io(prog(t, T.dive, T.diveEnd)));
+  return K_SEC;
+}
+
+// ================================================================ SECTION (dark): E units, origin = the cuff's centre
+const SEC = { skin: 140, art: -40, artR: 23, bone0: 42, bone1: 92, half: 228 };
+function secDrift(t) { return [0, 0]; }
+function viewDrift(t) {
+  if (t < T.diveEnd) return [0, 0];
+  if (t < T.q7) { const d = drift(t), d0 = drift(T.diveEnd), r = E.smooth(prog(t, T.diveEnd, T.diveEnd + 1)); return [1.2 * (d[0] - d0[0]) * r, 1.2 * (d[1] - d0[1]) * r]; }
+  if (t < T.iris) { const d = drift(t); return [0.8 * d[0], 0.8 * d[1]]; }
+  if (t < T.tip1) return [0, 0];
+  const d = drift(t); return [0.7 * d[0], 0.7 * d[1]];
+}
+function setSec(t) {                                // E → screen
+  if (t < T.diveEnd) { const K = camRoom(t); setK(K); ctx.translate(CU[0], CU[1]); ctx.rotate(CANG); ctx.scale(1 / SEC_A, 1 / SEC_A); return; }
+  const d = secDrift(t); ID(); ctx.translate(SEC_C[0] + d[0], SEC_C[1] + d[1]);
+}
+const eToScr = (t, x, y) => { const d = secDrift(t); return [SEC_C[0] + d[0] + x, SEC_C[1] + d[1] + y]; };
+// how far the cuff presses in at u (0 outside, 1 under the middle)
+function underCuff(u) { return E.smooth(clamp((SEC.half + 30 - Math.abs(u)) / 70)); }
+function squeezeAt(t) { return inflate(t); }
+function lumen(t, u) { const op = openness(t), c = underCuff(u); return SEC.artR * lerp(1, Math.max(0.06, op), c); }
+const BLOOD = (() => { const R = mulberry32(909), o = []; for (let i = 0; i < 46; i++) o.push({ x: R() * 1400 - 700, y: R() * 2 - 1, l: 18 + R() * 26, a: 0.25 + 0.4 * R() }); return o; })();
+// the blood's travelled distance: it moves while the artery is open (outside the measurement it flows freely)
+function flowDist(t) {
+  // integrate openness numerically (pure function of t: a fixed step from 0)
+  const dt = 1 / 60; let x = 0;
+  for (let s = T.dive; s < t; s += dt) x += 240 * openness(s) * dt * (0.55 + 0.45 * Math.max(0, Math.sin((s - T.beat1) / 0.8 * TAU)));
+  return x;
+}
+let FLOW_CACHE = new Map();
+function flowAt(t) { const k = Math.round(t * 120); let v = FLOW_CACHE.get(k); if (v === undefined) { v = flowDist(k / 120); FLOW_CACHE.set(k, v); } return v; }
+const AIR = (() => { const R = mulberry32(4242), o = []; for (let i = 0; i < 70; i++) o.push({ u: R() * 2 - 1, v: R(), top: R() < 0.5, ph: R() * TAU, s: 0.6 + 0.6 * R() }); return o; })();
+function bladderTh(t) { return 8 + 34 * inflate(t); }
+// the "顶": a bulge of the artery at each beat when it squeezes through (0..1)
+function bulge(t) {
+  let v = 0; for (const b of BEATS) { const dt = t - b; if (dt >= 0 && dt < 0.7) v = Math.max(v, Math.exp(-dt / 0.18) * E.smooth(clamp(dt / 0.05))); }
+  return v * (t > T.release ? 1 : 0) * clamp(openness(t) * 3);
+}
+function amp(P) { const MAP = 100; return P >= MAP ? Math.exp(-Math.pow((P - MAP) / 35, 2)) : Math.exp(-Math.pow((MAP - P) / 22, 2)); }   // the oscillation envelope (示意)
+function drawSection(t, a = 1, focus = 1) {
+  if (a <= 0.01) return;
+  ctx.save(); setSec(t); ctx.globalAlpha *= a;
+  const inf = inflate(t), d = 30 * inf;                         // the skin is pressed in by d under the cuff
+  const skinY = (u, side) => side * (SEC.skin - d * underCuff(u));
+  // the arm: tissue between the two skin lines
+  const US = [-4000, ...Array.from({ length: 61 }, (_, i) => -900 + 30 * i), 4000];
+  ctx.beginPath();
+  US.forEach((u, i) => (i ? ctx.lineTo(u, skinY(u, -1)) : ctx.moveTo(u, skinY(u, -1))));
+  for (let i = US.length - 1; i >= 0; i--) ctx.lineTo(US[i], skinY(US[i], 1));
+  ctx.closePath();
+  const tg = ctx.createLinearGradient(0, -SEC.skin, 0, SEC.skin); tg.addColorStop(0, C.tissueL); tg.addColorStop(0.5, C.tissue); tg.addColorStop(1, C.tissueL); ctx.fillStyle = tg; ctx.fill();
+  ctx.strokeStyle = rgba(C.skin, 0.85); ctx.lineWidth = 7; ctx.stroke();
+  // the bone (humerus): a pale band below the artery
+  rr(-4000, SEC.bone0, 8000, SEC.bone1 - SEC.bone0, 24); const bg = ctx.createLinearGradient(0, SEC.bone0, 0, SEC.bone1); bg.addColorStop(0, C.boneC); bg.addColorStop(1, C.boneD); ctx.globalAlpha = a * 0.85; ctx.fillStyle = bg; ctx.fill(); ctx.globalAlpha = a;
+  // the artery: its lumen follows the cuff; blood streaks move with the flow
+  const bu = bulge(t);
+  ctx.beginPath();
+  US.forEach((u, i) => { const r = lumen(t, u) + 8 * bu * underCuff(u); i ? ctx.lineTo(u, SEC.art - r) : ctx.moveTo(u, SEC.art - r); });
+  for (let i = US.length - 1; i >= 0; i--) { const u = US[i], r = lumen(t, u) + 8 * bu * underCuff(u); ctx.lineTo(u, SEC.art + r); }
+  ctx.closePath();
+  ctx.save(); ctx.clip();
+  ctx.fillStyle = C.blood; ctx.fillRect(-4000, SEC.art - 40, 8000, 80);
+  const fd = flowAt(t);
+  for (const b of BLOOD) {
+    const x = ((b.x + fd + 700) % 1400 + 1400) % 1400 - 700;
+    ctx.fillStyle = `rgba(255,190,190,${b.a})`; rr(x, SEC.art + b.y * lumen(t, x) * 0.6 - 3, b.l, 6, 3); ctx.fill();
+  }
+  ctx.restore();
+  ctx.strokeStyle = C.bloodL; ctx.lineWidth = 3.5; ctx.stroke();
+  // the cuff: bladder (air) + shell, top and bottom
+  for (const side of [-1, 1]) {
+    const inner = (u) => skinY(u, side), bt = bladderTh(t);
+    ctx.beginPath();
+    for (let i = 0; i <= 40; i++) { const u = lerp(-SEC.half, SEC.half, i / 40); i ? ctx.lineTo(u, inner(u)) : ctx.moveTo(u, inner(u)); }
+    for (let i = 40; i >= 0; i--) { const u = lerp(-SEC.half, SEC.half, i / 40); ctx.lineTo(u, inner(u) + side * bt * underCuff(u * 0.92)); }
+    ctx.closePath(); ctx.fillStyle = C.bladder; ctx.fill();
+    // the air
+    const P = cuffP(t), dens = t < T.squeeze ? 0.35 : clamp(0.25 + P / 200);
+    for (let i = 0; i < AIR.length; i++) {
+      const q = AIR[i]; if (q.top !== (side < 0) || i / AIR.length > dens) continue;
+      const u = q.u * (SEC.half - 20), v = inner(u) + side * bt * underCuff(u) * (0.2 + 0.6 * q.v) + 1.5 * Math.sin(t * 3 * q.s + q.ph);
+      ctx.fillStyle = rgba(C.airC, 0.85); ctx.beginPath(); ctx.arc(u + 2 * Math.cos(t * 2 * q.s + q.ph), v, 4.2, 0, TAU); ctx.fill();
+    }
+    // the shell
+    const o0 = (u) => inner(u) + side * bt * underCuff(u * 0.92);
+    ctx.beginPath();
+    for (let i = 0; i <= 40; i++) { const u = lerp(-SEC.half - 6, SEC.half + 6, i / 40); i ? ctx.lineTo(u, o0(u)) : ctx.moveTo(u, o0(u)); }
+    for (let i = 40; i >= 0; i--) { const u = lerp(-SEC.half - 6, SEC.half + 6, i / 40); ctx.lineTo(u, o0(u) + side * 20); }
+    ctx.closePath(); ctx.fillStyle = C.cuff; ctx.fill(); ctx.strokeStyle = C.cuffL; ctx.lineWidth = 3; ctx.stroke();
+  }
+  ctx.restore();
+}
+// the machine panel (screen px; only after the dive)
+const PNL = { x: 70, y: 1110, w: 940, h: 330 };
+const SNS = [212, 1236];                                                  // the pressure sensor
+const BAR = { x: 318, y0: 1150, y1: 1410, w: 34 };
+const MS = { x0: 392, x1: 990, y0: 1138, y1: 1412 };                     // the small screen
+const xBeat = (tb, R = MS) => lerp(R.x0 + 30, R.x1 - 30, prog(tb, 15.6, 26.8));
+function cuffTubeS(t) {                                                   // the tube in the section: from the cuff's bottom to the sensor
+  const bt = bladderTh(t), p0 = eToScr(t, 120, SEC.skin - 30 * inflate(t) + bt + 20);
+  return [p0, [p0[0] + 10, p0[1] + 80], [SNS[0] + 140, SNS[1] - 120], [SNS[0] + 46, SNS[1] - 8]];
+}
+function bez(P, u) { const m = 1 - u; return [0, 1].map((i) => m * m * m * P[0][i] + 3 * m * m * u * P[1][i] + 3 * m * u * u * P[2][i] + u * u * u * P[3][i]); }
+function drawPanel(t, a = 1, hl = {}) {
+  if (a <= 0.01) return;
+  ID(); ctx.save(); ctx.globalAlpha *= a;
+  const P = cuffTubeS(t);
+  ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(P[0][0], P[0][1]); ctx.bezierCurveTo(P[1][0], P[1][1], P[2][0], P[2][1], P[3][0], P[3][1]);
+  ctx.strokeStyle = "#0E0F12"; ctx.lineWidth = 20; ctx.stroke(); ctx.strokeStyle = C.tube; ctx.lineWidth = 14; ctx.stroke();
+  // the ripples: each beat sends one down the tube (the push beat is the bright one)
+  for (const b of BEATS) {
+    const u = prog(t, b + 0.12, b + 0.62); if (u <= 0 || u >= 1 || t < T.release) continue;
+    const q = bez(P, u), br = b === T.push ? 1 : 0.45 * (hl.ripples ?? 1);
+    ctx.strokeStyle = rgba(C.acc, br * (1 - 0.3 * u)); ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(q[0], q[1], 16 + 4 * Math.sin(u * 9), 0, TAU); ctx.stroke();
+  }
+  // the panel (a cut-open corner of the machine)
+  rr(PNL.x, PNL.y, PNL.w, PNL.h, 28); ctx.fillStyle = C.panel; ctx.fill(); ctx.strokeStyle = C.panelL; ctx.lineWidth = 4; ctx.stroke();
+  // the sensor
+  const fl = sensorFlash(t);
+  rr(SNS[0] - 46, SNS[1] - 36, 92, 72, 14); ctx.fillStyle = mixHex("#3E4450", "#6A7280", fl); ctx.fill(); ctx.strokeStyle = "#8A919C"; ctx.lineWidth = 3; ctx.stroke();
+  ctx.beginPath(); ctx.arc(SNS[0], SNS[1], 20, 0, TAU); ctx.fillStyle = mixHex("#596070", "#FFB29A", fl); ctx.fill();
+  ctx.fillStyle = "#9EA3AB"; for (let i = 0; i < 4; i++) ctx.fillRect(SNS[0] - 34 + i * 20, SNS[1] + 36, 6, 22);
+  // the cuff-pressure bar
+  const Pn = clamp(cuffP(t) / 190);
+  rr(BAR.x, BAR.y0, BAR.w, BAR.y1 - BAR.y0, 12); ctx.fillStyle = "#14161A"; ctx.fill(); ctx.strokeStyle = "#5A606C"; ctx.lineWidth = 3; ctx.stroke();
+  const by = lerp(BAR.y1 - 6, BAR.y0 + 6, Pn); rr(BAR.x + 6, by, BAR.w - 12, BAR.y1 - 6 - by, 8); ctx.fillStyle = rgba(C.paper, 0.75 * (hl.bar ?? 1) + 0.15); ctx.fill();
+  // the small screen of spikes
+  drawSpikes(t, MS, 1, hl.spikes ?? 1);
+  ctx.restore();
+}
+function sensorFlash(t) { let v = 0; for (const b of BEATS) { const dt = t - (b + 0.62); if (dt >= 0 && dt < 0.4 && t > T.release) v = Math.max(v, (1 - dt / 0.4) * (b === T.push ? 1 : 0.5)); } return v; }
+// the spikes: one per beat, drawn when its ripple reaches the sensor; height = the envelope at that cuff pressure
+function spikeH(b) { return amp(cuffP(b)); }
+function drawSpikes(t, R, sc = 1, a = 1, o = {}) {
+  ctx.save(); ctx.globalAlpha *= a;
+  rr(R.x0, R.y0, R.x1 - R.x0, R.y1 - R.y0, 16 * sc); ctx.fillStyle = "#0F1114"; ctx.fill(); ctx.strokeStyle = "#4A505B"; ctx.lineWidth = 3; ctx.stroke();
+  const base = R.y1 - 26 * sc, Hm = (R.y1 - R.y0) - 60 * sc;
+  ctx.strokeStyle = "rgba(241,240,236,0.18)"; ctx.lineWidth = 2; line(R.x0 + 20, base, R.x1 - 20, base);
+  const tops = [];
+  for (const b of BEATS) {
+    const td = b + 0.62; if (t < td) break;
+    const x = xBeat(b, R), h = spikeH(b) * Hm, k = E.p3out(prog(t, td, td + 0.18));
+    const hot = o.mark && (o.mark.includes(b)) ? 1 : 0;
+    ctx.strokeStyle = hot ? C.acc : (b === T.push && t < T.more + 0.5 ? C.acc : C.paper); ctx.lineWidth = 5 * sc; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    const w = 9 * sc; ctx.beginPath(); ctx.moveTo(x - 2 * w, base); ctx.lineTo(x - w, base - h * k); ctx.lineTo(x, base + 0.35 * h * k); ctx.lineTo(x + w, base - 0.2 * h * k); ctx.lineTo(x + 2 * w, base); ctx.stroke();
+    tops.push([x - w, base - h]);
+  }
+  // the hill: an orange line along the tops
+  const hk = prog(t, T.hill, T.hill + 1.2);
+  if (hk > 0 && tops.length > 2) {
+    const n = Math.max(2, Math.ceil(tops.length * hk));
+    ctx.strokeStyle = C.acc; ctx.lineWidth = 6 * sc; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.beginPath();
+    const pts = [[tops[0][0] - 40 * sc, base], ...tops, [tops[tops.length - 1][0] + 40 * sc, base]].slice(0, n + 1);
+    smoothOpen(pts); ctx.stroke();
+  }
+  ctx.restore();
+  return { base, Hm };
+}
+function smoothOpen(P) { ctx.moveTo(P[0][0], P[0][1]); for (let i = 1; i < P.length - 1; i++) { const m = [(P[i][0] + P[i + 1][0]) / 2, (P[i][1] + P[i + 1][1]) / 2]; ctx.quadraticCurveTo(P[i][0], P[i][1], m[0], m[1]); } const l = P[P.length - 1]; ctx.lineTo(l[0], l[1]); }
+function arrowS(x0, y0, x1, y1, k = 1, col = C.acc, w = 7, head = 20) {
+  if (k <= 0) return;
+  const x = lerp(x0, x1, k), y = lerp(y0, y1, k), an = Math.atan2(y1 - y0, x1 - x0);
+  ctx.save(); ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = w; ctx.lineCap = "round"; line(x0, y0, x, y);
+  ctx.translate(x, y); ctx.rotate(an); ctx.beginPath(); ctx.moveTo(4, 0); ctx.lineTo(-head, -head * 0.6); ctx.lineTo(-head, head * 0.6); ctx.closePath(); ctx.fill(); ctx.restore();
+}
+// the section's notes and the 示意 frames (screen space)
+function sectionNotes(t) {
+  const sa = (x, y) => eToScr(t, x, y);
+  // the stethoscope flashes by (9.6–10.6)
+  const sk = win(t, T.stetho, T.stetho + 1.0, 0.2, 0.35);
+  if (sk > 0.01) { ID(); const p = sa(-330, -230); ctx.save(); ctx.globalAlpha = sk; ctx.strokeStyle = C.paper; ctx.lineWidth = 6; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(p[0] - 30, p[1] - 40); ctx.quadraticCurveTo(p[0] - 34, p[1] + 20, p[0], p[1] + 30); ctx.quadraticCurveTo(p[0] + 34, p[1] + 20, p[0] + 30, p[1] - 40); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(p[0], p[1] + 30); ctx.quadraticCurveTo(p[0] + 10, p[1] + 80, p[0] + 60, p[1] + 70); ctx.stroke(); ctx.beginPath(); ctx.arc(p[0] + 72, p[1] + 66, 16, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = C.acc; line(p[0] - 50, p[1] - 50, p[0] + 100, p[1] + 100); ctx.restore(); }
+  // air: the bladder lit with an orange frame
+  const ak = win(t, T.air + 0.25, T.squeeze + 0.2, 0.3, 0.3);
+  if (ak > 0.01) { const p = sa(-SEC.half - 14, -SEC.skin - 72), q = sa(SEC.half + 14, -SEC.skin + 4); obox(p[0], p[1], q[0] - p[0], q[1] - p[1], E.p3out(prog(t, T.air + 0.25, T.air + 0.8)), ak); label(COPY.air, q[0] - 6, p[1] - 16, 46, C.acc, t, T.air + 0.5, T.squeeze + 0.2, { align: "right" }); }
+  // the artery and the bone (small names)
+  label(COPY.artery, sa(-470, 0)[0], sa(-470, SEC.art - 34)[1], 44, C.paper, t, T.diveEnd + 0.1, T.q6, { alpha: 0.9 });
+  label(COPY.bone, sa(-470, 0)[0], sa(-470, SEC.bone1 + 50)[1], 40, C.boneC, t, T.diveEnd + 0.4, T.squeeze, { alpha: 0.7 });
+  // 血过不去
+  if (t >= T.stop && t < T.deflate + 0.6) { const p = sa(-SEC.half - 20, SEC.art); ID(); label(COPY.noflow, p[0] - 8, p[1] + 86, 44, C.acc, t, T.stop, T.deflate + 0.6, { align: "right" }); ctx.save(); ctx.globalAlpha = win(t, T.stop, T.deflate + 0.6); ctx.strokeStyle = C.acc; ctx.lineWidth = 6; ctx.lineCap = "round"; line(p[0] - 6, p[1] - 22, p[0] - 6, p[1] + 22); ctx.restore(); }
+  // the sensor: lit, framed, named (14.0–14.75), then the bar
+  const sn = win(t, T.sensor, T.push + 1.4, 0.3, 0.4);
+  if (sn > 0.01) { obox(SNS[0] - 62, SNS[1] - 52, 124, 104, E.p3out(prog(t, T.sensor, T.sensor + 0.5)), sn, 16); label(COPY.sensor, SNS[0] - 60, SNS[1] + 110, 40, C.acc, t, T.sensor + 0.2, T.push + 1.4); }
+  label(COPY.cuffP, BAR.x + BAR.w / 2, BAR.y0 - 14, 34, C.paper, t, T.release, T.q6, { align: "center", alpha: 0.85 });
+  // the push: arrows artery → air → tube → sensor → spike
+  if (t >= T.push && t < T.more + 0.4) {
+    const fo = 1 - prog(t, T.more, T.more + 0.4);
+    ID(); ctx.save(); ctx.globalAlpha = fo;
+    const a1 = sa(40, SEC.art + 30), a2 = sa(40, SEC.skin - 4);
+    arrowS(a1[0], a1[1], a2[0], a2[1] + 30, E.p3out(prog(t, T.push + 0.02, T.push + 0.25)));
+    const P = cuffTubeS(t), m = bez(P, 0.5);
+    if (t > T.push + 0.3) arrowS(m[0] + 50, m[1] - 40, m[0] + 50, m[1] + 50, E.p3out(prog(t, T.push + 0.3, T.push + 0.5)));
+    if (t > T.push + 0.75) { const x = xBeat(T.push); arrowS(SNS[0] + 70, SNS[1] - 40, x - 30, MS.y0 + 40, E.p3out(prog(t, T.push + 0.75, T.push + 1.0)), C.acc, 6, 18); }
+    ctx.restore();
+  }
+}
+
+// ================================================================ the hill, big (26.75–31.5): spikes above, the cuff pressure below
+const BIG = { x0: 70, x1: 1010, y0: 640, y1: 1090 };
+const PR = { x0: 70, x1: 1010, y0: 1120, y1: 1330 };
+function lerpR(A_, B_, k) { return { x0: lerp(A_.x0, B_.x0, k), x1: lerp(A_.x1, B_.x1, k), y0: lerp(A_.y0, B_.y0, k), y1: lerp(A_.y1, B_.y1, k) }; }
+const B_HI = BEATS[0], B_LO = BEATS.find((b) => Math.abs(b - 24.0) < 0.01);
+function drawHill(t, a = 1) {
+  const k = E.p2io(prog(t, T.big, T.bigEnd));
+  const R = lerpR(MS, BIG, k);
+  ID(); ctx.save(); ctx.globalAlpha = a;
+  const g = drawSpikes(t, R, lerp(1, 1.5, k), 1, { mark: t >= T.mkLo ? [B_HI, B_LO] : t >= T.mkHi ? [B_HI] : [] });
+  // the peak lights up (in the question)
+  const pk = win(t, T.peak, T.q7, 0.25, 0.2);
+  if (pk > 0.01) {
+    let bp = BEATS[0]; for (const b of BEATS) if (spikeH(b) > spikeH(bp)) bp = b;
+    const x = xBeat(bp, R) - 9 * lerp(1, 1.5, k), y = g.base - spikeH(bp) * g.Hm;
+    ctx.globalAlpha = a * pk; const hg = ctx.createRadialGradient(x, y, 0, x, y, 70); hg.addColorStop(0, "rgba(255,74,28,0.55)"); hg.addColorStop(1, "rgba(255,74,28,0)"); ctx.fillStyle = hg; ctx.fillRect(x - 70, y - 70, 140, 140); ctx.globalAlpha = a;
+  }
+  // the cuff pressure, falling (only in the big view)
+  const pa = E.smooth(prog(t, T.bigEnd - 0.2, T.bigEnd + 0.3));
+  if (pa > 0.01) {
+    ctx.globalAlpha = a * pa;
+    rr(PR.x0, PR.y0, PR.x1 - PR.x0, PR.y1 - PR.y0, 22); ctx.fillStyle = "#0F1114"; ctx.fill(); ctx.strokeStyle = "#4A505B"; ctx.lineWidth = 3; ctx.stroke();
+    const yP = (P) => lerp(PR.y1 - 24, PR.y0 + 24, clamp((P - 40) / 140));
+    ctx.strokeStyle = rgba(C.paper, 0.85); ctx.lineWidth = 5; ctx.beginPath();
+    for (let i = 0; i <= 60; i++) { const tb = lerp(15.6, 26.8, i / 60), x = xBeat(tb, BIG); i ? ctx.lineTo(x, yP(cuffP(Math.max(tb, T.beat1)))) : ctx.moveTo(x, yP(cuffP(T.beat1))); }
+    ctx.stroke();
+    label(COPY.cuffP, PR.x1 - 24, PR.y0 + 54, 40, C.paper, t, T.bigEnd, T.q7, { alpha: 0.85, align: "right" });
+    // the two marks: from the spike down to that moment's cuff pressure
+    for (const [b, tm, nm] of [[B_HI, T.mkHi, COPY.hi], [B_LO, T.mkLo, COPY.lo]]) {
+      const mk = E.p3out(prog(t, tm, tm + 0.3)); if (mk <= 0) continue;
+      const x = xBeat(b, BIG) - 13, y0 = g.base - spikeH(b) * g.Hm, y1 = yP(cuffP(b));
+      ctx.globalAlpha = a * pa; ctx.strokeStyle = C.acc; ctx.lineWidth = 4; ctx.setLineDash([12, 10]); line(x, y0, x, lerp(y0, y1, mk)); ctx.setLineDash([]);
+      if (mk > 0.95) { ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(x, y1, 11, 0, TAU); ctx.fill(); }
+      pill(nm, x, y1 - 34, 44, t, tm + 0.15, T.q7, { align: "center", edge: true });
+    }
+    ctx.globalAlpha = a;
+    label(COPY.rule, 540, 1392, 36, C.paper, t, T.mkLo + 0.2, T.q7, { align: "center", weight: 400, alpha: 0.9 });
+    label(COPY.algo, 540, 1440, 32, C.paper, t, T.mkLo + 0.4, T.q7, { align: "center", weight: 400, alpha: 0.6 });
+  }
+  ctx.restore();
+}
+
+// ================================================================ LINE (light, 31.5–39.5): your blood pressure keeps changing
+const LN = { x0: 70, x1: 1010, y: 1000 };
+function bpY(x, t) {
+  const u = (x - LN.x0) / (LN.x1 - LN.x0);
+  const slow = 110 * Math.exp(-u / 0.22) + 26 * Math.sin(u * 7.3 + 0.6) + 14 * Math.sin(u * 15.1 + 2);
+  const ph = (t - T.line) * 2.2;
+  const beat = 26 * Math.pow(Math.max(0, Math.sin(u * 30 * Math.PI - ph)), 3) - 6;
+  return LN.y + 40 - slow - beat;
+}
+function lineK(t) { return E.p2io(prog(t, T.line, T.line + 1.4)); }
+const WIN1 = [110, 250], WIN2 = [640, 780];
+function drawLine(t) {
+  ID(); ctx.fillStyle = C.ground; ctx.fillRect(-200, -200, W + 400, H + 400);
+  const d = drift(t), ox = 0.2 * d[0], oy = 0.2 * d[1];
+  ctx.save(); ctx.translate(ox, oy);
+  const k = lineK(t), xe = lerp(LN.x0, LN.x1, k);
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 8; ctx.lineJoin = "round"; ctx.beginPath();
+  for (let x = LN.x0; x <= xe; x += 3) { const y = bpY(x, t); x === LN.x0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+  ctx.stroke();
+  if (k < 1) { ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(xe, bpY(xe, t), 9, 0, TAU); ctx.fill(); }
+  label(COPY.bp, LN.x1, bpY(LN.x1, t) - 70, 48, C.ink, t, T.a7, T.q10 + 0.01, { align: "right" });
+  // the windows
+  for (const [w, tw, val, lab_] of [[WIN1, T.win1, "138", COPY.one], [WIN2, T.win2, "126", null]]) {
+    const wk = E.p3out(prog(t, tw, tw + 0.35)); if (wk <= 0) continue;
+    let ylo = 1e9, yhi = -1e9; for (let x = w[0]; x <= w[1]; x += 4) { const y = bpY(x, t); ylo = Math.min(ylo, y); yhi = Math.max(yhi, y); }
+    obox(w[0], ylo - 34, w[1] - w[0], yhi - ylo + 68, wk, 1, 14, 6);
+    if (lab_) label(lab_, w[0], ylo - 52, 44, C.acc, t, tw + 0.2, T.q10 + 0.01);
+    // linked to its reading (from 37.25)
+    const lk = E.p3out(prog(t, w === WIN1 ? T.sat + 0.4 : tw + 0.4, (w === WIN1 ? T.sat + 0.4 : tw + 0.4) + 0.4));
+    if (lk > 0) {
+      const cx = (w[0] + w[1]) / 2, cy = 1250;
+      ctx.save(); ctx.globalAlpha = lk; ctx.strokeStyle = C.acc; ctx.lineWidth = 4; ctx.setLineDash([10, 9]); line(cx, yhi + 40, cx, cy - 100); ctx.setLineDash([]);
+      rr(cx - 120, cy - 96, 240, 150, 24); ctx.fillStyle = C.lcd; ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = 2.6; ctx.stroke();
+      ctx.fillStyle = C.lcdD; ctx.font = `700 104px ${UI}`; ctx.textAlign = "center"; ctx.fillText(val, cx, cy + 30); ctx.restore();
+    }
+  }
+  label(COPY.sat, WIN1[0] - 10, bpY(WIN1[0], t) - 130, 44, C.ink, t, T.sat, T.q10 + 0.01);
+  ctx.restore();
+}
+
+// ================================================================ SIDE (light): the woman in profile; heart-level line; the cuff
+const SD = PM.SIDE;
+const SIDE_S = 0.66, SIDE_T = [30, 590];
+// per pose: the cuff (image px of that pose): centre, axis (unit), length, thickness
+const CUFFS = { heart: { c: [348, 712], ax: [0.62, 0.78], L: 150, th: 128 }, raised: { c: [500, 632], ax: [0.995, 0.08], L: 150, th: 118 }, down: { c: [180, 900], ax: [0.03, 1], L: 160, th: 160 } };
+const HEART_Y = 700;                                                  // the heart's height (image px of the heart pose: mid-chest)
+const HEART_X = 330;
+function drawPerson(pose, a = 1, S = SIDE_S, Tt = SIDE_T) {
+  if (a <= 0.01) return;
+  const P = SD[pose], [rs, rx, ry] = P.reg;
+  ctx.save(); ctx.globalAlpha *= a; ctx.translate(Tt[0], Tt[1]); ctx.scale(S, S); ctx.translate(rx, ry); ctx.scale(rs, rs);
+  const s = ctx.getTransform().a;
+  const fillReg = (nm, col, colD) => { for (const r of P.regs[nm]) { if (r.area < 300) continue; smoothPath(r.pts); ctx.fillStyle = col; ctx.fill(); if (colD) { ctx.save(); smoothPath(r.pts); ctx.clip(); ctx.filter = `blur(${(10 / s).toFixed(1)}px)`; ctx.strokeStyle = colD; ctx.lineWidth = 34 / s; smoothPath(r.pts); ctx.stroke(); ctx.filter = "none"; ctx.restore(); } smoothPath(r.pts); ctx.strokeStyle = C.ink; ctx.lineWidth = 2.2 / s; ctx.lineJoin = "round"; ctx.stroke(); } };
+  fillReg("pants", C.pants, "rgba(150,130,110,0.35)");
+  fillReg("shirt", C.shirt, "rgba(70,80,60,0.35)");
+  for (const r of P.regs.skin) { if (r.area < 300) continue; skinShape(r.pts, s, { lw: 2.2 }); }
+  fillReg("hair", C.hair, null);
+  // the face, drawn by hand on the heart pose's face (all poses are registered to it): brow, eye, nostril, lips, ear
+  ctx.restore(); ctx.save(); ctx.globalAlpha *= a; ctx.translate(Tt[0], Tt[1]); ctx.scale(S, S);
+  ctx.strokeStyle = "rgba(40,28,22,0.85)"; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(322, 158); ctx.quadraticCurveTo(346, 148, 370, 156); ctx.stroke();            // brow
+  ctx.lineWidth = 3.4; ctx.beginPath(); ctx.moveTo(338, 186); ctx.quadraticCurveTo(352, 178, 366, 184); ctx.stroke();          // eye (upper lid)
+  ctx.fillStyle = "rgba(40,28,22,0.9)"; ctx.beginPath(); ctx.ellipse(356, 186, 4, 5, 0, 0, TAU); ctx.fill();
+  ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(380, 238); ctx.quadraticCurveTo(372, 244, 376, 248); ctx.stroke();          // nostril
+  ctx.strokeStyle = "rgba(170,80,80,0.9)"; ctx.lineWidth = 3.2; ctx.beginPath(); ctx.moveTo(344, 276); ctx.quadraticCurveTo(358, 280, 372, 274); ctx.stroke();   // lips
+  ctx.strokeStyle = "rgba(110,62,30,0.55)"; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(204, 200); ctx.quadraticCurveTo(222, 188, 226, 214); ctx.quadraticCurveTo(222, 236, 210, 240); ctx.stroke();   // ear
+  ctx.restore();
+}
+function poseMap(pose, p, S = SIDE_S, Tt = SIDE_T) { const [rs, rx, ry] = SD[pose].reg; return [Tt[0] + S * (rx + rs * p[0]), Tt[1] + S * (ry + rs * p[1])]; }
+function drawSideCuff(pose, a = 1, S = SIDE_S, Tt = SIDE_T, hl = 0) {
+  if (a <= 0.01) return;
+  const c = CUFFS[pose], rs = SD[pose].reg[0], p = poseMap(pose, c.c, S, Tt), an = Math.atan2(c.ax[1], c.ax[0]);
+  ctx.save(); ctx.globalAlpha *= a; ctx.translate(p[0], p[1]); ctx.rotate(an);
+  const L = c.L * S * rs, th = c.th * S * rs;
+  rr(-L / 2, -th / 2, L, th, 14); const g = ctx.createLinearGradient(0, -th / 2, 0, th / 2); g.addColorStop(0, C.cuffL); g.addColorStop(1, C.cuffD); ctx.fillStyle = g; ctx.fill();
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 2.4; ctx.stroke();
+  if (hl > 0) { ctx.globalAlpha = a * hl; ctx.strokeStyle = C.acc; ctx.lineWidth = 6; rr(-L / 2 - 8, -th / 2 - 8, L + 16, th + 16, 18); ctx.stroke(); }
+  ctx.restore();
+  return p;
+}
+function heartLine(y, a, x0 = 180, x1 = 1040, lab = true, t = 0, t0 = 0, t1 = 99) {
+  if (a <= 0.01) return;
+  ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = C.ink; ctx.lineWidth = 4; ctx.setLineDash([16, 12]); line(x0, y, x1, y); ctx.setLineDash([]); ctx.restore();
+  if (lab) label(COPY.heart, x1, y - 18, 40, C.ink, t, t0, t1, { align: "right", alpha: a });
+}
+// the small monitor beside her (screen px): shows ↑ / ↓
+function sideMonitor(t, txt, a = 1) {
+  ctx.save(); ctx.globalAlpha = a; ctx.translate(880, 1300); ctx.scale(0.62, 0.62);
+  drawMonitor(t, 1, { txt: null }, [0, 0], 1);
+  if (txt) { ctx.fillStyle = txt === COPY.up ? C.acc : C.lcdD; ctx.font = `700 80px ${UI}`; ctx.textAlign = "center"; ctx.fillText(txt, 0, -16); }
+  ctx.restore();
+}
+function poseAt(t) {                         // [pose, nextPose, mix]
+  if (t < T.lower) return ["heart", "heart", 0];
+  if (t < T.raise) return ["heart", "down", E.p2io(prog(t, T.lower, T.lower + 0.3))];
+  return ["down", "raised", E.p2io(prog(t, T.raise, T.raise + 0.3))];
+}
+function drawSide(t) {
+  ID(); ctx.fillStyle = C.ground; ctx.fillRect(-200, -200, W + 400, H + 400);
+  const inK = E.p3out(prog(t, T.side, T.sideIn + 0.2)), d = drift(t);
+  const Tt = [SIDE_T[0] + 0.15 * d[0] - 60 * (1 - inK), SIDE_T[1] + 0.15 * d[1]];
+  const [p0, p1, m] = poseAt(t);
+  const hy = Tt[1] + SIDE_S * HEART_Y;
+  // heart-level line, the heart
+  heartLine(hy, E.smooth(prog(t, T.side + 0.3, T.side + 0.8)), Tt[0] + SIDE_S * 260, 1040, true, t, T.side + 0.5, T.iris + 0.1);
+  if (m < 1) { drawPerson(p0, 1 - m, SIDE_S, Tt); drawSideCuff(p0, 1 - m, SIDE_S, Tt); }
+  if (m > 0) { drawPerson(p1, m, SIDE_S, Tt); drawSideCuff(p1, m, SIDE_S, Tt); }
+  ctx.save(); ctx.globalAlpha = E.smooth(prog(t, T.side + 0.3, T.side + 0.8)); heartIcon(Tt[0] + SIDE_S * HEART_X, hy, 26, C.ink, false, 4); ctx.restore();
+  // the column: below the heart (more), above (less)
+  const pose = m > 0.5 ? p1 : p0, cp = poseMap(pose, CUFFS[pose].c, SIDE_S, Tt);
+  if (t >= T.col && t < T.raise + 0.2) {
+    const k = E.p3out(prog(t, T.col, T.col + 0.4)), fo = 1 - prog(t, T.raise, T.raise + 0.2);
+    ctx.save(); ctx.globalAlpha = fo; const x = cp[0] + 90, y0 = hy, y1 = lerp(hy, cp[1], k);
+    rr(x - 18, y0, 36, y1 - y0, 10); ctx.fillStyle = C.acc; ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+    label(COPY.more, cp[0] + 126, (hy + cp[1]) / 2 + 16, 44, C.acc, t, T.col + 0.3, T.raise + 0.2);
+  }
+  if (t >= T.gapC && t < T.iris + 0.2) {
+    const k = E.p3out(prog(t, T.gapC, T.gapC + 0.4));
+    ctx.save(); const x = cp[0] + 40; ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.setLineDash([12, 9]); rr(x - 20, lerp(hy, cp[1], k), 40, (hy - cp[1]) * k, 10); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+    label(COPY.less, x + 40, (hy + cp[1]) / 2 + 16, 44, C.acc, t, T.gapC + 0.3, T.iris + 0.2);
+  }
+  // the monitor: ↑ / ↓
+  const mt = t >= T.down ? COPY.down : t >= T.up && t < T.raise ? COPY.up : null;
+  sideMonitor(t, mt, E.smooth(prog(t, T.side + 0.4, T.side + 0.9)));
+}
+
+// ================================================================ TIPS (light, 48–56.25)
+const CARD = { x: 70, y: 1130, w: 940, h: 310 };
+function drawTips(t) {
+  ID(); ctx.fillStyle = C.ground; ctx.fillRect(-200, -200, W + 400, H + 400);
+  const d = drift(t), ox = 0.15 * d[0], oy = 0.15 * d[1];
+  // tip 1: sit, 5 minutes, the arm at heart level
+  const a1 = 1 - E.smooth(prog(t, T.tip2 - 0.1, T.tip2 + 0.3));
+  if (a1 > 0.01) {
+    const S = 0.5, Tt = [60 + ox, 600 + oy], hy = Tt[1] + S * HEART_Y;
+    ctx.save(); ctx.globalAlpha = a1;
+    // a cushion under the forearm (桌子低就垫高)
+    const ck = E.p3out(prog(t, T.align, T.align + 0.4));
+    if (ck > 0) { const p = poseMap("heart", [640, 770], S, Tt); rr(p[0] - 120, p[1] + 6, 240, 46 * ck, 16); ctx.fillStyle = "#C9C3B6"; ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = 2.4; ctx.stroke(); }
+    drawPerson("heart", 1, S, Tt);
+    drawSideCuff("heart", 1, S, Tt, win(t, T.align, T.tip2, 0.3, 0.2) * (0.6 + 0.4 * Math.sin(t * 6)));
+    heartLine(hy, E.smooth(prog(t, T.align, T.align + 0.4)), Tt[0] + S * 260, 1010, false);
+    ctx.restore();
+    // the timer ring (no seconds)
+    const tk = prog(t, T.timer, T.timerEnd);
+    ctx.save(); ctx.globalAlpha = a1 * E.smooth(prog(t, T.tip1, T.tip1 + 0.3)); const cx = 800, cy = 790;
+    ctx.strokeStyle = "rgba(20,20,20,0.18)"; ctx.lineWidth = 16; ctx.beginPath(); ctx.arc(cx, cy, 86, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = C.acc; ctx.lineCap = "round"; ctx.beginPath(); ctx.arc(cx, cy, 86, -Math.PI / 2, -Math.PI / 2 + TAU * tk); ctx.stroke();
+    ctx.strokeStyle = C.ink; ctx.lineWidth = 6; const ha = -Math.PI / 2 + TAU * tk; line(cx, cy, cx + 50 * Math.cos(ha), cy + 50 * Math.sin(ha)); ctx.restore();
+    label(COPY.pad, 1010, 1080, 40, C.ink, t, T.align + 0.3, T.tip2, { align: "right" });
+  }
+  // tip 2: measure, wait a minute, measure again → the average
+  const a2 = win(t, T.tip2, T.tip3 + 0.2, 0.3, 0.3);
+  if (a2 > 0.01) {
+    ctx.save(); ctx.globalAlpha = a2;
+    const flash = (tm) => win(t, tm + 0.25, tm + 0.9, 0.08, 0.2);
+    for (const [x, tm] of [[300, T.m1], [780, T.m2]]) {
+      const on = t >= tm ? 1 : 0.35;
+      ctx.save(); ctx.globalAlpha = a2 * on; drawMonitor(t, 1, { dash: t >= tm && t < tm + 0.5, txt: null }, [x + ox, 860 + oy], 0.62); ctx.restore();
+      const f = flash(tm); if (f > 0.01) { ctx.save(); ctx.globalAlpha = a2 * f; ctx.fillStyle = "rgba(255,255,255,0.7)"; rr(x - 93 + ox, 787 + oy, 186, 99, 12); ctx.fill(); ctx.restore(); }
+    }
+    const gk = E.p3out(prog(t, T.wait, T.wait + 0.4));
+    if (gk > 0) { arrowS(430 + ox, 860 + oy, lerp(430, 650, gk) + ox, 860 + oy, 1, C.ink, 5, 16); label(COPY.gap, 540 + ox, 820 + oy, 40, C.ink, t, T.wait + 0.1, T.tip3 + 0.2, { align: "center" }); }
+    const bk = E.p3out(prog(t, T.m2End, T.m2End + 0.35));
+    if (bk > 0) { ctx.strokeStyle = C.acc; ctx.lineWidth = 6; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.beginPath(); ctx.moveTo(300 + ox, 990 + oy); ctx.lineTo(300 + ox, 1020 + oy); ctx.lineTo(lerp(300, 780, bk) + ox, 1020 + oy); if (bk > 0.98) ctx.lineTo(780 + ox, 990 + oy); ctx.stroke(); label(COPY.avg, 540 + ox, 1078 + oy, 44, C.acc, t, T.m2End + 0.2, T.tip3 + 0.2, { align: "center" }); }
+    ctx.restore();
+  }
+  // tip 3: morning and evening, a week, the average
+  const a3 = E.smooth(prog(t, T.tip3, T.tip3 + 0.3));
+  if (a3 > 0.01) {
+    ctx.save(); ctx.globalAlpha = a3;
+    const R = mulberry32(77);
+    for (let i = 0; i < 7; i++) {
+      const x = 170 + i * 123 + ox, k = E.p3out(prog(t, T.week + i * 0.12, T.week + i * 0.12 + 0.3));
+      for (const [j, nm] of [[0, COPY.am], [1, COPY.pm]]) {
+        const y = 830 + j * 150 + (R() - 0.5) * 70 + oy;
+        if (k > 0) { ctx.fillStyle = j ? C.ink : "#6E6C66"; ctx.beginPath(); ctx.arc(x, y, 15 * k, 0, TAU); ctx.fill(); }
+        if (i === 0) label(nm, 70 + ox, 830 + j * 150 + 14 + oy, 38, C.ink, t, T.week, T.end, { alpha: 0.7 });
+      }
+    }
+    const lk = E.p3out(prog(t, T.wline, T.wline + 0.5));
+    if (lk > 0) { ctx.strokeStyle = C.acc; ctx.lineWidth = 7; ctx.lineCap = "round"; line(140 + ox, 905 + oy, lerp(140, 950, lk) + ox, 905 + oy); label(COPY.week, 950 + ox, 880 + oy, 42, C.acc, t, T.wline + 0.3, T.end, { align: "right" }); }
+    ctx.restore();
+  }
+  // the checklist card builds up
+  const ck = E.p3out(prog(t, T.card1 - 0.2, T.card1 + 0.2));
+  if (ck > 0.01) {
+    ctx.save(); ctx.globalAlpha = ck; rr(CARD.x, CARD.y, CARD.w, CARD.h, 28); ctx.fillStyle = "#FFFFFF"; ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
+    const rows = [[COPY.c1, T.card1, 1212], [COPY.c2, T.card2, 1318], [COPY.c3, T.card3, 1400]];
+    for (const [s, tm, y] of rows) {
+      if (t < tm) continue; const k = E.p3out(prog(t, tm, tm + 0.3));
+      ctx.save(); ctx.globalAlpha = k; ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(CARD.x + 52, y - 15, 10, 0, TAU); ctx.fill(); ctx.restore();
+      label(s, CARD.x + 80, y, 46, C.ink, t, tm, T.end + 0.4);
+    }
+    label(COPY.c1b, CARD.x + 80, 1260, 36, C.ink, t, T.card1 + 0.2, T.end + 0.4, { weight: 400, alpha: 0.7 });
+  }
+}
+
+// ================================================================ captions
+// the dive's circle: it opens from the cuff (dark inside), no cross-fade, so there is never a grey frame
+function diveIris(t) {
+  if (t < T.xray || t >= T.diveEnd) return null;
+  const k = E.p2in(prog(t, T.xray, T.diveEnd - 0.4)), c = toS(camRoom(t), CU);
+  return { c, R: 4 + 2300 * k };
+}
+function darkAt(t) {
+  if (t < T.xray) return 0;
+  if (t < T.diveEnd) return -1;                                   // the circle: both, clipped
+  if (t < T.q7) return 1;
+  return 0;
+}
+function scrimOf(fl, a = 1, gr = "236,235,230") {
+  const STOPS = [[0, 1], [0.66, 1], [0.74, 0.86], [0.82, 0.56], [0.9, 0.24], [1, 0]];
+  const SH = fl > 0.5 ? 640 : 760;
+  ID(); const g = ctx.createLinearGradient(0, 0, 0, SH);
+  STOPS.forEach(([o, k]) => g.addColorStop(o, fl > 0.5 ? `rgba(23,25,28,${a * k * 0.92})` : `rgba(${gr},${a * k})`));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, SH);
+}
+function textBand(t, fl) {
+  const L = C.ink, D = C.paper, M = fl > 0.5 ? D : L;
+  lines(COPY.h1, t, -1, T.q2, { style: "none", col: L });
+  underline(COPY.h1[2], "该信", "哪一次", 2, t, T.underline, T.q2, [300, 420, 540], 96);
+  lines(COPY.q2, t, T.q2, T.a2, { style: "blur", col: L, acc: C.paper, exit: 0.001 });
+  lines(COPY.a2, t, T.a2, T.q3, { style: "slam", col: L, acc: orangeK(t) > 0.35 ? C.ink : C.acc });
+  lines(COPY.q3, t, T.q3, T.air, { style: "blur", col: M });
+  lines(COPY.h4, t, T.air, T.squeeze, { style: "blur", col: D });
+  lines(COPY.a4, t, T.squeeze, T.deflate, { style: "blur", col: D });
+  lines(COPY.a5, t, T.deflate, T.beat1, { style: "blur", col: D });
+  lines(COPY.b5, t, T.beat1, T.q5, { style: "blur", col: D });
+  lines(COPY.q5, t, T.q5, T.push, { style: "blur", col: D });
+  lines(COPY.a5b, t, T.push, T.more, { style: "wipe", col: D });
+  lines(COPY.m5, t, T.more, T.less, { style: "blur", col: D });
+  lines(COPY.l5, t, T.less, T.q6, { style: "blur", col: D });
+  lines(COPY.q6, t, T.q6, T.a6, { style: "blur", col: D });
+  lines(COPY.a6, t, T.a6, T.q7, { style: "slam", col: D, lineGap: 0.2 });
+  lines(COPY.q7, t, T.q7, T.a7, { style: "blur", col: L });
+  lines(COPY.a7, t, T.a7, T.a8, { style: "blur", col: L });
+  lines(COPY.a8, t, T.a8, T.a9, { style: "blur", col: L });
+  lines(COPY.a9, t, T.a9, T.q10, { style: "blur", col: L });
+  lines(COPY.q10, t, T.q10, T.a10, { style: "blur", col: L });
+  lines(COPY.a10, t, T.a10, T.a11, { style: "blur", col: L });
+  lines(COPY.a11, t, T.a11, T.fin, { style: "blur", col: L });
+  lines(COPY.fin, t, T.fin, T.tip1, { style: "slam", col: L, lineGap: 0.25 });
+  lines(COPY.t1, t, T.tip1, T.tip2, { style: "blur", col: L });
+  lines(COPY.t2, t, T.tip2, T.tip3, { style: "blur", col: L });
+  lines(COPY.t3, t, T.tip3, T.end, { style: "blur", col: L });
+}
+
+// ================================================================ end card: the monitor becomes an outline badge
+const BADGE = [200, 600];
+function endCard(t) {
+  if (t < T.end) return;
+  const k = E.p3io(prog(t, T.end, T.endMorph + 0.3));
+  ID(); ctx.save();
+  const sc = lerp(0.9, 0.42, k), cx = lerp(540, BADGE[0], k), cy = lerp(880, BADGE[1], k);
+  ctx.translate(cx, cy); ctx.scale(sc, sc);
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 8; rr(-MOW / 2, -MOH / 2, MOW, MOH, 46); ctx.fillStyle = mixHex(C.dev, C.ground, k); ctx.fill(); ctx.stroke();
+  rr(-150, -118, 300, 160, 18); ctx.lineWidth = 6; ctx.stroke(); ctx.beginPath(); ctx.arc(0, 98, 30, 0, TAU); ctx.stroke();
+  ctx.lineCap = "round"; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(-MOW / 2 - 4, 17); ctx.bezierCurveTo(-MOW / 2 - 120, 30, -MOW / 2 - 140, 160, -MOW / 2 - 60, 260); ctx.stroke();
+  ctx.restore();
+  lines(COPY.end, t, T.title1, DUR + 1, { style: "type", col: C.ink, ys: [905, 1045, 1185], size: 124, stag: 0.045, lineGap: 0.3 });
+  lines([COPY.epNum], t, T.ep, DUR + 1, { style: "slam", col: C.ink, x: 400, ys: [520], size: 150 });
+  lines([COPY.epName], t, T.ep + 0.25, DUR + 1, { style: "blur", col: C.ink, x: 404, ys: [668], size: 112 });
+  if (t >= T.sting) {
+    const s2 = spring(t - T.sting, 16, 0.5);
+    ID(); ctx.save(); ctx.translate(BADGE[0], BADGE[1]); ctx.scale(s2, s2); ctx.font = `150px ${DISPLAY}`; ctx.fillStyle = C.acc; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("?", 4, 4); ctx.restore();
+  }
+}
+
+// ================================================================ the frame
+const orangeK = (t) => E.p2io(prog(t, T.myth, T.myth + 0.3)) * (1 - E.p2io(prog(t, T.unOrange, T.unOrange + 0.3)));
+function groundRGB(t) { const o = orangeK(t), g = hexRGB(C.ground), q = hexRGB(C.acc); return [0, 1, 2].map((i) => Math.round(lerp(g[i], q[i], o))).join(","); }
+function groundCol(t) { const o = orangeK(t); return o > 0 ? mixHex(C.ground, C.acc, o) : C.ground; }
+function qmarks(t, K) {
+  const a = win(t, T.qmarks, T.a2 + 0.2, 0.25, 0.25); if (a <= 0.01) return;
+  for (const [p, ph] of [[[CARD1[0] + 150, CARD1[1] - 90], 0], [[MO[0] + 170, MO[1] - 130], 1.7]]) {
+    const q = toS(K, p), born = spring(t - T.qmarks - 0.1 * ph, 14, 0.55);
+    ID(); ctx.save(); ctx.globalAlpha = a; ctx.translate(q[0], q[1] + 0.8 * Math.sin(t * 5 + ph)); ctx.scale(born, born);
+    ctx.font = `120px ${DISPLAY}`; ctx.fillStyle = C.ink; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("?", 0, 0); ctx.restore();
+  }
+}
+function strike(t, K) {
+  if (t < T.strike || t >= T.a2 + 0.35) return;
+  const c = toS(K, [560, 850]), fo = 1 - prog(t, T.a2, T.a2 + 0.35);
+  ID(); ctx.save(); ctx.globalAlpha = fo; ctx.strokeStyle = C.ink; ctx.lineCap = "round"; ctx.lineWidth = 28;
+  const k1 = E.p3out(prog(t, T.strike, T.strike + 0.1)), k2 = E.p3out(prog(t, T.strike + 0.125, T.strike + 0.225));
+  line(c[0] - 240, c[1] - 220, lerp(c[0] - 240, c[0] + 240, k1), lerp(c[1] - 220, c[1] + 220, k1));
+  if (k2 > 0) line(c[0] + 240, c[1] - 220, lerp(c[0] + 240, c[0] - 240, k2), lerp(c[1] - 220, c[1] + 220, k2));
+  ctx.restore();
+}
+function againNote(t, K) {
+  if (t < T.inflate2 || t >= T.q2 + 0.3) return;
+  const q = toS(K, [CARD1[0] - 130, CARD1[1] + 140]);
+  label(COPY.again, q[0], q[1], 40, C.ink, t, T.inflate2 + 0.1, T.q2 + 0.3, { alpha: 0.85 });
+}
+function roomShot(t, K, ground) {
+  ID(); ctx.fillStyle = ground; ctx.fillRect(-200, -200, W + 400, H + 400);
+  const xr = 0;
+  drawRoom(t, K, { cuff: 1 - 0.75 * xr, arm: 1 - 0.75 * xr, mon: 1 - xr, table: 1 - xr });
+}
+// the averaging bracket on the closing shot
+function avgBracket(t, K) {
+  const k = E.p3out(prog(t, T.avg, T.avg + 0.4)); if (k <= 0) return;
+  const a = toS(K, [CARD1[0], CARD1[1] + 110]), b = toS(K, [MO[0], CARD1[1] + 110]);
+  ID(); ctx.save(); ctx.strokeStyle = C.acc; ctx.lineWidth = 7; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.beginPath(); ctx.moveTo(a[0], a[1] - 26); ctx.lineTo(a[0], a[1]); ctx.lineTo(lerp(a[0], b[0], k), a[1]); if (k > 0.98) ctx.lineTo(b[0], b[1] - 26); ctx.stroke(); ctx.restore();
+  label(COPY.avg, (a[0] + b[0]) / 2, a[1] + 64, 48, C.acc, t, T.avg + 0.25, T.tip1, { align: "center" });
+}
+const IRC = [770, 860];
+function frame(t) {
+  ctx.reset(); [VX, VY] = viewDrift(t); ID();
+  if (t < T.diveEnd) {
+    const K = camRoom(t), ir = diveIris(t);
+    roomShot(t, K, groundCol(t));
+    if (ir) { ctx.save(); const P = new Path2D(); P.arc(ir.c[0], ir.c[1], ir.R, 0, TAU); ID(); ctx.clip(P); ctx.fillStyle = C.dark; ctx.fillRect(-200, -200, W + 400, H + 400); drawSection(t, 1); ctx.restore(); }
+    qmarks(t, K); strike(t, K); againNote(t, K);
+  } else if (t < T.q7) {
+    ID(); ctx.fillStyle = C.dark; ctx.fillRect(-200, -200, W + 400, H + 400);
+    const bigK = E.p2io(prog(t, T.big, T.bigEnd));
+    drawSection(t, 1 - 0.85 * bigK);
+    const pa = E.smooth(prog(t, T.sensor - 0.35, T.sensor)) * (1 - bigK);
+    if (pa > 0.01) drawPanel(t, pa, {});
+    if (t < T.big + 0.3) sectionNotes(t);
+    if (bigK > 0) drawHill(t, 1);
+    label(COPY.note, 1010, 1440, 32, C.paper, t, T.diveEnd, T.big, { align: "right", weight: 400, alpha: 0.5 });
+  } else if (t < T.side) {
+    drawLine(t);
+  } else if (t < T.iris) {
+    drawSide(t);
+  } else if (t < T.tip1) {
+    const K = roomK(t);
+    const draw = () => { roomShot(t, K, C.ground); avgBracket(t, K); };
+    if (t < T.irisEnd) {
+      drawSide(t);
+      const k = E.p2io(prog(t, T.iris, T.irisEnd)), R = 6 + 2200 * k;
+      ctx.save(); const P = new Path2D(); P.arc(IRC[0], IRC[1], R, 0, TAU); ID(); ctx.clip(P); draw(); ctx.restore();
+    } else draw();
+  } else {
+    drawTips(t);
+  }
+}
+function overlay(t) {
+  VX = 0; VY = 0;
+  const fl = darkAt(t);
+  if (fl < 0) {                                                   // the dive's circle: dark scrim inside, light outside
+    const ir = diveIris(t);
+    ctx.save(); let P = new Path2D(); P.rect(0, 0, W, H); P.arc(ir.c[0], ir.c[1], ir.R, 0, TAU); ID(); ctx.clip(P, "evenodd"); scrimOf(0, 1, groundRGB(t)); textBand(t, 0); ctx.restore();
+    ctx.save(); P = new Path2D(); P.arc(ir.c[0], ir.c[1], ir.R, 0, TAU); ID(); ctx.clip(P); scrimOf(1); textBand(t, 1); ctx.restore();
+  } else {
+    scrimOf(fl, t >= T.end ? 1 - prog(t, T.end, T.end + 0.3) : 1, groundRGB(t));
+    textBand(t, fl);
+  }
+  if (t >= T.end) { ID(); ctx.fillStyle = C.ground; ctx.globalAlpha = E.p2io(prog(t, T.end, T.end + 0.3)); ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; endCard(t); }
+}
+
+// ---------------------------------------------------------------- motion blur where things move fast
+const BLUR = [[6.9, 7.25, 6], [41.5, 41.85, 6], [44.0, 44.35, 6], [56.25, 57.1, 6]];
+const SHUTTER = 0.5 / FPS;
+window.seek = function seek(t) {
+  t = clamp(t, 0, DUR - 1e-6);
+  const b = BLUR.find(([a, bb]) => t >= a && t < bb);
+  if (!b) { ctx = MAIN; frame(t); overlay(t); return; }
+  const SUB = b[2];
+  MAIN.reset();
+  for (let i = 0; i < SUB; i++) {
+    ctx = OFFX;
+    const ts = t + SHUTTER * (i / (SUB - 1) - 0.5);
+    frame(clamp(ts, 0, DUR - 1e-6));
+    MAIN.setTransform(1, 0, 0, 1, 0, 0); MAIN.globalAlpha = 1 / (i + 1); MAIN.drawImage(OFF, 0, 0);
+  }
+  MAIN.globalAlpha = 1; ctx = MAIN; overlay(t);
+};
+window.DUR = DUR; window.FPS = FPS;
+window.ready = false;
+window.whenReady = Promise.all([
+  document.fonts.load(`100px ${DISPLAY}`, "血压每次量的都不一样"), document.fonts.load(`700 50px ${UI}`, "压力传感器高压低压0123456789"), document.fonts.load(`400 50px ${UI}`, "示意"),
+]).then(() => document.fonts.ready).then(() => { MEASURE.clear(); window.seek(0); window.ready = true; });
+</script>
+</body>
+</html>
