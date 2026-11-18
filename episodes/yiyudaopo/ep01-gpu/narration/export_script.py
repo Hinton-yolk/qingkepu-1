@@ -20,4 +20,9 @@ srt = lambda s: f"{int(s // 3600):02d}:{int(s % 3600 // 60):02d}:{int(s % 60):02
 out = []
 for i, l in enumerate(T['lines'], 1): out += [str(i), f"{srt(l['start'])} --> {srt(l['end'])}", l['text'], '']
 open(os.path.join(HERE, 'EP01_Full_Assembly_v01.srt'), 'w').write('\n'.join(out))
+# 平台上传用：去掉画面上已经是大字的几句（和 remotion/src/Captions.tsx 的 HIDE 一致），免得和大字重复
+HIDE = ['A1', 'A2', 'E3', 'E4', 'H7', 'H11']
+up = []
+for i, l in enumerate([l for l in T['lines'] if l['id'] not in HIDE], 1): up += [str(i), f"{srt(l['start'])} --> {srt(l['end'])}", l['text'], '']
+open(os.path.join(HERE, 'EP01_Full_Assembly_v01_上传用.srt'), 'w').write('\n'.join(up))
 print('ok')

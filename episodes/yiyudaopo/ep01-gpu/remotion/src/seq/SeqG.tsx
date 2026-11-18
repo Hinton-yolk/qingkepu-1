@@ -32,7 +32,7 @@ export const SeqG: React.FC<{from: number}> = ({from}) => {
   const shareB = prog(f, g6 + sec(2.4), 20, easeIO);
   const count = prog(f, g7, 10);
   const srvTag = prog(f, g8 + sec(0.3), 10);
-  const BX = 790, BY0 = 560, BH = 460;                                // 两根「上限」柱
+  const BX = 700, BY0 = 560, BH = 460;                                // 两根「上限」柱
   const slice = (i: number) => ({x: lerp(300 + i * 70, mods[i][0], share), y: lerp(330, mods[i][1], share)});
   const batch = (i: number) => ({x: lerp(120 + i * 60, mods[4 + i][0], shareB), y: lerp(1290, mods[4 + i][1], shareB)});
 
@@ -72,8 +72,8 @@ export const SeqG: React.FC<{from: number}> = ({from}) => {
           <div style={{position: 'absolute', left: BX - 250, top: BY0 - 150, fontFamily: FONT.hei, fontWeight: 700, fontSize: 44, color: C.warn, opacity: over,
             textShadow: '0 2px 10px rgba(0,0,0,0.95)'}}>模型太大，装不下</div>
           {/* 任务太多：长长一队 */}
-          {queue > 0 && Array.from({length: 16}, (_, k) => (
-            <div key={k} style={{position: 'absolute', left: lerp(-900, 60, queue) + k * 58 + ((f - g3) % 20) * 2.9 * (queue >= 1 ? 1 : 0), top: 1270, width: 48, height: 48, borderRadius: 8, background: 'rgba(240,160,64,0.6)',
+          {queue > 0 && Array.from({length: 13}, (_, k) => (
+            <div key={k} style={{position: 'absolute', left: lerp(-760, 60, queue) + k * 58 + ((f - g3) % 20) * 2.9 * (queue >= 1 ? 1 : 0), top: 1270, width: 48, height: 48, borderRadius: 8, background: 'rgba(240,160,64,0.6)',
               border: `3px solid ${C.game}`}} />
           ))}
           <div style={{position: 'absolute', left: 60, top: 1205, fontFamily: FONT.hei, fontWeight: 700, fontSize: 42, color: C.game, opacity: prog(f, g3 + sec(1.2), 10),
@@ -108,7 +108,7 @@ export const SeqG: React.FC<{from: number}> = ({from}) => {
       <div style={{position: 'absolute', left: 0, right: 0, top: 190, textAlign: 'center', fontFamily: FONT.title, fontSize: 120, color: C.ink, opacity: count * (1 - srvTag),
         textShadow: '0 4px 24px rgba(0,0,0,0.95)'}}>1 → 8</div>
       <Tag x={540} y={300} text="一台服务器里的 8 块加速器" anchor="center" size={48} opacity={srvTag} />
-      <Note top={1490} opacity={prog(f, g5 + sec(0.5), 10) * 0.9}>示意：拿掉了散热器；不是每次提问都要很多 GPU</Note>
+      <Note top={1490} box opacity={prog(f, g5 + sec(0.5), 10)}>示意：拿掉了散热器；不是每次提问都要很多 GPU</Note>
     </AbsoluteFill>
   );
 };

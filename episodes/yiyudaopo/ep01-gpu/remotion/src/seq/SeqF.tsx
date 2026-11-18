@@ -31,14 +31,15 @@ export const SeqF: React.FC<{from: number}> = ({from}) => {
   const fill = (i: number, k: number) => prog(f, f1 + sec(0.3) + (k * STACK.n + i) * 1.1, 6);
   const lanesOn = prog(f, f3, 10);
   const starve = prog(f, f5 + sec(0.3), 18, easeIO);                // 通道变窄
-  const widen = prog(f, f6 + sec(0.6), 20, easeIO);                 // 容量、带宽变大
+  const widen = prog(f, f6 + sec(0.6), 20, easeIO);                 // 先只加宽带宽：送得快了，计算单元又忙起来
+  const capUp = prog(f, f6 + sec(2.6), 20, easeIO);                 // 再单独长容量（能装更多，不是「解决等数据」）
   const nLanes = Math.round(lerp(lerp(8, 2, starve), 12, widen));
   const period = lerp(lerp(0.42, 0.85, starve), 0.3, widen);         // 每条通道多久送一块
   const travel = 0.55;
   const tNow = (f - f3) / 30;
   const factory = prog(f, f4, 10) * (1 - prog(f, f6, 10));
-  const capK = 1 + 0.22 * widen;
-  const LANE = {...LANE0, y0: LANE0.y0 + STACK.h * 0.22 * widen};
+  const capK = 1 + 0.22 * capUp;
+  const LANE = {...LANE0, y0: LANE0.y0 + STACK.h * 0.22 * capUp};
   // 计算单元：每条通道负责一列（或几列）；一块数据送到，这一列的一个格子亮 0.6 秒
   // 一块数据送到某条通道的底部，这条通道负责的那一列计算单元就能干 0.45 秒的活
   const BUSY = 0.42;
@@ -148,7 +149,7 @@ export const SeqF: React.FC<{from: number}> = ({from}) => {
                 </div>
               );
             })}
-            <div style={{position: 'absolute', left: 36, top: 330, fontFamily: FONT.hei, fontWeight: 700, fontSize: 38, color: C.ink, opacity: widen, writingMode: 'vertical-rl'}}>容量 ↑</div>
+            <div style={{position: 'absolute', left: 36, top: 330, fontFamily: FONT.hei, fontWeight: 700, fontSize: 38, color: C.ink, opacity: capUp, writingMode: 'vertical-rl'}}>容量 ↑</div>
             {/* 通道 */}
             <svg width={1080} height={1920} style={{position: 'absolute', left: 0, top: 0}}>
               {Array.from({length: 12}, (_, j) => {
@@ -180,7 +181,7 @@ export const SeqF: React.FC<{from: number}> = ({from}) => {
               计算单元<span style={{fontSize: 34, color: C.sub, opacity: factory}}>　像机器</span>
             </div>
             <div style={{position: 'absolute', right: 140, top: GRID.y0 - 50, fontFamily: FONT.hei, fontWeight: 700, fontSize: 36, color: util > 50 ? C.game : C.sub, opacity: lanesOn}}>
-              在干活：{util}%
+              在干活：{util}%<span style={{fontSize: 28, color: C.sub}}>（示意）</span>
             </div>
             {cells.map(({c, r, b}, k) => {
               const p = cellXY(c, r);
@@ -197,8 +198,6 @@ export const SeqF: React.FC<{from: number}> = ({from}) => {
                 </div>
               );
             })}
-            <div style={{position: 'absolute', left: 0, right: 0, top: 1320, textAlign: 'center', fontFamily: FONT.hei, fontWeight: 700, fontSize: 44, color: C.ink,
-              opacity: starve * (1 - widen)}}>数据来得慢，计算单元只能等</div>
           </AbsoluteFill>
         </Drift>
       )}

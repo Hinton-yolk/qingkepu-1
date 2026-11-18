@@ -26,11 +26,13 @@ export const Plate: React.FC<{name: 'DC' | 'MACRO' | 'CHIP' | 'SERVER' | 'RACK';
 };
 
 /** 角落的小注：「示意」「简化」之类，行家看了不会误会 */
-export const Note: React.FC<{children: React.ReactNode; opacity?: number; top?: number; left?: number; right?: number; align?: 'left' | 'right'}> = ({
-  children, opacity = 1, top = 1490, left, right, align = 'left',
+export const Note: React.FC<{children: React.ReactNode; opacity?: number; top?: number; left?: number; right?: number; align?: 'left' | 'right'; box?: boolean}> = ({
+  children, opacity = 1, top = 1490, left, right, align = 'left', box = false,
 }) => (
+  // box：压在 3D 底片上时加半透明底板，手机上才看得清
   <div style={{position: 'absolute', top, left: left ?? (align === 'left' ? 64 : undefined), right: right ?? (align === 'right' ? 64 : undefined),
-    fontFamily: FONT.hei, fontSize: 33, color: C.sub, opacity, letterSpacing: 1, textAlign: align}}>
+    fontFamily: FONT.hei, fontSize: box ? 34 : 33, color: box ? C.ink : C.sub, opacity, letterSpacing: 1, textAlign: align,
+    ...(box ? {background: 'rgba(10,11,13,0.72)', padding: '6px 16px', borderRadius: 10} : {})}}>
     {children}
   </div>
 );
