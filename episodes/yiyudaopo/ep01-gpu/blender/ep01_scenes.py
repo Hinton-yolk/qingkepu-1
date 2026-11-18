@@ -509,4 +509,5 @@ def main():
     elif mode == 'save':
         bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(a[2]))
 
-main()
+if __name__ == '__main__':
+    main()

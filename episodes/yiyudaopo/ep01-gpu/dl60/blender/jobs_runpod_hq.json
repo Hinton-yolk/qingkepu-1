@@ -1,0 +1,92 @@
+{
+ "scene_dir": "episodes/yiyudaopo/ep01-gpu/dl60/blender/runpod_stage",
+ "script": "dl60_scenes.py",
+ "out_dir": "episodes/yiyudaopo/ep01-gpu/dl60/blender/out",
+ "sec_per_unit": 7.5,
+ "tasks": [
+  {
+   "args": [
+    "anim",
+    "OPEN",
+    "{out}/hq_OPEN",
+    "1080x1920",
+    "64",
+    "1",
+    "cuda",
+    "0",
+    "82"
+   ],
+   "units": 83
+  },
+  {
+   "args": [
+    "anim",
+    "OPEN",
+    "{out}/hq_OPEN",
+    "1080x1920",
+    "64",
+    "1",
+    "cuda",
+    "83",
+    "165"
+   ],
+   "units": 83
+  },
+  {
+   "args": [
+    "anim",
+    "CLOSE",
+    "{out}/hq_CLOSE",
+    "1080x1920",
+    "64",
+    "1",
+    "cuda",
+    "1455",
+    "1541"
+   ],
+   "units": 87
+  },
+  {
+   "args": [
+    "anim",
+    "CLOSE",
+    "{out}/hq_CLOSE",
+    "1080x1920",
+    "64",
+    "1",
+    "cuda",
+    "1542",
+    "1628"
+   ],
+   "units": 87
+  },
+  {
+   "args": [
+    "anim",
+    "CLOSE",
+    "{out}/hq_CLOSE",
+    "1080x1920",
+    "64",
+    "1",
+    "cuda",
+    "1629",
+    "1715"
+   ],
+   "units": 87
+  },
+  {
+   "args": [
+    "anim",
+    "CLOSE",
+    "{out}/hq_CLOSE",
+    "1080x1920",
+    "64",
+    "1",
+    "cuda",
+    "1716",
+    "1799"
+   ],
+   "units": 84
+  }
+ ]
+}

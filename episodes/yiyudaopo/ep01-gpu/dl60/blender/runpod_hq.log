@@ -1,0 +1,166 @@
+  pod 0: 2 个任务，171 单位
+  pod 1: 2 个任务，170 单位
+  pod 2: 2 个任务，170 单位
+预计墙钟 25 分钟；GPU 总时长 1.23 小时；按每卡每小时 $0.4 估约 $0.49（含每台约 2 分钟装环境；按秒计费）
+场景包 0.0 MB
+建好 pod 0: 281ntbt6ahcdpf  每小时 $0.34  NVIDIA GeForce RTX 4090  COMMUNITY
+NVIDIA GeForce RTX 4090: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA GeForce RTX 5090: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+建好 pod 1: aqks4aa1xv2bq7  每小时 $0.22  NVIDIA GeForce RTX 3090  COMMUNITY
+NVIDIA GeForce RTX 4090: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA GeForce RTX 5090: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA GeForce RTX 3090: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA L40S: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA RTX 6000 Ada Generation: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+Community Cloud 没空卡，改用 Secure Cloud
+建好 pod 2: afxybkaqxvnwyo  每小时 $0.89  NVIDIA GeForce RTX 4090  SECURE
+[  0.0 分] 281ntbt6ahcdpf 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+[  0.0 分] aqks4aa1xv2bq7 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+[  0.0 分] afxybkaqxvnwyo 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+[  0.3 分] 281ntbt6ahcdpf 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+[  0.3 分] aqks4aa1xv2bq7 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+[  0.3 分] afxybkaqxvnwyo 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+281ntbt6ahcdpf 场景已上传
+[  0.6 分] 281ntbt6ahcdpf download_blender  已拉回 0
+[  0.6 分] aqks4aa1xv2bq7 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+[  0.6 分] afxybkaqxvnwyo 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+[  0.8 分] 281ntbt6ahcdpf download_blender  已拉回 0
+aqks4aa1xv2bq7 场景已上传
+[  0.8 分] aqks4aa1xv2bq7 apt  已拉回 0
+afxybkaqxvnwyo 场景已上传
+[  0.9 分] afxybkaqxvnwyo download_blender  已拉回 0
+[  1.1 分] 281ntbt6ahcdpf download_blender  已拉回 0
+[  1.1 分] aqks4aa1xv2bq7 apt  已拉回 0
+[  1.2 分] afxybkaqxvnwyo rendering 1/2 已拉回 1
+[  1.4 分] 281ntbt6ahcdpf rendering 1/2 已拉回 0
+[  1.4 分] aqks4aa1xv2bq7 apt  已拉回 0
+[  1.5 分] afxybkaqxvnwyo rendering 1/2 已拉回 4
+[  1.7 分] 281ntbt6ahcdpf rendering 1/2 已拉回 0
+[  1.8 分] aqks4aa1xv2bq7 done 2/2 已拉回 0 失败：task 1 failed: anim CLOSE /w/out/hq_CLOSE 1080x1920 64 1 cuda 1542 1628 | task 2 failed: anim OPEN /w/out/hq_OPEN 1080x1920 64 1 cuda 0 82
+aqks4aa1xv2bq7 完成，已删除
+[  1.8 分] afxybkaqxvnwyo rendering 1/2 已拉回 7
+[  2.1 分] 281ntbt6ahcdpf rendering 1/2 已拉回 1
+[  2.1 分] afxybkaqxvnwyo rendering 1/2 已拉回 10
+[  2.5 分] 281ntbt6ahcdpf rendering 1/2 已拉回 4
+[  2.5 分] afxybkaqxvnwyo rendering 1/2 已拉回 14
+[  2.9 分] 281ntbt6ahcdpf rendering 1/2 已拉回 7
+[  2.9 分] afxybkaqxvnwyo rendering 1/2 已拉回 17
+[  3.2 分] 281ntbt6ahcdpf rendering 1/2 已拉回 9
+[  3.3 分] afxybkaqxvnwyo rendering 1/2 已拉回 21
+[  3.8 分] 281ntbt6ahcdpf rendering 1/2 已拉回 12
+[  3.9 分] afxybkaqxvnwyo rendering 1/2 已拉回 26
+[  4.5 分] 281ntbt6ahcdpf rendering 1/2 已拉回 17
+[  4.7 分] afxybkaqxvnwyo rendering 1/2 已拉回 33
+[  5.4 分] 281ntbt6ahcdpf rendering 1/2 已拉回 23
+[  5.5 分] afxybkaqxvnwyo rendering 1/2 已拉回 41
+[  6.0 分] 281ntbt6ahcdpf rendering 1/2 已拉回 26
+[  6.1 分] afxybkaqxvnwyo rendering 1/2 已拉回 47
+[  6.7 分] 281ntbt6ahcdpf rendering 1/2 已拉回 31
+[  6.8 分] afxybkaqxvnwyo rendering 1/2 已拉回 54
+[  7.4 分] 281ntbt6ahcdpf rendering 1/2 已拉回 34
+[  7.5 分] afxybkaqxvnwyo rendering 1/2 已拉回 61
+[  7.9 分] 281ntbt6ahcdpf rendering 1/2 已拉回 35
+[  8.0 分] afxybkaqxvnwyo rendering 1/2 已拉回 66
+[  8.3 分] 281ntbt6ahcdpf rendering 1/2 已拉回 36
+[  8.3 分] afxybkaqxvnwyo rendering 1/2 已拉回 69
+[  8.8 分] 281ntbt6ahcdpf rendering 1/2 已拉回 39
+[  8.9 分] afxybkaqxvnwyo rendering 1/2 已拉回 74
+[  9.5 分] 281ntbt6ahcdpf rendering 1/2 已拉回 43
+[  9.6 分] afxybkaqxvnwyo rendering 1/2 已拉回 81
+[  9.9 分] 281ntbt6ahcdpf rendering 1/2 已拉回 43
+[  9.9 分] afxybkaqxvnwyo rendering 1/2 已拉回 85
+[ 10.2 分] 281ntbt6ahcdpf rendering 1/2 已拉回 44
+[ 10.3 分] afxybkaqxvnwyo rendering 2/2 已拉回 88
+[ 10.6 分] 281ntbt6ahcdpf rendering 1/2 已拉回 45
+[ 10.7 分] afxybkaqxvnwyo rendering 2/2 已拉回 91
+[ 11.1 分] 281ntbt6ahcdpf rendering 1/2 已拉回 47
+[ 11.2 分] afxybkaqxvnwyo rendering 2/2 已拉回 96
+[ 11.8 分] 281ntbt6ahcdpf rendering 1/2 已拉回 51
+[ 11.9 分] afxybkaqxvnwyo rendering 2/2 已拉回 103
+[ 12.7 分] 281ntbt6ahcdpf rendering 1/2 已拉回 56
+[ 12.8 分] afxybkaqxvnwyo rendering 2/2 已拉回 111
+[ 13.1 分] 281ntbt6ahcdpf rendering 1/2 已拉回 57
+[ 13.2 分] afxybkaqxvnwyo rendering 2/2 已拉回 116
+[ 13.7 分] 281ntbt6ahcdpf rendering 1/2 已拉回 60
+[ 13.7 分] afxybkaqxvnwyo rendering 2/2 已拉回 121
+[ 14.1 分] 281ntbt6ahcdpf rendering 1/2 已拉回 62
+[ 14.2 分] afxybkaqxvnwyo rendering 2/2 已拉回 125
+[ 14.6 分] 281ntbt6ahcdpf rendering 1/2 已拉回 64
+[ 14.7 分] afxybkaqxvnwyo rendering 2/2 已拉回 130
+[ 15.3 分] 281ntbt6ahcdpf rendering 1/2 已拉回 68
+[ 15.4 分] afxybkaqxvnwyo rendering 2/2 已拉回 136
+[ 15.7 分] 281ntbt6ahcdpf rendering 1/2 已拉回 70
+[ 15.8 分] afxybkaqxvnwyo rendering 2/2 已拉回 141
+[ 16.3 分] 281ntbt6ahcdpf rendering 1/2 已拉回 74
+[ 16.4 分] afxybkaqxvnwyo rendering 2/2 已拉回 146
+[ 16.9 分] 281ntbt6ahcdpf rendering 1/2 已拉回 78
+[ 17.0 分] afxybkaqxvnwyo rendering 2/2 已拉回 152
+[ 17.5 分] 281ntbt6ahcdpf rendering 1/2 已拉回 81
+[ 17.6 分] afxybkaqxvnwyo rendering 2/2 已拉回 158
+[ 17.8 分] 281ntbt6ahcdpf rendering 1/2 已拉回 81
+[ 17.9 分] afxybkaqxvnwyo rendering 2/2 已拉回 161
+[ 18.2 分] 281ntbt6ahcdpf rendering 1/2 已拉回 83
+[ 18.3 分] afxybkaqxvnwyo rendering 2/2 已拉回 165
+[ 18.7 分] 281ntbt6ahcdpf rendering 1/2 已拉回 86
+[ 18.8 分] afxybkaqxvnwyo rendering 2/2 已拉回 169
+[ 19.0 分] 281ntbt6ahcdpf rendering 1/2 已拉回 86
+[ 19.0 分] afxybkaqxvnwyo done 2/2 已拉回 170
+afxybkaqxvnwyo 完成，已删除
+[ 19.4 分] 281ntbt6ahcdpf rendering 2/2 已拉回 87
+[ 19.6 分] 281ntbt6ahcdpf rendering 2/2 已拉回 87
+[ 20.0 分] 281ntbt6ahcdpf rendering 2/2 已拉回 88
+[ 20.4 分] 281ntbt6ahcdpf rendering 2/2 已拉回 91
+[ 20.8 分] 281ntbt6ahcdpf rendering 2/2 已拉回 94
+[ 21.1 分] 281ntbt6ahcdpf rendering 2/2 已拉回 96
+[ 21.4 分] 281ntbt6ahcdpf rendering 2/2 已拉回 96
+[ 21.7 分] 281ntbt6ahcdpf rendering 2/2 已拉回 97
+[ 22.0 分] 281ntbt6ahcdpf rendering 2/2 已拉回 98
+[ 22.3 分] 281ntbt6ahcdpf rendering 2/2 已拉回 100
+[ 22.7 分] 281ntbt6ahcdpf rendering 2/2 已拉回 103
+[ 23.2 分] 281ntbt6ahcdpf rendering 2/2 已拉回 106
+[ 23.6 分] 281ntbt6ahcdpf rendering 2/2 已拉回 107
+[ 23.9 分] 281ntbt6ahcdpf rendering 2/2 已拉回 107
+[ 24.1 分] 281ntbt6ahcdpf rendering 2/2 已拉回 107
+[ 24.4 分] 281ntbt6ahcdpf rendering 2/2 已拉回 107
+[ 24.7 分] 281ntbt6ahcdpf rendering 2/2 已拉回 108
+[ 25.0 分] 281ntbt6ahcdpf rendering 2/2 已拉回 108
+[ 25.4 分] 281ntbt6ahcdpf rendering 2/2 已拉回 111
+[ 25.9 分] 281ntbt6ahcdpf rendering 2/2 已拉回 113
+[ 26.4 分] 281ntbt6ahcdpf rendering 2/2 已拉回 116
+[ 27.0 分] 281ntbt6ahcdpf rendering 2/2 已拉回 120
+[ 27.3 分] 281ntbt6ahcdpf rendering 2/2 已拉回 120
+[ 27.5 分] 281ntbt6ahcdpf rendering 2/2 已拉回 120
+[ 27.9 分] 281ntbt6ahcdpf rendering 2/2 已拉回 121
+[ 28.1 分] 281ntbt6ahcdpf rendering 2/2 已拉回 121
+[ 28.6 分] 281ntbt6ahcdpf rendering 2/2 已拉回 123
+[ 29.0 分] 281ntbt6ahcdpf rendering 2/2 已拉回 125
+[ 29.3 分] 281ntbt6ahcdpf rendering 2/2 已拉回 125
+[ 29.8 分] 281ntbt6ahcdpf rendering 2/2 已拉回 128
+[ 30.4 分] 281ntbt6ahcdpf rendering 2/2 已拉回 131
+[ 30.7 分] 281ntbt6ahcdpf rendering 2/2 已拉回 131
+[ 31.1 分] 281ntbt6ahcdpf rendering 2/2 已拉回 133
+[ 31.7 分] 281ntbt6ahcdpf rendering 2/2 已拉回 136
+[ 32.6 分] 281ntbt6ahcdpf rendering 2/2 已拉回 142
+[ 32.9 分] 281ntbt6ahcdpf rendering 2/2 已拉回 143
+[ 33.2 分] 281ntbt6ahcdpf rendering 2/2 已拉回 143
+[ 33.5 分] 281ntbt6ahcdpf rendering 2/2 已拉回 143
+[ 33.8 分] 281ntbt6ahcdpf rendering 2/2 已拉回 144
+[ 34.2 分] 281ntbt6ahcdpf rendering 2/2 已拉回 146
+[ 34.8 分] 281ntbt6ahcdpf rendering 2/2 已拉回 150
+[ 35.1 分] 281ntbt6ahcdpf rendering 2/2 已拉回 151
+[ 35.4 分] 281ntbt6ahcdpf rendering 2/2 已拉回 151
+[ 35.7 分] 281ntbt6ahcdpf rendering 2/2 已拉回 152
+[ 36.1 分] 281ntbt6ahcdpf rendering 2/2 已拉回 155
+[ 36.5 分] 281ntbt6ahcdpf rendering 2/2 已拉回 157
+[ 36.8 分] 281ntbt6ahcdpf rendering 2/2 已拉回 159
+[ 37.3 分] 281ntbt6ahcdpf rendering 2/2 已拉回 162
+[ 37.8 分] 281ntbt6ahcdpf rendering 2/2 已拉回 166
+[ 38.1 分] 281ntbt6ahcdpf rendering 2/2 已拉回 166
+[ 38.3 分] 281ntbt6ahcdpf rendering 2/2 已拉回 166
+[ 38.6 分] 281ntbt6ahcdpf rendering 2/2 已拉回 166
+[ 38.9 分] 281ntbt6ahcdpf rendering 2/2 已拉回 167
+[ 39.2 分] 281ntbt6ahcdpf rendering 2/2 已拉回 168
+[ 39.6 分] 281ntbt6ahcdpf rendering 2/2 已拉回 170
+[ 39.9 分] 281ntbt6ahcdpf done 2/2 已拉回 171
+281ntbt6ahcdpf 完成，已删除
+全部完成：墙钟 40.1 分钟，约 $0.97（上限估计，按秒计费，以 RunPod 账单为准）
