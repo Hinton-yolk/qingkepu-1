@@ -15,7 +15,8 @@ const polyStr = (q: P[]) => q.map((p) => toPx(p).join(',')).join(' ');
 
 export const SeqE: React.FC<{from: number}> = ({from}) => {
   const f = useCurrentFrame() + from;
-  const e1 = cue('E1'), e2 = cue('E2'), e3 = cue('E3'), e4 = cue('E4');
+  const e1 = cue('E1'), e3 = cue('E3');
+  const e2 = cue('E1') + sec(3.6);   // 全集：E2 那句移到 F 段，这里只是标注出现的时间点
   const T_CHIP = e1 + sec(3.0);
   const inK = prog(f, from, 10);
   const tc = prog(f, e1 + sec(0.8), 12);
@@ -31,7 +32,7 @@ export const SeqE: React.FC<{from: number}> = ({from}) => {
   const dc = [fr.die.reduce((a, d) => a + d[0], 0) / 4 * 1080, fr.die.reduce((a, d) => a + d[1], 0) / 4 * 1920];
   const computeTag = prog(f, T_CHIP + sec(0.7), 10);
   const memTag = prog(f, e2 + sec(0.1), 12);
-  const waiting = prog(f, e2 + sec(1.3), 12);            // 「计算单元就只能等着」
+  const waiting = 0;                                      // 「在等数据」放到 F 段讲
   const flow = prog(f, e2 + sec(0.6), 10);
   const q = prog(f, cue('E3') - 4, 14);
   const pushK = 1 + 0.018 * Math.min(1.6, Math.max(0, (f - T_CHIP) / 30));

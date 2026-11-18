@@ -25,5 +25,8 @@ export const SEQ_START: Record<string, number> = {
   C: cue('C1') - sec(0.35),
   D: cue('D1') - sec(0.3),
   E: cue('E1') - sec(0.45),
+  F: cue('F1') - sec(0.35),
+  G: cue('G1') - sec(0.35),
+  H: cue('H1') - sec(0.35),
 };
-export const SEQ_END: Record<string, number> = {A: SEQ_START.B, B: SEQ_START.C, C: SEQ_START.D, D: SEQ_START.E, E: TOTAL_FRAMES};
+export const SEQ_END: Record<string, number> = {A: SEQ_START.B, B: SEQ_START.C, C: SEQ_START.D, D: SEQ_START.E, E: SEQ_START.F, F: SEQ_START.G, G: SEQ_START.H, H: TOTAL_FRAMES};

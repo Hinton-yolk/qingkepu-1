@@ -31,7 +31,7 @@ export const SeqB: React.FC<{from: number}> = ({from}) => {
   const f = useCurrentFrame() + from;
   const b2 = cue('B2'), b3 = cue('B3'), b4 = cue('B4'), b5 = cue('B5');
   // 芯片方框 → 视口
-  const r0 = dieRect(MACRO_BACK + (from - (cue('A2') - 3)));
+  const r0 = dieRect(MACRO_BACK + from);
   const m = prog(f, from, 14, easeIO);
   const rect = {x: lerp(r0.x, VP.x, m), y: lerp(r0.y, VP.y, m), w: lerp(r0.w, VP.w, m), h: lerp(r0.h, VP.h, m)};
   // 一块 → 每一块 → 一起算

@@ -7,6 +7,9 @@ import {SeqB} from './seq/SeqB';
 import {SeqC} from './seq/SeqC';
 import {SeqD} from './seq/SeqD';
 import {SeqE} from './seq/SeqE';
+import {SeqF} from './seq/SeqF';
+import {SeqG} from './seq/SeqG';
+import {SeqH} from './seq/SeqH';
 import audio from './audio.json';
 
 // 每段在自己的 <Sequence> 里，段内用全片帧号（from 传进去），旁白 cue 直接用全片时间
@@ -16,6 +19,9 @@ const SEQS: [string, React.FC<{from: number}>][] = [
   ['C', SeqC],
   ['D', SeqD],
   ['E', SeqE],
+  ['F', SeqF],
+  ['G', SeqG],
+  ['H', SeqH],
 ];
 const OVERLAP = 12; // 相邻两段重叠的帧数，给转场用（后一段在上层）
 
@@ -23,7 +29,7 @@ export const Film: React.FC = () => (
   <AbsoluteFill style={{background: C.bg}}>
     {SEQS.map(([k, Comp]) => {
       const a = SEQ_START[k];
-      const b = SEQ_END[k] + (k === 'E' ? 0 : OVERLAP);
+      const b = SEQ_END[k] + (k === 'H' ? 0 : OVERLAP);
       return (
         <Sequence key={k} from={a} durationInFrames={b - a} name={`Seq ${k}`}>
           <Comp from={a} />

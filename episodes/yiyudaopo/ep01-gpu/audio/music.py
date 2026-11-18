@@ -137,13 +137,47 @@ while t < t8 - 0.45:
 add(music, t8, pad([48, 55, 60, 64, 67], 4.4, 0.2))           # 落在 C 大调
 add(music, t8, bass(36, 3.5, 0.22))
 add(music, t8, bell(72, 2.5, 0.08)); add(music, t8 + 0.02, bell(76, 2.5, 0.06)); add(music, t8 + 0.04, bell(79, 2.5, 0.05))
-# ---------------- E：挂留和弦，问题没解决 ----------------
+# ---------------- E：挂留和弦（问题）→ 接 F ----------------
 tE = cue('E1') - 0.45
-add(music, tE, pad([50, 55, 57, 62], 5.5, 0.14))              # Dsus4
-add(music, tE + 5.2, pad([46, 53, 55, 60], DUR - tE - 5.2, 0.14))   # B♭sus2，开放结尾
-for k in range(int((DUR - tE) / beat)):
+tF, tG, tH = cue('F1') - 0.35, cue('G1') - 0.35, cue('H1') - 0.35
+add(music, tE, pad([50, 55, 57, 62], tF - tE + 0.4, 0.14))              # Dsus4，问题悬着
+for k in range(int((tF - tE) / beat)):
     tt = tE + k * beat
     if k % 2 == 0: add(music, tt, pluck(62 if k % 4 == 0 else 57, 0.4, 0.035))
+# ---------------- F：显存瓶颈，E 小调，低音脉冲像机器在等料 ----------------
+prog_Em = [[40, 52, 55, 59], [36, 52, 55, 60], [43, 55, 59, 62], [38, 54, 57, 62]]   # Em  C  G  D
+t = tF; k = 0; f5 = cue('F5'); f6 = cue('F6')
+while t < tG - 0.3:
+    ch = prog_Em[k % 4]
+    add(music, t, pad(ch[1:], bar + 0.3, 0.10)); add(music, t, bass(ch[0] + 12, bar * 0.9, 0.12))
+    for e in range(8):
+        te = t + e * beat / 2
+        starved = f5 < te < f6 + 0.6
+        if te < tG - 0.3 and (not starved or e % 4 == 0):                # 「原料送不过来」：脉冲变稀
+            add(music, te, pluck(ch[1] + 12 + (7 if e % 2 else 0), 0.3, 0.06))
+    t += bar; k += 1
+# ---------------- G：一块不够 → 多块，B 小调往 D 大调走，越来越满 ----------------
+prog_G2 = [[47, 54, 59, 62], [43, 55, 59, 62], [38, 54, 57, 62], [45, 52, 57, 61]]   # Bm  G  D  A
+t = tG; k = 0; g5 = cue('G5')
+while t < tH - 0.3:
+    ch = prog_G2[k % 4]
+    add(music, t, pad(ch[1:], bar + 0.3, 0.11 if t < g5 else 0.14)); add(music, t, bass(ch[0] + 12, bar * 0.9, 0.13))
+    for e in range(8 if t >= g5 else 4):
+        te = t + e * beat / (2 if t >= g5 else 1)
+        if te < tH - 0.3: add(music, te, pluck(ch[1 + e % 3] + 12, 0.4, 0.07, bright=1.4))
+    t += bar; k += 1
+# ---------------- H：互连 → 回望 → 片尾，A 小调到 C 大调，开阔 ----------------
+prog_H = [[45, 52, 57, 60], [41, 53, 57, 60], [36, 52, 55, 60], [43, 55, 59, 62]]    # Am  F  C  G
+t = tH; k = 0; h10 = cue('H10')
+while t < h10 - 0.4:
+    ch = prog_H[k % 4]
+    add(music, t, pad(ch[1:], bar + 0.4, 0.12)); add(music, t, bass(ch[0] + 12, bar * 0.9, 0.12))
+    for e in range(8):
+        te = t + e * beat / 2
+        if te < h10 - 0.5: add(music, te, bell(ch[1 + [0, 1, 2, 1][e % 4]] + 12, 0.9, 0.03))
+    t += bar; k += 1
+add(music, h10 - 0.2, pad([48, 55, 60, 64, 67, 71], DUR - h10 + 0.2, 0.16))   # 片尾：Cmaj7，开放、安静
+add(music, h10 - 0.2, bass(36, 3.0, 0.14)); add(music, h10, bell(79, 2.5, 0.06))
 music[int((DUR - 2.0) * SR):int(DUR * SR)] *= np.linspace(1, 0, int(DUR * SR) - int((DUR - 2.0) * SR))
 music[int(DUR * SR):] = 0
 music = reverb(music, 0.3)
@@ -168,9 +202,17 @@ D2, D4, D5 = cue('D2'), cue('D4'), cue('D5')
 add(sfx, D2 + 2.4, whoosh(0.5, 0.1, up=False)); add(sfx, D2 + 3.0, bell(76, 1.4, 0.08))              # 合成一批
 for k in range(3): add(sfx, D4 + 0.7 + k * 0.9, noise_burst(0.12, 0.06, 2000, 9000, decay=25))      # GPU 一整排一起做
 add(sfx, D5, whoosh(0.7, 0.1))
-E1, E2, E4 = cue('E1'), cue('E2'), cue('E4')
+E1, E3 = cue('E1'), cue('E3')
 add(sfx, E1 + 3.0 - 0.9, whoosh(0.9, 0.11))
-add(sfx, E2 + 1.3, bass(33, 1.0, 0.12)); add(sfx, E4, bass(38, 1.2, 0.13))
+add(sfx, E3, bass(38, 1.2, 0.13))
+F1, F5, F6, F7 = cue('F1'), cue('F5'), cue('F6'), cue('F7')
+add(sfx, tF + 0.5, whoosh(0.9, 0.1))                                                                  # 芯片变成系统图
+add(sfx, F5 + 0.3, bass(31, 1.0, 0.12)); add(sfx, F6 + 0.6, whoosh(0.7, 0.1))
+add(sfx, F7 + 0.2, whoosh(0.8, 0.09, up=False))
+G4, G5, G6 = cue('G4'), cue('G5'), cue('G6')
+add(sfx, G4, bass(33, 0.9, 0.12)); add(sfx, G5, whoosh(1.2, 0.12)); add(sfx, G6 + 0.3, tick(0.1, 1300)); add(sfx, G6 + 2.4, tick(0.1, 1500))
+H1, H4, H7, H10 = cue('H1'), cue('H4'), cue('H7'), cue('H10')
+add(sfx, tH, whoosh(0.6, 0.1)); add(sfx, H4 - 0.2, whoosh(1.4, 0.12)); add(sfx, H7, bell(84, 1.6, 0.08))
 sfx = reverb(sfx, 0.18, 1.4)
 
 os.makedirs(os.path.join(EP, 'remotion', 'public', 'audio'), exist_ok=True)

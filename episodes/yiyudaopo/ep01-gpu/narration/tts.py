@@ -35,7 +35,7 @@ def main():
     t = LEAD_IN; out = []
     for L in N['lines']:
         raw = os.path.join(RAW, L['id'] + '.wav'); dst = os.path.join(PUB, L['id'] + '.wav')
-        if engine == 'piper':
+        if engine == 'piper' or (engine == 'missing' and not os.path.exists(raw)):
             say = L.get('say', L['text'])
             for a, b in SAY: say = say.replace(a, b)
             subprocess.run([sys.executable, '-m', 'piper', '-m', os.path.join(voices, 'zh_CN-huayan-medium.onnx'),
@@ -52,7 +52,7 @@ def main():
     seqs = {}
     for o in out: seqs.setdefault(o['seq'], [o['start'], o['end']]); seqs[o['seq']][1] = o['end']
     src_note = os.path.join(RAW, 'SOURCE.txt')
-    if engine == 'piper': open(src_note, 'w').write('piper')
+    if engine in ('piper', 'missing'): open(src_note, 'w').write('piper')
     label = open(src_note).read().strip() if os.path.exists(src_note) else engine
     json.dump(dict(version=N['version'], engine=label, total=total, lines=out, seqs=seqs), open(SRC_TIMING, 'w'), ensure_ascii=False, indent=1)
     for o in out: print(f"{o['id']:3s} {o['start']:6.2f}–{o['end']:6.2f}  {len(re.sub(r'[^一-龥A-Za-z0-9]', '', o['text'])) / (o['end'] - o['start']):.1f} 字/秒  {o['text']}")

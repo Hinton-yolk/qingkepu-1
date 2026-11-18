@@ -3,7 +3,7 @@ import plates from '../plates.json';
 import {C, FONT} from './theme';
 
 /** Blender 底片：有渲染好的 mp4 就放，没有就放一张明确标注的占位卡（不停工） */
-export const Plate: React.FC<{name: 'DC' | 'MACRO' | 'CHIP'; startFrom?: number; style?: React.CSSProperties; rate?: number}> = ({
+export const Plate: React.FC<{name: 'DC' | 'MACRO' | 'CHIP' | 'SERVER' | 'RACK'; startFrom?: number; style?: React.CSSProperties; rate?: number}> = ({
   name, startFrom = 0, style, rate = 1,
 }) => {
   const f = useCurrentFrame();

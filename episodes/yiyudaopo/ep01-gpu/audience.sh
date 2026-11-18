@@ -2,7 +2,7 @@
 # 「观众」角色：Codex 看逐秒抽帧（每张接触表 12 秒）+ 字幕时间表，扮演抖音 / 小红书普通用户给反馈。它听不到声音。
 # 用法：bash audience.sh <成片.mp4> <输出目录>
 set -euo pipefail
-F="$(realpath "$1")"; O="$(realpath -m "$2")"; SRT="${3:-narration/EP01_Pilot_v03.srt}"; cd "$(dirname "$0")"; mkdir -p "$O/frames"
+F="$(realpath "$1")"; O="$(realpath -m "$2")"; SRT="${3:-narration/EP01_Full_Assembly_v01.srt}"; cd "$(dirname "$0")"; mkdir -p "$O/frames"
 ffmpeg -loglevel error -y -i "$F" -vf "fps=1,scale=270:480" "$O/frames/s%03d.jpg"
 python3 - "$O" <<'PY'
 import glob, os, sys

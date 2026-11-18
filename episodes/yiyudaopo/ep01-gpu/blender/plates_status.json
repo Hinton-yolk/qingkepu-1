@@ -13,5 +13,15 @@
   "rendered": 300,
   "contiguous": 300,
   "needed": 300
+ },
+ "SERVER": {
+  "rendered": 150,
+  "needed": 150,
+  "note": "\u9694\u5e27\u6e32\u67d3\uff0c\u63d2\u5e27\u5230 30 fps"
+ },
+ "RACK": {
+  "rendered": 3,
+  "needed": 150,
+  "note": "\u9694\u5e27\u6e32\u67d3\uff0c\u63d2\u5e27\u5230 30 fps"
  }
 }

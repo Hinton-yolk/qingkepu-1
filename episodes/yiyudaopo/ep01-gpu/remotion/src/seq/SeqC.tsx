@@ -79,7 +79,7 @@ export const SeqC: React.FC<{from: number}> = ({from}) => {
 
         {/* 教学舞台（C5 时整体拉远） */}
         <AbsoluteFill style={{transform: stage, transformOrigin: '0 0'}}>
-          <div style={{position: 'absolute', left: 60, top: IY - 30, fontFamily: FONT.hei, fontWeight: 700, fontSize: 46, color: C.ai, opacity: gather * (1 - pull)}}>输入</div>
+          <div style={{position: 'absolute', left: 40, top: IY - 52, fontFamily: FONT.hei, fontWeight: 700, fontSize: 46, color: C.ai, opacity: gather * (1 - pull)}}>输入<div style={{fontSize: 28, fontWeight: 400, color: C.sub}}>由问题变来</div></div>
           {/* C5：两条竖线把输入同时送到每一行 */}
           <svg width={1080} height={1900} style={{position: 'absolute', left: 0, top: 0}}>
             {[0, 1].map((j) => (
@@ -108,7 +108,7 @@ export const SeqC: React.FC<{from: number}> = ({from}) => {
           {/* 行标签：这些是模型里的参数（不是从问题变来的） */}
           <div style={{position: 'absolute', left: 40, top: R1Y - 28, fontFamily: FONT.hei, fontWeight: 700, fontSize: 44, color: C.sub, opacity: r1 * (1 - pull)}}>参数</div>
           <div style={{position: 'absolute', left: 40, top: R2Y - 28, fontFamily: FONT.hei, fontWeight: 700, fontSize: 44, color: C.sub, opacity: r2 * (1 - pull)}}>参数</div>
-          <div style={{position: 'absolute', left: IX[0] - 75, top: R1Y + 92, fontFamily: FONT.hei, fontSize: 32, color: C.sub, opacity: r1 * (1 - r2)}}>模型里的数字</div>
+          <div style={{position: 'absolute', left: IX[0] - 75, top: R1Y + 92, fontFamily: FONT.hei, fontSize: 32, color: C.sub, opacity: r1 * (1 - r2)}}>模型里学到的数</div>
           {/* 第 1 行 */}
           <Chip x={IX[0]} y={R1Y} v="4" color={C.ink} o={r1} glow={g1a >= 1 ? 0.5 * (1 - fuse1) : 0} />
           <Chip x={IX[1]} y={R1Y} v="5" color={C.ink} o={r1} glow={g1b >= 1 ? 0.5 * (1 - fuse1) : 0} />
@@ -128,6 +128,7 @@ export const SeqC: React.FC<{from: number}> = ({from}) => {
         </AbsoluteFill>
       </Drift>
       <Note top={1490} opacity={toNums * (1 - gather) * 0.9}>示意数字</Note>
+      <Note top={1490} opacity={prog(f, c3 - 8, 10) * (1 - prog(f, c4, 8)) * 0.9}>示意数字：真实的输入和参数都是小数，而且多得多</Note>
       <Note top={1490} opacity={prog(f, c4, 10) * 0.9}>简化示意：每一行参数 × 同一个输入 → 一个输出</Note>
     </AbsoluteFill>
   );

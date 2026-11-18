@@ -17,7 +17,7 @@ import bpy, bmesh, math, random, sys, json, os
 from mathutils import Vector, Matrix
 
 FPS = 30
-SHOTS = {'DC': 135, 'MACRO': 135, 'CHIP': 300}     # 每个镜头的帧数（含前后余量）
+SHOTS = {'DC': 135, 'MACRO': 135, 'CHIP': 300, 'SERVER': 300, 'RACK': 300}     # 每个镜头的帧数（含前后余量）
 rad = math.radians
 
 # ------------------------------------------------------------------ 基础
@@ -244,7 +244,7 @@ def hbm_centers():
     ys = (-HBM[1] - 0.6, 0.0, HBM[1] + 0.6)
     return [(x, y) for x in xs for y in ys]
 
-def build_module(sc, detail=True):
+def build_module(sc, detail=True, env=True):
     random.seed(3)
     M = dict(
         pcb=mat('模组电路板阻焊', (0.010, 0.035, 0.026), rough=0.35, coat=0.6, noise=0.05, nscale=0.8),
@@ -292,14 +292,15 @@ def build_module(sc, detail=True):
         box('框', (SUBS[0] - 2, 2.2, 1.2), (0, s * (SUBS[1] / 2 - 1.6), Z_SUB), M['steel'], bevel=0.15)
         box('框', (2.2, SUBS[1] - 6, 1.2), (s * (SUBS[0] / 2 - 1.6), 0, Z_SUB), M['steel'], bevel=0.15)
     # 环境：机箱底板（拉丝铝）、旁边一块模组的散热鳍片（虚在背景里），不让模组孤零零悬在黑色里
-    chassis = mat('机箱底板', (0.10, 0.105, 0.11), metal=1.0, rough=0.45, noise=0.1, nscale=0.05)
-    box('机箱底', (900, 900, 1), (0, 0, -PCB_T - 9), chassis)
-    fin = mat('邻近散热鳍片', (0.45, 0.46, 0.48), metal=1.0, rough=0.35)
-    finm = box_mesh('鳍片', 120, 0.35, 30)
-    for k in range(70):
-        obj('鳍', finm, (0, 120 + k * 3.0, -PCB_T - 8), fin)
-    for k in range(70):
-        obj('鳍', finm, (175, -40 + k * 2.2, -PCB_T - 8), fin)
+    if env:
+        chassis = mat('机箱底板', (0.10, 0.105, 0.11), metal=1.0, rough=0.45, noise=0.1, nscale=0.05)
+        box('机箱底', (900, 900, 1), (0, 0, -PCB_T - 9), chassis)
+        fin = mat('邻近散热鳍片', (0.45, 0.46, 0.48), metal=1.0, rough=0.35)
+        finm = box_mesh('鳍片', 120, 0.35, 30)
+        for k in range(70):
+            obj('鳍', finm, (0, 120 + k * 3.0, -PCB_T - 8), fin)
+        for k in range(70):
+            obj('鳍', finm, (175, -40 + k * 2.2, -PCB_T - 8), fin)
     if detail:
         # 模组板上：供电（电感 + 功率级）排成两排、螺孔、金色焊盘
         indm = box_mesh('电感', 6.5, 6.5, 4.5, bevel=0.15); vrm = box_mesh('功率级', 5, 4, 1.0, bevel=0.15)
@@ -366,7 +367,80 @@ def build_chip():
     # 俯视时 look_at 的「上」方向不稳定：起点固定成芯片长边竖直（屏幕上方 = +y）
     return sc, dict(ztop=ztop)
 
-BUILD = dict(DC=build_dc, MACRO=build_macro, CHIP=build_chip)
+
+# ------------------------------------------------------------------ G 段：一块 GPU → 模组 → 服务器里的 8 块（单位 mm）
+# 第 0 块模组在原点，相机起点和 CHIP 镜头的终点一样（接得上）；拿掉了散热器（示意，画面上注明）
+MOD_PITCH = (160.0, 102.0)
+def module_offsets():
+    return [(c * MOD_PITCH[0], r * MOD_PITCH[1]) for r in range(4) for c in range(2)]
+
+def build_server():
+    sc = reset()
+    world((0.020, 0.023, 0.028), 1.0)
+    die, ztop = None, None
+    for i, (ox, oy) in enumerate(module_offsets()):
+        before = set(bpy.data.objects)
+        d, zt = build_module(sc, detail=(i < 2), env=False)
+        if i == 0: die, ztop = d, zt
+        for o in set(bpy.data.objects) - before:
+            if o.parent is None: o.location.x += ox; o.location.y += oy
+    steel = mat('机箱钢板', (0.30, 0.31, 0.33), metal=1.0, rough=0.42, noise=0.08, nscale=0.02)
+    pcb = mat('底板阻焊', (0.012, 0.04, 0.03), rough=0.38, coat=0.5)
+    fanm = mat('风扇', (0.03, 0.03, 0.035), rough=0.5)
+    psu = mat('电源', (0.12, 0.125, 0.13), metal=0.8, rough=0.4)
+    cx, cy = MOD_PITCH[0] / 2, MOD_PITCH[1] * 1.5
+    W, Dp, H = 440, 760, 340                      # 8U 机箱内腔（示意）
+    box('底板', (380, 460, 1.6), (cx, cy, -PCB_T - 6), pcb)
+    box('机箱底', (W, Dp, 2), (cx, cy + 120, -PCB_T - 12), steel)
+    for s_ in (-1, 1):
+        box('侧板', (2, Dp, H), (cx + s_ * W / 2, cy + 120, -PCB_T - 12), steel)
+    box('前风扇墙', (W, 8, H * 0.8), (cx, cy - 290, -PCB_T - 12), steel)
+    for k in range(5):
+        for j in range(2):
+            f_ = bpy.data.meshes.new('fan'); bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=True, segments=24, radius1=36, radius2=36, depth=10); bm.to_mesh(f_); bm.free()
+            o = obj('风扇', f_, (cx - 170 + k * 85, cy - 296, -PCB_T + 50 + j * 120), fanm, (rad(90), 0, 0))
+    for k in range(4):
+        box('电源', (95, 200, 80), (cx - 150 + k * 100, cy + 420, -PCB_T - 10), psu, bevel=2)
+    area_light('主光', (-300, -500, 900), (rad(35), rad(-18), 0), 900, 3.0e7, (1.0, 0.96, 0.9))
+    area_light('勾边', (600, 900, 400), (rad(-60), rad(40), 0), 700, 1.2e7, (0.75, 0.85, 1.0))
+    area_light('近主光', (-90, -70, 220), (rad(20), rad(-22), 0), 160, 7.0e5, (1.0, 0.96, 0.9))
+    cam = camera(85)
+    cam.data.dof.use_dof = True; cam.data.dof.aperture_fstop = 8.0
+    cam.data.clip_start = 1.0; cam.data.clip_end = 6000
+    hfov = 2 * math.atan(18 / 85); d0 = DIE[0] / (0.72 * 2 * math.tan(hfov / 2))
+    def pose(t):
+        s = smooth(t)
+        dist = d0 * 2.55 * math.exp(math.log(1500 / (d0 * 2.55)) * s)     # 对数匀速拉远
+        el = rad(40 + 18 * s); az = rad(115 - 15 * s)        # 从机箱后侧看过去，前面的风扇墙在背景里
+        tg = Vector((lerp_(0, cx, s), lerp_(0, cy + 60, s), lerp_(ztop - 0.6, 0, s)))
+        return tg + Vector((dist * math.cos(el) * math.cos(az), dist * math.cos(el) * math.sin(az), dist * math.sin(el))), tg
+    key_cam(cam, SHOTS['SERVER'], lambda t: pose(t)[0], lambda t: pose(t)[1], focus_fn=lambda t: (pose(t)[0] - pose(t)[1]).length)
+    return sc, dict(ztop=ztop)
+
+def lerp_(a, b, t): return a + (b - a) * t
+
+# ------------------------------------------------------------------ H 段：一台服务器 → 机柜 → 一排排机柜（单位 m，复用 DC 场景）
+RACK_W, RACK_D, AISLE = 0.6, 1.2, 1.8
+def build_rack():
+    sc, _ = build_dc()
+    cam = sc.camera
+    cam.animation_data_clear(); cam.data.animation_data_clear()
+    cam.data.lens = 24
+    s_y = 6 * (RACK_W + 0.002) + RACK_W / 2
+    face_x = -(AISLE / 2) - 0.01
+    srv_z = 0.12 + 1.5 * 8 * 0.04445
+    def pose(t):
+        s = smooth(t)
+        p0 = Vector((face_x + 0.62, s_y - 0.25, srv_z + 0.05)); t0 = Vector((face_x, s_y, srv_z))
+        p1 = Vector((0.55, -2.4, 2.55)); t1 = Vector((-0.1, 6.0, 1.05))
+        k = 1 - (1 - s) ** 2.2
+        return p0.lerp(p1, k), t0.lerp(t1, s)
+    key_cam(cam, SHOTS['RACK'], lambda t: pose(t)[0], lambda t: pose(t)[1], focus_fn=lambda t: 0.6 + 4.0 * smooth(t))
+    return sc, dict(rack_top=[((-1 if side < 0 else 1) * (AISLE / 2 + RACK_D / 2) + (1 if side < 0 else -1) * (RACK_D / 2 + 0.02),
+                               i * (RACK_W + 0.002) + RACK_W / 2, 1.68) for side in (-1, 1) for i in range(14)],
+                    servers=[((-(AISLE / 2) - 0.02), i * (RACK_W + 0.002) + RACK_W / 2, 0.12 + (k + 0.5) * 8 * 0.04445) for i in range(14) for k in range(4)])
+
+BUILD = dict(DC=build_dc, MACRO=build_macro, CHIP=build_chip, SERVER=build_server, RACK=build_rack)
 
 def setup_render(sc, w, h, samples, device):
     sc.render.resolution_x, sc.render.resolution_y = w, h
@@ -405,7 +479,8 @@ def main():
         w, h = map(int, (a[5] if len(a) > 5 else '1080x1920').split('x')); smp = int(a[6]) if len(a) > 6 else 64
         setup_render(sc, w, h, smp, a[7] if len(a) > 7 else 'gpu')
         os.makedirs(out, exist_ok=True)
-        for f in range(f0, f1 + 1):
+        step = int(os.environ.get('STEP', '1'))          # 隔帧渲（本机 CPU），之后用插帧补到 30 fps
+        for f in range(f0, f1 + 1, step):
             p = os.path.join(out, f'{shot}_{f:04d}.png')
             if os.path.exists(p): continue
             sc.frame_set(f); sc.render.filepath = p; bpy.ops.render.render(write_still=True)
@@ -415,6 +490,15 @@ def main():
         cam = sc.camera; frames = []
         zt = info.get('ztop', 3.0)
         corners = [(-DIE[0] / 2, DIE[1] / 2, zt), (DIE[0] / 2, DIE[1] / 2, zt), (DIE[0] / 2, -DIE[1] / 2, zt), (-DIE[0] / 2, -DIE[1] / 2, zt)]
+        if shot in ('SERVER', 'RACK'):
+            for f in range(1, SHOTS[shot] + 1):
+                sc.frame_set(f)
+                if shot == 'SERVER':
+                    frames.append(dict(die=[project(sc, cam, c) for c in corners],
+                                       mods=[project(sc, cam, (ox, oy, zt)) for ox, oy in module_offsets()]))
+                else:
+                    frames.append(dict(tops=[project(sc, cam, p) for p in info['rack_top']], servers=[project(sc, cam, p) for p in info['servers']]))
+            json.dump(dict(shot=shot, fps=FPS, w=w, h=h, frames=frames), open(out, 'w')); return
         for f in range(1, SHOTS[shot] + 1):
             sc.frame_set(f)
             frames.append(dict(die=[project(sc, cam, c) for c in corners],
