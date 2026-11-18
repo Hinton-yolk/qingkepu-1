@@ -113,7 +113,7 @@ const CAPS = [
   [13.2, 15.6, '交给 CPU：几位{数学教授}', '类比'],
   [15.6, 18.3, '什么难题都会，可{人太少}'],
   [18.3, 20.9, '题太多，只能{排长队}'],
-  [21.4, 24.0, '换成 GPU：{一万多个小学生}', '类比'],
+  [21.4, 24.0, '换成 GPU：{上万个小学生}', '类比'],
   [24.0, 26.3, '只会口算，但{一起动手}'],
   [26.4, 28.2, 'CPU：大半用来{“想”和“记”}'],
   [28.2, 30.0, 'GPU：更多用来{“算”}'],
@@ -981,7 +981,7 @@ function sceneF(t) {
     if (au > 0) {
       ctx.save(); ctx.strokeStyle = C.gpu; ctx.lineWidth = 6; ctx.setLineDash([16, 12]); ctx.lineDashOffset = -t * 60;
       [[290, 670, 250, 740], [790, 670, 560, 730]].forEach(([x0, y0, cx_, cy_]) => {
-        const x1 = 330, y1 = 790; ctx.beginPath();
+        const x1 = 300, y1 = 790; ctx.beginPath();
         const N = 24; for (let k = 0; k <= N * au; k++) { const u = k / N, x = (1 - u) * (1 - u) * x0 + 2 * u * (1 - u) * cx_ + u * u * x1, y = (1 - u) * (1 - u) * y0 + 2 * u * (1 - u) * cy_ + u * u * y1; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
         ctx.stroke();
       });
@@ -989,22 +989,22 @@ function sceneF(t) {
     }
     // 照片
     const pu = back(seg(t, 45.0, 45.45));
-    if (pu > 0) { ctx.save(); ctx.translate(310, 1010); const sc = 1.2 * clamp(pu, 0, 1.2); ctx.scale(sc, sc); drawCatPhoto(t); ctx.restore(); }
+    if (pu > 0) { ctx.save(); ctx.translate(280, 1010); const sc = 1.2 * clamp(pu, 0, 1.2); ctx.scale(sc, sc); drawCatPhoto(t); ctx.restore(); }
     // 猫 ✓
     const cu = back(seg(t, 46.3, 46.6));
-    if (cu > 0) { ctx.save(); ctx.translate(470, 820); ctx.scale(cu, cu); ctx.fillStyle = C.gpu; rr(-90, -40, 180, 80, 40); ctx.fill(); ctx.fillStyle = '#0B1A14'; ctx.font = `900 46px ${FB}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('猫 ✓', 0, 2); ctx.restore(); }
+    if (cu > 0) { ctx.save(); ctx.translate(440, 820); ctx.scale(cu, cu); ctx.fillStyle = C.gpu; rr(-90, -40, 180, 80, 40); ctx.fill(); ctx.fillStyle = '#0B1A14'; ctx.font = `900 46px ${FB}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('猫 ✓', 0, 2); ctx.restore(); }
     // 错误率
     const bu = seg(t, 46.6, 47.5);
     if (bu > 0) {
       ctx.save(); ctx.globalAlpha = ya * seg(t, 46.6, 46.8); ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-      ctx.fillStyle = C.white; ctx.font = `900 40px ${FB}`; ctx.fillText('前 5 错误率', 580, 880);
-      ctx.fillStyle = C.mute; ctx.font = `400 28px ${FB}`; ctx.fillText('猜 5 次内猜中算对 · 越低越好', 580, 930);
+      ctx.fillStyle = C.white; ctx.font = `900 40px ${FB}`; ctx.fillText('前 5 错误率', 530, 880);
+      ctx.fillStyle = C.mute; ctx.font = `400 28px ${FB}`; ctx.fillText('猜 5 次内猜中算对 · 越低越好', 530, 930);
       const rows = [['第二名', 26.2, '#7B819F'], ['AlexNet', 15.3, C.gpu]];
       rows.forEach(([lab, v, col], i) => {
-        const y = 1040 + i * 125, e = eo(seg(bu, i * 0.3, 0.7 + i * 0.3)); const bw = 300 * v / 26.2 * e;
-        ctx.fillStyle = i ? C.gpuL : C.mute; ctx.font = `700 32px ${FB}`; ctx.fillText(lab, 580, y - 40);
-        ctx.fillStyle = col; rr(580, y - 18, Math.max(bw, 1), 44, 22); ctx.fill();
-        ctx.fillStyle = C.white; ctx.font = `700 34px ${FM}`; ctx.fillText((v * e).toFixed(1) + '%', 594 + bw, y + 5);
+        const y = 1040 + i * 125, e = eo(seg(bu, i * 0.3, 0.7 + i * 0.3)); const bw = 250 * v / 26.2 * e;
+        ctx.fillStyle = i ? C.gpuL : C.mute; ctx.font = `700 32px ${FB}`; ctx.fillText(lab, 530, y - 40);
+        ctx.fillStyle = col; rr(530, y - 18, Math.max(bw, 1), 44, 22); ctx.fill();
+        ctx.fillStyle = C.white; ctx.font = `700 34px ${FM}`; ctx.fillText((v * e).toFixed(1) + '%', 544 + bw, y + 5);
       });
       ctx.restore();
     }
