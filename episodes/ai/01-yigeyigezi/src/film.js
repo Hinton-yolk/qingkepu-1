@@ -180,7 +180,7 @@ function drawPhone(cx, cy, s, n, t, opt = {}) {
     ctx.fillStyle = isLast ? '#E0A400' : '#1B1E2E';
     ctx.fillText(AI_TXT[i], PH.tx + i * PH.cw + PH.cw / 2, PH.ty);
   }
-  if (opt.ghost > 0) { ctx.fillStyle = `rgba(27,30,46,${0.25 * opt.ghost})`; for (let i = shown + 1; i < AI_TXT.length; i++) ctx.fillText(AI_TXT[i], PH.tx + i * PH.cw + PH.cw / 2, PH.ty); }
+  if (opt.ghost > 0) { ctx.fillStyle = `rgba(27,30,46,${0.25 * opt.ghost})`; for (let i = shown; i < AI_TXT.length; i++) ctx.fillText(AI_TXT[i], PH.tx + i * PH.cw + PH.cw / 2, PH.ty); }
   if (slot) {
     const p = slotLocal(shown); const pulse = 0.5 + 0.5 * Math.sin(t * 10);
     ctx.fillStyle = hexA(C.hi, 0.25 + 0.25 * pulse); rr(p.x - 17, p.y - 22, 34, 44, 8); ctx.fill();
@@ -272,7 +272,7 @@ const NOTES = [
   [11.4, 14.0, '前面的字算过的结果存着，不重算；但每次都要再看一遍\n句子越长，线越多'],
   [14.2, 17.0, '分数为示意'],
   [17.2, 19.8, '通常按分数抽签（也可以设成总选第一名）'],
-  [31.6, 34.8, '每层里的乘加是并行算的；同一句话里，字和字之间只能排队\n实际服务会把很多人的请求拼在一起算'],
+  [31.6, 34.8, '每层里的乘加并行算；同一句话里，字和字只能排队\n实际服务会把很多人的请求拼在一起算'],
   [35.0, 38.2, '学说话 = 训练'],
   [38.4, 41.6, '训练时拿现成的文章让它逐字猜，猜完一起对答案'],
   [44.6, 47.4, '小模型参数少得多，写得快，但没那么准'],
@@ -304,8 +304,9 @@ function token(x, y, ch, st = 'n', a = 1, s = 1, t = 0) {
     ctx.fillStyle = C.white; ctx.fillText(ch, 0, 2);
   } else if (st === 'no') {
     ctx.fillStyle = 'rgba(244,246,255,0.08)'; rr(-w / 2, -h / 2, w, h, 14); ctx.fill();
-    ctx.fillStyle = 'rgba(244,246,255,0.3)'; ctx.fillText(ch, 0, 2);
-    ctx.strokeStyle = C.white; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(-22, -22); ctx.lineTo(22, 22); ctx.moveTo(22, -22); ctx.lineTo(-22, 22); ctx.stroke();
+    ctx.fillStyle = 'rgba(244,246,255,0.45)'; ctx.fillText(ch, 0, 2);
+    ctx.strokeStyle = 'rgba(244,246,255,0.8)'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(-w / 2 + 8, 2); ctx.lineTo(w / 2 - 8, 2); ctx.stroke();
+    ctx.strokeStyle = C.white; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(w / 2 - 20, -h / 2 - 8); ctx.lineTo(w / 2 + 4, -h / 2 + 16); ctx.moveTo(w / 2 + 4, -h / 2 - 8); ctx.lineTo(w / 2 - 20, -h / 2 + 16); ctx.stroke();
   } else {
     const hi = st === 'hi';
     ctx.fillStyle = hi ? C.hi : '#F4F6FF'; rr(-w / 2, -h / 2, w, h, 14); ctx.fill();
@@ -359,7 +360,7 @@ function scene0(t) {
   drawPhone(PCX, PCY, PS, n, t, { slot: true, ghost: g });
   A_T.forEach((x, k) => { const d = t - x; if (d < 0 || d > 0.4) return; const p = slotLocal(k); glowDot(PCX + p.x * PS, PCY + p.y * PS, 70, C.hi, 0.7 * (1 - d / 0.4)); });
   // ✕
-  const xu = back(seg(t, 5.0, 5.3)), xa = seg(t, 5.0, 5.1) * (1 - seg(t, 5.6, 6.0));
+  const xu = back(seg(t, 4.85, 5.1)), xa = seg(t, 4.85, 4.95) * (1 - seg(t, 5.5, 5.8));
   if (xa > 0) {
     ctx.save(); ctx.globalAlpha = xa; ctx.translate(PCX + 30, PCY - 15); ctx.scale(xu, xu);
     ctx.strokeStyle = C.white; ctx.lineWidth = 26; ctx.lineCap = 'round';
@@ -387,23 +388,31 @@ function scene1(t) {
   const landed = t >= 19.1;
   const n = landed ? 7 : 6, ST = S1.step, x0 = 540 - (n * ST - (ST - TK.w)) / 2;
   for (let i = 0; i < 5; i++) {
-    const isNew = i === 4 && t < 11.2;
+    const isNew = i === 4 && t >= 9.4 && t < 11.2;
     token(x0 + i * ST, S1.y, CTX5[i], isNew ? 'new' : 'n', 1, S1.s, t);
-    bookmark(x0 + i * ST + 8, S1.y - 6, seg(t, 10.6, 11.0) * (i < 4 || t > 11.2 ? 1 : 0));
+    bookmark(x0 + i * ST + 8, S1.y - 6, seg(t, 9.4, 9.8));
   }
   if (landed) { token(x0 + 5 * ST, S1.y, '海', 'new', 1, S1.s * back(seg(t, 19.1, 19.4)), t); token(x0 + 6 * ST, S1.y, '?', 'slot', 1, S1.s, t); }
   else token(x0 + 5 * ST, S1.y, '?', 'slot', 1, S1.s, t);
   // 一摞格子 = 模型
   const SX = 540, SY = 720;
-  const scan = t >= 8.6 && t < 10.8 ? ((t - 8.6) / 1.1) % 1 : -1;
+  const scan = t >= 8.9 && t < 11.0 ? ((t - 8.9) / 1.0) % 1 : -1;
   stack(SX, SY, 1.4, t, { scan });
   ctx.save(); ctx.fillStyle = C.mute; ctx.font = `700 30px ${FB}`; ctx.textAlign = 'center'; ctx.fillText('模型（一层一层）', SX, SY + 200); ctx.restore();
-  // 新字送进模型
-  if (t > 8.4 && t < 10.8) {
-    const u = ((t - 8.4) / 1.2) % 1; const sx = x0 + 4 * ST + TK.w / 2, sy = S1.y + TK.h;
-    const x = lerp(sx, SX, eio(u)), y = lerp(sy, SY - 60, eio(u));
-    glowDot(x, y, 40, C.hi, 0.9 * Math.sin(Math.PI * u));
+  // 第一轮：整句一起送进模型；之后每轮只送新字
+  if (t > 8.3 && t < 9.4) {
+    const u = seg(t, 8.3, 9.3);
+    for (let i = 0; i < 5; i++) { const sx = x0 + i * ST + TK.w / 2, sy = S1.y + TK.h; glowDot(lerp(sx, SX, eio(u)), lerp(sy, SY - 60, eio(u)), 36, C.hi, 0.9 * Math.sin(Math.PI * u)); }
   }
+  if (t > 9.6 && t < 11.1) {
+    const u = seg(t, 9.6, 10.8); const sx = x0 + 4 * ST + TK.w / 2, sy = S1.y + TK.h;
+    glowDot(lerp(sx, SX, eio(u)), lerp(sy, SY - 60, eio(u)), 40, C.hi, 0.9 * Math.sin(Math.PI * u));
+  }
+  [[8.3, 9.4, '第一轮：整句送进去'], [9.5, 11.2, '之后：只送新写的那个字']].forEach(([a0, a1, txt]) => {
+    const la = win(t, a0, a1, 0.15, 0.15); if (la <= 0) return;
+    ctx.save(); ctx.globalAlpha *= la; ctx.fillStyle = 'rgba(8,9,26,0.85)'; rr(540 - 210, 438, 420, 56, 28); ctx.fill();
+    ctx.fillStyle = C.hi; ctx.font = `700 32px ${FB}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, 540, 467); ctx.restore();
+  });
   // 回看细线
   const la = seg(t, 11.2, 11.6) * (1 - seg(t, 13.8, 14.2));
   if (la > 0) {
@@ -429,7 +438,7 @@ function scene1(t) {
       ctx.fillStyle = '#1B1E2E'; ctx.font = `700 34px ${FB}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(ch, 196, y + 27);
       ctx.fillStyle = 'rgba(255,255,255,0.06)'; rr(240, y + 8, 520, 36, 18); ctx.fill();
       ctx.fillStyle = r === 0 ? C.hi : hexA(C.num, 0.7); rr(240, y + 8, Math.max(2, bw), 36, 18); ctx.fill();
-      ctx.fillStyle = C.white; ctx.font = `700 30px ${FM}`; ctx.textAlign = 'left'; ctx.fillText(Math.round(p * bu) + '%', 254 + bw, y + 27);
+      if (r < 2) { ctx.fillStyle = C.white; ctx.font = `700 30px ${FM}`; ctx.textAlign = 'left'; ctx.fillText(Math.round(p * bu) + '%', 254 + bw, y + 27); }
       ctx.restore();
     });
   }
@@ -441,7 +450,7 @@ function scene1(t) {
     const stopA = -Math.PI / 2 - (41 / 100) * Math.PI;   // 停在「海」扇区中间
     const ang = t < 18.6 ? stopA + 6.28 * 3 * (1 - eo(seg(t, 17.0, 18.6))) : stopA;
     ctx.save(); ctx.globalAlpha = a * wa; ctx.translate(cx, cy);
-    let st = ang; const cols = [C.hi, C.num, C.blue, C.pink, '#4A5075'];
+    let st = ang; const cols = [C.hi, C.num, '#F4F6FF', '#A6ACD3', '#5A6080'];
     CAND.forEach(([ch, p], i) => {
       const e = st + p / 100 * 6.283; ctx.fillStyle = cols[i]; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, st, e); ctx.closePath(); ctx.fill();
       ctx.strokeStyle = '#0C0F26'; ctx.lineWidth = 4; ctx.stroke();
@@ -466,7 +475,7 @@ function scene2(t) {
   const a = seg(t, 19.8, 20.2) * (1 - seg(t, 34.6, 35.0));
   ctx.save(); ctx.globalAlpha = a;
   const split = eio(seg(t, 21.0, 22.0)) * (1 - eio(seg(t, 28.2, 28.9)));
-  const by = 820, x0 = 140;
+  const by = 820, x0 = 110;
   for (let i = 0; i < 5; i++) token(x0 + i * TK.step, by, CTX5[i], 'n', 1, 1, t);
   const fx = x0 + 5 * TK.step;
   // 分叉线
@@ -509,9 +518,9 @@ function scene3(t) {
   if (t < 34.6 || t > 42.0) return;
   const a = seg(t, 34.8, 35.3) * (1 - seg(t, 41.4, 41.8));
   ctx.save(); ctx.globalAlpha = a;
-  ctx.fillStyle = '#EDE9DE'; rr(70, 500, 900, 600, 24); ctx.fill();
+  ctx.fillStyle = '#EDE9DE'; rr(90, 500, 850, 600, 24); ctx.fill();
   ctx.fillStyle = '#6A6458'; ctx.font = `700 30px ${FB}`; ctx.textAlign = 'left'; ctx.fillText('现成的文章', 110, 560);
-  const x0 = rowX(10);
+  const x0 = rowX(10, 515);
   const allOk = t >= 39.4;
   for (let i = 0; i < 10; i++) {
     const u = eo(seg(t, 35.1 + i * 0.05, 35.5 + i * 0.05));
@@ -523,8 +532,8 @@ function scene3(t) {
     }
   }
   // 一起对答案：扫光
-  if (t > 39.0 && t < 40.2) { const u = seg(t, 39.0, 40.2); ctx.save(); ctx.globalAlpha *= Math.sin(Math.PI * u); ctx.fillStyle = hexA(C.gpu, 0.35); rr(90, 630, 860, 230, 20); ctx.fill(); ctx.restore(); }
-  ctx.save(); ctx.globalAlpha *= seg(t, 38.6, 39.0); ctx.fillStyle = '#2B6E58'; ctx.font = `900 40px ${FB}`; ctx.textAlign = 'center'; ctx.fillText('每个位置同时猜、同时对答案', 520, 1010); ctx.restore();
+  if (t > 39.0 && t < 40.2) { const u = seg(t, 39.0, 40.2); ctx.save(); ctx.globalAlpha *= Math.sin(Math.PI * u); ctx.fillStyle = hexA(C.gpu, 0.35); rr(105, 630, 820, 230, 20); ctx.fill(); ctx.restore(); }
+  ctx.save(); ctx.globalAlpha *= seg(t, 38.6, 39.0); ctx.fillStyle = '#2B6E58'; ctx.font = `900 40px ${FB}`; ctx.textAlign = 'center'; ctx.fillText('每个位置同时猜、同时对答案', 515, 1010); ctx.restore();
   ctx.restore();
 }
 
@@ -557,8 +566,8 @@ function scene4(t) {
   // 大模型一次批改
   const ba = seg(t, 47.2, 47.6);
   if (ba > 0) {
-    stack(700, 1000, 1.05, t, { alpha: ba, scan: t > 47.8 && t < 49.6 ? seg(t, 47.8, 49.0) : -1 });
-    ctx.save(); ctx.globalAlpha *= ba; ctx.fillStyle = C.mute; ctx.font = `700 30px ${FB}`; ctx.textAlign = 'center'; ctx.fillText('大模型：一次批改', 700, 1190); ctx.restore();
+    stack(650, 1000, 1.05, t, { alpha: ba, scan: t > 47.8 && t < 49.6 ? seg(t, 47.8, 49.0) : -1 });
+    ctx.save(); ctx.globalAlpha *= ba; ctx.fillStyle = C.mute; ctx.font = `700 30px ${FB}`; ctx.textAlign = 'center'; ctx.fillText('大模型：一次批改', 650, 1190); ctx.restore();
     const su = seg(t, 48.2, 49.2);
     if (su > 0 && su < 1) {
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -571,7 +580,7 @@ function scene4(t) {
     for (let i = 0; i < 4; i++) {
       const ex = x0 + (5 + i) * TK.step + TK.w / 2;
       ctx.save(); ctx.globalAlpha *= ba * 0.6; ctx.strokeStyle = C.white; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(700, 860); ctx.lineTo(lerp(700, ex, lu), lerp(860, by + TK.h + 6, lu)); ctx.stroke(); ctx.restore();
+      ctx.beginPath(); ctx.moveTo(650, 860); ctx.lineTo(lerp(650, ex, lu), lerp(860, by + TK.h + 6, lu)); ctx.stroke(); ctx.restore();
     }
   }
   ctx.restore();
@@ -590,49 +599,54 @@ function scene5(t) {
     rows.forEach(([lab, k, L], r) => {
       const y = 640 + r * 280, u = eo(seg(t, 51.0 + r * 0.15, 52.6 + r * 0.15));
       ctx.fillStyle = C.white; ctx.font = `900 44px ${FB}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(lab, 120, y);
-      for (let i = 0; i < k; i++) token(560 + i * 70, y - 42, '字', r ? 'draft' : 'n', 1, 0.8, t);
+      for (let i = 0; i < k; i++) token(560 + i * 70, y - 42, r ? DRAFT[i] : '海', r ? 'draft' : 'n', 1, 0.8, t);
       ctx.fillStyle = 'rgba(255,255,255,0.08)'; rr(120, y + 60, 800, 40, 20); ctx.fill();
       ctx.fillStyle = r ? C.gpu : C.num; rr(120, y + 60, Math.max(4, L * u), 40, 20); ctx.fill();
       ctx.fillStyle = C.mute; ctx.font = `700 28px ${FB}`; ctx.fillText('用时', 120, y + 130);
     });
     ctx.restore();
   }
-  // 显存传送带
+  // 显存传送带（放大：本集最深的一环）
   const ca = seg(t, 54.0, 54.4);
+  let flash = 0;
   if (ca > 0) {
-    ctx.save(); ctx.globalAlpha *= ca; ctx.translate(0, 90);
-    // 显存
-    ctx.fillStyle = 'rgba(8,9,26,0.85)'; rr(60, 430, 300, 420, 20); ctx.fill(); ctx.strokeStyle = hexA(C.cache, 0.9); ctx.lineWidth = 3; ctx.stroke();
-    for (let r = 0; r < 10; r++) for (let c = 0; c < 6; c++) { ctx.fillStyle = wColor(rnd(r * 6 + c + 300) * 2 - 1); ctx.fillRect(84 + c * 44, 470 + r * 36, 38, 30); }
-    ctx.fillStyle = C.white; ctx.font = `900 40px ${FB}`; ctx.textAlign = 'center'; ctx.fillText('显存', 210, 900);
-    ctx.fillStyle = C.mute; ctx.font = `500 28px ${FB}`; ctx.fillText('几百亿个参数', 210, 945);
+    ctx.save(); ctx.globalAlpha *= ca;
+    const MY = 560; // 顶
+    ctx.fillStyle = 'rgba(8,9,26,0.85)'; rr(60, MY, 270, 470, 20); ctx.fill(); ctx.strokeStyle = hexA(C.cache, 0.9); ctx.lineWidth = 3; ctx.stroke();
+    for (let r = 0; r < 11; r++) for (let c = 0; c < 5; c++) { ctx.fillStyle = wColor(rnd(r * 5 + c + 300) * 2 - 1); ctx.fillRect(84 + c * 46, MY + 24 + r * 39, 40, 33); }
+    ctx.fillStyle = C.white; ctx.font = `900 44px ${FB}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('显存', 195, MY + 520);
+    ctx.fillStyle = C.mute; ctx.font = `500 30px ${FB}`; ctx.fillText('几百亿个参数', 195, MY + 565);
     // 传送带
-    ctx.fillStyle = '#20243A'; rr(370, 615, 290, 50, 12); ctx.fill();
-    for (let i = 0; i < 8; i++) { const x = 370 + ((t * 120 + i * 40) % 290); ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(x, 615, 4, 50); }
-    // 搬运中的参数块：一拍一块
+    const BY2 = MY + 210;
+    ctx.fillStyle = '#20243A'; rr(340, BY2, 220, 56, 12); ctx.fill();
+    for (let i = 0; i < 6; i++) { const x = 340 + ((t * 120 + i * 40) % 220); ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(x, BY2, 4, 56); }
+    ctx.fillStyle = C.mute; ctx.font = `700 28px ${FB}`; ctx.fillText('搬', 450, BY2 - 30);
     const arrive = [];
     for (let i = 0; i < 12; i++) {
-      const st = 54.2 + i * 0.5, u = seg(t, st, st + 0.5); if (u <= 0) continue;
-      if (u < 1) { ctx.fillStyle = wColor(rnd(i + 900) * 2 - 1); ctx.fillRect(lerp(380, 640, u), 622, 36, 36); }
-      else arrive.push(t - st - 0.5);
+      const st = 54.2 + i * 0.55, u = seg(t, st, st + 0.55); if (u <= 0) continue;
+      if (u < 1) { ctx.fillStyle = wColor(rnd(i + 900) * 2 - 1); ctx.fillRect(lerp(346, 520, u), BY2 + 8, 40, 40); }
+      else arrive.push(t - st - 0.55);
     }
-    // 计算核心：大多暗着等，参数到了才亮一下
     const lastArr = arrive.length ? Math.min(...arrive) : 9;
-    const flash = Math.exp(-lastArr * 6);
-    drawGPUDie(840, 640, 320, (gi, gj) => 0.08 + 0.85 * flash * (0.6 + 0.4 * rnd(gi * 3 + gj * 5)), {});
-    ctx.fillStyle = C.white; ctx.font = `900 40px ${FB}`; ctx.textAlign = 'center'; ctx.fillText('计算核心', 840, 900);
-    ctx.fillStyle = C.mute; ctx.font = `500 28px ${FB}`; ctx.fillText('大多在等', 840, 945);
+    flash = Math.exp(-lastArr * 7);
+    drawGPUDie(750, MY + 235, 360, (gi, gj) => 0.06 + 0.9 * flash * (0.6 + 0.4 * rnd(gi * 3 + gj * 5)), {});
+    // 「在等」的提示：暗着时冒出的省略号
+    const wait = 1 - flash;
+    ctx.save(); ctx.globalAlpha *= wait * 0.9; ctx.fillStyle = C.mute; ctx.font = `900 64px ${FB}`;
+    ctx.fillText('·'.repeat(1 + Math.floor((t * 3) % 3)), 750, MY + 235); ctx.restore();
+    ctx.fillStyle = C.white; ctx.font = `900 44px ${FB}`; ctx.fillText('计算核心', 750, MY + 520);
+    ctx.fillStyle = C.mute; ctx.font = `500 30px ${FB}`; ctx.fillText('大多暗着在等', 750, MY + 565);
     ctx.restore();
   }
   // 搬一趟，四个位置一起用
   const fa = seg(t, 57.6, 58.0);
   if (fa > 0) {
-    const x0 = rowX(4), y = 1170;
+    const x0 = rowX(4), y = 1210;
     for (let i = 0; i < 4; i++) {
       token(x0 + i * TK.step, y, DRAFT[i], 'draft', fa, 1, t);
-      const pu = (t - 58.2) % 1.0; const lit = t > 58.2 ? Math.exp(-pu * 3) : 0;
+      const lit = Math.max(flash, t > 58.0 ? Math.exp(-((t - 58.0) % 0.55) * 5) : 0);
       ctx.save(); ctx.globalAlpha *= fa * lit; ctx.strokeStyle = C.gpu; ctx.lineWidth = 5; rr(x0 + i * TK.step - 6, y - 6, TK.w + 12, TK.h + 12, 16); ctx.stroke(); ctx.restore();
-      ctx.save(); ctx.globalAlpha *= fa * 0.5; ctx.strokeStyle = C.gpu; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(840, 900); ctx.lineTo(x0 + i * TK.step + TK.w / 2, y - 8); ctx.stroke(); ctx.restore();
+      ctx.save(); ctx.globalAlpha *= fa * 0.5; ctx.strokeStyle = C.gpu; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(750, 980); ctx.lineTo(x0 + i * TK.step + TK.w / 2, y - 8); ctx.stroke(); ctx.restore();
     }
   }
   ctx.restore();
@@ -651,16 +665,23 @@ function scene6(t) {
     const st = [61.3, 61.7, 62.2, 62.7];
     for (let i = 0; i < 4; i++) {
       const x = x0 + (5 + i) * TK.step;
+      if (i === 2) {
+        if (t < st[2]) { token(x, by, '吃', 'draft', 1, 1, t); continue; }
+        const d = eio(seg(t, st[2], st[2] + 0.4));
+        token(x, by + d * 150, '吃', 'no', 1, 1, t);
+        const k = eio(seg(t, st[2] + 0.25, st[2] + 0.6));
+        if (k > 0) token(x, by - (1 - k) * 160, '看', 'hi', k, 1, t);
+        continue;
+      }
       if (t < st[i]) { token(x, by, DRAFT[i], 'draft', 1, 1, t); continue; }
       if (i < 2) token(x, by, DRAFT[i], 'ok', 1, back(seg(t, st[i], st[i] + 0.2)), t);
       else token(x, by, DRAFT[i], 'no', 1, 1, t);
     }
-    // 大模型自己的「看」
-    const ku = back(seg(t, 62.4, 62.8));
-    if (ku > 0) { token(x0 + 7 * TK.step, by + 140, '看', 'hi', clamp(ku), clamp(ku, 0, 1.2), t); ctx.save(); ctx.fillStyle = C.mute; ctx.font = `700 28px ${FB}`; ctx.textAlign = 'center'; ctx.fillText('大模型自己的字', x0 + 7 * TK.step + TK.w / 2, by + 270); ctx.restore(); }
+    const kl = seg(t, 62.8, 63.1);
+    if (kl > 0) { ctx.save(); ctx.globalAlpha *= kl; ctx.fillStyle = C.hi; ctx.font = `700 28px ${FB}`; ctx.textAlign = 'center'; ctx.fillText('大模型自己的字', x0 + 7 * TK.step + TK.w / 2, by - 40); ctx.restore(); }
     // 「饭」作废的原因
     const ea = seg(t, 62.9, 63.3);
-    if (ea > 0) { ctx.save(); ctx.globalAlpha *= ea; ctx.strokeStyle = hexA(C.mute, 0.8); ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.beginPath(); ctx.moveTo(x0 + 7 * TK.step + TK.w / 2, by - 10); ctx.quadraticCurveTo(x0 + 7.5 * TK.step + TK.w / 2, by - 90, x0 + 8 * TK.step + TK.w / 2, by - 10); ctx.stroke(); ctx.fillStyle = C.mute; ctx.font = `700 26px ${FB}`; ctx.textAlign = 'center'; ctx.fillText('接着「吃」猜的', x0 + 7.5 * TK.step + TK.w / 2, by - 100); ctx.restore(); }
+    if (ea > 0) { const xc = x0 + 7 * TK.step, xf = x0 + 8 * TK.step; ctx.save(); ctx.globalAlpha *= ea; ctx.strokeStyle = hexA(C.mute, 0.8); ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.beginPath(); ctx.moveTo(xc + TK.w + 4, by + 150 + TK.h / 2); ctx.quadraticCurveTo(xf + TK.w / 2, by + 150 + TK.h / 2, xf + TK.w / 2, by + TK.h + 10); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = C.mute; ctx.font = `700 28px ${FB}`; ctx.textAlign = 'center'; ctx.fillText('「饭」是接着「吃」猜的', 540, by + 320); ctx.restore(); }
     ctx.restore();
   }
   // 2–3 倍
@@ -705,9 +726,9 @@ function sceneEnd(t) {
   if (t < 74.9) return;
   const a = seg(t, 75.0, 75.4);
   ctx.save(); ctx.globalAlpha = a; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  for (let j = 0; j < 12; j++) for (let i = 0; i < 24; i++) {
+  for (let j = 0; j < 12; j++) for (let i = 0; i < 21; i++) {
     const b = 0.5 + 0.5 * Math.sin(t * 4 - i * 0.4 + j * 0.7 + rnd(i * 14 + j) * 3);
-    ctx.globalAlpha = a * (1 - j / 12) * 0.9; ctx.fillStyle = mix('#173C33', C.gpuL, b * 0.7); rr(60 + i * 40, 1150 + j * 40, 30, 30, 6); ctx.fill();
+    ctx.globalAlpha = a * (1 - j / 12) * 0.9; ctx.fillStyle = mix('#173C33', C.gpuL, b * 0.7); rr(110 + i * 40, 1150 + j * 40, 30, 30, 6); ctx.fill();
   }
   ctx.globalAlpha = a; ctx.shadowColor = hexA(C.gpu, 0.5); ctx.shadowBlur = 50;
   ctx.fillStyle = C.hi; ctx.font = `400 120px ${FT}`; ctx.fillText('EP.01', 540, 470);
