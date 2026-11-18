@@ -102,13 +102,13 @@ export const SeqH: React.FC<{from: number}> = ({from}) => {
               const tp = rf.tops[6];
               if (!inView(tp) || swTag <= 0) return null;
               const [x, y] = px(tp);
-              return <Tag x={x - 26} y={y} anchor="right" text="柜顶交换机" color={C.ai} size={44} opacity={swTag} />;
+              return <Tag x={x - 26} y={y} anchor="right" text="柜顶交换机" color={C.ai} size={44} box opacity={swTag} />;
             })()}
             {(() => {
               const k = [2, 6, 10].find((k) => inView(rf.tops[k]) && inView(rf.tops[14 + k]));
               if (k === undefined || xTag <= 0) return null;
               const A = px(rf.tops[k]), B = px(rf.tops[14 + k]);
-              return <Tag x={(A[0] + B[0]) / 2} y={Math.min(A[1], B[1]) - 120} anchor="center" text="机柜与机柜之间" color={C.ai} size={44} opacity={xTag} />;
+              return <Tag x={(A[0] + B[0]) / 2} y={Math.min(A[1], B[1]) - 120} anchor="center" text="机柜与机柜之间" color={C.ai} size={44} box opacity={xTag} />;
             })()}
             {/* 回到开头的问题 + 答案 */}
             <div style={{position: 'absolute', left: 0, right: 0, top: 200, textAlign: 'center', fontFamily: FONT.title, fontSize: 104, color: C.ink, opacity: q7,
@@ -142,9 +142,10 @@ export const SeqH: React.FC<{from: number}> = ({from}) => {
             return (
               <div key={i} style={{position: 'absolute', left: X, top: lerp(Y, 230 + Math.floor(i / 2) * 118, timelines), width: TILE.w * s, height: TILE.h * s * shrink, borderRadius: 18,
                 border: `4px solid ${C.ink}`, background: '#16191E', overflow: 'hidden'}}>
-                <div style={{position: 'absolute', left: 18, top: 10, fontFamily: FONT.hei, fontWeight: 700, fontSize: Math.max(28, 34 * shrink), color: C.ink}}>GPU {i + 1}</div>
+                <div style={{position: 'absolute', left: 18, top: lerp(10, 4, timelines), fontFamily: FONT.hei, fontWeight: 700, fontSize: lerp(34, 26, timelines), lineHeight: 1.15, color: C.ink}}>GPU {i + 1}</div>
+                {/* 收缩后计算块整体下移，不盖住编号 */}
                 {Array.from({length: 12}, (_, k) => (
-                  <div key={k} style={{position: 'absolute', left: 18 + (k % 6) * 60, top: 60 * shrink + Math.floor(k / 6) * 62 * shrink, width: 50, height: 50 * shrink, borderRadius: 8,
+                  <div key={k} style={{position: 'absolute', left: 18 + (k % 6) * 60, top: lerp(60, 40, timelines) + Math.floor(k / 6) * lerp(62, 30, timelines), width: 50, height: 50 * shrink, borderRadius: 8,
                     background: compute(i + k) > 0.5 && exch < 0.5 ? 'rgba(240,160,64,0.75)' : '#3A2E1C'}} />
                 ))}
               </div>

@@ -38,12 +38,13 @@ export const Note: React.FC<{children: React.ReactNode; opacity?: number; top?: 
 );
 
 /** 小标签：细线 + 文字 */
-export const Tag: React.FC<{x: number; y: number; text: string; color?: string; opacity?: number; size?: number; anchor?: 'left' | 'center' | 'right'}> = ({
-  x, y, text, color = C.ink, opacity = 1, size = 34, anchor = 'left',
+export const Tag: React.FC<{x: number; y: number; text: string; color?: string; opacity?: number; size?: number; anchor?: 'left' | 'center' | 'right'; box?: boolean}> = ({
+  x, y, text, color = C.ink, opacity = 1, size = 34, anchor = 'left', box = false,
 }) => (
   <div style={{position: 'absolute', left: x, top: y, transform: `translate(${anchor === 'left' ? 0 : anchor === 'center' ? -50 : -100}%, -50%)`,
     fontFamily: FONT.hei, fontWeight: 700, fontSize: size, color, opacity, whiteSpace: 'nowrap',
-    textShadow: '0 2px 8px rgba(0,0,0,0.85)'}}>
+    textShadow: '0 2px 8px rgba(0,0,0,0.85)',
+    ...(box ? {background: 'rgba(10,11,13,0.78)', padding: '4px 16px', borderRadius: 10, border: `2px solid ${color}`} : {})}}>
     {text}
   </div>
 );

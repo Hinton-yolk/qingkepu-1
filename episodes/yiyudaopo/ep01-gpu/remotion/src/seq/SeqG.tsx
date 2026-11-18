@@ -76,7 +76,7 @@ export const SeqG: React.FC<{from: number}> = ({from}) => {
             <div key={k} style={{position: 'absolute', left: lerp(-760, 60, queue) + k * 58 + ((f - g3) % 20) * 2.9 * (queue >= 1 ? 1 : 0), top: 1270, width: 48, height: 48, borderRadius: 8, background: 'rgba(240,160,64,0.6)',
               border: `3px solid ${C.game}`}} />
           ))}
-          <div style={{position: 'absolute', left: 60, top: 1205, fontFamily: FONT.hei, fontWeight: 700, fontSize: 42, color: C.game, opacity: prog(f, g3 + sec(1.2), 10),
+          <div style={{position: 'absolute', left: 60, top: 1192, fontFamily: FONT.hei, fontWeight: 700, fontSize: 42, color: C.game, opacity: prog(f, g3 + sec(1.2), 10),
             textShadow: '0 2px 10px rgba(0,0,0,0.95)'}}>算的活太多，排很长的队</div>
         </AbsoluteFill>
       )}
