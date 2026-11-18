@@ -39,20 +39,29 @@ function streamPos(s: S, t: number): [number, number, number] {
 }
 const slotCycles = (kind: Kind) => (kind === 'game' ? [T.g1, T.g3] : [T.g2, T.g3]);
 
+/** 锁定后某一格方块的状态（全片 SHOT 05–06 和 T4 测试共用，保证接缝两边是同一套公式） */
+export function lockedTile(slot: number, t: number) {
+  const s = STREAM.find((x) => x.slot === slot)!;
+  const [x, y] = slotXY(slot);
+  const d = Math.hypot(x - DIE.w / 2, y - DIE.h / 2) / 500;
+  const r = prog(t, T.recede + (1 - d) * 0.5, 1.5, glide);
+  const {fill, lit} = cycle(t, [s.depart + TRAVEL - 0.1, ...slotCycles(s.kind)], 0.5);
+  return {kind: s.kind, x, y, fill, lit: Math.max(lit, 0.35) * (1 - r), s: SLOT.size * lerp(1, 0.78, r), lift: 0.25 * (1 - r), opacity: (1 - r) * 0.94};
+}
+/** 芯片轮廓、HBM 轮廓、虚线格子的透明度 */
+export const dieChrome = (t: number) => ({
+  outline: prog(t, T.dieIn, 0.9) * (1 - prog(t, 50.6, 1.0, glide)),
+  grid: prog(t, T.dieIn + 0.3, 0.8) * (1 - prog(t, 49.4, 1.0)),
+  hbm: prog(t, T.dieIn + 0.4, 0.8) * (1 - prog(t, 50.4, 1.0, glide)),
+});
+
 export const Die: React.FC = () => {
   const f = useCurrentFrame();
   const t = f / 30;
   if (t < T.dieIn - 0.05) return null;
   const locked = t >= T.lock;
-  const outline = prog(t, T.dieIn, 0.9) * (1 - prog(t, 50.6, 1.0, glide));
-  const grid = prog(t, T.dieIn + 0.3, 0.8) * (1 - prog(t, 49.4, 1.0));
-  const hbm = prog(t, T.dieIn + 0.4, 0.8) * (1 - prog(t, 50.4, 1.0, glide));
+  const {outline, grid, hbm} = dieChrome(t);
   const cam = camAt(t);
-  const recedeK = (i: number) => {
-    const [x, y] = slotXY(i);
-    const d = Math.hypot(x - DIE.w / 2, y - DIE.h / 2) / 500;
-    return prog(t, T.recede + (1 - d) * 0.5, 1.5, glide);          // 从边上先退，中心最后
-  };
   const tileProps = (s: S) => {
     const {fill, lit} = cycle(t, [s.depart + TRAVEL - 0.1, ...slotCycles(s.kind)], 0.5);
     return {fill, lit: Math.max(lit, 0.35)};
@@ -71,10 +80,8 @@ export const Die: React.FC = () => {
             border: `3px dashed rgba(${C.neutralRGB},0.6)`, opacity: grid * 0.6, boxSizing: 'border-box'}} />;
         })}
         {locked && STREAM.map((s, i) => {
-          const [x, y] = slotXY(s.slot);
-          const r = recedeK(s.slot);
-          const {fill, lit} = tileProps(s);
-          return <Tile key={i} x={x} y={y} s={SLOT.size * lerp(1, 0.78, r)} kind={s.kind} fill={fill} lit={lit * (1 - r)} lift={0.25 * (1 - r)} opacity={(1 - r) * 0.94} />;
+          const L = lockedTile(s.slot, t);
+          return <Tile key={i} x={L.x} y={L.y} s={L.s} kind={L.kind} fill={L.fill} lit={L.lit} lift={L.lift} opacity={L.opacity} />;
         })}
       </div>
       {/* 流动中的方块（锁定前，世界坐标 → 屏幕） */}

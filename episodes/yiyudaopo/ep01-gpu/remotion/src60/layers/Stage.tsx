@@ -58,7 +58,7 @@ const Line: React.FC<{y: number; size: number; o: number; dy?: number; color?: s
       lineHeight: `${size * 1.24}px`, letterSpacing: spacing, color, opacity: o, whiteSpace: 'nowrap',
       textShadow: '0 2px 18px rgba(8,9,11,0.85), 0 1px 3px rgba(8,9,11,0.9)'}}>{children}</div>
   );
-const Note: React.FC<{y: number; o: number; children: React.ReactNode}> = ({y, o, children}) =>
+export const Note: React.FC<{y: number; o: number; children: React.ReactNode}> = ({y, o, children}) =>
   o <= 0.001 ? null : (
     <div style={{position: 'absolute', left: 72, top: y, fontFamily: FONT, fontSize: 38, color: '#C3C8CE', opacity: o, letterSpacing: 1,
       background: 'rgba(16,17,20,0.6)', padding: '4px 14px', borderRadius: 10}}>{children}</div>

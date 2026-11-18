@@ -4,6 +4,7 @@ import {FPS, TOTAL} from './lib/core';
 import {T2Test} from './tests/T2';
 import {T4Test} from './tests/T4';
 import {T4v2} from './tests/T4v2';
+import {T4FinalMatch} from './tests/T4fm';
 
 export const RemotionRoot: React.FC = () => (
   <>
@@ -12,5 +13,6 @@ export const RemotionRoot: React.FC = () => (
     <Composition id="T2Test" component={T2Test} durationInFrames={180} fps={FPS} width={1080} height={1920} />
     <Composition id="T4Test" component={T4Test} durationInFrames={180} fps={FPS} width={1080} height={1920} />
     <Composition id="T4Reconstruction" component={T4v2} durationInFrames={180} fps={FPS} width={1080} height={1920} />
+    <Composition id="T4FinalMatch" component={T4FinalMatch} durationInFrames={180} fps={FPS} width={1080} height={1920} />
   </>
 );
