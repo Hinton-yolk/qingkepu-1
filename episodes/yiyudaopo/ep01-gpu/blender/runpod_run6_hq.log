@@ -1,0 +1,192 @@
+  pod 0: 2 个任务，300 单位
+  pod 1: 2 个任务，300 单位
+预计墙钟 41 分钟；GPU 总时长 1.36 小时；按每卡每小时 $0.69 估约 $0.94（含每台约 2 分钟装环境；按秒计费）
+场景包 0.0 MB
+NVIDIA RTX A6000: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA GeForce RTX 4090: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA RTX 6000 Ada Generation: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+建好 pod 0: kis1huil5eaczs  每小时 $0.79  NVIDIA L40S  COMMUNITY
+NVIDIA RTX A6000: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA GeForce RTX 4090: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA RTX 6000 Ada Generation: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA L40S: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+NVIDIA A40: [{"message": "There are no longer any instances available with the requested specifications. Please refresh and try again.", "path": ["podFindAndDeployOnDemand"], "extensions": {"code": "SUPPLY_CONSTRAINT", "userId": "user_3LtdhlEYs0SK6FPAmfwDcRUZvuP"}}]
+建好 pod 1: l7yp3zoosw5zt4  每小时 $0.69  NVIDIA L40  COMMUNITY
+[  0.0 分] kis1huil5eaczs 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+[  0.0 分] l7yp3zoosw5zt4 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+[  0.3 分] kis1huil5eaczs 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+[  0.3 分] l7yp3zoosw5zt4 连不上（HTTPError，pod 可能还在启动）  已拉回 0
+kis1huil5eaczs 场景已上传
+[  0.6 分] kis1huil5eaczs wait_bundle  已拉回 0
+l7yp3zoosw5zt4 场景已上传
+[  0.6 分] l7yp3zoosw5zt4 wait_bundle  已拉回 0
+[  0.9 分] kis1huil5eaczs rendering 1/2 已拉回 2
+[  0.9 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 2
+[  1.2 分] kis1huil5eaczs rendering 1/2 已拉回 6
+[  1.3 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 5
+[  1.6 分] kis1huil5eaczs rendering 1/2 已拉回 11
+[  1.7 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 9
+[  2.0 分] kis1huil5eaczs rendering 1/2 已拉回 16
+[  2.1 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 12
+[  2.4 分] kis1huil5eaczs rendering 1/2 已拉回 21
+[  2.5 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 16
+[  2.9 分] kis1huil5eaczs rendering 1/2 已拉回 27
+[  2.9 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 20
+[  3.3 分] kis1huil5eaczs rendering 1/2 已拉回 33
+[  3.4 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 24
+[  3.7 分] kis1huil5eaczs rendering 1/2 已拉回 39
+[  3.8 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 27
+[  4.1 分] kis1huil5eaczs rendering 1/2 已拉回 44
+[  4.2 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 31
+[  4.6 分] kis1huil5eaczs rendering 1/2 已拉回 50
+[  4.6 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 35
+[  4.9 分] kis1huil5eaczs rendering 1/2 已拉回 55
+[  5.0 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 38
+[  5.3 分] kis1huil5eaczs rendering 1/2 已拉回 60
+[  5.3 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 42
+[  5.7 分] kis1huil5eaczs rendering 1/2 已拉回 65
+[  5.7 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 45
+[  6.1 分] kis1huil5eaczs rendering 1/2 已拉回 70
+[  6.1 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 49
+[  6.5 分] kis1huil5eaczs rendering 1/2 已拉回 75
+[  6.5 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 53
+[  6.9 分] kis1huil5eaczs rendering 1/2 已拉回 81
+[  6.9 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 56
+[  7.3 分] kis1huil5eaczs rendering 1/2 已拉回 86
+[  7.3 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 60
+[  7.7 分] kis1huil5eaczs rendering 1/2 已拉回 91
+[  7.7 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 64
+[  8.1 分] kis1huil5eaczs rendering 1/2 已拉回 96
+[  8.1 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 67
+[  8.5 分] kis1huil5eaczs rendering 1/2 已拉回 102
+[  8.5 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 71
+[  8.9 分] kis1huil5eaczs rendering 1/2 已拉回 107
+[  8.9 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 74
+[  9.3 分] kis1huil5eaczs rendering 1/2 已拉回 112
+[  9.3 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 78
+[  9.7 分] kis1huil5eaczs rendering 1/2 已拉回 117
+[  9.7 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 82
+[ 10.1 分] kis1huil5eaczs rendering 1/2 已拉回 122
+[ 10.1 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 85
+[ 10.4 分] kis1huil5eaczs rendering 1/2 已拉回 127
+[ 10.5 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 89
+[ 10.8 分] kis1huil5eaczs rendering 1/2 已拉回 132
+[ 10.8 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 92
+[ 11.2 分] kis1huil5eaczs rendering 1/2 已拉回 137
+[ 11.2 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 96
+[ 11.6 分] kis1huil5eaczs rendering 1/2 已拉回 142
+[ 11.6 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 99
+[ 12.0 分] kis1huil5eaczs rendering 1/2 已拉回 147
+[ 12.0 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 103
+[ 12.3 分] kis1huil5eaczs rendering 2/2 已拉回 151
+[ 12.4 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 106
+[ 12.7 分] kis1huil5eaczs rendering 2/2 已拉回 155
+[ 12.7 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 110
+[ 13.1 分] kis1huil5eaczs rendering 2/2 已拉回 159
+[ 13.1 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 113
+[ 13.4 分] kis1huil5eaczs rendering 2/2 已拉回 163
+[ 13.5 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 116
+[ 13.8 分] kis1huil5eaczs rendering 2/2 已拉回 167
+[ 13.9 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 120
+[ 14.3 分] kis1huil5eaczs rendering 2/2 已拉回 172
+[ 14.3 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 124
+[ 14.6 分] kis1huil5eaczs rendering 2/2 已拉回 176
+[ 14.7 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 127
+[ 15.1 分] kis1huil5eaczs rendering 2/2 已拉回 181
+[ 15.2 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 132
+[ 15.5 分] kis1huil5eaczs rendering 2/2 已拉回 186
+[ 15.6 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 136
+[ 15.9 分] kis1huil5eaczs rendering 2/2 已拉回 190
+[ 15.9 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 139
+[ 16.3 分] kis1huil5eaczs rendering 2/2 已拉回 194
+[ 16.3 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 143
+[ 16.7 分] kis1huil5eaczs rendering 2/2 已拉回 199
+[ 16.7 分] l7yp3zoosw5zt4 rendering 1/2 已拉回 147
+[ 17.1 分] kis1huil5eaczs rendering 2/2 已拉回 203
+[ 17.1 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 150
+[ 17.4 分] kis1huil5eaczs rendering 2/2 已拉回 207
+[ 17.5 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 153
+[ 17.8 分] kis1huil5eaczs rendering 2/2 已拉回 212
+[ 17.9 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 156
+[ 18.2 分] kis1huil5eaczs rendering 2/2 已拉回 216
+[ 18.2 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 159
+[ 18.6 分] kis1huil5eaczs rendering 2/2 已拉回 220
+[ 18.6 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 162
+[ 19.0 分] kis1huil5eaczs rendering 2/2 已拉回 224
+[ 19.0 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 165
+[ 19.4 分] kis1huil5eaczs rendering 2/2 已拉回 229
+[ 19.4 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 168
+[ 19.8 分] kis1huil5eaczs rendering 2/2 已拉回 233
+[ 19.8 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 171
+[ 20.1 分] kis1huil5eaczs rendering 2/2 已拉回 237
+[ 20.2 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 174
+[ 20.5 分] kis1huil5eaczs rendering 2/2 已拉回 241
+[ 20.5 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 177
+[ 20.9 分] kis1huil5eaczs rendering 2/2 已拉回 245
+[ 20.9 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 180
+[ 21.2 分] kis1huil5eaczs rendering 2/2 已拉回 249
+[ 21.2 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 183
+[ 21.6 分] kis1huil5eaczs rendering 2/2 已拉回 253
+[ 21.6 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 186
+[ 22.0 分] kis1huil5eaczs rendering 2/2 已拉回 257
+[ 22.0 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 189
+[ 22.3 分] kis1huil5eaczs rendering 2/2 已拉回 261
+[ 22.3 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 192
+[ 22.7 分] kis1huil5eaczs rendering 2/2 已拉回 265
+[ 22.7 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 195
+[ 23.1 分] kis1huil5eaczs rendering 2/2 已拉回 269
+[ 23.1 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 198
+[ 23.4 分] kis1huil5eaczs rendering 2/2 已拉回 273
+[ 23.4 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 201
+[ 23.8 分] kis1huil5eaczs rendering 2/2 已拉回 277
+[ 23.8 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 204
+[ 24.1 分] kis1huil5eaczs rendering 2/2 已拉回 281
+[ 24.2 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 207
+[ 24.5 分] kis1huil5eaczs rendering 2/2 已拉回 285
+[ 24.5 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 210
+[ 24.9 分] kis1huil5eaczs rendering 2/2 已拉回 289
+[ 24.9 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 213
+[ 25.2 分] kis1huil5eaczs rendering 2/2 已拉回 293
+[ 25.3 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 216
+[ 25.6 分] kis1huil5eaczs rendering 2/2 已拉回 297
+[ 25.6 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 219
+[ 26.0 分] kis1huil5eaczs done 2/2 已拉回 300
+kis1huil5eaczs 完成，已删除
+[ 26.0 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 222
+[ 26.3 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 225
+[ 26.5 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 227
+[ 26.8 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 229
+[ 27.1 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 231
+[ 27.3 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 233
+[ 27.6 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 236
+[ 27.9 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 238
+[ 28.1 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 240
+[ 28.4 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 242
+[ 28.7 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 245
+[ 29.0 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 247
+[ 29.2 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 249
+[ 29.5 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 251
+[ 29.8 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 254
+[ 30.0 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 256
+[ 30.3 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 258
+[ 30.6 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 260
+[ 30.8 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 262
+[ 31.1 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 265
+[ 31.4 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 267
+[ 31.6 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 269
+[ 31.9 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 271
+[ 32.2 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 274
+[ 32.5 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 276
+[ 32.7 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 278
+[ 33.0 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 280
+[ 33.3 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 283
+[ 33.5 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 285
+[ 33.8 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 287
+[ 34.1 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 289
+[ 34.3 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 291
+[ 34.6 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 294
+[ 34.9 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 296
+[ 35.2 分] l7yp3zoosw5zt4 rendering 2/2 已拉回 298
+[ 35.4 分] l7yp3zoosw5zt4 done 2/2 已拉回 300
+l7yp3zoosw5zt4 完成，已删除
+全部完成：墙钟 35.7 分钟，约 $0.88（上限估计，按秒计费，以 RunPod 账单为准）

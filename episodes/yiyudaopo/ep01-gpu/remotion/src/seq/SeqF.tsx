@@ -84,8 +84,8 @@ export const SeqF: React.FC<{from: number}> = ({from}) => {
         </AbsoluteFill>
       </Sequence>
       {back > 0 && (
-        <AbsoluteFill style={{opacity: back}}>
-          <Img src={staticFile('plates/CHIP_last.png')} style={{width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${1 + 0.03 * prog(f, f7, sec(6), (x) => x)})`}} />
+        <AbsoluteFill style={{opacity: back, transform: `scale(${1 + 0.05 * prog(f, f7, sec(6), (x) => x)}) translateY(${-24 * prog(f, f7, sec(6), (x) => x)}px)`, transformOrigin: `${dcEnd[0]}px ${dcEnd[1]}px`}}>
+          <Img src={staticFile('plates/CHIP_last.png')} style={{width: '100%', height: '100%', objectFit: 'cover'}} />
           <AbsoluteFill style={{background: 'linear-gradient(180deg, rgba(8,9,11,0.78) 0%, rgba(8,9,11,0.15) 30%, rgba(8,9,11,0) 66%, rgba(8,9,11,0.6) 100%)'}} />
           <svg width={1080} height={1920} style={{position: 'absolute', left: 0, top: 0}}>
             {endF.hbmq.map((q, i) => {
@@ -100,8 +100,14 @@ export const SeqF: React.FC<{from: number}> = ({from}) => {
                   {/* 很宽的接口：一束并排的短线 */}
                   {Array.from({length: 9}, (_, k) => {
                     const o = (k - 4) * 6;
-                    return <line key={k} x1={hc[0] + (nx / nl) * o} y1={hc[1] + (ny / nl) * o} x2={lerp(hc[0], ex, wire) + (nx / nl) * o} y2={lerp(hc[1], ey, wire) + (ny / nl) * o}
-                      stroke={C.ink} strokeWidth={2.5} opacity={0.85} />;
+                    const u = (((f - f7) / 22 + k * 0.11 + i * 0.07) % 1);
+                    return (
+                      <g key={k}>
+                        <line x1={hc[0] + (nx / nl) * o} y1={hc[1] + (ny / nl) * o} x2={lerp(hc[0], ex, wire) + (nx / nl) * o} y2={lerp(hc[1], ey, wire) + (ny / nl) * o}
+                          stroke={C.ink} strokeWidth={2.5} opacity={0.85} />
+                        {wire > 0.9 && <circle cx={lerp(hc[0], ex, u) + (nx / nl) * o} cy={lerp(hc[1], ey, u) + (ny / nl) * o} r={4.5} fill={C.ai} />}
+                      </g>
+                    );
                   })}
                 </g>
               );

@@ -2,26 +2,31 @@
  "DC": {
   "rendered": 119,
   "contiguous": 119,
-  "needed": 135
+  "needed": 135,
+  "source": "DC"
  },
  "MACRO": {
   "rendered": 135,
   "contiguous": 135,
-  "needed": 135
+  "needed": 135,
+  "source": "MACRO"
  },
  "CHIP": {
   "rendered": 300,
   "contiguous": 300,
-  "needed": 300
+  "needed": 300,
+  "source": "CHIP"
  },
  "SERVER": {
-  "rendered": 150,
-  "needed": 150,
-  "note": "\u9694\u5e27\u6e32\u67d3\uff0c\u63d2\u5e27\u5230 30 fps"
+  "rendered": 300,
+  "contiguous": 300,
+  "needed": 300,
+  "source": "SERVER_hq"
  },
  "RACK": {
-  "rendered": 150,
-  "needed": 150,
-  "note": "\u9694\u5e27\u6e32\u67d3\uff0c\u63d2\u5e27\u5230 30 fps"
+  "rendered": 300,
+  "contiguous": 300,
+  "needed": 300,
+  "source": "RACK_hq"
  }
 }

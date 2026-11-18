@@ -43,7 +43,7 @@ export const SeqH: React.FC<{from: number}> = ({from}) => {
       {/* 写实：一排排机柜 */}
       {f >= RSTART && (
         <Sequence from={RSTART - from} layout="none">
-          <AbsoluteFill style={{opacity: schemOut * (1 - card)}}>
+          <AbsoluteFill style={{opacity: schemOut * (1 - card), transform: `scale(${1 + 0.006 * Math.max(0, f - h6) / 30})`, transformOrigin: '50% 40%'}}>
             <Plate name="RACK" rate={rRate} />
             <AbsoluteFill style={{background: 'linear-gradient(180deg, rgba(8,9,11,0.7) 0%, rgba(8,9,11,0.1) 30%, rgba(8,9,11,0) 62%, rgba(8,9,11,0.6) 100%)'}} />
             <svg width={1080} height={1920} style={{position: 'absolute', left: 0, top: 0}}>
@@ -61,7 +61,13 @@ export const SeqH: React.FC<{from: number}> = ({from}) => {
                 if (!nx || k === 13 || !inView(tp) || !inView(nx)) return null;
                 const a = px(tp), b = px(nx);
                 const lit = prog(f, h5 + (k % 14) * 1.5, 8) * linksB;
-                return <line key={'t' + k} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke={C.ai} strokeWidth={5} opacity={lit} />;
+                const u = (((f - h5) / 26 + k * 0.17) % 1);
+                return (
+                  <g key={'t' + k}>
+                    <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke={C.ai} strokeWidth={5} opacity={lit} />
+                    {lit > 0.5 && <circle cx={lerp(a[0], b[0], u)} cy={lerp(a[1], b[1], u)} r={8} fill={C.ink} opacity={lit} />}
+                  </g>
+                );
               })}
               {/* 跨过通道：两排机柜顶部之间（走顶上的线槽） */}
               {[2, 6, 10].map((k) => {

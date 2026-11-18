@@ -8,7 +8,7 @@ import {Note, Plate, Tag} from '../lib/ui';
 // 叠加层：一块 GPU 的两个上限（显存、算力）→ 模型太大装不下 → 任务太多排长队 →「怎么办？」
 // → 拉远看到 8 块 → 模型拆成几份放到几块上（分担不同部分）、一大批任务分给另外几块（一起处理更大的任务）。
 type P = number[];
-const SLOW = 0.2;                         // 讲「上限」时，底片几乎停在一块 GPU 上
+const SLOW = 0.32;                         // 讲「上限」时，底片几乎停在一块 GPU 上
 
 export const SeqG: React.FC<{from: number}> = ({from}) => {
   const f = useCurrentFrame() + from;
@@ -37,7 +37,7 @@ export const SeqG: React.FC<{from: number}> = ({from}) => {
   const batch = (i: number) => ({x: lerp(120 + i * 60, mods[4 + i][0], shareB), y: lerp(1290, mods[4 + i][1], shareB)});
 
   return (
-    <AbsoluteFill style={{background: C.bg}}>
+    <AbsoluteFill style={{background: C.bg, transform: `scale(${1.03 + 0.004 * (f - from) / 30}) translate(${10 * Math.sin((f - from) / 30 * 0.8)}px, ${8 * Math.cos((f - from) / 30 * 0.8)}px)`, transformOrigin: '50% 50%'}}>
       <AbsoluteFill style={{opacity: inK}}>
         <Sequence from={0} durationInFrames={split - from} layout="none">
           <Plate name="SERVER" rate={SLOW} />
@@ -73,7 +73,7 @@ export const SeqG: React.FC<{from: number}> = ({from}) => {
             textShadow: '0 2px 10px rgba(0,0,0,0.95)'}}>模型太大，装不下</div>
           {/* 任务太多：长长一队 */}
           {queue > 0 && Array.from({length: 16}, (_, k) => (
-            <div key={k} style={{position: 'absolute', left: lerp(-900, 60, queue) + k * 58, top: 1270, width: 48, height: 48, borderRadius: 8, background: 'rgba(240,160,64,0.6)',
+            <div key={k} style={{position: 'absolute', left: lerp(-900, 60, queue) + k * 58 + ((f - g3) % 20) * 2.9 * (queue >= 1 ? 1 : 0), top: 1270, width: 48, height: 48, borderRadius: 8, background: 'rgba(240,160,64,0.6)',
               border: `3px solid ${C.game}`}} />
           ))}
           <div style={{position: 'absolute', left: 60, top: 1205, fontFamily: FONT.hei, fontWeight: 700, fontSize: 42, color: C.game, opacity: prog(f, g3 + sec(1.2), 10),
