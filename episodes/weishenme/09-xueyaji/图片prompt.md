@@ -52,3 +52,18 @@ Use exactly the same woman, the same clothes, the same sitting posture, the same
 - 第 1 张上臂露得够多（要套袖带），手心朝上，手指数对。
 - 第 2、3 张除了胳膊，其他完全一样（头、背、腿位置不动），这样我能直接让胳膊动。
 - 衣服纯色、没有花纹；图里没有椅子、桌子、袖带、文字、水印。
+
+---
+
+## 2026-11-18 用户发回三张图
+- 第 1 张 → `assets/people/arm-flat-palmup.webp`（2000×667，透明底）：可用。上臂露出约一掌半，够套袖带。
+- 第 2 张 → `assets/people/side-arm-raised.webp`（1216×1293，透明底）：GPT 画成了**胳膊伸直、举到肩那么高**（不是放在桌上、和心脏一样高）。正好用在「抬得比心脏高」那一拍。
+- 第 3 张 → `assets/people/side-arm-down.webp`（1216×1294）：胳膊垂下，可用。底是画上去的灰白格子（不是真透明），我按颜色抠。
+- **还缺一张**：胳膊放在桌上、袖带和心脏一样高（第 4 张，见下）。
+
+## 4. 侧面坐姿，胳膊肘弯着放在垫高的桌上（和心脏一样高）
+竖版 1024×1536，上传第 3 张（胳膊垂下那张）作参考：
+
+```
+Use exactly the same woman, the same clothes, the same sitting posture, the same framing and the same style as the reference image (profile, facing RIGHT, sitting upright, upper body down to the knees). The only change is her near arm (the left arm, the one closest to the viewer): it is NOT straight and NOT raised to shoulder height. The upper arm points forward and only slightly downward from the shoulder (about 30 degrees below horizontal), so that the MIDDLE of the upper arm is at the height of the middle of her chest (heart level). The elbow is bent, and the forearm lies flat and horizontal pointing forward (to the right), resting on an invisible raised cushion at the height of her lower chest, palm facing up, fingers relaxed. The far arm stays resting on her thigh exactly as in the reference. Head, back and legs do not move. Five fingers, anatomically correct. Real transparent background (not a checkerboard pattern). No chair, no table, no cushion, no cuff, no device, no text, no watermark, no logos.
+```
