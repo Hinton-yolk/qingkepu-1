@@ -1,0 +1,21 @@
+// 转场测试的相机与主体变换表（从源码里的相机函数直接算，不手填）：npx tsx scripts/transform_report.ts > ...md
+import {cam2, AI_DOCK} from '../src60/tests/T2';
+import {cam4, SLAB} from '../src60/tests/T4';
+import {CARD, cardCorners, cardLocal, proj, view} from '../src60/tests/world3d';
+import {PATCHES, SEL} from '../src60/lib/island';
+import {Cam} from '../src60/lib/terrain';
+const r = (x: number, n = 1) => Number(x.toFixed(n));
+const camRow = (t: number, c: Cam) => { const v = view(c); return `| ${t.toFixed(2)} | (${c.target.map((x) => r(x)).join(', ')}) | ${r(c.dist)} | ${r((c.el * 180) / Math.PI)}° | ${r((c.az * 180) / Math.PI)}° | (${v.eye.map((x) => r(x)).join(', ')}) |`; };
+const sp = (c: Cam, p: [number, number, number]) => { const q = proj(view(c), p); return `(${Math.round(q[0])}, ${Math.round(q[1])})`; };
+const T = [0, 1, 2, 2.5, 3, 4, 5, 179 / 30];
+const sel = PATCHES[SEL];
+console.log('## T2 相机（世界单位；沙盘 15 × 15，中心在原点；AI 面板中心 x=' + CARD.x + '，z=' + CARD.z + '，宽 ' + CARD.w + '）\n');
+console.log('| 秒 | 看点 target | 距离 | 仰角 | 方位角 | 相机位置 |\n|---|---|---|---|---|---|');
+T.forEach((t) => console.log(camRow(t, cam2(t))));
+console.log('\n## T2 主体的屏幕位置（像素）\n\n| 秒 | 选中地块的琥珀方块 | AI 方块（面板本地 830, 830） | AI 面板左上 / 右下角 |\n|---|---|---|---|');
+T.forEach((t) => { const c = cam2(t), cc = cardCorners(); console.log(`| ${t.toFixed(2)} | ${sp(c, [sel.c[0], sel.c[1] + 2.3, sel.c[2]])} | ${sp(c, cardLocal(AI_DOCK[0], AI_DOCK[1]))} | ${sp(c, cc[0])} / ${sp(c, cc[2])} |`); });
+console.log('\n## T4 相机\n\n| 秒 | 看点 target | 距离 | 仰角 | 方位角 | 相机位置 |\n|---|---|---|---|---|---|');
+T.forEach((t) => console.log(camRow(t, cam4(t))));
+const slabC = (sx: number, sz: number): [number, number, number] => [SLAB.cx + sx * SLAB.w / 2, SLAB.y, SLAB.cz + sz * SLAB.h / 2];
+console.log('\n## T4 芯片格板四角（屏幕像素）\n\n| 秒 | 左上 | 右上 | 右下 | 左下 |\n|---|---|---|---|---|');
+[4.5, 5, 5.5, 179 / 30].forEach((t) => { const c = cam4(t); console.log(`| ${t.toFixed(2)} | ${sp(c, slabC(-1, -1))} | ${sp(c, slabC(1, -1))} | ${sp(c, slabC(1, 1))} | ${sp(c, slabC(-1, 1))} |`); });

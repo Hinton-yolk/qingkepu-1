@@ -8,7 +8,7 @@ import path from 'node:path';
 const [out, scale, ...secs] = process.argv.slice(2);
 fs.mkdirSync(out, {recursive: true});
 const serveUrl = await bundle({entryPoint: path.resolve('src60/index.ts'), publicDir: path.resolve('public')});
-const composition = await selectComposition({serveUrl, id: 'EP01DirectorLocked60'});
+const composition = await selectComposition({serveUrl, id: process.env.COMP || 'EP01DirectorLocked60'});
 const files = [];
 for (const s of secs) {
   const frame = Math.min(composition.durationInFrames - 1, Math.round(parseFloat(s) * 30));
