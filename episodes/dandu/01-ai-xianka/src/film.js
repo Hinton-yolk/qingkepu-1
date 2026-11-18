@@ -112,15 +112,15 @@ const CAPS = [
   [10.4, 13.1, '说一个字，要做约 {70 亿次}'],
   [13.2, 15.6, '交给 CPU：几位{数学教授}', '类比'],
   [15.6, 18.3, '什么难题都会，可{人太少}'],
-  [18.3, 20.9, '70 亿道题，只能{排长队}'],
+  [18.3, 20.9, '题太多，只能{排长队}'],
   [21.4, 24.0, '换成 GPU：{一万多个小学生}', '类比'],
   [24.0, 26.3, '只会口算，但{一起动手}'],
-  [26.4, 28.2, 'CPU：芯片多半用来{“想”}和“记”'],
-  [28.2, 30.0, 'GPU：芯片更多用来{“算”}'],
+  [26.4, 28.2, 'CPU：大半用来{“想”和“记”}'],
+  [28.2, 30.0, 'GPU：更多用来{“算”}'],
   [30.0, 33.4, '能一起算，是因为\n这些乘法{谁也不用等谁}'],
   [33.4, 37.1, '要是一步等一步，\n{人再多也没用}'],
   [37.2, 40.2, '其实，显卡本来是\n{打游戏}用的'],
-  [40.2, 43.4, '屏幕上 800 多万个像素\n{各算各的}颜色'],
+  [40.2, 43.4, '4K 屏上 800 多万个像素\n{各算各的}颜色'],
   [43.6, 45.7, '2012 年，有人用两块游戏显卡'],
   [45.7, 48.0, '训练出的 AI，认图{一战成名}'],
   [50.6, 53.6, '教授再聪明，人也太少'],
@@ -129,14 +129,14 @@ const CAPS = [
 const NOTES = [
   [3.6, 8.2, '示意：实际每个字会变成几千个数，这里只画 8 个'],
   [8.3, 10.3, '示意：实际要一层接一层算几十层，这里只画一层'],
-  [10.6, 13.1, '估算：70 亿参数的模型，每说一个字（token）约 70 亿次乘加'],
-  [15.7, 20.9, '示意：真实 CPU 的每个核，一次也能算好几道'],
-  [21.6, 24.0, '一块 RTX 4090 游戏显卡有 16384 个 CUDA 核心，这里一个不少全画了'],
-  [24.0, 26.3, 'GPU 的“核”比 CPU 的核简单得多，不能一个顶一个比'],
+  [10.6, 13.1, '估算：按 70 亿参数的模型\n每说一个字（token）约 70 亿次乘加'],
+  [15.7, 20.9, '慢放示意：真实 CPU 一秒能算上千亿次乘加\n同样的活，显卡快几十到上百倍（两段同样慢放）'],
+  [21.6, 24.0, 'RTX 4090 有 16384 个 CUDA 核心，全画了（排布示意）'],
+  [24.0, 26.3, 'GPU 的“核”比 CPU 的核简单得多（同样慢放）'],
   [26.4, 30.0, '示意：面积比例不精确'],
   [33.4, 37.1, '一步接一步的活，CPU 更拿手\nAI 也要一层等一层，但每层里的乘法能同时算'],
-  [40.2, 43.4, '4K 屏 3840×2160 ≈ 829 万像素，每秒要画几十到上百遍'],
-  [43.6, 48.0, 'AlexNet：2012 年 ImageNet 图像识别比赛冠军'],
+  [40.2, 43.4, '4K 屏 3840×2160 ≈ 829 万像素，每一帧都要算'],
+  [43.6, 48.0, 'AlexNet：2012 年 ImageNet 图像识别比赛冠军\n猫图为示意'],
 ];
 const CAP_Y = 1480, CAP_SIZE = 60, CAP_LH = 80;
 function captionTop(t) {
@@ -175,12 +175,12 @@ function drawNotes(t) {
     const [t0, t1, txt] = n; if (t < t0 || t > t1) continue;
     const a = win(t, t0, t1, 0.25, 0.15); const lines = txt.split('\n');
     const top = captionTop(t) - 22;
-    ctx.save(); ctx.globalAlpha = a * 0.92; ctx.font = `400 28px ${FB}`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.save(); ctx.globalAlpha = a; ctx.font = `500 32px ${FB}`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     lines.forEach((l, i) => {
-      const y = top - (lines.length - 1 - i) * 38;
+      const y = top - (lines.length - 1 - i) * 44;
       const w = ctx.measureText(l).width;
-      ctx.fillStyle = 'rgba(8,9,26,0.55)'; rr(W / 2 - w / 2 - 14, y - 30, w + 28, 40, 10); ctx.fill();
-      ctx.fillStyle = C.mute; ctx.fillText(l, W / 2, y);
+      ctx.fillStyle = 'rgba(8,9,26,0.7)'; rr(W / 2 - w / 2 - 14, y - 33, w + 28, 44, 10); ctx.fill();
+      ctx.fillStyle = '#C9CDEB'; ctx.fillText(l, W / 2, y);
     });
     ctx.restore();
   }
@@ -687,15 +687,18 @@ function sceneC(t) {
     const x = lerp(p.x, CPU_C.x + r.x + r.w / 2, e), y = lerp(p.y, CPU_C.y + r.y + r.h / 2, e);
     ctx.fillStyle = hexA(C.hi, 0.95); rr(x - 9, y - 9, 18, 18, 4); ctx.fill(); glowDot(x, y, 26, C.hi, 0.5);
   });
-  // 计数
+  // 进度（和 GPU 段同样慢放：GPU 2 秒算完，CPU 这 5.3 秒只算了 4%，约慢 60 倍）
   const ca = seg(t, 15.4, 15.7);
   if (ca > 0) {
+    const pr = 0.04 * seg(t, 15.4, 20.7);
     ctx.save(); ctx.globalAlpha = ca; ctx.textBaseline = 'middle';
-    ctx.fillStyle = 'rgba(8,9,26,0.7)'; rr(100, 1196, 880, 120, 24); ctx.fill();
-    ctx.font = `700 32px ${FB}`; ctx.fillStyle = C.mute; ctx.textAlign = 'left'; ctx.fillText('已算', 136, 1256);
-    ctx.font = `700 46px ${FM}`; ctx.fillStyle = C.cpuL; ctx.fillText(fmtInt(tk.done), 214, 1258);
-    ctx.font = `700 32px ${FB}`; ctx.fillStyle = C.mute; ctx.fillText('还剩', 470, 1256);
-    ctx.font = `700 40px ${FM}`; ctx.fillStyle = C.white; ctx.fillText(fmtInt(7e9 - tk.done), 548, 1258);
+    ctx.fillStyle = 'rgba(8,9,26,0.7)'; rr(100, 1172, 880, 116, 24); ctx.fill();
+    ctx.font = `700 32px ${FB}`; ctx.fillStyle = C.mute; ctx.textAlign = 'left'; ctx.fillText('已算', 136, 1208);
+    ctx.font = `700 42px ${FM}`; ctx.fillStyle = C.cpuL; ctx.fillText((7e9 * pr / 1e8).toFixed(1), 214, 1210);
+    ctx.font = `700 32px ${FB}`; ctx.fillStyle = C.mute; ctx.fillText('亿 / 70 亿', 214 + ctx.measureText('0').width * 0 + 96, 1208);
+    ctx.textAlign = 'right'; ctx.font = `700 40px ${FM}`; ctx.fillStyle = C.white; ctx.fillText((pr * 100).toFixed(1) + '%', 944, 1210);
+    ctx.fillStyle = 'rgba(255,255,255,0.08)'; rr(136, 1246, 808, 22, 11); ctx.fill();
+    ctx.fillStyle = C.cpu; rr(136, 1246, Math.max(4, 808 * pr), 22, 11); ctx.fill();
     ctx.restore();
   }
   ctx.restore();
@@ -954,13 +957,12 @@ function sceneF(t) {
       const k = (j * 9 + i) * 4; const x = mx - 4.5 * ps + i * ps, y = my - 4.5 * ps + j * ps;
       ctx.fillStyle = `rgb(${d[k]},${d[k + 1]},${d[k + 2]})`; ctx.fillRect(x + 2, y + 2, ps - 4, ps - 4);
       const fl = 0.5 + 0.5 * Math.sin(t * 9 + i * 1.7 + j * 2.3);
-      ctx.strokeStyle = `rgba(255,255,255,${0.35 + 0.5 * fl})`; ctx.lineWidth = 2; rr(x + 13, y + 13, ps - 26, ps - 26, 4); ctx.stroke();
-      ctx.fillStyle = hexA(C.gpuL, 0.4 + 0.6 * fl); ctx.fillRect(x + 19, y + 19, ps - 38, ps - 38);
+      ctx.fillStyle = `rgba(255,255,255,${0.35 + 0.55 * fl})`; ctx.font = `700 24px ${FM}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('×', x + ps / 2, y + ps / 2 + 1);
     }
     ctx.restore();
     ctx.strokeStyle = C.white; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = 'rgba(8,9,26,0.85)'; rr(mx + 110, my - mr - 10, 230, 56, 28); ctx.fill();
-    ctx.fillStyle = C.gpuL; ctx.font = `700 28px ${FB}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('每个像素一个小核', mx + 225, my - mr + 18);
+    ctx.fillStyle = 'rgba(8,9,26,0.85)'; rr(mx + 60, my - mr - 10, 360, 56, 28); ctx.fill();
+    ctx.fillStyle = C.gpuL; ctx.font = `700 28px ${FB}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('每个像素都是一道独立的题', mx + 240, my - mr + 18);
     ctx.restore();
   }
   // 2012
@@ -995,9 +997,9 @@ function sceneF(t) {
     const bu = seg(t, 46.6, 47.5);
     if (bu > 0) {
       ctx.save(); ctx.globalAlpha = ya * seg(t, 46.6, 46.8); ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-      ctx.fillStyle = C.white; ctx.font = `900 40px ${FB}`; ctx.fillText('认图错误率', 580, 880);
-      ctx.fillStyle = C.mute; ctx.font = `400 28px ${FB}`; ctx.fillText('越低越好', 580, 930);
-      const rows = [['第二名', 26.2, '#7B819F'], ['它', 15.3, C.gpu]];
+      ctx.fillStyle = C.white; ctx.font = `900 40px ${FB}`; ctx.fillText('前 5 错误率', 580, 880);
+      ctx.fillStyle = C.mute; ctx.font = `400 28px ${FB}`; ctx.fillText('猜 5 次内猜中算对 · 越低越好', 580, 930);
+      const rows = [['第二名', 26.2, '#7B819F'], ['AlexNet', 15.3, C.gpu]];
       rows.forEach(([lab, v, col], i) => {
         const y = 1040 + i * 125, e = eo(seg(bu, i * 0.3, 0.7 + i * 0.3)); const bw = 300 * v / 26.2 * e;
         ctx.fillStyle = i ? C.gpuL : C.mute; ctx.font = `700 32px ${FB}`; ctx.fillText(lab, 580, y - 40);

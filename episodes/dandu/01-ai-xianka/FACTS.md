@@ -19,7 +19,10 @@
 ## 4. CPU「几位数学教授」、GPU「一万多个小学生」〔类比〕
 - 片中字幕旁有「类比」标签。
 - CPU 画了 8 个核〔示意〕。家用 CPU 常见 8–24 核，例如 Intel Core i9-14900K 24 核（8 性能核 + 16 能效核）、AMD Ryzen 9 9950X 16 核（两家官网规格页）。
-- 「示意：真实 CPU 的每个核，一次也能算好几道」：CPU 核有 SIMD 向量单元（如 AVX2 / AVX-512），一条指令同时算多个数。
+- CPU 段是慢放示意，不是真实速度。小字：「慢放示意：真实 CPU 一秒能算上千亿次乘加；同样的活，显卡快几十到上百倍（两段同样慢放）」。
+  - CPU：桌面 CPU 每个核有 SIMD 向量单元（AVX2：每周期 2 条 FMA × 8 个 FP32），8 个性能核 × 2 × 8 × ~5 GHz ≈ 6×10¹¹ 次乘加 / 秒（峰值），「上千亿次」取保守说法。来源：Intel 64 and IA-32 Architectures Optimization Reference Manual（FMA 吞吐）；核数见上。
+  - 显卡：RTX 4090 FP32 峰值约 82.6 TFLOPS（≈ 4×10¹³ 次乘加 / 秒），Tensor Core FP16 更高（NVIDIA RTX 4090 规格页、Ada 白皮书）。和上面的 CPU 峰值比约 70 倍，用 Tensor Core 时更多，所以写「几十到上百倍」。都是理论峰值，实际跑 AI 还受显存带宽限制。
+  - 片中比例：GPU 2 秒算完 70 亿道；CPU 5.3 秒走到 4%（要约 130 秒），约慢 60 倍，落在上面的范围内。
 
 ## 5. RTX 4090 有 16384 个 CUDA 核心〔事实〕
 - 来源：NVIDIA GeForce RTX 4090 规格页（NVIDIA CUDA Cores: 16384）；NVIDIA Ada Lovelace 架构白皮书：RTX 4090 启用 128 个 SM，每个 SM 128 个 CUDA 核心。
@@ -39,11 +42,14 @@
 - 3840 × 2160 = 8,294,400。消费级 4K UHD 分辨率（ITU-R BT.2020 定义的 UHDTV1 为 3840×2160）。
 - 游戏帧率常见 30–144 帧 / 秒，按游戏和硬件不同。
 - 「各算各的颜色」：渲染管线里像素着色器（fragment shader）对每个像素（片元）各执行一遍，彼此独立，所以 GPU 能并行。
+- 放大镜标签是「每个像素都是一道独立的题」，不是「每个像素一个核」：829 万像素对 16384 个 CUDA 核心，平均每个核每帧要轮流算几百个像素。
 
 ## 9. 2012 年两块游戏显卡训练出 AlexNet，ImageNet 一战成名〔事实〕
 - 两块 NVIDIA GTX 580（3 GB），训练 5–6 天；ILSVRC-2012 前 5 错误率 15.3%，第二名 26.2%。
 - 来源：Krizhevsky, Sutskever, Hinton, *ImageNet Classification with Deep Convolutional Neural Networks*, NIPS 2012（摘要和第 7 节）。
-- 片中画「猫 ✓」是示意：ImageNet 有 1000 类，其中包括几种猫。
+- 屏幕上写明「前 5 错误率」（猜 5 次内猜中算对）。
+- 片中画「猫 ✓」是示意，屏幕上已注「猫图为示意」：ImageNet 有 1000 类，其中包括几种猫。
 
 ## 没放进片子、置顶评论可以补的
+- AI「非要」显卡，最主要是因为训练：训练计算量约 6ND（N 参数量、D 训练 token 数，Kaplan et al. 2020）。例：Llama 2 7B 用约 2 万亿 token 训练（Touvron et al., *Llama 2*, arXiv:2307.09288），6 × 7×10⁹ × 2×10¹² ≈ 8×10²² 次运算，比说一个字多十几个数量级；再加上同时服务很多用户。
 - AI 用 GPU 除了核多，还因为显存带宽大（HBM），能把海量参数及时喂给运算单元；现在的 AI 专用 GPU 还有专门算矩阵的 Tensor Core。
