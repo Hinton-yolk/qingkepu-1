@@ -30,7 +30,7 @@ export const Note: React.FC<{children: React.ReactNode; opacity?: number; top?: 
   children, opacity = 1, top = 1490, left, right, align = 'left',
 }) => (
   <div style={{position: 'absolute', top, left: left ?? (align === 'left' ? 64 : undefined), right: right ?? (align === 'right' ? 64 : undefined),
-    fontFamily: FONT.hei, fontSize: 29, color: C.sub, opacity, letterSpacing: 1, textAlign: align}}>
+    fontFamily: FONT.hei, fontSize: 33, color: C.sub, opacity, letterSpacing: 1, textAlign: align}}>
     {children}
   </div>
 );

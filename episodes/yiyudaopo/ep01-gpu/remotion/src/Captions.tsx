@@ -39,7 +39,7 @@ const split = (s: string): string[] => {
 const clean = (s: string) => s.replace(/[，。；、：]$/g, '').replace(/^[，。；、：]/, '');
 
 // v03：开头两句就是画面上的大字问题，不再重复出字幕
-const HIDE = ['A1', 'A2'];
+const HIDE = ['A1', 'A2', 'E3', 'E4'];   // 结尾两句也就是画面上的大字
 const CHUNKS: Chunk[] = T.lines.filter((l) => !HIDE.includes(l.id)).flatMap((l) => {
   const ps = split(l.text);
   const w = ps.map((p) => Math.max(1, p.replace(/[，。：；？！、「」\s]/g, '').length));

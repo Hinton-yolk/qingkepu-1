@@ -17,7 +17,7 @@ export const batchXY = (i: number) => ({x: BATCH.x0 + (i % COLS) * (BATCH.s + BA
 
 const camAt = (f: number): Cam => {
   const t = (f - cue('B1')) / 30;
-  return {az: 0.35 + 0.05 * t, el: 0.46, dist: 9.6, fov: 0.82, target: [0.2, 0.55, 0]};
+  return {az: 0.35 + 0.07 * t, el: 0.46 + 0.006 * t, dist: 9.6 - 0.05 * t, fov: 0.82, target: [0.2, 0.55, 0]};
 };
 const cen = (p: Proj) => [(p.pts[0][0] + p.pts[1][0] + p.pts[2][0]) / 3, (p.pts[0][1] + p.pts[1][1] + p.pts[2][1]) / 3];
 const tileOf = (p: Proj) => {
@@ -50,11 +50,11 @@ export const SeqB: React.FC<{from: number}> = ({from}) => {
   const tw = VP.w / COLS, th = VP.h / ROWS;
 
   return (
-    <AbsoluteFill style={{background: C.bg}}>
-      <Drift from={from} amp={0.6} push={0.0015}>
+    <AbsoluteFill style={{background: `rgba(12,13,16,${prog(f, from + 8, 10)})`}}>
+      <Drift from={from} amp={0.9} push={0.0015}>
         <div style={{position: 'absolute', left: rect.x, top: rect.y, width: rect.w, height: rect.h, borderRadius: lerp(6, 30, m), overflow: 'hidden',
           boxShadow: `0 0 0 3px ${m < 0.98 ? C.ai : C.line}`, opacity: 1 - lift * 0.82}}>
-          <div style={{transform: `scale(${rect.w / VP.w}, ${rect.h / VP.h})`, transformOrigin: '0 0', opacity: m}}>
+          <div style={{transform: `scale(${rect.w / VP.w}, ${rect.h / VP.h})`, transformOrigin: '0 0', opacity: lerp(0.55, 1, m)}}>
             <svg width={VP.w} height={VP.h} style={{position: 'absolute', left: 0, top: 0}}>
               <defs>
                 <linearGradient id="sky3" x1="0" y1="0" x2="0" y2="1">

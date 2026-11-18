@@ -60,7 +60,8 @@ export const SeqD: React.FC<{from: number}> = ({from}) => {
   const cpuOn = prog(f, d3 - 4, 10);
   const CORES = 6;
   const cpuT = Math.max(0, (f - d3 - sec(0.6)) / 30);
-  const cpuDur = (core: number) => 0.85 + (core % 3) * 0.18;     // 每个核心一个任务要多久（各不相同）
+  // 每个核心一个任务要多久（各不相同）；整批要到 GPU 那一段之后才做完——同一批相似任务，GPU 一整排一起清得更快（定性，不是测速）
+  const cpuDur = (core: number) => 1.45 + (core % 3) * 0.25;
   const cpuDone = (core: number) => Math.floor(cpuT / cpuDur(core));
   // 第 i 个任务给哪个核心、第几轮：按核心轮流取
   const cpuTaken = Array.from({length: CORES}, (_, c) => Math.min(Math.ceil(N / CORES), cpuDone(c) + (cpuT > 0 ? 1 : 0)));
@@ -85,18 +86,18 @@ export const SeqD: React.FC<{from: number}> = ({from}) => {
 
   return (
     <AbsoluteFill style={{background: C.bg, transform: `translateX(${(1 - slideIn) * 1080}px)`}}>
-      <Drift from={from} amp={0.5} push={0.0008}>
+      <Drift from={from} amp={0.85} push={0.0012}>
         {/* D1–D2 */}
         {split < 1 && (
           <AbsoluteFill style={{opacity: 1 - split}}>
             {Array.from({length: TILES}, (_, i) => {
               const a = gridPos(i, true), b = mergedPos(i * 2);
-              return <Task key={'g' + i} x={lerp(a.x, b.x, merge)} y={lerp(a.y, b.y, merge)} s={lerp(93, 58, merge)} color={C.game} label={sameShape > 0.5} glow={sameShape * 0.4} />;
+              return <Task key={'g' + i} x={lerp(a.x, b.x, merge)} y={lerp(a.y, b.y, merge)} s={lerp(93, 58, merge)} color={C.game} label={sameShape > 0.5} glow={sameShape * (0.35 + 0.3 * Math.sin(f * 0.28))} />;
             })}
             {Array.from({length: TILES}, (_, i) => {
               const a = gridPos(i, false), b = mergedPos(i * 2 + 1);
               // AI 这边：一开始是「一行参数 → 一个输出」的长条，变成同样的方格
-              return <Task key={'a' + i} x={lerp(a.x, b.x, merge)} y={lerp(a.y, b.y, merge)} s={lerp(46, 58, merge)} color={C.ai} label={sameShape > 0.5} glow={sameShape * 0.4}
+              return <Task key={'a' + i} x={lerp(a.x, b.x, merge)} y={lerp(a.y, b.y, merge)} s={lerp(46, 58, merge)} color={C.ai} label={sameShape > 0.5} glow={sameShape * (0.35 + 0.3 * Math.sin(f * 0.28))}
                 shape={sameShape < 0.5 ? 'bar' : 'sq'} />;
             })}
             <div style={{position: 'absolute', left: 0, right: 0, top: 280, textAlign: 'center', fontFamily: FONT.hei, fontWeight: 700, fontSize: 52, color: C.ink, opacity: merge}}>
@@ -126,19 +127,19 @@ export const SeqD: React.FC<{from: number}> = ({from}) => {
                 </div>
               );
             })}
-            <div style={{position: 'absolute', left: 370 - 95, top: CPU.y0 + CPU.h - 52, fontFamily: FONT.hei, fontWeight: 700, fontSize: 36, color: C.sub, opacity: cpuOn}}>几个强大的核心，各自取任务</div>
+            <div style={{position: 'absolute', left: 370 - 95, top: CPU.y0 + CPU.h - 52, fontFamily: FONT.hei, fontWeight: 700, fontSize: 40, color: C.sub, opacity: cpuOn}}>几个强大的核心，各自取任务</div>
             {/* GPU 半边 */}
             <div style={{position: 'absolute', left: 30, top: GPUB.y0, width: 1020, height: GPUB.h, borderRadius: 26, border: `3px solid ${C.sub}`, background: '#13161A', opacity: Math.max(0.35, gpuOn)}}>
               <div style={{position: 'absolute', left: 30, top: 18, fontFamily: FONT.title, fontSize: 64, color: C.ink}}>GPU</div>
             </div>
             {Array.from({length: 4 * 16}, (_, k) => {
               const c = k % 16, r = Math.floor(k / 16);
-              const X = 330 + c * 42, Y = GPUB.y0 + 130 + r * 82;
+              const X = 296 + c * 40, Y = GPUB.y0 + 130 + r * 82;
               const busy = gpuT > 0 && gpuWave * LANES < N && r === gpuWave % 4;
               return <div key={k} style={{position: 'absolute', left: X - 17, top: Y - 30, width: 34, height: 60, borderRadius: 8, opacity: Math.max(0.35, gpuOn),
                 border: `3px solid ${busy ? C.game : '#5A4325'}`, background: busy ? `rgba(240,160,64,${0.35 + 0.5 * wavePh})` : '#1B1F25'}} />;
             })}
-            <div style={{position: 'absolute', left: 310, top: GPUB.y0 + GPUB.h - 52, fontFamily: FONT.hei, fontWeight: 700, fontSize: 36, color: C.sub, opacity: gpuOn}}>很多运算单元，一整排一起做</div>
+            <div style={{position: 'absolute', left: 310, top: GPUB.y0 + GPUB.h - 52, fontFamily: FONT.hei, fontWeight: 700, fontSize: 40, color: C.sub, opacity: gpuOn}}>很多运算单元，一整排一起做</div>
             {/* 两份同样的队列 */}
             {Array.from({length: N}, (_, i) => {
               const src = mergedPos(i);
@@ -159,17 +160,17 @@ export const SeqD: React.FC<{from: number}> = ({from}) => {
           <AbsoluteFill style={{opacity: full}}>
             {Array.from({length: 12 * 14}, (_, k) => {
               const c = k % 12, r = Math.floor(k / 12);
-              const X = 100 + c * 80, Y = 300 + r * 76;
+              const X = 96 + c * 74, Y = 300 + r * 76;
               const wave = Math.floor(flowT / 0.45) % 14;
               const busy = flowT > 0 && (r === wave || r === (wave + 7) % 14);
               return <div key={k} style={{position: 'absolute', left: X - 30, top: Y - 30, width: 60, height: 60, borderRadius: 10,
-                border: `3px solid ${busy ? (c % 5 < 2 ? C.ai : C.game) : '#4A3920'}`, background: busy ? (c % 5 < 2 ? 'rgba(104,168,255,0.55)' : 'rgba(240,160,64,0.55)') : '#191C21'}} />;
+                border: `3px solid ${busy ? (r % 2 ? C.ai : C.game) : '#4A3920'}`, background: busy ? (r % 2 ? 'rgba(104,168,255,0.55)' : 'rgba(240,160,64,0.55)') : '#191C21'}} />;   // 一排只做一种（同一组执行同一条指令）
             })}
             {/* 上方流进来的任务：琥珀 = 游戏，蓝 = AI */}
             {Array.from({length: 24}, (_, k) => {
               const t = ((flowT * 0.9 + k / 24) % 1);
-              const x = 100 + (k % 12) * 80;
-              return <Task key={k} x={x} y={lerp(120, 300, t)} s={44} color={k % 5 < 2 ? C.ai : C.game} o={Math.sin(t * Math.PI)} />;
+              const x = 96 + (k % 12) * 74;
+              return <Task key={k} x={x} y={lerp(120, 300, t)} s={44} color={Math.floor(k / 12) % 2 ? C.ai : C.game} o={Math.sin(t * Math.PI)} />;
             })}
             <div style={{position: 'absolute', left: 60, top: 170, fontFamily: FONT.title, fontSize: 64, color: C.ink, opacity: prog(f, d5, 10) * 0.9}}>GPU</div>
           </AbsoluteFill>

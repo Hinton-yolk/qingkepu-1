@@ -6,7 +6,7 @@ import {Note, Plate, Tag} from '../lib/ui';
 import {GPU_BOX, GPU_GRID, GpuDie} from './SeqD';
 
 // v03 E 段：GPU 版图点出「专门的矩阵单元」→ 放大对齐真实芯片、叠化成写实镜头
-// → 叠加层只标两块：中间的「计算」区、四周的「显存（HBM）」；数据带方向地从显存流向计算区
+// → 叠加层只标两块：中间的「计算」区、两侧的「显存（HBM）」；数据带方向地从显存流向计算区
 // → 数据来得慢：计算区变灰、在等 →「算得快还不够。数据又是怎么及时送到芯片上的？」
 const RATE = 0.8;
 type P = number[];
@@ -33,7 +33,7 @@ export const SeqE: React.FC<{from: number}> = ({from}) => {
   const memTag = prog(f, e2 + sec(0.1), 12);
   const waiting = prog(f, e2 + sec(1.3), 12);            // 「计算单元就只能等着」
   const flow = prog(f, e2 + sec(0.6), 10);
-  const q = prog(f, e4 - 4, 14);
+  const q = prog(f, cue('E3') - 4, 14);
   const pushK = 1 + 0.018 * Math.min(1.6, Math.max(0, (f - T_CHIP) / 30));
   const t = (f - e2) / 30;
 
@@ -59,17 +59,23 @@ export const SeqE: React.FC<{from: number}> = ({from}) => {
                   {[0, 1].map((k) => {
                     const u = ((t / 1.6 + k * 0.5 + i * 0.13) % 1);
                     const x = lerp(a[0], ex, u), y = lerp(a[1], ey, u);
-                    return <path key={k} d="M-14,-12 L6,0 L-14,12" fill="none" stroke={C.ink} strokeWidth={6} strokeLinecap="round" strokeLinejoin="round"
-                      transform={`translate(${x},${y}) rotate(${ang})`} opacity={Math.sin(u * Math.PI)} />;
+                    return (
+                      <g key={k} transform={`translate(${x},${y}) rotate(${ang})`} opacity={Math.sin(u * Math.PI)}>
+                        <path d="M-30,-27 L14,0 L-30,27" fill="none" stroke="rgba(8,9,11,0.85)" strokeWidth={20} strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M-30,-27 L14,0 L-30,27" fill="none" stroke={C.ink} strokeWidth={10} strokeLinecap="round" strokeLinejoin="round" />
+                      </g>
+                    );
                   })}
                 </g>
               );
             })}
           </svg>
-          <Tag x={dc[0]} y={dc[1]} text={waiting > 0.5 ? '在等数据…' : '计算'} anchor="center" opacity={computeTag} size={52} color={waiting > 0.5 ? C.sub : C.ai} />
+          <div style={{position: 'absolute', left: dc[0], top: dc[1], transform: 'translate(-50%,-50%)', opacity: computeTag, fontFamily: FONT.hei, fontWeight: 700,
+            fontSize: waiting > 0.5 ? 60 : 54, color: waiting > 0.5 ? C.ink : C.ai, background: 'rgba(10,11,13,0.82)', padding: '10px 26px', borderRadius: 14,
+            border: `3px solid ${waiting > 0.5 ? C.sub : C.ai}`, whiteSpace: 'nowrap'}}>{waiting > 0.5 ? '在等数据…' : '计算'}</div>
           {(() => {
             const top = [fr.hbm[0], fr.hbm[1], fr.hbm[2]].map(toPx).reduce((m, h) => (h[1] < m[1] ? h : m));
-            return <Tag x={Math.max(190, top[0])} y={top[1] - 95} text="显存（HBM）" anchor="center" opacity={memTag} size={46} />;
+            return <Tag x={Math.max(200, top[0] - 30)} y={top[1] - 120} text="显存（HBM）" anchor="center" opacity={memTag} size={50} />;
           })()}
         </AbsoluteFill>
       </Sequence>
@@ -95,8 +101,8 @@ export const SeqE: React.FC<{from: number}> = ({from}) => {
       {/* 结尾的问题 */}
       <div style={{position: 'absolute', left: 0, right: 0, top: 190, textAlign: 'center', fontFamily: FONT.title, opacity: q, transform: `translateY(${(1 - q) * 24}px)`,
         textShadow: '0 4px 24px rgba(0,0,0,0.95)'}}>
-        <div style={{fontSize: 92, color: C.ink}}>算得快还不够</div>
-        <div style={{fontSize: 100, color: C.ai}}>数据怎么及时送到？</div>
+        <div style={{fontSize: 96, color: C.ink}}>算得快还不够。</div>
+        <div style={{fontSize: 84, color: C.ai, lineHeight: 1.15}}>数据又是怎么<br />及时送到芯片上的？</div>
       </div>
       <Note top={1490} opacity={xfade * 0.9}>示意：通用 AI 加速器，非特定型号；数据流向为示意</Note>
     </AbsoluteFill>

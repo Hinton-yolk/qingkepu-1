@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""从 remotion/src/timing.json 生成 narration/旁白与时间轴.md 和 narration/EP01_Pilot_v02.srt（和成片同一个时间源）"""
+"""从 remotion/src/timing.json 生成 narration/旁白与时间轴.md 和 narration/EP01_Pilot_v03.srt（和成片同一个时间源）"""
 import json, os
 HERE = os.path.dirname(os.path.abspath(__file__)); EP = os.path.dirname(HERE)
 T = json.load(open(os.path.join(EP, 'remotion', 'src', 'timing.json')))
@@ -9,15 +9,15 @@ ts = lambda s: f'{int(s // 60)}:{s % 60:05.2f}'
 md = [f"# EP01 开头旁白与时间轴（{T['version']}）", '',
       f"- 配音：{'Piper 本地临时 TTS（zh_CN-huayan-medium），不是终版声音' if T['engine'] == 'piper' else T['engine']}",
       f"- 总长 {T['total']:.1f} 秒（成片多留 0.12 秒）；时间是每句在成片里的起止。",
-      '- 旁白文字：导演《PILOT V02》第 4 节工作稿，原文照用、一字未改。改稿时改 `narration.json` 的 text，跑 `tts.py`，画面里的动作按句子 id 自动跟着移。', '']
+      '- 旁白文字：v03（在导演 v02 稿基础上按《PILOT V03》去重改短；开头、结尾用导演建议句）。A1、A2 画面上已是大字，不出字幕。改稿时改 `narration.json` 的 text，跑 `tts.py`，画面里的动作按句子 id 自动跟着移。', '']
 cur = None
 for l in T['lines']:
     if l['seq'] != cur:
         cur = l['seq']; a, b = T['seqs'][cur]; md += ['', f"## {SEQ[cur]}（{ts(a)}–{ts(b)}）", '', '| id | 起 | 止 | 旁白 | 句后停顿 |', '|---|---|---|---|---|']
     md.append(f"| {l['id']} | {ts(l['start'])} | {ts(l['end'])} | {l['text']} | {N[l['id']]['pause']} s |")
-open(os.path.join(HERE, '旁白与时间轴_v02.md'), 'w').write('\n'.join(md) + '\n')
+open(os.path.join(HERE, '旁白与时间轴_v03.md'), 'w').write('\n'.join(md) + '\n')
 srt = lambda s: f"{int(s // 3600):02d}:{int(s % 3600 // 60):02d}:{int(s % 60):02d},{int(round(s % 1 * 1000)) % 1000:03d}"
 out = []
 for i, l in enumerate(T['lines'], 1): out += [str(i), f"{srt(l['start'])} --> {srt(l['end'])}", l['text'], '']
-open(os.path.join(HERE, 'EP01_Pilot_v02.srt'), 'w').write('\n'.join(out))
+open(os.path.join(HERE, 'EP01_Pilot_v03.srt'), 'w').write('\n'.join(out))
 print('ok')
