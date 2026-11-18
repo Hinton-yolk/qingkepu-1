@@ -38,7 +38,9 @@ const split = (s: string): string[] => {
 };
 const clean = (s: string) => s.replace(/[，。；、：]$/g, '').replace(/^[，。；、：]/, '');
 
-const CHUNKS: Chunk[] = T.lines.flatMap((l) => {
+// v03：开头两句就是画面上的大字问题，不再重复出字幕
+const HIDE = ['A1', 'A2'];
+const CHUNKS: Chunk[] = T.lines.filter((l) => !HIDE.includes(l.id)).flatMap((l) => {
   const ps = split(l.text);
   const w = ps.map((p) => Math.max(1, p.replace(/[，。：；？！、「」\s]/g, '').length));
   const tot = w.reduce((x, y) => x + y, 0);

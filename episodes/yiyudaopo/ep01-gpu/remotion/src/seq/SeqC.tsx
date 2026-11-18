@@ -3,155 +3,126 @@ import {C, FONT} from '../lib/theme';
 import {cue, ease, easeIO, lerp, prog, sec} from '../lib/time';
 import {Drift, Kicker, Note} from '../lib/ui';
 
-// v02 C 段：问题 → 切段换数字 → 输入 [2,3]
-// → 第 1 行参数 [4,5]：2×4 + 3×5 = 23（快）→ 第 2 行参数 [1,6]：2×1 + 3×6 = 20（同一个输入，各自的连线）
-// → 很多行一起展开（不放小数字）→ 「矩阵 × 向量」简化示意
-const TOKENS = ['黑洞', '是', '什么？'];
-const VEC = [[0.12, -0.83, 0.45], [-0.54, 0.21, 0.08], [0.33, 0.71, -0.46]];   // 示意数字
-const sgn = (v: number) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(2);
-
-const Chip: React.FC<{x: number; y: number; v: string; color: string; o?: number; size?: number; glow?: number; fill?: string}> = ({x, y, v, color, o = 1, size = 150, glow = 0, fill}) => (
-  <div style={{position: 'absolute', left: x - size / 2, top: y - size / 2, width: size, height: size, borderRadius: size * 0.16, opacity: o,
-    border: `4px solid ${color}`, background: fill ?? 'rgba(20,22,27,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontFamily: FONT.num, fontWeight: 700, fontSize: size * 0.6, color, boxShadow: glow ? `0 0 ${40 * glow}px ${color}` : undefined}}>{v}</div>
+// v03 C 段：一个连续的舞台，元素变形、移动，不换「幻灯片」。
+// 问题 → 一串数字 → 收拢成输入 [2,3] → 输入的「复制」落到第 1 行参数 [4,5]，积 8、15 飞出合成 23
+// → 再绕到第 2 行 [1,6]，积 2、18 合成 20 → 镜头拉远，又来 3 行，输入沿两条竖线同时送到每一行，所有输出一起亮。
+const Chip: React.FC<{x: number; y: number; v: string; color: string; o?: number; size?: number; glow?: number; fill?: string; fs?: number}> = ({x, y, v, color, o = 1, size = 150, glow = 0, fill, fs}) => (
+  <div style={{position: 'absolute', left: x - size / 2, top: y - size / 2, width: size, height: size, borderRadius: size * 0.18, opacity: o,
+    border: `5px solid ${color}`, background: fill ?? 'rgba(20,22,27,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontFamily: FONT.num, fontWeight: 700, fontSize: fs ?? size * 0.58, color, boxShadow: glow > 0.05 ? `0 0 ${46 * glow}px ${color}` : undefined}}>{v}</div>
 );
+const bez = (a: number[], b: number[], c: number[], d: number[], t: number) => {
+  const u = 1 - t;
+  return [0, 1].map((k) => u * u * u * a[k] + 3 * u * u * t * b[k] + 3 * u * t * t * c[k] + t * t * t * d[k]);
+};
 
 export const SeqC: React.FC<{from: number}> = ({from}) => {
   const f = useCurrentFrame() + from;
   const slideIn = prog(f, from, 14, easeIO);
-  const c1 = cue('C1'), c2 = cue('C2'), c3 = cue('C3'), c4 = cue('C4'), c5 = cue('C5'), c6 = cue('C6'), c7 = cue('C7');
-  // C1–C2：问题 → 切段 → 每段几个数字
-  const arrive = prog(f, from + 4, sec(0.8), ease);
-  const split = prog(f, c2 + sec(0.2), 12, easeIO);
-  const nums = (i: number) => prog(f, c2 + sec(0.9) + i * 4, 10);
-  const tokOut = prog(f, c3, sec(0.9), easeIO);
-  // C3：输入 [2,3]
-  const inIn = prog(f, c3 + sec(0.15), sec(1.1), easeIO);   // 数字从上面那几列「收拢」成输入 [2, 3]
-  const inPulse = inIn * (1 - prog(f, c4, 8)) * (0.5 + 0.5 * Math.sin((f - c3) * 0.35));
-  // C4：第 1 行
-  const r1 = prog(f, c4 - 2, 10);
-  const p1a = prog(f, c4 + sec(0.55), 6), p1b = prog(f, c4 + sec(1.3), 6), o1 = prog(f, c4 + sec(2.15), 8);
-  // C5：第 2 行（同一个输入，各自的连线）
-  const r2 = prog(f, c5 + sec(0.1), 10);
-  const link2 = prog(f, c5 + sec(0.9), 14, easeIO);
-  const p2a = prog(f, c5 + sec(1.5), 6), p2b = prog(f, c5 + sec(1.85), 6), o2 = prog(f, c5 + sec(2.6), 8);
-  const dim1 = r2 * (1 - o2) * 0.55;                         // 算第 2 行时，第 1 行退后
-  // C6：很多行一起展开
-  const zoom = prog(f, c6, 16, easeIO);
-  const rowsIn = (r: number) => prog(f, c6 + sec(0.5) + r * 2, 8);
-  const fire = prog(f, c6 + sec(2.0), 4) * (1 - prog(f, c6 + sec(2.8), 12));
-  const fired = prog(f, c6 + sec(2.0), 4);
-  // C7：标注
-  const lab = prog(f, c7, 12);
+  const c1 = cue('C1'), c2 = cue('C2'), c3 = cue('C3'), c4 = cue('C4'), c5 = cue('C5');
+  const IX = [370, 570], IY = 420, R1Y = 760, R2Y = 1040, OX = 860, EXTRA = [1260, 1480, 1700];
+  // 问题 → 一串数字 → 输入
+  const bub = prog(f, from + 4, 14, ease);
+  const toNums = prog(f, c2 + sec(0.2), 12);
+  const gather = prog(f, c2 + sec(1.3), 18, easeIO);
+  const NUMS = ['2', '3', '1', '4', '0', '2'];
+  // 第 1 行
+  const r1 = prog(f, c3 - 8, 10);
+  const g1a = prog(f, c3 + sec(0.3), 9, easeIO), g1b = prog(f, c3 + sec(1.05), 9, easeIO);   // 输入的复制落到 4、5
+  const p1a = prog(f, c3 + sec(0.6), 8), p1b = prog(f, c3 + sec(1.35), 8);               // 8、15 出现
+  const fuse1 = prog(f, c3 + sec(1.95), 12, easeIO);                                      // 合成 23
+  // 第 2 行
+  const r2 = prog(f, c4 + sec(0.05), 10);
+  const g2 = prog(f, c4 + sec(0.9), 16, easeIO);
+  const p2a = prog(f, c4 + sec(1.5), 8), p2b = prog(f, c4 + sec(1.8), 8);
+  const fuse2 = prog(f, c4 + sec(2.55), 12, easeIO);
+  // 拉远 + 更多行 + 一起算
+  const pull = prog(f, c5, 22, easeIO);
+  const more = (k: number) => prog(f, c5 + sec(0.5) + k * 5, 10);
+  const bus = prog(f, c5 + sec(1.6), 10);
+  const fireT = c5 + sec(2.0);
+  const fire = prog(f, fireT, 4) * (1 - prog(f, fireT + 8, 14));
+  const fired = prog(f, fireT, 4);
+  const S = lerp(1, 0.62, pull);
+  const stage = `translate(${(1 - S) * 540 + 0}px, ${(1 - S) * 330}px) scale(${S})`;
 
-  const IX = [330, 530], IY = 520, R1Y = 860, R2Y = 1110, OX = 855;   // 输出格右边缘 ≤ 940（抖音右侧按钮）
-  // C6 网格的几何（第 1、2 行就是上面两行，缩小到这里）
-  const G = {x0: 170, y0: 600, pitch: 78, cell: 66, cols: 6, rows: 9, iy: 500, ox: 790};
-  const gx = (j: number) => G.x0 + j * G.pitch, gy = (r: number) => G.y0 + r * G.pitch;
-
-  // 教学舞台缩到网格前两行的位置
-  const stageT = `translate(${-zoom * 60}px, ${-zoom * 120}px) scale(${lerp(1, 0.6, zoom)})`;
+  const outChip = (y: number, v: string, fuse: number, pa: number, pb: number, va: string, vb: string, row: number) => {
+    // 积先出现在行和输出之间（上下两个小块），再飞进输出合成一个数
+    const midX = (IX[1] + OX) / 2 + 20;
+    const pa0 = [midX, y - 62], pb0 = [midX, y + 62];
+    return (
+      <>
+        <Chip x={lerp(pa0[0], OX, fuse)} y={lerp(pa0[1], y, fuse)} v={va} color={C.game} size={88} o={pa * (1 - fuse)} glow={pa * (1 - fuse) * 0.6} />
+        <Chip x={lerp(pb0[0], OX, fuse)} y={lerp(pb0[1], y, fuse)} v={vb} color={C.game} size={88} o={pb * (1 - fuse)} glow={pb * (1 - fuse) * 0.6} />
+        <Chip x={OX} y={y} v={v} color={C.ai} size={150} o={fuse} glow={Math.max(fuse * (1 - prog(f, (row === 1 ? c3 : c4) + sec(3.0), 16)), fire) * 0.9} fill="rgba(104,168,255,0.18)" />
+      </>
+    );
+  };
 
   return (
     <AbsoluteFill style={{background: C.bg, transform: `translateX(${(1 - slideIn) * 1080}px)`}}>
       <Kicker text="AI 模型" color={C.ai} opacity={slideIn} />
-      <Drift from={from} amp={1.1} push={0.0012}>
-        {/* C1–C2 问题和切段 */}
-        {tokOut < 1 && (
-          <div style={{position: 'absolute', left: 0, right: 0, top: 420 - (1 - arrive) * 240 + tokOut * 60, opacity: arrive * (1 - tokOut), display: 'flex', justifyContent: 'center', gap: lerp(0, 40, split) * (1 - tokOut), transform: `scale(${1 - 0.4 * tokOut})`}}>
-            {TOKENS.map((t, i) => (
-              <div key={i} style={{position: 'relative', fontFamily: FONT.hei, fontSize: 92, color: C.ink, padding: '20px 34px', background: split > 0.05 ? C.bg2 : '#2B3038',
-                border: `4px solid rgba(104,168,255,${split})`, borderRadius: split > 0.05 ? 18 : i === 0 ? '46px 0 0 46px' : i === 2 ? '0 46px 46px 0' : 0}}>
-                {t}
-                <div style={{position: 'absolute', left: 0, right: 0, top: '118%', textAlign: 'center'}}>
-                  {VEC[i].map((v, k) => (
-                    <div key={k} style={{fontFamily: FONT.num, fontSize: 54, lineHeight: 1.35, color: C.ai, opacity: prog(f, c2 + sec(0.9) + i * 4 + k * 3, 8) * nums(i)}}>{sgn(v)}</div>
-                  ))}
-                  <div style={{fontFamily: FONT.num, fontSize: 54, color: C.dim, opacity: nums(i)}}>⋮</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+      <Drift from={from} amp={0.7} push={0.0012}>
+        {/* 问题气泡 → 一串数字 */}
+        <div style={{position: 'absolute', left: 0, right: 0, top: 500, textAlign: 'center', opacity: bub * (1 - toNums), transform: `scale(${lerp(0.85, 1, bub)})`}}>
+          <span style={{fontFamily: FONT.hei, fontSize: 96, color: C.ink, background: '#2B3038', padding: '26px 52px', borderRadius: '56px 56px 14px 56px'}}>黑洞是什么？</span>
+        </div>
+        {toNums > 0 && NUMS.map((v, i) => {
+          const x0 = 540 + (i - 2.5) * 150, y0 = 560;
+          const keep = i < 2;
+          const x = keep ? lerp(x0, IX[i], gather) : x0 + gather * 400;
+          const y = keep ? lerp(y0, IY, gather) : y0;
+          return <Chip key={i} x={x} y={y} v={v} color={C.ai} size={lerp(120, 150, keep ? gather : 0)} o={toNums * (keep ? 1 : 1 - gather)} />;
+        })}
 
-        {/* C3–C5 教学舞台 */}
-        {inIn > 0 && (
-          <AbsoluteFill style={{transform: stageT, transformOrigin: '30% 30%', opacity: 1 - zoom}}>
-            <div style={{position: 'absolute', left: 70, top: IY - 26, fontFamily: FONT.hei, fontWeight: 700, fontSize: 44, color: C.ai, opacity: inIn * (1 - zoom)}}>输入</div>
-            <div style={{transform: `translateY(${(1 - inIn) * 160}px) scale(${lerp(0.55, 1, inIn)})`, transformOrigin: '460px 520px'}}>
-              <Chip x={IX[0]} y={IY} v="2" color={C.ai} o={inIn} glow={inPulse} />
-              <Chip x={IX[1]} y={IY} v="3" color={C.ai} o={inIn} glow={inPulse} />
-            </div>
-            <svg width={1080} height={1400} style={{position: 'absolute', left: 0, top: 0}}>
-              {/* 第 1 行的连线：直下 */}
-              {[0, 1].map((j) => <line key={j} x1={IX[j]} y1={IY + 78} x2={IX[j]} y2={IY + 78 + (R1Y - 78 - IY - 78) * r1} stroke={C.ai} strokeWidth={6}
-                opacity={(1 - dim1) * (1 - zoom)} />)}
-              {/* 第 2 行的连线：从同一个输入绕到外侧落下（另一条连接） */}
-              <path d={`M${IX[0] - 60},${IY + 78} C ${IX[0] - 150},${IY + 260} ${IX[0] - 150},${R2Y - 200} ${IX[0] - 30},${R2Y - 78}`} fill="none" stroke={C.ai}
-                strokeWidth={6} strokeDasharray="16 12" pathLength={1} strokeDashoffset={0} opacity={link2 * (1 - zoom)} />
-              <path d={`M${IX[1] + 60},${IY + 78} C ${IX[1] + 120},${IY + 260} ${IX[1] + 120},${R2Y - 200} ${IX[1] + 30},${R2Y - 78}`} fill="none" stroke={C.ai}
-                strokeWidth={6} strokeDasharray="16 12" opacity={link2 * (1 - zoom)} />
-              {/* 箭头到输出 */}
-              {[[R1Y, o1], [R2Y, o2]].map(([y, o], k) => <line key={k} x1={IX[1] + 90} y1={y} x2={IX[1] + 90 + (OX - 80 - IX[1] - 90) * o} y2={y} stroke={C.ink} strokeWidth={5} opacity={(1 - zoom) * (k === 0 ? 1 - dim1 : 1)} />)}
-            </svg>
-            {/* 第 1 行 */}
-            <div style={{opacity: 1 - dim1}}>
-              <div style={{position: 'absolute', left: 50, top: R1Y - 26, fontFamily: FONT.hei, fontWeight: 700, fontSize: 40, color: C.sub, opacity: r1 * (1 - zoom)}}>参数 ①</div>
-              <Chip x={IX[0]} y={R1Y} v="4" color={C.ink} o={r1} glow={p1a * (1 - p1b)} />
-              <Chip x={IX[1]} y={R1Y} v="5" color={C.ink} o={r1} glow={p1b * (1 - o1)} />
-              <div style={{position: 'absolute', left: IX[1] + 105, width: OX - 75 - IX[1] - 105, top: R1Y - 74, textAlign: 'center', fontFamily: FONT.num, fontSize: 34, color: C.game,
-                opacity: (1 - zoom)}}>
-                <span style={{opacity: p1a}}>8</span><span style={{opacity: p1b}}> + 15</span>
-              </div>
-              <Chip x={OX} y={R1Y} v="23" color={C.ai} o={o1} size={150} glow={o1 * (1 - o2) * 0.8} fill="rgba(104,168,255,0.16)" />
-            </div>
-            {/* 第 2 行 */}
-            <div style={{position: 'absolute', left: 50, top: R2Y - 26, fontFamily: FONT.hei, fontWeight: 700, fontSize: 40, color: C.sub, opacity: r2 * (1 - zoom)}}>参数 ②</div>
-            <Chip x={IX[0]} y={R2Y} v="1" color={C.ink} o={r2} glow={p2a * (1 - p2b)} />
-            <Chip x={IX[1]} y={R2Y} v="6" color={C.ink} o={r2} glow={p2b * (1 - o2)} />
-            <div style={{position: 'absolute', left: IX[1] + 105, width: OX - 75 - IX[1] - 105, top: R2Y - 74, textAlign: 'center', fontFamily: FONT.num, fontSize: 34, color: C.game, opacity: 1 - zoom}}>
-              <span style={{opacity: p2a}}>2</span><span style={{opacity: p2b}}> + 18</span>
-            </div>
-            <Chip x={OX} y={R2Y} v="20" color={C.ai} o={o2} size={150} glow={o2 * 0.8 * (1 - zoom)} fill="rgba(104,168,255,0.16)" />
-          </AbsoluteFill>
-        )}
-
-        {/* C6–C7：很多行一起展开（除前两行外不放数字） */}
-        {zoom > 0 && (
-          <AbsoluteFill>
-            {/* 输入向量延长 */}
-            {Array.from({length: G.cols}, (_, j) => (
-              <div key={'i' + j} style={{position: 'absolute', left: gx(j) - G.cell / 2, top: G.iy - G.cell / 2, width: G.cell, height: G.cell, borderRadius: 10,
-                border: `3px solid ${C.ai}`, background: 'rgba(104,168,255,0.12)', opacity: prog(f, c6 + sec(0.2) + j * 2, 8),
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT.num, fontWeight: 700, fontSize: 38, color: C.ai}}>{j < 2 ? ['2', '3'][j] : ''}</div>
+        {/* 教学舞台（C5 时整体拉远） */}
+        <AbsoluteFill style={{transform: stage, transformOrigin: '0 0'}}>
+          <div style={{position: 'absolute', left: 60, top: IY - 30, fontFamily: FONT.hei, fontWeight: 700, fontSize: 46, color: C.ai, opacity: gather * (1 - pull)}}>输入</div>
+          {/* C5：两条竖线把输入同时送到每一行 */}
+          <svg width={1080} height={1900} style={{position: 'absolute', left: 0, top: 0}}>
+            {[0, 1].map((j) => (
+              <g key={j} opacity={bus}>
+                <line x1={IX[j]} y1={IY + 80} x2={IX[j]} y2={EXTRA[2] - 80} stroke={C.ai} strokeWidth={8} opacity={0.35} />
+                {fire > 0 && <line x1={IX[j]} y1={IY + 80} x2={IX[j]} y2={lerp(IY + 80, EXTRA[2] - 80, prog(f, fireT - 6, 8))} stroke={C.ai} strokeWidth={12} />}
+              </g>
             ))}
-            {Array.from({length: G.rows}, (_, r) => (
-              <div key={'r' + r}>
-                {Array.from({length: G.cols}, (_, j) => (
-                  <div key={j} style={{position: 'absolute', left: gx(j) - G.cell / 2, top: gy(r) - G.cell / 2, width: G.cell, height: G.cell, borderRadius: 10,
-                    border: `3px solid ${fire > 0.3 ? C.op : '#5C6370'}`, background: fire > 0.1 ? `rgba(255,255,255,${0.15 * fire})` : C.bg2,
-                    opacity: r < 2 ? prog(f, c6 + sec(0.2) + j * 2, 8) : rowsIn(r),
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT.num, fontWeight: 700, fontSize: 38, color: C.ink}}>{r < 2 && j < 2 ? [['4', '5'], ['1', '6']][r][j] : ''}</div>
-                ))}
-                <div style={{position: 'absolute', left: G.ox - 45, top: gy(r) - G.cell / 2, width: 90, height: G.cell, borderRadius: 10, border: `3px solid ${C.ai}`,
-                  background: `rgba(104,168,255,${0.12 + 0.5 * fire + 0.15 * fired})`, opacity: r < 2 ? prog(f, c6 + sec(0.3), 8) : rowsIn(r), boxShadow: fire > 0.2 ? `0 0 ${24 * fire}px ${C.ai}` : undefined,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT.num, fontWeight: 700, fontSize: 38, color: C.ai}}>{r < 2 ? ['23', '20'][r] : ''}</div>
-              </div>
-            ))}
-            <div style={{position: 'absolute', left: gx(G.cols - 1) + 46, top: G.iy - 26, fontFamily: FONT.num, fontSize: 44, color: C.dim, opacity: zoom}}>…</div>
-            {/* C7 标注 */}
-            <div style={{position: 'absolute', left: gx(0) - 40, top: G.iy - 96, fontFamily: FONT.hei, fontWeight: 700, fontSize: 38, color: C.ai, opacity: lab}}>输入向量（同一个）</div>
-            <div style={{position: 'absolute', left: G.ox - 70, top: G.y0 - 100, fontFamily: FONT.hei, fontWeight: 700, fontSize: 38, color: C.ai, opacity: lab}}>输出</div>
-            <div style={{position: 'absolute', left: 40, top: gy(G.rows - 1) + 60, right: 40, fontFamily: FONT.hei, fontWeight: 700, fontSize: 40, color: C.sub, opacity: lab}}>
-              每一行参数 × 同一个输入 → 一个输出（其余项省略）
+            {/* 第 2 行的连线：从同一个输入绕到外侧落下 */}
+            <path d={`M${IX[0] - 60},${IY + 80} C ${IX[0] - 200},${IY + 300} ${IX[0] - 200},${R2Y - 250} ${IX[0] - 40},${R2Y - 80}`} fill="none" stroke={C.ai} strokeWidth={6} strokeDasharray="18 12" opacity={r2 * (1 - bus)} />
+            <path d={`M${IX[1] + 60},${IY + 80} C ${IX[1] + 150},${IY + 300} ${IX[1] + 150},${R2Y - 250} ${IX[1] + 40},${R2Y - 80}`} fill="none" stroke={C.ai} strokeWidth={6} strokeDasharray="18 12" opacity={r2 * (1 - bus)} />
+            {/* 第 1 行的连线：直下 */}
+            {[0, 1].map((j) => <line key={j} x1={IX[j]} y1={IY + 80} x2={IX[j]} y2={R1Y - 80} stroke={C.ai} strokeWidth={6} opacity={r1 * (1 - bus)} />)}
+          </svg>
+          <Chip x={IX[0]} y={IY} v="2" color={C.ai} o={gather} glow={prog(f, c4, 6) * (1 - prog(f, c4 + 12, 10)) + fire * 0.5} />
+          <Chip x={IX[1]} y={IY} v="3" color={C.ai} o={gather} glow={prog(f, c4, 6) * (1 - prog(f, c4 + 12, 10)) + fire * 0.5} />
+          {/* 输入的复制：落到第 1 行 */}
+          <Chip x={IX[0]} y={lerp(IY, R1Y, g1a)} v="2" color={C.ai} size={110} o={g1a > 0 && g1a < 1 ? 1 : 0} />
+          <Chip x={IX[1]} y={lerp(IY, R1Y, g1b)} v="3" color={C.ai} size={110} o={g1b > 0 && g1b < 1 ? 1 : 0} />
+          {/* 输入的复制：绕到第 2 行 */}
+          {g2 > 0 && g2 < 1 && (() => {
+            const pa = bez([IX[0] - 60, IY + 80], [IX[0] - 200, IY + 300], [IX[0] - 200, R2Y - 250], [IX[0], R2Y], g2);
+            const pb = bez([IX[1] + 60, IY + 80], [IX[1] + 150, IY + 300], [IX[1] + 150, R2Y - 250], [IX[1], R2Y], g2);
+            return <><Chip x={pa[0]} y={pa[1]} v="2" color={C.ai} size={110} /><Chip x={pb[0]} y={pb[1]} v="3" color={C.ai} size={110} /></>;
+          })()}
+          {/* 第 1 行 */}
+          <Chip x={IX[0]} y={R1Y} v="4" color={C.ink} o={r1} glow={g1a >= 1 ? 0.5 * (1 - fuse1) : 0} />
+          <Chip x={IX[1]} y={R1Y} v="5" color={C.ink} o={r1} glow={g1b >= 1 ? 0.5 * (1 - fuse1) : 0} />
+          {outChip(R1Y, '23', fuse1, p1a, p1b, '8', '15', 1)}
+          {/* 第 2 行 */}
+          <Chip x={IX[0]} y={R2Y} v="1" color={C.ink} o={r2} glow={g2 >= 1 ? 0.5 * (1 - fuse2) : 0} />
+          <Chip x={IX[1]} y={R2Y} v="6" color={C.ink} o={r2} glow={g2 >= 1 ? 0.5 * (1 - fuse2) : 0} />
+          {outChip(R2Y, '20', fuse2, p2a, p2b, '2', '18', 2)}
+          {/* 更多行：不放数字 */}
+          {EXTRA.map((y, k) => (
+            <div key={k} style={{opacity: more(k), transform: `translateY(${(1 - more(k)) * 60}px)`}}>
+              <Chip x={IX[0]} y={y} v="" color={C.sub} />
+              <Chip x={IX[1]} y={y} v="" color={C.sub} />
+              <Chip x={OX} y={y} v="" color={C.ai} fill={`rgba(104,168,255,${0.12 + 0.45 * fired})`} glow={fire * 0.9} />
             </div>
-            <div style={{position: 'absolute', left: 0, right: 0, top: 262, textAlign: 'center', fontFamily: FONT.hei, fontWeight: 700, fontSize: 80, color: C.ink, opacity: lab}}>矩阵 × 向量</div>
-          </AbsoluteFill>
-        )}
+          ))}
+        </AbsoluteFill>
       </Drift>
-      <Note top={1490} opacity={prog(f, c2 + sec(0.9), 10) * (1 - inIn) * 0.9}>示意数字：真实模型里每段有几千个数</Note>
-      <Note top={1490} opacity={inIn * (1 - lab) * 0.9}>示意：用两对简单整数举例</Note>
-      <Note top={1490} opacity={lab * 0.9}>简化示意：神经网络里的矩阵计算，不是语言模型的完整过程</Note>
+      <Note top={1490} opacity={toNums * (1 - gather) * 0.9}>示意数字</Note>
+      <Note top={1490} opacity={prog(f, c4, 10) * 0.9}>简化示意：每一行参数 × 同一个输入 → 一个输出</Note>
     </AbsoluteFill>
   );
 };

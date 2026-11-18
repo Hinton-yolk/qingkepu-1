@@ -418,7 +418,9 @@ def main():
         for f in range(1, SHOTS[shot] + 1):
             sc.frame_set(f)
             frames.append(dict(die=[project(sc, cam, c) for c in corners],
-                               hbm=[project(sc, cam, (x, y, zt - 0.04)) for x, y in hbm_centers()]))
+                               hbm=[project(sc, cam, (x, y, zt - 0.04)) for x, y in hbm_centers()],
+                               hbmq=[[project(sc, cam, (x + sx * HBM[0] / 2, y + sy * HBM[1] / 2, zt - 0.04)) for sx, sy in ((-1, 1), (1, 1), (1, -1), (-1, -1))]
+                                     for x, y in hbm_centers()]))
         json.dump(dict(shot=shot, fps=FPS, w=w, h=h, frames=frames), open(out, 'w'))
     elif mode == 'save':
         bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(a[2]))

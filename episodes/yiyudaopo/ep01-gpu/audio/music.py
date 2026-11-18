@@ -110,7 +110,7 @@ while t < tC - 0.05:
     t += bar; k += 1
 # ---------------- C：转 G 大调；讲 2×4+3×5 时只留垫音 ----------------
 tD = cue('D1') - 0.3
-quiet_a, quiet_b = cue('C4') - 0.4, cue('C5', 'end') + 0.4
+quiet_a, quiet_b = cue('C3') - 0.4, cue('C4', 'end') + 0.6
 prog_G = [[55, 59, 62, 66], [54, 57, 62, 69], [52, 55, 59, 62], [48, 55, 59, 64]]   # Gmaj7  D/F#  Em  Cmaj7
 t = tC; k = 0
 while t < tD - 0.55:
@@ -123,7 +123,7 @@ while t < tD - 0.55:
     t += bar; k += 1
 # 半拍停顿 → D
 # ---------------- D：A 小调 → C 大调，更满 ----------------
-t8 = cue('D7')
+t8 = cue('D5')
 prog_Am = [[45, 52, 57, 60, 64], [41, 53, 57, 60, 65], [43, 55, 59, 62, 67], [40, 52, 56, 59, 64]]  # Am  F  G  E
 t = tD + 0.05; k = 0
 while t < t8 - 0.45:
@@ -148,28 +148,29 @@ music[int((DUR - 2.0) * SR):int(DUR * SR)] *= np.linspace(1, 0, int(DUR * SR) - 
 music[int(DUR * SR):] = 0
 music = reverb(music, 0.3)
 
-# ---------------- 音效（v02：少而准，只卡在关键动作上） ----------------
+# ---------------- 音效（v03：少而准，只卡在关键动作上） ----------------
 fps = 30
-add(sfx, cue('A1') + 1.3, whoosh(0.45, 0.12)); add(sfx, cue('A1') + 1.8, bell(84, 1.0, 0.07))      # 光落到芯片
-add(sfx, cue('A2') - 0.33, whoosh(0.6, 0.28))                                                         # 甩到机房
+A1, A2 = cue('A1'), cue('A2')
+add(sfx, A1 + 1.25 - 0.15, whoosh(0.4, 0.22)); add(sfx, A2 - 0.25, whoosh(0.4, 0.2))               # 切到机房、切回芯片
+add(sfx, A2, bell(84, 1.2, 0.07))
 add(sfx, tB, whoosh(0.5, 0.14))
-B4 = cue('B4')
-for i in range(6): add(sfx, B4 + 0.3 + i * 4 / fps, tick(0.08, 1300))                                # 排队：一块一块
-add(sfx, B4 + 1.55, noise_burst(0.35, 0.10, 1500, 9000, a=0.01, decay=8)); add(sfx, B4 + 1.55, bell(79, 1.2, 0.08))   # 一起算
+B2, B4 = cue('B2'), cue('B4')
+add(sfx, B2 + 0.4, bell(76, 0.9, 0.07))                                                               # 第一块算好
+add(sfx, B4 + 1.25, noise_burst(0.35, 0.10, 1500, 9000, a=0.01, decay=8)); add(sfx, B4 + 1.25, bell(79, 1.2, 0.08))   # 一起算
 add(sfx, tC, whoosh(0.45, 0.14))
-C2, C4, C5, C6 = cue('C2'), cue('C4'), cue('C5'), cue('C6')
-add(sfx, C2 + 0.2, noise_burst(0.08, 0.12, 2000, 9000, decay=40))                                    # 切段
-add(sfx, C4 + 0.55, tick(0.12, 1400)); add(sfx, C4 + 1.3, tick(0.12, 1500)); add(sfx, C4 + 2.15, bell(84, 1.4, 0.12))
-add(sfx, C5 + 1.5, tick(0.12, 1400)); add(sfx, C5 + 1.85, tick(0.12, 1500)); add(sfx, C5 + 2.6, bell(81, 1.4, 0.11))
-add(sfx, C6 + 2.0, pad([67, 71, 74], 0.9, 0.09))                                                      # 很多行一起出结果
+C2, C3, C4, C5 = cue('C2'), cue('C3'), cue('C4'), cue('C5')
+add(sfx, C2 + 1.3, whoosh(0.4, 0.08, up=False))
+add(sfx, C3 + 0.6, tick(0.12, 1400)); add(sfx, C3 + 1.35, tick(0.12, 1500)); add(sfx, C3 + 1.95, bell(84, 1.4, 0.12))
+add(sfx, C4 + 1.5, tick(0.12, 1400)); add(sfx, C4 + 1.8, tick(0.12, 1500)); add(sfx, C4 + 2.55, bell(81, 1.4, 0.11))
+add(sfx, C5 + 2.0, pad([67, 71, 74], 0.9, 0.09))                                                      # 很多行一起出结果
 add(sfx, tD - 0.35, whoosh(0.4, 0.14))
-D2, D6, D7 = cue('D2'), cue('D6'), cue('D7')
-add(sfx, D2 + 2.3, whoosh(0.5, 0.1, up=False)); add(sfx, D2 + 3.2, bell(76, 1.4, 0.08))
-add(sfx, D6 + 1.2 + 22 / fps, bass(31, 0.6, 0.22)); add(sfx, D6 + 1.2 + 22 / fps, noise_burst(0.08, 0.1, 100, 1200, decay=30))   # 卡进去
-add(sfx, D7 + 1.6, noise_burst(0.25, 0.10, 600, 5000, a=0.01, decay=10))                               # 划掉
-E1, E4, E5 = cue('E1'), cue('E4'), cue('E5')
+D2, D4, D5 = cue('D2'), cue('D4'), cue('D5')
+add(sfx, D2 + 2.4, whoosh(0.5, 0.1, up=False)); add(sfx, D2 + 3.0, bell(76, 1.4, 0.08))              # 合成一批
+for k in range(3): add(sfx, D4 + 0.7 + k * 0.9, noise_burst(0.12, 0.06, 2000, 9000, decay=25))      # GPU 一整排一起做
+add(sfx, D5, whoosh(0.7, 0.1))
+E1, E2, E4 = cue('E1'), cue('E2'), cue('E4')
 add(sfx, E1 + 3.0 - 0.9, whoosh(0.9, 0.11))
-add(sfx, E4, bell(79, 1.2, 0.07)); add(sfx, E5, bass(38, 1.2, 0.13))
+add(sfx, E2 + 1.3, bass(33, 1.0, 0.12)); add(sfx, E4, bass(38, 1.2, 0.13))
 sfx = reverb(sfx, 0.18, 1.4)
 
 os.makedirs(os.path.join(EP, 'remotion', 'public', 'audio'), exist_ok=True)
