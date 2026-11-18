@@ -43,7 +43,7 @@ export const SeqH: React.FC<{from: number}> = ({from}) => {
       {/* 写实：一排排机柜 */}
       {f >= RSTART && (
         <Sequence from={RSTART - from} layout="none">
-          <AbsoluteFill style={{opacity: schemOut * (1 - card), transform: `scale(${1 + 0.006 * Math.max(0, f - h6) / 30})`, transformOrigin: '50% 40%'}}>
+          <AbsoluteFill style={{opacity: schemOut * (1 - card), transform: `scale(${lerp(1.14, 1, prog(f, RSTART, sec(3.2), easeIO)) + 0.014 * Math.max(0, f - h6) / 30})`, transformOrigin: '50% 40%'}}>
             <Plate name="RACK" rate={rRate} />
             <AbsoluteFill style={{background: 'linear-gradient(180deg, rgba(8,9,11,0.7) 0%, rgba(8,9,11,0.1) 30%, rgba(8,9,11,0) 62%, rgba(8,9,11,0.6) 100%)'}} />
             <svg width={1080} height={1920} style={{position: 'absolute', left: 0, top: 0}}>
@@ -53,7 +53,14 @@ export const SeqH: React.FC<{from: number}> = ({from}) => {
                 const tp = rf.tops[ti];
                 if (!inView(s) || !inView(tp)) return null;
                 const a = px(s), b = px(tp);
-                return <line key={'s' + k} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke={C.ai} strokeWidth={3} opacity={0.75 * linksA} />;
+                const draw = prog(f, h4 + sec(0.4) + (k % 8) * 2, 12);           // 一条条连上
+                const u = (((f - h4) / 18 + k * 0.23) % 1);
+                return (
+                  <g key={'s' + k}>
+                    <line x1={a[0]} y1={a[1]} x2={lerp(a[0], b[0], draw)} y2={lerp(a[1], b[1], draw)} stroke={C.ai} strokeWidth={3} opacity={0.75 * linksA} />
+                    {draw >= 1 && <circle cx={lerp(a[0], b[0], u)} cy={lerp(a[1], b[1], u)} r={5} fill={C.ink} opacity={0.85 * linksA} />}
+                  </g>
+                );
               })}
               {/* 机柜与机柜之间：沿着顶上的线槽 */}
               {rf.tops.map((tp, k) => {
