@@ -118,9 +118,19 @@ def n_tail(u):      # 补 2：其实它认识的十几万个字，每个都打�
     score_columns(cands, x0=-1.6, step=1.05, base=0.0, tail=int(60 * g))
     cam((-3.2, -11, 3.6), (2.2, 6, 0.9), 44, 4.0, 12)
 
+def n_mem16(u):     # 补 4：写一个字要搬 16 GB——「16 GB」刻在显存那摞上（观众：别让人以为这个字有 16 GB）
+    mem_scene(u, fan=False)
+    cu = bpy.data.curves.new('t', 'FONT'); cu.body = '16 GB'
+    cu.font = bpy.data.fonts.load('/usr/share/fonts/truetype/smiley-sans/SmileySans-Oblique.ttf')
+    cu.size = 0.62; cu.extrude = 0.015; cu.align_x = 'CENTER'; cu.align_y = 'CENTER'
+    ob = bpy.data.objects.new('t', cu); bpy.context.collection.objects.link(ob); ob.location = (-2.6, -0.42, -1.15); ob.rotation_euler = (math.pi / 2, 0, 0)
+    cu.materials.append(m_plastic(GRAPH, 0.3))
+    ANCH['mem'] = (-2.6, 0, -0.2)
+    cam((-0.2, -22, 4.0), (-0.3, 0, 0.4), 46, 4.0, 22)
+
 FN_NOAUTO = {'o1', 'o2', 'o3', 'o23', 'o24', 'o25', 'n_tail'}   # 长尾要伸出画面，不自动取景
 
-def add_desk(fn):
+def add_desk(fn, u=0.5):
     """在所有物体的最低点放一张暖白桌面（带细纹理），像拍桌上的精密模型"""
     bpy.context.view_layer.update()
     dg = bpy.context.evaluated_depsgraph_get(); zmin = 1e9
@@ -137,6 +147,13 @@ def add_desk(fn):
     ramp.color_ramp.elements[0].position = 0.35; ramp.color_ramp.elements[1].position = 0.75
     nt.links.new(noise.outputs['Fac'], ramp.inputs['Fac']); nt.links.new(ramp.outputs['Color'], p.inputs['Base Color'])
     d.data.materials.append(m)
+    # 每拍里相机都在慢慢动（推近约 4%、横移约 2%），画面不完全静止；转场在 2D 合成里做
+    cam_o = sc.camera
+    if cam_o:
+        q = cam_o.matrix_world.to_quaternion(); fwd = q @ Vector((0, 0, -1)); rgt = q @ Vector((1, 0, 0))
+        dd = cam_o.data.dof.focus_distance
+        cam_o.location = cam_o.location + fwd * (0.04 * dd * ease(u)) + rgt * (0.02 * dd * (u - 0.5))
+        cam_o.data.dof.focus_distance = dd * (1 - 0.04 * ease(u))
 
 # 草稿接触表的代表时刻：沿用 film3d 的 CU
 run_jobs(post=add_desk)

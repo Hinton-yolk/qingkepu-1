@@ -11,6 +11,7 @@ fp = argparse.ArgumentParser()
 fp.add_argument('--outdir', default='/tmp/film3d'); fp.add_argument('--beats', default='')
 fp.add_argument('--u', type=float, default=0.6); fp.add_argument('--times', default='')
 fp.add_argument('--ui_dir', default='')
+fp.add_argument('--fps', type=float, default=0); fp.add_argument('--f0', type=int, default=0); fp.add_argument('--f1', type=int, default=-1)
 F = fp.parse_known_args(argv)[0]
 os.makedirs(F.outdir, exist_ok=True)
 from bpy_extras.object_utils import world_to_camera_view
@@ -378,9 +379,10 @@ def spec_row(drafts=0, sweep=None, verdict=False):
     chars = '海边吃饭'
     for k, x in enumerate(xs):
         if k < drafts:
-            if verdict and k >= 2:   # 「吃」对不上 → 作废；它后面的「饭」也一起作废：压暗、掉到下面、打 ✕
-                draft_tok(chars[k], (x, -0.6, -1.4), s=s, body='#BDB6CF')
-                xmark((x, -0.95, -1.4), size=0.62, thick=0.07)
+            if verdict and k >= 2:   # 「吃」对不上 → 作废；它后面的「饭」也一起作废。原位处理（观众：留着原稿，在原位换掉、划掉）
+                back = 0.75 if k == 2 else 0.0                                       # 「吃」往后退一步，给「看」让出位置
+                draft_tok(chars[k], (x, -0.6 + back, -0.6), s=s, body='#BDB6CF')
+                xmark((x, -0.95 + back, -0.6), size=0.62, thick=0.07)
             elif verdict:
                 token(chars[k], (x, -0.6, -0.6), s=s)
                 check((x, -0.95, -0.6 + 0.55), s=0.18)
@@ -445,6 +447,10 @@ def mem_scene(u, fan=False):
         pt = (1 - w) ** 2 * p0 + 2 * (1 - w) * w * p1 + w * w * p2
         rbox((0.22, 0.12, 0.16), tuple(pt), bevel=0.04, mat=candy(PINK if k % 2 else BLUE, 0.25))
     ANCH['mem'] = (-2.6, 0, -0.2); ANCH['core'] = (2.4, 0, 2.9)
+    # 观众（Codex）：「用同一排字块讲完加速」→ 这几拍画面下方一直摆着同一排：周末我想去 + 小模型抢答的「海边吃饭」
+    if not fan:
+        for k, ch in enumerate('周末我想去'): token(ch, (-3.4 + k * 0.78, -0.9, -3.2), s=0.68)
+        for k, ch in enumerate('海边吃饭'): draft_tok(ch, (0.5 + k * 0.78, -0.9, -3.2), s=0.68)
 
 def o19(u):
     mem_scene(u, fan=False)
@@ -452,10 +458,11 @@ def o19(u):
 
 def o20(u):  # 搬一趟，就能顺便批好几个字：一批参数同时用到 4 个位置
     mem_scene(u, fan=True)
-    xs = [-1.5 + k * 1.0 for k in range(4)]
+    for k, ch in enumerate('周末我想去'): token(ch, (-3.4 + k * 0.78, -0.9, -3.2), s=0.68)
+    xs = [0.5 + k * 0.78 for k in range(4)]
     for k, ch in enumerate('海边吃饭'):
-        draft_tok(ch, (xs[k], -0.8, -2.9), s=0.6)
-        curve_tube([(2.4, -0.3, 0.2), ((2.4 + xs[k]) / 2, -0.6, -1.2), (xs[k], -0.8, -2.5)], 0.03, emit(YEL, 2.0))
+        draft_tok(ch, (xs[k], -0.9, -3.2), s=0.68)
+        curve_tube([(2.4, -0.3, 0.2), ((2.4 + xs[k]) / 2, -0.6, -1.4), (xs[k], -0.9, -2.8)], 0.03, emit(YEL, 2.0))
     cam((-0.2, -24, 3.0), (-0.3, 0, -0.4), 46, 4.0, 24)
 
 def o21(u):  # 对得上的全收下，从第一个对不上的接着来：「海 边」✓，「吃」✕ 换成「看」，「饭」一起作废
@@ -519,21 +526,33 @@ def n_strip(u):   # 补 1：一个字进模型，先变成一串数
     ANCH['strip'] = (0.3, -0.6, -0.25)
     cam((0.6, -24, 3.0), (0, 0, 0.6), 70, 4.0, 24)
 
-def n_mult(u):    # 补 1：每一层拿这串数和参数表乘一下、加起来，交给下一层
+def n_mult(u):    # 补 1：每一层拿这串数和参数表乘一下、加起来，交给下一层。
+    # 观众（Codex）：「只演一次我能跟上的乘加」→ 只点亮一道：两个数 → 各乘一个参数 → 加成一个数 → 送上去
     reset('lilac'); lights((0, 0, 0))
     import random; rnd = random.Random(11)
-    # 一块层板，上面一格格参数
     rbox((5.0, 0.4, 1.6), (0, 0.1, 0.6), bevel=0.18, mat=candy('#FAF8FF', 0.35, coat=0.6, sss=0.35))
+    pick = [(1, 3), (1, 4)]                                                         # 参与这一道乘加的两个参数块（行, 列）
     for r in range(3):
         for c in range(10):
-            v = rnd.uniform(-1, 1)
+            v = rnd.uniform(-1, 1); on = (r, c) in pick and u > 0.3
             rbox((0.36, 0.1, 0.3), (-2.07 + c * 0.46, -0.15, 1.05 - r * 0.42), bevel=0.05, seg=3,
-                 mat=candy(PINK if v > 0 else BLUE, 0.22 + 0.35 * (1 - abs(v)), sss=0.1))
+                 mat=emit(YEL, 2.2) if on else candy(PINK if v > 0 else BLUE, 0.22 + 0.35 * (1 - abs(v)), sss=0.1))
     num_strip(-2.1, -0.95, n=12, y=-0.6, seed=2)                                   # 进来的一串数
-    k = int(10 * seg(u, 0.1, 0.8))
-    for c in range(min(k, 10)):   # 乘加：黄色小方块一闪，从下往上
-        rbox((0.16, 0.16, 0.16), (-2.07 + c * 0.46, -0.45, 0.6 + 0.25 * math.sin(c)), bevel=0.04, mat=emit(YEL, 3.5))
-    if u > 0.6: num_strip(-2.1, 2.05, n=12, y=-0.6, seed=5, glow=True)             # 出来一串新的数
+    xa, xb = -2.1 + 3 * 0.38, -2.1 + 4 * 0.38                                       # 第 4、5 个数
+    if u > 0.1:   # ① 两个数亮起
+        for x in (xa, xb): rbox((0.38, 0.06, 0.46), (x, -0.72, -0.95), bevel=0.04, mat=emit(YEL, 1.6 * min(1, seg(u, 0.1, 0.25) * 2)))
+    if u > 0.3:   # ② 各自往上，乘上一个参数
+        g = ease(seg(u, 0.3, 0.55))
+        for x, (r, c) in zip((xa, xb), pick):
+            tx, tz = -2.07 + c * 0.46, 1.05 - r * 0.42
+            curve_tube([(x, -0.7, -0.7), (x, -0.6, lerp(-0.7, tz - 0.2, g))], 0.035, emit(YEL, 2.4))
+    if u > 0.55:  # ③ 两个乘积加起来，变成一个数，送到上面一串新的数里
+        g = ease(seg(u, 0.55, 0.85)); mx = (xa + xb) / 2
+        for x, (r, c) in zip((xa, xb), pick):
+            tx, tz = -2.07 + c * 0.46, 1.05 - r * 0.42
+            curve_tube([(tx, -0.4, tz + 0.2), (lerp(tx, mx, g), -0.5, lerp(tz + 0.2, 1.75, g))], 0.035, emit(YEL, 2.4))
+        num_strip(-2.1, 2.05, n=12, y=-0.6, seed=5)
+        rbox((0.38, 0.06, 0.46), (mx, -0.72, 2.05), bevel=0.04, mat=emit(YEL, 2.0 * g))   # 新的一个数
     ANCH['layer'] = (2.2, -0.2, 1.55); ANCH['in'] = (-2.4, -0.6, -1.5)
     cam((0.6, -24, 2.4), (0, 0, 0.55), 66, 4.0, 24)
 
@@ -691,7 +710,11 @@ CU = {'o2': 0.85, 'o4': 0.3, 'o5': 0.7, 'o6': 0.8, 'o7': 0.8, 'o8': 0.8, 'o9': 0
 def run_jobs(post=None):
     """按 --beats / --times 渲染；post(fn) 在每拍搭好、自动取景之后调用（film_desk.py 用它加桌面）"""
     jobs = []
-    if F.times:
+    if F.fps:   # 运动草稿：按帧渲 [f0, f1)
+        nf = int(round(TIMES[-1][2] * F.fps)); f1 = nf if F.f1 < 0 else min(F.f1, nf)
+        for fi in range(F.f0, f1):
+            b, u = beat_at(fi / F.fps); jobs.append((f'f{fi:05d}', b, u))
+    elif F.times:
         for x in F.times.split(','):
             b, u = beat_at(float(x)); jobs.append((f't{float(x):06.2f}', b, u))
     else:
@@ -702,7 +725,7 @@ def run_jobs(post=None):
         globals()[fn](u)
         if fn not in globals().get('FN_NOAUTO', ('o1', 'o2', 'o3', 'o23', 'o24', 'o25')):
             autofit(bottom=0.63 if TIMES[b - 1][3] else 0.69)
-        if post: post(fn)
+        if post: post(fn, u)
         bpy.context.view_layer.update()
         sc.render.filepath = os.path.join(F.outdir, name + '.png')
         bpy.ops.render.render(write_still=True)
