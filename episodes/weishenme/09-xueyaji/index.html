@@ -544,6 +544,22 @@ function sectionNotes(t) {
   // 血过不去
   if (t >= T.stop && t < T.deflate + 0.6) { const p = sa(-SEC.half - 20, SEC.art); ID(); label(COPY.noflow, p[0] - 8, p[1] - 30, 44, C.acc, t, T.stop, T.deflate + 0.6, { align: "right" }); ctx.save(); ctx.globalAlpha = win(t, T.stop, T.deflate + 0.6); ctx.strokeStyle = C.acc; ctx.lineWidth = 6; ctx.lineCap = "round"; line(p[0] - 6, p[1] - 22, p[0] - 6, p[1] + 22); ctx.restore(); }
   // the sensor: lit, framed, named (14.0–14.75), then the bar
+  // v1.4 (the audience): while the caption asks how the machine knows, keep a light where the tube leaves the cuff, then
+  // let it run down the tube to the sensor and on to the small screen — the eye has a path to follow before the push
+  if (t >= T.q5 + 0.1 && t < T.push + 0.15) {
+    const P = cuffTubeS(t), fo = 1 - prog(t, T.push, T.push + 0.15);
+    const glow = (x, y, r, a) => { const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(255,248,236,${a})`); g.addColorStop(1, "rgba(255,248,236,0)"); ctx.fillStyle = g; ctx.fillRect(x - r, y - r, 2 * r, 2 * r); };
+    ID(); ctx.save(); ctx.globalAlpha = fo;
+    const ja = E.smooth(prog(t, T.q5 + 0.1, T.q5 + 0.4)) * (0.65 + 0.35 * Math.sin((t - T.q5) * 7));
+    glow(P[0][0], P[0][1], 46, 0.85 * ja);                                              // the junction, breathing
+    const u = E.p2io(prog(t, T.q5 + 0.55, T.q5 + 1.25));
+    if (u > 0 && u < 1) { const q = bez(P, u); glow(q[0], q[1], 34, 0.95); ctx.fillStyle = C.paper; ctx.beginPath(); ctx.arc(q[0], q[1], 7, 0, TAU); ctx.fill(); }
+    const v = E.p2io(prog(t, T.q5 + 1.25, T.q5 + 1.6));                                   // sensor → the screen
+    if (v > 0) { const x0 = SNS[0] + 50, y0 = SNS[1] - 46, x1 = xBeat(T.push) - 50; ctx.strokeStyle = "rgba(255,248,236,0.5)"; ctx.lineWidth = 4; ctx.setLineDash([10, 10]); line(x0, y0, lerp(x0, x1, v), y0); ctx.setLineDash([]); if (v < 1) glow(lerp(x0, x1, v), y0, 30, 0.9); }
+    const sa_ = E.smooth(prog(t, T.q5 + 1.5, T.q5 + 1.75));                               // the screen's frame lights up, waiting
+    if (sa_ > 0) { ctx.strokeStyle = `rgba(255,248,236,${0.55 * sa_})`; ctx.lineWidth = 5; rr(MS.x0, MS.y0, MS.x1 - MS.x0, MS.y1 - MS.y0, 16); ctx.stroke(); }
+    ctx.restore();
+  }
   const sn = win(t, T.sensor, T.push + 1.4, 0.3, 0.4);
   if (sn > 0.01) { obox(SNS[0] - 62, SNS[1] - 52, 124, 104, E.p3out(prog(t, T.sensor, T.sensor + 0.5)), sn, 16); label(COPY.sensor, 90, SNS[1] + 114, 50, C.acc, t, T.sensor + 0.2, T.push + 1.4); }
   label(COPY.cuffP, BAR.x + BAR.w / 2 + 2, BAR.y1 + 56, 50, C.paper, t, T.release, T.q6, { align: "center" });
@@ -590,7 +606,7 @@ function drawHill(t, a = 1) {
     pill(nm, x + side * 24, y - 56, 48, t, tm + 0.1, T.q7, { align: side < 0 ? "left" : "center", edge: true });
   }
   ctx.globalAlpha = a;
-  label(COPY.algo, 1010, 1316, 50, C.paper, t, T.mkLo + 0.3, T.q7, { align: "right", weight: 700, alpha: 0.95 });
+  label(COPY.algo, 540, BIG.y1 + 74, 60, C.paper, t, T.mkLo + 0.3, T.q7, { align: "center", weight: 700 });   // v1.4: bigger, right under the graph
   ctx.restore();
 }
 
@@ -760,6 +776,15 @@ function drawSide(t) {
   const lineA = E.smooth(prog(t, T.side + 0.3, T.side + 0.8));
   heartLine(hy, lineA, sx(SIDE_S, Tt, 120), 770, t < T.raise, t, T.side + 0.5, T.raise);
   sideMonitor(t, t >= T.down ? COPY.down : t >= T.up && t < T.raise ? COPY.up : null, 1, SIDE_S, Tt);
+  // v1.4 (the audience: the raised arm looked held up): the forearm rests on two books on the table
+  const bk = p1 === "raised" ? E.smooth(prog(t, T.raise - 0.05, T.raise + 0.25)) : 0;
+  if (bk > 0.01) {
+    ctx.save(); ctx.globalAlpha = bk; ctx.strokeStyle = C.ink; ctx.lineWidth = 2.4; ctx.lineJoin = "round";
+    const top = TABLE_Y, hb = 56, x0 = sx(SIDE_S, Tt, 760), w = SIDE_S * 270;
+    [["#8FA3B8", 0, 0], ["#C9A27A", 1, 14]].forEach(([col, i, dx]) => { const y = sy(SIDE_S, Tt, top - hb * (i + 1) + 2); rr(x0 + dx * SIDE_S, y, w - 30 * SIDE_S * i, SIDE_S * hb, 4); ctx.fillStyle = col; ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = "rgba(255,255,255,0.55)"; ctx.lineWidth = 2; line(x0 + dx * SIDE_S + 8, y + SIDE_S * hb * 0.5, x0 + dx * SIDE_S + w - 30 * SIDE_S * i - 8, y + SIDE_S * hb * 0.5); ctx.strokeStyle = C.ink; ctx.lineWidth = 2.4; });
+    ctx.restore();
+  }
   if (m < 1) { drawPerson(p0, 1 - m, SIDE_S, Tt); drawSideCuff(p0, 1 - m, SIDE_S, Tt); }
   if (m > 0) { drawPerson(p1, m, SIDE_S, Tt); drawSideCuff(p1, m, SIDE_S, Tt); }
   const hx = sx(SIDE_S, Tt, lerp(HEART_X[p0], HEART_X[p1], m));
