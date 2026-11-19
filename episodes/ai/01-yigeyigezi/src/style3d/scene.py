@@ -12,7 +12,7 @@ ap.add_argument('--scale', type=float, default=0.5)
 ap.add_argument('--samples', type=int, default=64)
 ap.add_argument('--font', default='')
 ap.add_argument('--ui', default='')          # 手机屏幕贴图（overlay.py 先生成）
-A = ap.parse_args(argv)
+A = ap.parse_known_args(argv)[0]
 
 def hexc(h, a=1.0):
     h = h.lstrip('#'); c = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
