@@ -16,7 +16,7 @@ def f(path, size, idx=SC):
 INK = (27, 33, 64)
 YEL = (255, 201, 60)
 
-def ui(out, mode='typing'):
+def ui(out, mode='typing', accent=(74, 141, 255)):
     W, H = 1060, 2260
     im = Image.new('RGB', (W, H), (247, 248, 252)); d = ImageDraw.Draw(im)
     d.text((W / 2, 150), 'AI 助手', font=f(NOTO, 64), fill=(60, 66, 96), anchor='mm')
@@ -31,7 +31,7 @@ def ui(out, mode='typing'):
     # 用户气泡（右）
     t = '帮我写一句周末计划'; ft = f(NOTO, 74)
     tw = d.textlength(t, font=ft)
-    d.rounded_rectangle((W - 60 - tw - 80, 320 + OFF, W - 60, 470 + OFF), 60, fill=(74, 141, 255))
+    d.rounded_rectangle((W - 60 - tw - 80, 320 + OFF, W - 60, 470 + OFF), 60, fill=accent)
     d.text((W - 60 - 40, 395 + OFF), t, font=ft, fill='white', anchor='rm')
     # AI 回复（左）：已写出的字 + 空出来的位置（「去」刚浮出屏幕）+ 黄色虚线「?」
     d.rounded_rectangle((40, 560 + OFF, 1020, 840 + OFF), 60, fill='white', outline=(225, 228, 238), width=4)
@@ -127,5 +127,5 @@ def comp(src, out, shot):
     im.save(out)
 
 if __name__ == '__main__':
-    if sys.argv[1] == 'ui': ui(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else 'typing')
+    if sys.argv[1] == 'ui': ui(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else 'typing', (44, 154, 146) if len(sys.argv) > 4 and sys.argv[4] == 'teal' else (74, 141, 255))
     else: comp(sys.argv[2], sys.argv[3], int(sys.argv[4]))
