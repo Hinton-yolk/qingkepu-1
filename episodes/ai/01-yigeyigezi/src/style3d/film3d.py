@@ -678,20 +678,26 @@ def beat_at(t):
 CU = {'o2': 0.85, 'o4': 0.3, 'o5': 0.7, 'o6': 0.8, 'o7': 0.8, 'o8': 0.8, 'o9': 0.9, 'o10': 0.9, 'o14': 0.8, 'o16': 0.85, 'o17': 0.55,
       'o18': 0.9, 'o20': 0.7, 'o21': 0.9, 'o22': 0.8, 'o23': 0.9, 'n_strip': 0.8, 'n_mult': 0.85, 'n_attnlong': 0.9, 'n_tail': 0.9,
       'n_mem16': 0.7, 'n_timing': 0.9, 'n_accept': 0.6, 'n_easy': 0.8, 'n_hard': 0.8}
-jobs = []
-if F.times:
-    for x in F.times.split(','):
-        b, u = beat_at(float(x)); jobs.append((f't{float(x):06.2f}', b, u))
-else:
-    bs = [int(x) for x in F.beats.split(',')] if F.beats else list(range(1, len(V3) + 1))
-    jobs = [(f'b{b:02d}', b, CU.get(V3[b - 1], F.u)) for b in bs]
-for name, b, u in jobs:
-    fn = V3[b - 1]
-    globals()[fn](u)
-    if fn not in ('o1', 'o2', 'o3', 'o23', 'o24', 'o25'):
-        autofit(bottom=0.63 if TIMES[b - 1][3] else 0.69)
-    bpy.context.view_layer.update()
-    sc.render.filepath = os.path.join(F.outdir, name + '.png')
-    bpy.ops.render.render(write_still=True)
-    meta = {'beat': b, 'fn': fn, 'u': u, 'anch': {k: [round(c, 4) for c in world_to_camera_view(sc, sc.camera, Vector(v))[:2]] for k, v in ANCH.items()}}
-    json.dump(meta, open(os.path.join(F.outdir, name + '.json'), 'w'))
+def run_jobs(post=None):
+    """按 --beats / --times 渲染；post(fn) 在每拍搭好、自动取景之后调用（film_desk.py 用它加桌面）"""
+    jobs = []
+    if F.times:
+        for x in F.times.split(','):
+            b, u = beat_at(float(x)); jobs.append((f't{float(x):06.2f}', b, u))
+    else:
+        bs = [int(x) for x in F.beats.split(',')] if F.beats else list(range(1, len(V3) + 1))
+        jobs = [(f'b{b:02d}', b, CU.get(V3[b - 1], F.u)) for b in bs]
+    for name, b, u in jobs:
+        fn = V3[b - 1]
+        globals()[fn](u)
+        if fn not in ('o1', 'o2', 'o3', 'o23', 'o24', 'o25'):
+            autofit(bottom=0.63 if TIMES[b - 1][3] else 0.69)
+        if post: post(fn)
+        bpy.context.view_layer.update()
+        sc.render.filepath = os.path.join(F.outdir, name + '.png')
+        bpy.ops.render.render(write_still=True)
+        meta = {'beat': b, 'fn': fn, 'u': u, 'anch': {k: [round(c, 4) for c in world_to_camera_view(sc, sc.camera, Vector(v))[:2]] for k, v in ANCH.items()}}
+        json.dump(meta, open(os.path.join(F.outdir, name + '.json'), 'w'))
+
+if not os.environ.get('FILM3D_LIB'):
+    run_jobs()
