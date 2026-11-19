@@ -65,7 +65,7 @@ const COVERS = [
   // EP.09 (user 11-19: 抖音也用小红书这一套 3:4 封面): the film's first frame (第一次 138 | 第二次 126, the arm in the cuff)
   // + the hill: 高压 / 低压 come out of it (算出来的)
   { out: "ep09-xiaohongshu", W: 1080, H: 1440, ep: "EP.09", title: ["血压量了两次，", "该信<b>哪一次</b>？"],
-    hero: "ep09-hero", heroDy: -250, anchor: [718, 1004], inset: { img: "ep09-inset", cx: 540, cy: 905, src: 490, x: 760, y: 1150, r: 190 }, tag: "高压低压是算出来的",
+    hero: "ep09-hero", heroDy: -250, anchor: [212, 1109], inset: { img: "ep09-inset", cx: 540, cy: 905, src: 490, x: 560, y: 1122, r: 190 }, tag: "高压低压是算出来的",
     ser: 108, t1: 252, t2: 398, size: 124, wash: 440 },
 ];
 const ONLY = process.argv[2];                                   // node make.mjs ep04 → only those covers

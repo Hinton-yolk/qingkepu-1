@@ -49,7 +49,7 @@ for (const [dir, name, t, camExpr, anchor] of JOBS.filter((j) => !ONLY || j[1].s
     if (name === "ep07-inset") { for (const f of ["overlays", "spotlight", "drawCard"]) if (typeof window[f] === "function") window[f] = () => {}; }   // EP.07 inset: the light and the vessel only (no frames, tags or card)
     if (name === "ep08-inset") { window.pill = () => {}; window.label = () => {}; }   // EP.08 inset: the two bars only (no small text cut by the circle)
     if (name === "ep09-hero") { window.againNote = () => {}; const K = key([540, 1000], [560, 980], 0.86); window.roomK = () => K; }   // EP.09: no small note; a wider shot (the film's own camera is very close)
-    if (name === "ep09-inset") { window.label = () => {}; }                            // EP.09 inset: the hill and its two tags (the 示意 line would be cut)
+    if (name === "ep09-inset") { window.label = () => {}; window.drawSection = () => {}; window.drawPanel = () => {}; }   // the hill alone (no faded arm / panel at the circle's edge)                            // EP.09 inset: the hill and its two tags (the 示意 line would be cut)
     if (camExpr) { const K = eval(camExpr); window.cam = () => K; }
     if (camExpr && typeof window.sweeping === "function" && typeof window.drawPhone === "function") {
       // EP.01: the phone half seen through — the board above an orange scan line, the screen below it
