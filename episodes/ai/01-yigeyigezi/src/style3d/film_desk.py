@@ -121,7 +121,7 @@ def n_tail(u):      # 补 2：其实它认识的十几万个字，每个都打�
 def n_mem16(u):     # 补 4：写一个字要搬 16 GB——「16 GB」刻在显存那摞上（观众：别让人以为这个字有 16 GB）
     mem_scene(u, fan=False)
     cu = bpy.data.curves.new('t', 'FONT'); cu.body = '16 GB'
-    cu.font = bpy.data.fonts.load('/usr/share/fonts/truetype/smiley-sans/SmileySans-Oblique.ttf')
+    cu.font = bpy.data.fonts.load(SMILEY_TTF)
     cu.size = 0.62; cu.extrude = 0.015; cu.align_x = 'CENTER'; cu.align_y = 'CENTER'
     ob = bpy.data.objects.new('t', cu); bpy.context.collection.objects.link(ob); ob.location = (-2.6, -0.42, -1.15); ob.rotation_euler = (math.pi / 2, 0, 0)
     cu.materials.append(m_plastic(GRAPH, 0.3))

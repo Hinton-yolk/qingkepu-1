@@ -20,7 +20,8 @@ def chip_c(im, cx, cy, text, bg, fg, **kw):
 # 字幕、小字从 script.md「逐句字幕 v3」表直接读（照用户确认的原文，避免抄错）；〔类比〕→ 挂「类比」标签
 import re
 def load_caps():
-    md = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'script.md'), encoding='utf-8').read()
+    _h = os.path.dirname(os.path.abspath(__file__))
+    md = open(next(c for c in (os.path.join(_h, 'script.md'), os.path.join(_h, '..', '..', 'script.md')) if os.path.exists(c)), encoding='utf-8').read()
     sec = md[md.index('## 逐句字幕 v3'):]
     caps = {}
     for l in sec.split('\n'):

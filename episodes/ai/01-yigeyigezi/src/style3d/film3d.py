@@ -15,6 +15,7 @@ fp.add_argument('--fps', type=float, default=0); fp.add_argument('--f0', type=in
 F = fp.parse_known_args(argv)[0]
 os.makedirs(F.outdir, exist_ok=True)
 from bpy_extras.object_utils import world_to_camera_view
+SMILEY_TTF = next((c for c in (os.path.join(here, 'SmileySans-Oblique.ttf'), '/usr/share/fonts/truetype/smiley-sans/SmileySans-Oblique.ttf') if os.path.exists(c)), '')
 
 # ---------------- 节拍表（时间照用户确认的脚本 v2.1） ----------------
 BEATS = [  # 【已作废，仅供对照】v2.1 的 25 拍时间表；实际顺序和时间见文末 V3 和 script.md「逐句字幕 v3」
@@ -47,6 +48,15 @@ def reset(chapter, halo=False):
     global sc
     sc = bpy.context.scene
     sc.render.engine = 'CYCLES'; sc.cycles.device = 'CPU'; sc.cycles.samples = A.samples
+    if os.environ.get('KEPU_GPU'):   # RunPod：用 GPU（OptiX 不行就 CUDA）
+        prefs = bpy.context.preferences.addons['cycles'].preferences
+        for kind in ('OPTIX', 'CUDA'):
+            try:
+                prefs.compute_device_type = kind; prefs.get_devices()
+                if any(d.type == kind for d in prefs.devices): break
+            except Exception: pass
+        for d in prefs.devices: d.use = d.type != 'CPU'
+        sc.cycles.device = 'GPU'
     sc.cycles.use_denoising = True; sc.cycles.max_bounces = 10; sc.cycles.transmission_bounces = 10
     sc.cycles.glossy_bounces = 6; sc.cycles.caustics_reflective = False; sc.cycles.caustics_refractive = False
     sc.cycles.blur_glossy = 1.0
@@ -476,7 +486,7 @@ def o21(u):  # 对得上的全收下，从第一个对不上的接着来：「�
 def o22(u):  # 一步就出好几个字，快 2–3 倍：3D 大字
     reset('lilac'); lights((0, 0, 0))
     g = back_out(seg(u, 0.15, 0.5))
-    smiley = '/usr/share/fonts/truetype/smiley-sans/SmileySans-Oblique.ttf'
+    smiley = SMILEY_TTF
     cu = bpy.data.curves.new('t', 'FONT'); cu.body = '2–3倍'; cu.font = bpy.data.fonts.load(smiley)
     cu.size = 2.6 * max(g, 0.02); cu.extrude = 0.18; cu.bevel_depth = 0.05; cu.align_x = 'CENTER'; cu.align_y = 'CENTER'
     ob = bpy.data.objects.new('t', cu); bpy.context.collection.objects.link(ob); ob.location = (0, 0, 1.5); ob.rotation_euler = (math.pi / 2, 0, 0)
@@ -581,7 +591,7 @@ def n_tail(u):      # 补 2：其实它认识的十几万个字，每个都打�
 
 def n_mem16(u):     # 补 4：写一个字要搬 16 GB
     mem_scene(u, fan=False)
-    smiley = '/usr/share/fonts/truetype/smiley-sans/SmileySans-Oblique.ttf'
+    smiley = SMILEY_TTF
     g = back_out(seg(u, 0.1, 0.45))
     cu = bpy.data.curves.new('t', 'FONT'); cu.body = '16 GB'; cu.font = bpy.data.fonts.load(smiley)
     cu.size = 1.7 * max(g, 0.02); cu.extrude = 0.12; cu.bevel_depth = 0.035; cu.align_x = 'CENTER'
@@ -688,7 +698,8 @@ V3 = ['o1', 'o2', 'o3', 'o8', 'o9', 'o10', 'o11', 'n_bridge', 'o4', 'n_strip', '
       'o12', 'o13', 'o14', 'o15', 'o16', 'o17', 'o18', 'o19', 'n_mem16', 'n_timing',
       'o20', 'o21', 'n_easy', 'n_hard', 'n_accept', 'o22', 'o23', 'o24', 'o25']
 def read_times():
-    md = open(os.path.join(here, '..', '..', 'script.md'), encoding='utf-8').read()
+    cand = [os.environ.get('KEPU_SCRIPT_MD', ''), os.path.join(here, 'script.md'), os.path.join(here, '..', '..', 'script.md')]
+    md = open(next(c for c in cand if c and os.path.exists(c)), encoding='utf-8').read()   # RunPod 上 script.md 和脚本放在同一目录
     sec = md[md.index('## 逐句字幕 v3'):]
     rows = [l for l in sec.split('\n') if re.match(r'^\| \d+ \|', l)]
     out = []
