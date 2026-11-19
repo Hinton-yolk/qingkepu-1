@@ -243,7 +243,7 @@ function cuffP(t) { return kf(t, [[0, 0], [T.squeeze, 0], [T.squeezeEnd, 175], [
 function artP(t) {
   let last = -10; for (const b of BEATS) if (b <= t) last = b;
   const dt = t - last; if (last < 0 || dt > 0.8) return 82;
-  const tau = Math.abs(last - T.beat1) < 1e-6 ? 0.62 : 0.32;     // v1.3: the first one stays open a moment longer
+  const tau = 0.32;
   const up = 0.09, w = dt < up ? E.sine(dt / up) : Math.exp(-(dt - up) / tau);
   return 82 + 46 * w;
 }
@@ -252,7 +252,7 @@ function openness(t) {
   const P = cuffP(t);
   if (t < T.squeeze || P < 1) return 1;
   // v1.3 (the audience): the first squeeze-through opens clearly and holds a beat, so the blood is seen getting through (示意)
-  const first = 0.7 * E.smooth(prog(t, T.beat1 + 0.02, T.beat1 + 0.12)) * (1 - E.smooth(prog(t, T.beat1 + 0.5, T.beat1 + 0.72)));
+  const first = 0.7 * E.smooth(prog(t, T.beat1 + 0.02, T.beat1 + 0.1)) * (1 - E.smooth(prog(t, T.beat1 + 0.3, T.beat1 + 0.45)));
   return Math.max(first, clamp((artP(t) - P + 4) / 34));
 }
 function drawCuffRoom(t, a = 1) {
@@ -419,7 +419,7 @@ function drawSection(t, a = 1, focus = 1) {
     ctx.fillStyle = `rgba(255,190,190,${b.a})`; rr(x, SEC.art + b.y * lumen(t, x) * 0.6 - 3, b.l, 6, 3); ctx.fill();
   }
   for (const b of [T.beat1, T.push]) {                               // the squirt: shows only where the artery is open
-    const u = prog(t, b + 0.03, b + 0.6); if (u <= 0 || u >= 1) continue;
+    const u = prog(t, b + 0.03, b + 0.42); if (u <= 0 || u >= 1) continue;
     const x = lerp(-SEC.half - 90, SEC.half + 90, E.smooth(u)), aa = Math.sin(Math.PI * u);
     const g = ctx.createLinearGradient(x - 90, 0, x + 90, 0); g.addColorStop(0, "rgba(255,150,150,0)"); g.addColorStop(0.6, `rgba(255,170,160,${0.95 * aa})`); g.addColorStop(1, "rgba(255,150,150,0)");
     ctx.fillStyle = g; ctx.fillRect(x - 90, SEC.art - 30, 180, 60);
@@ -545,8 +545,8 @@ function sectionNotes(t) {
   if (t >= T.stop && t < T.deflate + 0.6) { const p = sa(-SEC.half - 20, SEC.art); ID(); label(COPY.noflow, p[0] - 8, p[1] - 30, 44, C.acc, t, T.stop, T.deflate + 0.6, { align: "right" }); ctx.save(); ctx.globalAlpha = win(t, T.stop, T.deflate + 0.6); ctx.strokeStyle = C.acc; ctx.lineWidth = 6; ctx.lineCap = "round"; line(p[0] - 6, p[1] - 22, p[0] - 6, p[1] + 22); ctx.restore(); }
   // the sensor: lit, framed, named (14.0–14.75), then the bar
   const sn = win(t, T.sensor, T.push + 1.4, 0.3, 0.4);
-  if (sn > 0.01) { obox(SNS[0] - 62, SNS[1] - 52, 124, 104, E.p3out(prog(t, T.sensor, T.sensor + 0.5)), sn, 16); label(COPY.sensor, 104, SNS[1] + 112, 44, C.acc, t, T.sensor + 0.2, T.push + 1.4); }
-  label(COPY.cuffP, BAR.x + BAR.w / 2 + 2, BAR.y1 + 56, 44, C.paper, t, T.release, T.q6, { align: "center", alpha: 0.9 });
+  if (sn > 0.01) { obox(SNS[0] - 62, SNS[1] - 52, 124, 104, E.p3out(prog(t, T.sensor, T.sensor + 0.5)), sn, 16); label(COPY.sensor, 90, SNS[1] + 114, 50, C.acc, t, T.sensor + 0.2, T.push + 1.4); }
+  label(COPY.cuffP, BAR.x + BAR.w / 2 + 2, BAR.y1 + 60, 50, C.paper, t, T.release, T.q6, { align: "center" });
   // the push: arrows artery → air → tube → sensor → spike
   if (t >= T.push && t < T.more + 0.4) {
     const fo = 1 - prog(t, T.more, T.more + 0.4);
@@ -880,7 +880,7 @@ function drawTips(t) {
 // ================================================================ captions
 function darkAt(t) {
   if (t < BAND0) return 0;
-  if (t < T.diveEnd) { const h = bandH(t); return h <= 0 ? 0 : h > 2000 ? 1 : -1; }   // the band: dark inside it, light outside
+  if (t < T.diveEnd) { const h = bandH(t); return h <= 0 ? 0 : h > 2600 ? 1 : -1; }   // the band: dark inside it, light outside
   if (t < T.q7) return 1;
   return 0;
 }
@@ -985,7 +985,7 @@ const BAND0 = 8.2, BAND1 = 8.8;
 const xrK = (t) => E.smooth(prog(t, T.xray, T.xray + 0.95));
 // after the arm has turned see-through, its inside widens outward (a dark band along the arm, soft-edged) until it fills
 // the frame — the camera seems to go into the arm; no frame is ever a half-dark grey
-function bandH(t) { const u = prog(t, BAND0, BAND1); return u <= 0 ? 0 : lerp(150, 2200, E.p2in(u)); }
+function bandH(t) { const u = prog(t, BAND0, BAND1); return u <= 0 ? 0 : lerp(150, 2800, E.p2in(u)); }
 function bandPath(t, extra = 0) {
   const h = bandH(t) + extra; if (h <= 0) return null;
   ctx.save(); setSec(t); const M = ctx.getTransform(); ctx.restore();
@@ -1015,7 +1015,7 @@ function diveShot(t) {
   if (h > 0) {                                                    // the dark band, soft edges outside it
     ctx.save(); setSec(t);
     ctx.fillStyle = C.dark; ctx.fillRect(-6000, -h, 12000, 2 * h);
-    for (const sg of [-1, 1]) { const y0 = sg * h, g = ctx.createLinearGradient(0, y0, 0, y0 + sg * 70); g.addColorStop(0, rgba(C.dark, 1)); g.addColorStop(1, rgba(C.dark, 0)); ctx.fillStyle = g; ctx.fillRect(-6000, Math.min(y0, y0 + sg * 70), 12000, 70); }
+    for (const sg of [-1, 1]) { const y0 = sg * h, g = ctx.createLinearGradient(0, y0, 0, y0 + sg * 130); g.addColorStop(0, rgba(C.dark, 1)); g.addColorStop(1, rgba(C.dark, 0)); ctx.fillStyle = g; ctx.fillRect(-6000, Math.min(y0, y0 + sg * 130), 12000, 130); }
     ctx.restore();
   }
   if (xr > 0.001) {

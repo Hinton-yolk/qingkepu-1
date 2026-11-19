@@ -2,7 +2,7 @@
 // EP.09 血压计 — 血压每次量的都不一样，该信哪一次？ script v2.1 (script.md, user 11-18: 「确认脚本，字幕改动都同意」).
 //   0      血压每次量的都不一样，该信哪一次？  (the arm on a table, a cuff; 138, then — measured again — 126)
 //   2.75   你是不是以为，是血压计量错了？      (orange; 5.0 ✕)
-//   5.25   很多时候，它没错
+//   (5.25  很多时候，它没错 — cut in v1.3; the film skips internal 4.75–6.75, see CUT / GAP below)
 //   6.75   先看看，它是怎么量的                 (one take in: the cuff → a side cut through the arm, dark)
 //   9.5–28.75  the mechanism: air in the cuff; squeeze; deflate (the sensor); a beat squeezes through; 顶; the hill; 算出来
 //   31.5–46    why each time differs: one half-minute window on a line that keeps moving; the first is often higher;
@@ -59,7 +59,6 @@
   const COPY = {
     h1: ["血压每次量的", "都不一样，", "该信[哪一次]？"],
     q2: ["你是不是以为，", "是血压计[量错]了？"],
-    a2: ["很多时候，", "它没[错]"],
     q3: ["先看看，", "它是怎么[量]的"],
     h4: ["它没有听诊器，", "靠袖带里的[空气]"],
     a4: ["袖带鼓起来，", "把血管[压扁]"],
