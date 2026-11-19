@@ -48,9 +48,9 @@ def reset(chapter, halo=False):
     global sc
     sc = bpy.context.scene
     sc.render.engine = 'CYCLES'; sc.cycles.device = 'CPU'; sc.cycles.samples = A.samples
-    if os.environ.get('KEPU_GPU'):   # RunPod：用 GPU（OptiX 不行就 CUDA）
+    if os.environ.get('KEPU_GPU'):   # RunPod：用 GPU。默认 CUDA：部分驱动上 OptiX 内核编译失败（OPTIX_ERROR_INTERNAL_COMPILER_ERROR，11-19 运动草稿 4 台里 2 台）
         prefs = bpy.context.preferences.addons['cycles'].preferences
-        for kind in ('OPTIX', 'CUDA'):
+        for kind in ((os.environ.get('KEPU_GPU_KIND') or 'CUDA'), 'CUDA'):
             try:
                 prefs.compute_device_type = kind; prefs.get_devices()
                 if any(d.type == kind for d in prefs.devices): break
