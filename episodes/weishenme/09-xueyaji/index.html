@@ -780,9 +780,15 @@ function drawSide(t) {
   const bk = p1 === "raised" ? E.smooth(prog(t, T.raise - 0.05, T.raise + 0.25)) : 0;
   if (bk > 0.01) {
     ctx.save(); ctx.globalAlpha = bk; ctx.strokeStyle = C.ink; ctx.lineWidth = 2.4; ctx.lineJoin = "round";
-    const top = TABLE_Y, hb = 56, x0 = sx(SIDE_S, Tt, 760), w = SIDE_S * 270;
-    [["#8FA3B8", 0, 0], ["#C9A27A", 1, 14]].forEach(([col, i, dx]) => { const y = sy(SIDE_S, Tt, top - hb * (i + 1) + 2); rr(x0 + dx * SIDE_S, y, w - 30 * SIDE_S * i, SIDE_S * hb, 4); ctx.fillStyle = col; ctx.fill(); ctx.stroke();
-      ctx.strokeStyle = "rgba(255,255,255,0.55)"; ctx.lineWidth = 2; line(x0 + dx * SIDE_S + 8, y + SIDE_S * hb * 0.5, x0 + dx * SIDE_S + w - 30 * SIDE_S * i - 8, y + SIDE_S * hb * 0.5); ctx.strokeStyle = C.ink; ctx.lineWidth = 2.4; });
+    const top = TABLE_Y, hb = 56, x0 = sx(SIDE_S, Tt, 690), w = SIDE_S * 400;
+    // two hardback books: a coloured cover, white page edges, a spine line — so it reads as a stack the arm rests on
+    [["#5F7FA6", 0, 0], ["#C0784A", 1, 18]].forEach(([col, i, dx]) => {
+      const y = sy(SIDE_S, Tt, top - hb * (i + 1) + 2), xx = x0 + dx * SIDE_S, ww = w - 36 * SIDE_S * i, hh = SIDE_S * hb;
+      rr(xx, y, ww, hh, 4); ctx.fillStyle = col; ctx.fill(); ctx.stroke();
+      rr(xx + 6, y + 4, ww - 18, hh - 8, 2); ctx.fillStyle = "#F4F1E8"; ctx.fill();
+      ctx.strokeStyle = "rgba(20,20,20,0.25)"; ctx.lineWidth = 1.5; for (let k = 1; k < 4; k++) line(xx + 8, y + 4 + k * (hh - 8) / 4, xx + ww - 14, y + 4 + k * (hh - 8) / 4);
+      ctx.strokeStyle = C.ink; ctx.lineWidth = 2.4;
+    });
     ctx.restore();
   }
   if (m < 1) { drawPerson(p0, 1 - m, SIDE_S, Tt); drawSideCuff(p0, 1 - m, SIDE_S, Tt); }
