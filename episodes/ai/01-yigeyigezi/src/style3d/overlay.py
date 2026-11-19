@@ -16,7 +16,7 @@ def f(path, size, idx=SC):
 INK = (27, 33, 64)
 YEL = (255, 201, 60)
 
-def ui(out):
+def ui(out, mode='typing'):
     W, H = 1060, 2260
     im = Image.new('RGB', (W, H), (247, 248, 252)); d = ImageDraw.Draw(im)
     d.text((W / 2, 150), 'AI 助手', font=f(NOTO, 64), fill=(60, 66, 96), anchor='mm')
@@ -36,6 +36,16 @@ def ui(out):
     # AI 回复（左）：已写出的字 + 空出来的位置（「去」刚浮出屏幕）+ 黄色虚线「?」
     d.rounded_rectangle((40, 560 + OFF, 1020, 840 + OFF), 60, fill='white', outline=(225, 228, 238), width=4)
     ft2 = f(NOTO, 150); x = 80; cy = 700 + OFF; b = 76
+    if mode == 'chunks':   # 结尾：用了投机解码后，一小段一小段地蹦（「海边看」刚一起出来）
+        ft3 = f(NOTO, 120)
+        d.rounded_rectangle((40, 560 + OFF, 1020, 1010 + OFF), 60, fill='white', outline=(225, 228, 238), width=4)
+        d.text((80, 680 + OFF), '周末我想去', font=ft3, fill=INK, anchor='lm')
+        w0 = d.textlength('周末我想去', font=ft3)
+        d.rounded_rectangle((80 + w0 + 6, 610 + OFF, 80 + w0 + 6 + d.textlength('海边看', font=ft3) + 12, 750 + OFF), 20, fill=(255, 236, 170))
+        d.text((80 + w0 + 12, 680 + OFF), '海边看', font=ft3, fill=INK, anchor='lm')
+        d.text((80, 880 + OFF), '日落', font=ft3, fill=(205, 208, 222), anchor='lm')
+        d.rounded_rectangle((80, H - 220, W - 80, H - 110), 55, fill=(232, 235, 244))
+        im.save(out); return
     d.text((x, cy), '周末我想', font=ft2, fill=INK, anchor='lm'); x += d.textlength('周末我想', font=ft2) + 16
     d.rounded_rectangle((x, cy - b, x + 2 * b, cy + b), 18, outline=(200, 205, 220), width=6)  # 空位：「去」飞出去了
     x += 2 * b + 22
@@ -117,5 +127,5 @@ def comp(src, out, shot):
     im.save(out)
 
 if __name__ == '__main__':
-    if sys.argv[1] == 'ui': ui(sys.argv[2])
+    if sys.argv[1] == 'ui': ui(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else 'typing')
     else: comp(sys.argv[2], sys.argv[3], int(sys.argv[4]))
