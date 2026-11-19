@@ -16,7 +16,7 @@ const { chromium } = createRequire(import.meta.url)("playwright");   // resolved
 const arg = (k, d) => { const a = process.argv.find((x) => x === `--${k}` || x.startsWith(`--${k}=`)); if (!a) return d; return a.includes("=") ? a.split("=").slice(1).join("=") : true; };
 const URL_ = "file://" + path.join(HERE, "index.html");
 const TLm = createRequire(import.meta.url)("./timeline.js");
-const FPS = TLm.FPS, DUR = TLm.DUR, NF = Math.round(FPS * DUR);
+const FPS = TLm.FPS, DUR = TLm.FILM_DUR ?? TLm.DUR, NF = Math.round(FPS * DUR);   // film time (index.html maps it to internal time)
 const WORKERS = parseInt(arg("workers", "4"));
 
 async function openPage(browser) {

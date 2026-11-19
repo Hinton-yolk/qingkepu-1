@@ -19,7 +19,7 @@
     // 0–2.75 · two readings
     r1: 0.25, inflate2: 0.5, underline: 1.5, r2: 2.0,
     // 2.75–6.75 · the wrong guess (orange), struck; the flip
-    q2: 2.75, myth: 2.75, qmarks: 3.25, hush: 4.375, strike: 4.625, a2: 5.25, unOrange: 5.25,
+    q2: 2.75, myth: 2.75, qmarks: 3.25, hush: 3.75, strike: 4.0, cut: 4.75, a2: 5.25, unOrange: 5.25,
     // 6.75–9.5 · one take in
     q3: 6.75, dive: 6.75, xray: 7.25, diveEnd: 9.5,
     // 9.5–28.75 · the mechanism
@@ -95,16 +95,21 @@
 
   const HITS = {
     r1: [T.r1], inflate2: [T.inflate2], underline: [T.underline], r2: [T.r2],
-    myth: [T.myth], strike: [T.strike], a2: [T.a2],
+    myth: [T.myth], strike: [T.strike],
     dive: [T.dive], air: [T.air], squeeze: [T.squeeze], sensor: [T.sensor], release: [T.release],
     beats: BEATS, q5: [T.q5], push: [T.push], hill: [T.hill],
     q6: [T.q6], a6: [T.a6], mk: [T.mkHi, T.mkLo],
     q7: [T.q7], a7: [T.a7], win: [T.win1, T.win2], q10: [T.q10], col: [T.col], gapC: [T.gapC],
-    fin: [T.fin], avg: [T.avg], tip: [T.tip1, T.tip2, T.tip3], cuffs: [T.m1, T.m2], card: [T.card1, T.card2, T.card3, T.cardHold],
+    fin: [T.fin], tip: [T.tip1, T.tip2, T.tip3], cuffs: [T.m1, T.m2], card: [T.card1, T.card2, T.card3, T.cardHold],
     endType: [T.title1], ep: [T.ep], sting: [T.sting],
   };
 
-  const TL = { BPM, BEAT, BAR, FPS, DUR, W, H, T, COPY, HITS, S16, BEATS, SPIKE_T };
+  // v1.3 (user 11-19: 「很多时候，他没错这一段不要了」): the film skips internal 4.75–6.75 (one bar, so the music keeps its
+  // bars). Everything here stays in INTERNAL time; film time f maps to internal f (< CUT) or f + GAP. The music is rendered
+  // in internal time and cut the same way (tools/cut.sh). FILM_DUR is the film's length; all times people see are film times.
+  const CUT = T.cut, GAP = 2.0, FILM_DUR = DUR - GAP;
+  const toInternal = (f) => (f < CUT ? f : f + GAP), toFilm = (t) => (t < CUT ? t : t - GAP);
+  const TL = { BPM, BEAT, BAR, FPS, DUR, W, H, T, COPY, HITS, S16, BEATS, SPIKE_T, CUT, GAP, FILM_DUR, toInternal, toFilm };
   if (typeof module !== "undefined" && module.exports) module.exports = TL;
   else root.TL = TL;
 })(typeof window !== "undefined" ? window : globalThis);

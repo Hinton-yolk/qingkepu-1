@@ -238,19 +238,22 @@ function inflate(t) {
     [T.beat1, 0.78], [26.6, 0.12], [T.big, 0.1], [DUR, 0.1]], E.p2io);
 }
 // the cuff pressure (mmHg-like, a 示意 scale) during the measurement in the section
-function cuffP(t) { return kf(t, [[0, 0], [T.squeeze, 0], [T.squeezeEnd, 175], [T.release, 175], [T.beat1, 128], [23.0, 100], [26.5, 58], [27.5, 40], [DUR, 40]], (x) => x); }
+function cuffP(t) { return kf(t, [[0, 0], [T.squeeze, 0], [T.squeezeEnd, 175], [T.release, 175], [T.beat1, 120], [23.0, 100], [26.5, 58], [27.5, 40], [DUR, 40]], (x) => x); }
 // the arterial pressure wave (systolic 128, diastolic 82): a quick rise after each beat, a slow fall
 function artP(t) {
   let last = -10; for (const b of BEATS) if (b <= t) last = b;
   const dt = t - last; if (last < 0 || dt > 0.8) return 82;
-  const up = 0.09, w = dt < up ? E.sine(dt / up) : Math.exp(-(dt - up) / 0.32);
+  const tau = Math.abs(last - T.beat1) < 1e-6 ? 0.62 : 0.32;     // v1.3: the first one stays open a moment longer
+  const up = 0.09, w = dt < up ? E.sine(dt / up) : Math.exp(-(dt - up) / tau);
   return 82 + 46 * w;
 }
 // how far the squeezed artery is open (0 = flat, 1 = round)
 function openness(t) {
   const P = cuffP(t);
   if (t < T.squeeze || P < 1) return 1;
-  return clamp((artP(t) - P + 4) / 34);
+  // v1.3 (the audience): the first squeeze-through opens clearly and holds a beat, so the blood is seen getting through (示意)
+  const first = 0.7 * E.smooth(prog(t, T.beat1 + 0.02, T.beat1 + 0.12)) * (1 - E.smooth(prog(t, T.beat1 + 0.5, T.beat1 + 0.72)));
+  return Math.max(first, clamp((artP(t) - P + 4) / 34));
 }
 function drawCuffRoom(t, a = 1) {
   const inf = inflate(t);
@@ -284,7 +287,7 @@ function drawMonitor(t, a = 1, st = lcdState(t), at = MO, sc = 1) {
   if (st.dash) { ctx.font = `700 64px ${UI}`; ctx.textAlign = "center"; ctx.fillText("- - -", 0, -16); }
   else if (st.txt) { ctx.font = `700 118px ${UI}`; ctx.textAlign = "center"; ctx.fillText(st.txt, 0, 4); }
   if (st.dash && st.heartBlink && Math.sin(t * 9) > -0.2) heartIcon(118, -86, 18, C.lcdD, true);
-  if (st.sub) { ctx.save(); ctx.globalAlpha *= 1 - prog(t, T.avg - 0.25, T.avg); ctx.font = `700 44px ${UI}`; ctx.textAlign = "left"; ctx.fillStyle = C.ink; ctx.fillText(st.sub, -MOW / 2 + 12, -MOH / 2 - 16); ctx.restore(); }
+  if (st.sub) { ctx.save(); ctx.font = `700 44px ${UI}`; ctx.textAlign = "left"; ctx.fillStyle = C.ink; ctx.fillText(st.sub, -MOW / 2 + 12, -MOH / 2 - 16); ctx.restore(); }
   ctx.beginPath(); ctx.arc(0, 98, 30, 0, TAU); ctx.fillStyle = "#E7E5DE"; ctx.fill(); ctx.strokeStyle = "rgba(20,20,20,0.4)"; ctx.lineWidth = 3; ctx.stroke();   // the start button
   ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(0, 98, 9, 0, TAU); ctx.fill();
   ctx.restore();
@@ -318,7 +321,7 @@ function card138(t, a = 1, at = CARD1) {
   ctx.save(); ctx.globalAlpha *= a; ctx.translate(p[0], p[1]);
   rr(-130, -86, 260, 160, 26); ctx.fillStyle = C.lcd; ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = 2.6; ctx.stroke();
   ctx.fillStyle = C.lcdD; ctx.font = `700 118px ${UI}`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.fillText("138", 0, 40);
-  ctx.save(); ctx.globalAlpha *= 1 - prog(t, T.avg - 0.25, T.avg); ctx.font = `700 44px ${UI}`; ctx.textAlign = "left"; ctx.fillStyle = C.ink; ctx.fillText(COPY.first, -122, -112); ctx.restore();
+  ctx.save(); ctx.font = `700 44px ${UI}`; ctx.textAlign = "left"; ctx.fillStyle = C.ink; ctx.fillText(COPY.first, -122, -112); ctx.restore();
   ctx.restore();
 }
 function drawTable(a = 1) {
@@ -330,14 +333,14 @@ function drawTable(a = 1) {
 function drawRoom(t, K, o = {}) {
   setK(K);
   drawTable(o.table ?? 1);
-  drawTubeRoom(t);
+  drawTubeRoom(t, o.mon ?? 1);
   drawArmImg(o.arm ?? 1);
   drawCuffRoom(t, o.cuff ?? 1);
   drawMonitor(t, o.mon ?? 1);
   if (t < T.dive + 0.6 || t >= T.iris) card138(t, o.mon ?? 1);
 }
 // the light shot's camera (a slow drift; a gentle push before the dive)
-function roomK(t) { const d = drift(t); return key([540, 1000], [620 + 0.8 * d[0], 1040 + 0.8 * d[1]], 1.12 * lerp(1.0, 1.05, prog(t, 0, T.dive)) * (1 + 0.5 * (d[2] - 1))); }
+function roomK(t) { const tf = TL.toFilm(t), d = drift(tf); return key([540, 1000], [620 + 0.8 * d[0], 1040 + 0.8 * d[1]], 1.12 * lerp(1.0, 1.05, prog(tf, 0, TL.toFilm(T.dive))) * (1 + 0.5 * (d[2] - 1))); }   // film time: no jump at the cut
 // the section's camera: the cuff centre at (540, 850), the upper arm level, 1 E unit = 1 px
 const SEC_A = 2.27, SEC_C = [540, 850];
 const K_SEC = key(CU, SEC_C, SEC_A, -CANG);
@@ -383,7 +386,7 @@ function bulge(t) {
   let v = 0; for (const b of BEATS) { const dt = t - b; if (dt >= 0 && dt < 0.7) v = Math.max(v, Math.exp(-dt / 0.18) * E.smooth(clamp(dt / 0.05))); }
   return v * (t > T.release ? 1 : 0) * clamp(openness(t) * 3);
 }
-function amp(P) { const MAP = 100; return P >= MAP ? Math.exp(-Math.pow((P - MAP) / 14, 2)) : Math.exp(-Math.pow((MAP - P) / 22, 2)); }   // the oscillation envelope (示意)
+function amp(P) { const MAP = 100; return P >= MAP ? Math.exp(-Math.pow((P - MAP) / 11, 2)) : Math.exp(-Math.pow((MAP - P) / 22, 2)); }   // the oscillation envelope (示意)
 // the push beat is the one we follow: its bulge is the biggest; the others are quieter
 function beatGain(t) { let last = -10; for (const b of BEATS) if (b <= t) last = b; return Math.abs(last - T.push) < 1e-6 ? 1 : 0.35; }
 function drawSection(t, a = 1, focus = 1) {
@@ -414,6 +417,12 @@ function drawSection(t, a = 1, focus = 1) {
   for (const b of BLOOD) {
     const x = ((b.x + fd + 700) % 1400 + 1400) % 1400 - 700;
     ctx.fillStyle = `rgba(255,190,190,${b.a})`; rr(x, SEC.art + b.y * lumen(t, x) * 0.6 - 3, b.l, 6, 3); ctx.fill();
+  }
+  for (const b of [T.beat1, T.push]) {                               // the squirt: shows only where the artery is open
+    const u = prog(t, b + 0.03, b + 0.6); if (u <= 0 || u >= 1) continue;
+    const x = lerp(-SEC.half - 90, SEC.half + 90, E.smooth(u)), aa = Math.sin(Math.PI * u);
+    const g = ctx.createLinearGradient(x - 90, 0, x + 90, 0); g.addColorStop(0, "rgba(255,150,150,0)"); g.addColorStop(0.6, `rgba(255,170,160,${0.95 * aa})`); g.addColorStop(1, "rgba(255,150,150,0)");
+    ctx.fillStyle = g; ctx.fillRect(x - 90, SEC.art - 30, 180, 60);
   }
   ctx.restore();
   ctx.strokeStyle = C.bloodL; ctx.lineWidth = 3.5; ctx.stroke();
@@ -542,7 +551,8 @@ function sectionNotes(t) {
   if (t >= T.push && t < T.more + 0.4) {
     const fo = 1 - prog(t, T.more, T.more + 0.4);
     ID(); ctx.save(); ctx.globalAlpha = fo;
-    const a1 = sa(40, SEC.art + 30), a2 = sa(40, SEC.skin - 4);
+    const a1 = sa(40, SEC.art + 30), a2 = sa(40, SEC.skin - 4), rk = prog(t, T.push, T.push + 0.45);
+    if (rk < 1) { const p = sa(0, SEC.art); oring(p[0], p[1], 34 + 30 * rk, 1, 1 - rk, 5); }
     arrowS(a1[0], a1[1], a2[0], a2[1] + 34, E.p3out(prog(t, T.push + 0.02, T.push + 0.22)));
     const P = cuffTubeS(t), m = bez(P, 0.5);
     if (t > T.push + 0.3) arrowS(m[0] + 50, m[1] - 40, m[0] + 50, m[1] + 50, E.p3out(prog(t, T.push + 0.3, T.push + 0.5)));
@@ -574,12 +584,13 @@ function drawHill(t, a = 1) {
   for (const [b, tm, nm, side] of [[B_HI, T.mkHi, COPY.hi, -1], [B_LO, T.mkLo, COPY.lo, 1]]) {
     const mk = E.p3out(prog(t, tm, tm + 0.3)); if (mk <= 0) continue;
     const [x, y] = topOf(b);
-    ctx.globalAlpha = a; ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(x, y, 14 * spring(t - tm, 18, 0.6), 0, TAU); ctx.fill();
-    ctx.strokeStyle = C.paper; ctx.lineWidth = 4; ctx.stroke();
+    const zr = 48 * spring(t - tm, 16, 0.7), zg = ctx.createRadialGradient(x, y, 0, x, y, Math.max(1, zr));
+    zg.addColorStop(0, "rgba(255,74,28,0.75)"); zg.addColorStop(0.55, "rgba(255,74,28,0.4)"); zg.addColorStop(1, "rgba(255,74,28,0)");
+    ctx.globalAlpha = a; ctx.fillStyle = zg; ctx.beginPath(); ctx.arc(x, y, Math.max(1, zr), 0, TAU); ctx.fill();   // about here (示意), not a fixed point
     pill(nm, x + side * 24, y - 56, 48, t, tm + 0.1, T.q7, { align: side < 0 ? "left" : "center", edge: true });
   }
   ctx.globalAlpha = a;
-  label(COPY.algo, 1010, 1330, 44, C.paper, t, T.mkLo + 0.4, T.q7, { align: "right", weight: 400, alpha: 0.85 });
+  label(COPY.algo, 1010, 1316, 50, C.paper, t, T.mkLo + 0.3, T.q7, { align: "right", weight: 700, alpha: 0.95 });
   ctx.restore();
 }
 
@@ -732,6 +743,7 @@ function dimension(t, xa, yHeart, yCuff, xCuff, name, t0, t1, lx, ly) {
   ctx.save(); ctx.globalAlpha = fo; ctx.strokeStyle = C.acc; ctx.lineWidth = 4; ctx.setLineDash([12, 9]);
   line(Math.min(xCuff, xa) - 12, yCuff, lerp(Math.min(xCuff, xa) - 12, Math.max(xCuff, xa) + 12, k), yCuff); ctx.setLineDash([]);
   const yb = lerp(yHeart, yCuff, k);
+  ctx.fillStyle = rgba(C.acc, 0.22); ctx.fillRect(xa - 22, Math.min(yHeart, yb), 44, Math.abs(yb - yHeart));
   ctx.lineWidth = 6; line(xa, yHeart, xa, yb);
   ctx.fillStyle = C.acc; const dir = Math.sign(yCuff - yHeart) || 1;
   for (const [yy, d] of [[yHeart, -dir], [yb, dir]]) { ctx.beginPath(); ctx.moveTo(xa, yy); ctx.lineTo(xa - 11, yy - d * 16); ctx.lineTo(xa + 11, yy - d * 16); ctx.closePath(); ctx.fill(); }
@@ -767,7 +779,7 @@ const ROWS = [
 function seatedScene(t, S, Tt, o = {}) {                                // her at the table, the forearm on a cushion (桌子低就垫高)
   const top = TABLE_Y + 46;                                            // a lower table, the cushion makes up the 46 px
   drawFloor(S, Tt); drawDesk(S, Tt, top, sx(S, Tt, 700)); drawChair(S, Tt); drawShins(S, Tt);
-  const cx0 = sx(S, Tt, 640), cy0 = sy(S, Tt, TABLE_Y), cw = S * 360, chh = S * 46;
+  const cx0 = sx(S, Tt, 640), cy0 = sy(S, Tt, TABLE_Y - 10), cw = S * 360, chh = S * 56;
   ctx.save(); rr(cx0, cy0, cw, chh + 2, 12 * S); ctx.fillStyle = "#E3C9A0"; ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = 2.2; ctx.stroke();
   if (o.hlCushion > 0) { ctx.globalAlpha = o.hlCushion; ctx.strokeStyle = C.acc; ctx.lineWidth = 5; rr(cx0 - 8, cy0 - 8, cw + 16, chh + 18, 14 * S + 6); ctx.stroke(); }
   ctx.restore();
@@ -866,31 +878,26 @@ function drawTips(t) {
 }
 
 // ================================================================ captions
-// the dive's circle: it opens from the cuff (dark inside), no cross-fade, so there is never a grey frame
-function diveIris(t) {
-  if (t < T.xray || t >= T.diveEnd) return null;
-  const k = E.p2in(prog(t, T.xray, T.diveEnd - 0.4)), c = toS(camRoom(t), CU);
-  return { c, R: 4 + 2300 * k };
-}
 function darkAt(t) {
-  if (t < T.xray) return 0;
-  if (t < T.diveEnd) return -1;                                   // the circle: both, clipped
+  if (t < BAND0) return 0;
+  if (t < T.diveEnd) { const h = bandH(t); return h <= 0 ? 0 : h > 2000 ? 1 : -1; }   // the band: dark inside it, light outside
   if (t < T.q7) return 1;
   return 0;
 }
 function scrimOf(fl, a = 1, gr = "236,235,230") {
   const STOPS = [[0, 1], [0.66, 1], [0.74, 0.86], [0.82, 0.56], [0.9, 0.24], [1, 0]];
-  const SH = fl > 0.5 ? 640 : (TT >= T.side && TT < T.tip1 + 0.01) || (TT >= T.tip1 && TT < T.end) ? 580 : 760;
+  const SHl = (TT >= T.side && TT < T.tip1 + 0.01) || (TT >= T.tip1 && TT < T.end) ? 580 : 760, SH = lerp(SHl, 640, fl);
+  const g0 = gr.split(",").map(Number), c = [23, 25, 28].map((v, i) => Math.round(lerp(g0[i], v, fl))).join(","), am = lerp(1, 0.92, fl);
   ID(); const g = ctx.createLinearGradient(0, 0, 0, SH);
-  STOPS.forEach(([o, k]) => g.addColorStop(o, fl > 0.5 ? `rgba(23,25,28,${a * k * 0.92})` : `rgba(${gr},${a * k})`));
+  STOPS.forEach(([o, k]) => g.addColorStop(o, `rgba(${c},${a * k * am})`));
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, SH);
 }
 function textBand(t, fl) {
   const L = C.ink, D = C.paper, M = fl > 0.5 ? D : L;
   lines(COPY.h1, t, -1, T.q2, { style: "none", col: L });
   underline(COPY.h1[2], "该信", "哪一次", 2, t, T.underline, T.q2, [300, 420, 540], 96);
-  lines(COPY.q2, t, T.q2, T.a2, { style: "blur", col: L, acc: C.paper, exit: 0.001 });
-  lines(COPY.a2, t, T.a2, T.q3, { style: "slam", col: L, acc: orangeK(t) > 0.35 ? C.ink : C.acc });
+  mythBox(t);
+  lines(COPY.q2, t, T.q2, T.cut, { style: "blur", col: L, acc: C.paper, exit: 0.001 });
   lines(COPY.q3, t, T.q3, T.air, { style: "blur", col: M });
   lines(COPY.h4, t, T.air, T.squeeze, { style: "blur", col: D });
   lines(COPY.a4, t, T.squeeze, T.deflate, { style: "blur", col: D });
@@ -937,15 +944,22 @@ function endCard(t) {
 }
 
 // ================================================================ the frame
-const orangeK = (t) => (t < T.unOrange ? E.p2io(prog(t, T.myth, T.myth + 0.3)) : 0);   // a straight cut back to the grey (no pinkish frames)
+const orangeK = (t) => 0;                                       // v1.3 (the audience): the orange stays on the guess, not the whole frame
 function groundRGB(t) { const o = orangeK(t), g = hexRGB(C.ground), q = hexRGB(C.acc); return [0, 1, 2].map((i) => Math.round(lerp(g[i], q[i], o))).join(","); }
 function groundCol(t) { const o = orangeK(t); return o > 0 ? mixHex(C.ground, C.acc, o) : C.ground; }
+// the orange box behind 量错了？ (the guess), drawn under the caption
+function mythBox(t) {
+  if (t < T.myth + 0.25 || t >= T.cut) return;
+  const str = COPY.q2[1], size = fitSize(str, 112, 930), f = `${size}px ${DISPLAY}`;
+  const x0 = 96 + mw(f, "是血压计") - 16, w = mw(f, "量错了？") + 28, k = E.p3out(prog(t, T.myth + 0.25, T.myth + 0.55));
+  ID(); ctx.save(); rr(x0, 472 - size * 0.98, w * k, size * 1.28, 18); ctx.fillStyle = C.acc; ctx.fill(); ctx.restore();
+}
 function strike(t) {
-  if (t < T.strike || t >= T.a2) return;
+  if (t < T.strike || t >= T.cut) return;
   // on the guess itself — the words 量错 of the caption (drawn over the caption, gone with it); the readings stay untouched
   const str = COPY.q2[1], size = fitSize(str, 112, 930), f = `${size}px ${DISPLAY}`;
   const x0 = 96 + mw(f, "是血压计"), w = mw(f, "量错"), y = 472 - size * 0.36;
-  const c = [x0 + w / 2, y], fo = 1 - prog(t, T.a2 - 0.08, T.a2), rx = w / 2 + 4, ry = size * 0.52;
+  const c = [x0 + w / 2, y], fo = 1 - prog(t, T.cut - 0.06, T.cut), rx = w / 2 + 4, ry = size * 0.52;
   ID(); ctx.save(); ctx.globalAlpha = fo; ctx.lineCap = "round";
   const k1 = E.p3out(prog(t, T.strike, T.strike + 0.1)), k2 = E.p3out(prog(t, T.strike + 0.125, T.strike + 0.225));
   for (const [col, lw] of [[C.paper, 20], [C.ink, 11]]) {
@@ -962,26 +976,62 @@ function againNote(t, K) {
 }
 function roomShot(t, K, ground) {
   ID(); ctx.fillStyle = ground; ctx.fillRect(-200, -200, W + 400, H + 400);
-  const xr = 0;
-  drawRoom(t, K, { cuff: 1 - 0.75 * xr, arm: 1 - 0.75 * xr, mon: 1 - xr, table: 1 - xr });
+  drawRoom(t, K);
 }
-// the averaging bracket on the closing shot
-function avgBracket(t, K) {
-  const k = E.p3out(prog(t, T.avg, T.avg + 0.4)); if (k <= 0) return;
-  // above the two readings (where their small names were), so the line never crosses the monitor
-  const a = toS(K, [CARD1[0], CARD1[1] - 128]), b = toS(K, [MO[0], CARD1[1] - 128]);
-  ID(); ctx.save(); ctx.strokeStyle = C.acc; ctx.lineWidth = 7; ctx.lineCap = "round"; ctx.lineJoin = "round";
-  ctx.beginPath(); ctx.moveTo(a[0], a[1] + 26); ctx.lineTo(a[0], a[1]); ctx.lineTo(lerp(a[0], b[0], k), a[1]); if (k > 0.98) ctx.lineTo(b[0], b[1] + 26); ctx.stroke(); ctx.restore();
-  label(COPY.avg, (a[0] + b[0]) / 2, a[1] - 22, 48, C.acc, t, T.avg + 0.25, T.tip1, { align: "center" });
+// ---------------------------------------------------------------- the dive (internal 6.75–9.5), one take
+// the camera never cuts: it pushes into the cuff; the arm and the cuff turn see-through and the inside shows IN the arm
+// (the section is registered to the arm); then the room around dims to dark in 0.25 s while the push goes on
+const BAND0 = 8.2, BAND1 = 8.8;
+const xrK = (t) => E.smooth(prog(t, T.xray, T.xray + 0.95));
+// after the arm has turned see-through, its inside widens outward (a dark band along the arm, soft-edged) until it fills
+// the frame — the camera seems to go into the arm; no frame is ever a half-dark grey
+function bandH(t) { const u = prog(t, BAND0, BAND1); return u <= 0 ? 0 : lerp(150, 2200, E.p2in(u)); }
+function bandPath(t, extra = 0) {
+  const h = bandH(t) + extra; if (h <= 0) return null;
+  ctx.save(); setSec(t); const M = ctx.getTransform(); ctx.restore();
+  const R = new Path2D(); R.moveTo(-6000, -h); R.lineTo(6000, -h); R.lineTo(6000, h); R.lineTo(-6000, h); R.closePath();
+  const P = new Path2D(); P.addPath(R, M); return P;
+}
+function smoothPath2D(P) {
+  const n = P.length, m = (i) => [(P[i % n][0] + P[(i + 1) % n][0]) / 2, (P[i % n][1] + P[(i + 1) % n][1]) / 2], Q = new Path2D();
+  const p0 = m(n - 1); Q.moveTo(p0[0], p0[1]);
+  for (let i = 0; i < n; i++) { const q = m(i); Q.quadraticCurveTo(P[i][0], P[i][1], q[0], q[1]); }
+  Q.closePath(); return Q;
+}
+const ARM_CW = (() => { let a = 0; for (let i = 0; i < ARM_PTS.length; i++) { const p = ARM_PTS[i], q = ARM_PTS[(i + 1) % ARM_PTS.length]; a += p[0] * q[1] - q[0] * p[1]; } return a > 0; })();
+const ARM_P2D = smoothPath2D(ARM_CW ? ARM_PTS : [...ARM_PTS].reverse());
+function armCuffClip(t, K) {                          // the arm ∪ the cuff, in screen px (one winding, so nonzero = union)
+  const P = new Path2D();
+  setK(K); ctx.translate(ARM_T[0], ARM_T[1]); ctx.scale(ARM_S, ARM_S); P.addPath(ARM_P2D, ctx.getTransform());
+  setK(K); ctx.translate(CU[0], CU[1]); ctx.rotate(CANG);
+  const L = CLEN + 30, th = CTH + 110, R = new Path2D(); R.moveTo(-L / 2, -th / 2); R.lineTo(L / 2, -th / 2); R.lineTo(L / 2, th / 2); R.lineTo(-L / 2, th / 2); R.closePath();
+  P.addPath(R, ctx.getTransform());
+  return P;
+}
+function diveShot(t) {
+  const K = camRoom(t), xr = xrK(t), h = bandH(t);
+  ID(); ctx.fillStyle = C.ground; ctx.fillRect(-200, -200, W + 400, H + 400);
+  drawRoom(t, K, { arm: 1 - 0.85 * xr, cuff: 1 - 0.85 * xr });
+  if (h > 0) {                                                    // the dark band, soft edges outside it
+    ctx.save(); setSec(t);
+    ctx.fillStyle = C.dark; ctx.fillRect(-6000, -h, 12000, 2 * h);
+    for (const sg of [-1, 1]) { const y0 = sg * h, g = ctx.createLinearGradient(0, y0, 0, y0 + sg * 70); g.addColorStop(0, rgba(C.dark, 1)); g.addColorStop(1, rgba(C.dark, 0)); ctx.fillStyle = g; ctx.fillRect(-6000, Math.min(y0, y0 + sg * 70), 12000, 70); }
+    ctx.restore();
+  }
+  if (xr > 0.001) {
+    ctx.save();
+    const P = armCuffClip(t, K), B = bandPath(t); if (B) P.addPath(B);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clip(P);
+    drawSection(t, xr);
+    ctx.restore();
+  }
+  againNote(t, K);
 }
 const IRC = [898, 850];
 function frame(t) {
   ctx.reset(); [VX, VY] = viewDrift(t); ID();
   if (t < T.diveEnd) {
-    const K = camRoom(t), ir = diveIris(t);
-    roomShot(t, K, groundCol(t));
-    if (ir) { ctx.save(); const P = new Path2D(); P.arc(ir.c[0], ir.c[1], ir.R, 0, TAU); ID(); ctx.clip(P); ctx.fillStyle = C.dark; ctx.fillRect(-200, -200, W + 400, H + 400); drawSection(t, 1); ctx.restore(); }
-    againNote(t, K);
+    diveShot(t);
   } else if (t < T.q7) {
     ID(); ctx.fillStyle = C.dark; ctx.fillRect(-200, -200, W + 400, H + 400);
     const bigK = E.p2io(prog(t, T.big, T.bigEnd));
@@ -999,7 +1049,7 @@ function frame(t) {
     drawSide(t);
   } else if (t < T.tip1) {
     const K = roomK(t);
-    const draw = () => { roomShot(t, K, C.ground); avgBracket(t, K); };
+    const draw = () => { roomShot(t, K, C.ground); };
     if (t < T.irisEnd) {
       drawSide(t);
       const k = E.p2io(prog(t, T.iris, T.irisEnd)), R = 6 + 2200 * k;
@@ -1012,10 +1062,10 @@ function frame(t) {
 function overlay(t) {
   VX = 0; VY = 0; TT = t;
   const fl = darkAt(t);
-  if (fl < 0) {                                                   // the dive's circle: dark scrim inside, light outside
-    const ir = diveIris(t);
-    ctx.save(); let P = new Path2D(); P.rect(0, 0, W, H); P.arc(ir.c[0], ir.c[1], ir.R, 0, TAU); ID(); ctx.clip(P, "evenodd"); scrimOf(0, 1, groundRGB(t)); textBand(t, 0); ctx.restore();
-    ctx.save(); P = new Path2D(); P.arc(ir.c[0], ir.c[1], ir.R, 0, TAU); ID(); ctx.clip(P); scrimOf(1); textBand(t, 1); ctx.restore();
+  if (fl < 0) {                                                   // the band: dark scrim + light text inside, light outside
+    const B = bandPath(t);
+    ctx.save(); let P = new Path2D(); P.rect(0, 0, W, H); P.addPath(B); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clip(P, "evenodd"); scrimOf(0, 1, groundRGB(t)); textBand(t, 0); ctx.restore();
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clip(bandPath(t)); scrimOf(1); textBand(t, 1); ctx.restore();
   } else {
     scrimOf(fl, t >= T.end ? 1 - prog(t, T.end, T.end + 0.3) : 1 - prog(t, T.cardHold, T.cardHold + 0.3), groundRGB(t));
     textBand(t, fl);
@@ -1027,8 +1077,8 @@ function overlay(t) {
 // ---------------------------------------------------------------- motion blur where things move fast
 const BLUR = [[6.9, 7.25, 6], [41.5, 41.85, 6], [44.0, 44.35, 6], [56.25, 57.1, 6]];
 const SHUTTER = 0.5 / FPS;
-window.seek = function seek(t) {
-  t = clamp(t, 0, DUR - 1e-6);
+window.seek = function seek(f) {                  // f = film time; the picture runs on internal time (timeline.js)
+  let t = TL.toInternal(clamp(f, 0, TL.FILM_DUR - 1e-6));
   const b = BLUR.find(([a, bb]) => t >= a && t < bb);
   if (!b) { ctx = MAIN; frame(t); overlay(t); return; }
   const SUB = b[2];
@@ -1041,7 +1091,7 @@ window.seek = function seek(t) {
   }
   MAIN.globalAlpha = 1; ctx = MAIN; overlay(t);
 };
-window.DUR = DUR; window.FPS = FPS;
+window.DUR = TL.FILM_DUR; window.FPS = FPS;
 window.ready = false;
 window.whenReady = Promise.all([
   document.fonts.load(`100px ${DISPLAY}`, "血压每次量的都不一样"), document.fonts.load(`700 50px ${UI}`, "压力传感器高压低压0123456789"), document.fonts.load(`400 50px ${UI}`, "示意"),

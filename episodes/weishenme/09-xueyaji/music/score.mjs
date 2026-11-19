@@ -189,7 +189,7 @@ done(T.r1); pump(T.inflate2, 0.75, 0.9); hiss(1.25, 0.7, 0.9); done(T.r2);
 blip(T.underline, 88, 0.7); blip(T.underline + 0.125, 92, 0.5);
 bloom(T.myth, [80, 83, 88], 0.3);
 impact(T.strike, 1.4); stab(T.strike, [52, 59, 64, 68, 71], 0.6, 1.05, 1.3);
-softImpact(T.a2, 0.6);
+
 riser(T.dive + 0.25, T.diveEnd - T.dive - 0.25, 0.7); glide(T.xray, 0.6, 71, 80, 0.4, 0.1);
 bloom(T.air, [76, 80, 83], 0.5); tick(T.stetho, 0.4, -0.3, 3200);
 pump(T.squeeze, T.squeezeEnd - T.squeeze, 1.0); thunk(T.stop, 0.5, 110);
@@ -205,7 +205,7 @@ tick(T.win1, 0.5, -0.2, 3000); tick(T.win2, 0.5, 0.2, 3000); blip(T.sat + 0.4, 8
 swish(T.lower - 0.05, 0.4, 0.6, -0.2); glide(T.col, 0.5, 76, 85, 0.4, 0.2); blip(T.up, 88, 0.45);
 swish(T.raise - 0.05, 0.4, 0.6, 0.2); glide(T.gapC, 0.5, 85, 76, 0.4, -0.2); blip(T.down, 76, 0.45);
 impact(T.fin, 1.35); stab(T.fin, [52, 59, 64, 68, 71], 0.5, 1, 1.25);
-snapSfx(T.avg, 0.6); bloom(T.avg, [80, 83, 88], 0.35);
+
 [T.tip1, T.tip2, T.tip3].forEach((t, i) => blip(t, [83, 85, 88][i], 0.4, 0.2));
 pump(T.m1, 0.4, 0.5); pump(T.m2, 0.4, 0.5); done(T.m1 + 0.5); done(T.m2 + 0.5);
 [T.card1, T.card2, T.card3].forEach((t) => tick(t, 0.5, 0.2, 3200)); tick(T.cardHold, 0.4, 0, 2400);
