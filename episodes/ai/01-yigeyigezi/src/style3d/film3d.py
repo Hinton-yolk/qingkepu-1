@@ -655,8 +655,18 @@ def autofit(bottom=0.64, top=0.12, left=0.07, right=0.86, fill=0.94, iters=7):
         if abs(k - 1) < 0.02 and abs(dx) < 0.005 and abs(dy) < 0.005: break
 
 # ---------------- v3 的顺序（34 拍），时间从 script.md 的逐句字幕 v3 表读，保证和字幕同步 ----------------
-V3 = ['o1', 'o2', 'o3', 'o4', 'n_strip', 'n_mult', 'o5', 'n_attnlong', 'o6', 'n_tail', 'o7',
-      'o8', 'o9', 'o10', 'o11', 'o12', 'o13', 'o14', 'o15', 'o16', 'o17', 'o18', 'o19', 'n_mem16', 'n_timing',
+def n_bridge(u):    # v3.1 衔接：那每一个字，是怎么写出来的？（回到那句话，空位亮起，后面的「模型」亮起来）
+    reset('lilac'); lights((0, 0, 1))
+    zs = model_stack(z0=0.45, n=5, gap=0.92, warm_upto=-1)
+    row('周末我想去', -1.8, -0.55)
+    yel_q((1.8, -0.6, -0.55))
+    curve_tube([(1.8, -0.6, -0.2), (0.9, -0.4, 0.0), (0, -0.2, zs[0] - 0.35)], 0.035 * ease(seg(u, 0.2, 0.8)) + 0.001, emit(YEL, 2.4))
+    ANCH['q'] = (1.8, -0.6, -1.4)
+    cam((1.6, -32, 7.6), (0, 0, 0.35), 100, 5.6, 32.6)
+
+# v3.1 顺序（35 拍）：分叉提前（用户 11-19 采纳观众意见），加一拍衔接
+V3 = ['o1', 'o2', 'o3', 'o8', 'o9', 'o10', 'o11', 'n_bridge', 'o4', 'n_strip', 'n_mult', 'o5', 'n_attnlong', 'o6', 'n_tail', 'o7',
+      'o12', 'o13', 'o14', 'o15', 'o16', 'o17', 'o18', 'o19', 'n_mem16', 'n_timing',
       'o20', 'o21', 'n_easy', 'n_hard', 'n_accept', 'o22', 'o23', 'o24', 'o25']
 def read_times():
     md = open(os.path.join(here, '..', '..', 'script.md'), encoding='utf-8').read()
