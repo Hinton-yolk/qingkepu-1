@@ -16,7 +16,7 @@ import { createRequire } from "node:module";
 import { writeFileSync } from "node:fs";
 const require = createRequire(import.meta.url);
 const TL = require("../timeline.js");
-const { T, DUR, HITS, S16, BEATS } = TL;
+const { T, DUR, HITS, S16, BEATS, SPIKE_T } = TL;
 
 const SR = 48000, N = Math.ceil(SR * (DUR + 0.6)), TAU = Math.PI * 2, BEAT = 0.5, BAR = 2;
 const bus = () => [new Float32Array(N), new Float32Array(N)];
@@ -187,7 +187,7 @@ const ask = (t) => { blip(t, 83, 0.55, -0.15); blip(t + 0.125, 88, 0.6, 0.15); }
 const done = (t, last = 85) => [[0, 92], [1, 95], [2, last + 12]].forEach(([i, m]) => beep(t + i * S16, m, 0.09, 0.7, 0.15));   // the monitor's "done": mi-sol-la
 done(T.r1); pump(T.inflate2, 0.75, 0.9); hiss(1.25, 0.7, 0.9); done(T.r2);
 blip(T.underline, 88, 0.7); blip(T.underline + 0.125, 92, 0.5);
-bloom(T.myth, [80, 83, 88], 0.3); plink(T.qmarks, 83, 0.4, -0.2); plink(T.qmarks + 0.17, 80, 0.4, 0.2);
+bloom(T.myth, [80, 83, 88], 0.3);
 impact(T.strike, 1.4); stab(T.strike, [52, 59, 64, 68, 71], 0.6, 1.05, 1.3);
 softImpact(T.a2, 0.6);
 riser(T.dive + 0.25, T.diveEnd - T.dive - 0.25, 0.7); glide(T.xray, 0.6, 71, 80, 0.4, 0.1);
@@ -195,7 +195,7 @@ bloom(T.air, [76, 80, 83], 0.5); tick(T.stetho, 0.4, -0.3, 3200);
 pump(T.squeeze, T.squeezeEnd - T.squeeze, 1.0); thunk(T.stop, 0.5, 110);
 tick(T.sensor, 0.5, -0.3, 3300); blip(T.sensor + 0.08, 88, 0.4, -0.3);
 hiss(T.release, 26.4 - T.release, 0.6);
-BEATS.forEach((b) => { heart(b, b === T.push ? 0.95 : 0.6); tick(b + 0.62, b === T.push ? 0.55 : 0.25, -0.35, 2700); });
+BEATS.forEach((b) => { heart(b, b === T.push ? 0.95 : 0.6); if (SPIKE_T[b] !== undefined) tick(SPIKE_T[b], b === T.push ? 0.55 : 0.25, -0.35, 2700); });
 snapSfx(T.push + 0.62, 0.6);
 glide(T.hill, 1.2, 76, 88, 0.4, 0.2);
 glide(T.big, T.bigEnd - T.big, 71, 80, 0.35, 0);
@@ -208,7 +208,7 @@ impact(T.fin, 1.35); stab(T.fin, [52, 59, 64, 68, 71], 0.5, 1, 1.25);
 snapSfx(T.avg, 0.6); bloom(T.avg, [80, 83, 88], 0.35);
 [T.tip1, T.tip2, T.tip3].forEach((t, i) => blip(t, [83, 85, 88][i], 0.4, 0.2));
 pump(T.m1, 0.4, 0.5); pump(T.m2, 0.4, 0.5); done(T.m1 + 0.5); done(T.m2 + 0.5);
-[T.card1, T.card2, T.card3].forEach((t) => tick(t, 0.5, 0.2, 3200));
+[T.card1, T.card2, T.card3].forEach((t) => tick(t, 0.5, 0.2, 3200)); tick(T.cardHold, 0.4, 0, 2400);
 { let k = 0; TL.COPY.end.forEach((s, li) => { const n = s.replace(/[\[\]]/g, "").length; for (let j = 0; j < n; j++) tick(T.title1 + li * 0.3 + j * 0.045, 0.45, -0.2 + 0.05 * (k++ % 8), 2600 + (j % 3) * 300); }); }
 blip(T.ep, 88, 0.6);
 impact(T.sting, 0.55); stab(T.sting, [52, 59, 64, 68, 71], 1.6, 0.8, 0.9); bloom(T.sting, [88, 92, 95, 100], 1.0);

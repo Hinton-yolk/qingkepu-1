@@ -19,7 +19,7 @@
     // 0–2.75 · two readings
     r1: 0.25, inflate2: 0.5, underline: 1.5, r2: 2.0,
     // 2.75–6.75 · the wrong guess (orange), struck; the flip
-    q2: 2.75, myth: 2.75, qmarks: 3.25, hush: 4.5, strike: 5.0, a2: 5.25, unOrange: 5.25,
+    q2: 2.75, myth: 2.75, qmarks: 3.25, hush: 4.375, strike: 4.625, a2: 5.25, unOrange: 5.25,
     // 6.75–9.5 · one take in
     q3: 6.75, dive: 6.75, xray: 7.25, diveEnd: 9.5,
     // 9.5–28.75 · the mechanism
@@ -42,15 +42,19 @@
     // 46–48 · back to the first shot
     fin: 46.0, iris: 45.75, irisEnd: 46.25, avg: 46.75,
     // 48–56.25 · the tips
-    tip1: 48.0, timer: 48.2, timerEnd: 49.4, align: 49.4, card1: 50.0,
-    tip2: 50.5, m1: 50.6, m1End: 51.2, wait: 51.25, m2: 51.75, m2End: 52.25, card2: 52.4,
-    tip3: 52.75, week: 52.9, weekEnd: 53.9, wline: 54.0, card3: 54.6, cardHold: 55.25,
+    tip1: 48.0, timer: 48.2, timerEnd: 49.4, align: 49.4, card1: 50.625,
+    tip2: 50.5, m1: 50.6, m1End: 51.2, wait: 51.25, m2: 51.75, m2End: 52.25, card2: 52.375,
+    tip3: 52.75, week: 52.9, weekEnd: 53.5, wline: 53.5, card3: 54.0, cardHold: 54.5,
     // 56.25–59.75 · end card
-    end: 56.25, endMorph: 56.85, title1: 57.0, ep: 57.75, sting: 58.25,
+    end: 56.75, endMorph: 57.25, title1: 57.375, ep: 58.0, sting: 58.5,
   };
 
   // the heart beats during the measurement (picture: a squeeze-through, a spike; sound: a soft thump)
   const BEATS = []; for (let t = T.beat1; t < 26.6; t += 0.8) BEATS.push(+t.toFixed(3));
+  // when each beat's spike appears on the machine's screen (v1.2, the audience: one spike first, alone):
+  //   before the push beat — none (too small to show); the push beat — alone, held until T.more;
+  //   the beats between the push and T.more — catch up from T.more, 0.2 s apart; later — 0.62 s after the beat
+  const SPIKE_T = {}; { let k = 0; for (const b of BEATS) { if (b < T.push - 1e-6) continue; SPIKE_T[b] = b < T.push + 1e-6 ? b + 0.62 : b + 0.62 < T.more + 0.1 ? T.more + 0.2 * k++ : b + 0.62; } }
 
   const COPY = {
     h1: ["血压每次量的", "都不一样，", "该信[哪一次]？"],
@@ -91,16 +95,16 @@
 
   const HITS = {
     r1: [T.r1], inflate2: [T.inflate2], underline: [T.underline], r2: [T.r2],
-    myth: [T.myth], qmarks: [T.qmarks], strike: [T.strike], a2: [T.a2],
+    myth: [T.myth], strike: [T.strike], a2: [T.a2],
     dive: [T.dive], air: [T.air], squeeze: [T.squeeze], sensor: [T.sensor], release: [T.release],
     beats: BEATS, q5: [T.q5], push: [T.push], hill: [T.hill],
     q6: [T.q6], a6: [T.a6], mk: [T.mkHi, T.mkLo],
     q7: [T.q7], a7: [T.a7], win: [T.win1, T.win2], q10: [T.q10], col: [T.col], gapC: [T.gapC],
-    fin: [T.fin], avg: [T.avg], tip: [T.tip1, T.tip2, T.tip3], cuffs: [T.m1, T.m2], card: [T.card1, T.card2, T.card3],
+    fin: [T.fin], avg: [T.avg], tip: [T.tip1, T.tip2, T.tip3], cuffs: [T.m1, T.m2], card: [T.card1, T.card2, T.card3, T.cardHold],
     endType: [T.title1], ep: [T.ep], sting: [T.sting],
   };
 
-  const TL = { BPM, BEAT, BAR, FPS, DUR, W, H, T, COPY, HITS, S16, BEATS };
+  const TL = { BPM, BEAT, BAR, FPS, DUR, W, H, T, COPY, HITS, S16, BEATS, SPIKE_T };
   if (typeof module !== "undefined" && module.exports) module.exports = TL;
   else root.TL = TL;
 })(typeof window !== "undefined" ? window : globalThis);
