@@ -241,7 +241,7 @@ def o5(u):   # 回头看：新位置伸出细线连回前面每一个字（句�
 
 def o6(u):   # 给每个可能的下一个字打分：模型出口冒出候选排行条
     reset('lilac'); lights((0, 0, 1))
-    zs = model_stack(z0=-2.6, n=3, warm_upto=2, scale=0.7)
+    zs = model_stack(z0=-1.9, n=3, warm_upto=2, scale=0.55)
     cands = [('海', 0.41), ('睡', 0.18), ('爬', 0.12), ('吃', 0.09)]
     for i, (ch, p) in enumerate(cands):
         z = 3.4 - i * 0.92; g = ease(seg(u, 0.05 + i * 0.08, 0.45 + i * 0.08))
@@ -250,7 +250,7 @@ def o6(u):   # 给每个可能的下一个字打分：模型出口冒出候选�
         rbox((L, 0.3, 0.42), (-1.4 + L / 2, -0.3, z), bevel=0.14, mat=candy(YEL if i == 0 else '#F2EEFF', 0.25, sss=0.2))
         ANCH[f'p{i}'] = (-1.4 + L + 0.45, -0.3, z)
     rbox((0.5, 0.3, 0.12), (-1.9, -0.4, 3.4 - 4 * 0.92 + 0.2), bevel=0.05, mat=candy('#F2EEFF', 0.3))   # 「…」后面还有很多
-    cam((1.0, -30, 3.0), (0, 0, 0.55), 85, 5.6, 30)
+    cam((1.0, -30, 2.4), (0, 0, -0.05), 85, 5.6, 30)
 
 def o7(u):   # 按分数抽签：转盘停在「海」，「海」飞进空位
     reset('lilac'); lights((0, 0, 1))
@@ -347,7 +347,7 @@ def o12(u):  # 显卡再多核，也只能一个字接一个字：显卡芯片�
     # 一道光沿着句子往前推：落在当前正在写的位置
     rbox((0.75, 0.05, 0.12), (xq, -1.05, 2.2), bevel=0.04, mat=emit(YEL, 3.0))
     ANCH['gpu'] = (0, -0.1, -2.6)
-    cam((2.0, -24, 4.8), (0.0, 0, -0.85), 64, 4.0, 24)
+    cam((2.0, -24, 4.3), (0.0, 0, -1.4), 64, 4.0, 24)
 
 def o13(u):  # 学说话的时候：一整段现成的文章摊开
     reset('butter'); lights((0, 0, 0))
@@ -372,7 +372,7 @@ def o14(u):  # 整段每个位置同时猜下一个字、同时对答案：一�
     cam((1.0, -20, 4.5), (0, 0, -0.1), 58, 4.0, 20)
 
 def spec_row(drafts=0, sweep=None, verdict=False):
-    s = 0.54; step = 0.62; X0 = -4.5 * step
+    s = 0.5; step = 0.58; X0 = -4.6 * step
     row('周末我想去', X0, -0.6, step=step, s=s)
     xs = [X0 + (5 + k) * step for k in range(4)]
     chars = '海边吃饭'
@@ -397,7 +397,7 @@ def spec_row(drafts=0, sweep=None, verdict=False):
 def o15(u):  # 那就先造一段「现成的」话：「海」退回去，空位回到「去」后面
     reset('rose'); lights((0, 0, 0))
     spec_row(drafts=0)
-    ANCH['q'] = (0.5 * 0.62, -0.6, 0.05)
+    ANCH['q'] = (0.4 * 0.58, -0.6, 0.05)
     cam((0.4, -18, 2.4), (0.0, 0, -0.1), 55, 3.5, 18)
 
 def o16(u):  # 小模型先抢答几个字：一个小格子表飞快地连填 4 个字（草稿）
@@ -462,7 +462,7 @@ def o21(u):  # 对得上的全收下，从第一个对不上的接着来：「�
     reset('rose'); lights((0, 0, 0))
     xs = spec_row(drafts=4, verdict=u > 0.25)
     if u > 0.55:   # 大模型自己的「看」接上来
-        token('看', (xs[2], -0.6, lerp(0.6, -0.6, back_out(seg(u, 0.55, 0.8)))), s=0.56, body='#FFD45A')
+        token('看', (xs[2], -0.6, lerp(0.6, -0.6, back_out(seg(u, 0.55, 0.8)))), s=0.5, body='#FFD45A')
     cam((0.4, -18, 2.0), (0.0, 0, -0.9), 55, 3.5, 18)
 
 def o22(u):  # 一步就出好几个字，快 2–3 倍：3D 大字
@@ -515,7 +515,7 @@ def n_strip(u):   # 补 1：一个字进模型，先变成一串数
     n = max(1, int(round(12 * g)))
     num_strip(-1.75, -0.9 + 1.1 * g * 0, n=n, y=-0.6) if g > 0.05 else None
     curve_tube([(0.4, -0.5, -0.4), (0.4, -0.4, 0.4), (0.0, -0.3, 1.0)], 0.03, emit(YEL, 2.0))
-    ANCH['strip'] = (0.3, -0.6, -1.55)
+    ANCH['strip'] = (0.3, -0.6, -0.25)
     cam((0.6, -24, 3.0), (0, 0, 0.6), 70, 4.0, 24)
 
 def n_mult(u):    # 补 1：每一层拿这串数和参数表乘一下、加起来，交给下一层
@@ -553,7 +553,7 @@ def n_tail(u):      # 补 2：其实它认识的十几万个字，每个都打�
     o6(1.0)
     # 排行条后面一条很长、很淡的尾巴：越来越短、越来越淡，望不到头
     g = ease(seg(u, 0.1, 0.8))
-    for i in range(int(40 * g)):
+    for i in range(int(26 * g)):
         z = 3.4 - 4 * 0.92 - 0.25 - i * 0.12
         L = max(0.05, 0.7 * math.exp(-i / 9))
         rbox((L, 0.12, 0.07), (-1.4 + L / 2, -0.3, z), bevel=0.03, seg=2, mat=candy('#EDE7FF', 0.4))
@@ -564,8 +564,8 @@ def n_mem16(u):     # 补 4：写一个字要搬 16 GB
     smiley = '/usr/share/fonts/truetype/smiley-sans/SmileySans-Oblique.ttf'
     g = back_out(seg(u, 0.1, 0.45))
     cu = bpy.data.curves.new('t', 'FONT'); cu.body = '16 GB'; cu.font = bpy.data.fonts.load(smiley)
-    cu.size = 1.1 * max(g, 0.02); cu.extrude = 0.1; cu.bevel_depth = 0.03; cu.align_x = 'CENTER'
-    ob = bpy.data.objects.new('t', cu); bpy.context.collection.objects.link(ob); ob.location = (-2.6, -0.4, -0.05); ob.rotation_euler = (math.pi / 2, 0, 0)
+    cu.size = 1.7 * max(g, 0.02); cu.extrude = 0.12; cu.bevel_depth = 0.035; cu.align_x = 'CENTER'
+    ob = bpy.data.objects.new('t', cu); bpy.context.collection.objects.link(ob); ob.location = (-2.2, -0.6, 0.15); ob.rotation_euler = (math.pi / 2, 0, 0)
     cu.materials.append(candy('#FFFFFF', 0.2))
     cam((-0.2, -22, 4.0), (-0.3, 0, 0.4), 46, 4.0, 22)
 
@@ -587,12 +587,12 @@ def n_timing(u):    # 补 4：光搬就要约 16 毫秒，真正的乘加只要 
 
 def n_accept(u):    # 补 6：所以写出来的话，和大模型自己写的一样（上下两句并排，一模一样，同时亮绿勾）
     reset('rose'); lights((0, 0, 0))
-    s_ = 0.52; step = 0.6; X0 = -3.5 * step
+    s_ = 0.48; step = 0.55; X0 = -4.0 * step
     for zr, body in ((0.5, '#FBF8F2'), (-0.9, '#FBF8F2')):
         row('周末我想去海边看', X0, zr, step=step, s=s_)
     if u > 0.35:
         for zr in (0.5, -0.9):
-            check((X0 + 7 * step + 0.62, -0.7, zr), s=0.2 * back_out(seg(u, 0.35, 0.55)))
+            check((X0 + 7 * step + 0.55, -0.7, zr), s=0.18 * back_out(seg(u, 0.35, 0.55)))
     ANCH['top'] = (X0 + 3.5 * step, -0.6, 1.25); ANCH['bot'] = (X0 + 3.5 * step, -0.6, -1.65)
     cam((0.4, -18, 2.0), (0.0, 0, -0.15), 55, 3.5, 18)
 
@@ -610,8 +610,8 @@ def n_easy(u):      # 补 5：小模型猜得准的，多半是好猜的字（�
 def n_hard(u):      # 补 5：难猜的常对不上，对不上就从那儿接着来（回到「海边吃饭」那句：海边后面做什么，难猜）
     reset('rose'); lights((0, 0, 0))
     xs = spec_row(drafts=4, verdict=u > 0.3)
-    if u > 0.5: token('看', (xs[2], -0.6, lerp(0.6, -0.6, back_out(seg(u, 0.5, 0.75)))), s=0.54, body='#FFD45A')
-    ANCH['hard'] = (xs[2], -0.6, 0.35); ANCH['count'] = (xs[0] + 0.62, -0.6, 1.0)
+    if u > 0.5: token('看', (xs[2], -0.6, lerp(0.6, -0.6, back_out(seg(u, 0.5, 0.75)))), s=0.5, body='#FFD45A')
+    ANCH['hard'] = (xs[2] - 0.3, -0.6, 0.3); ANCH['count'] = (xs[0] - 0.5, -0.6, 1.05)
     cam((0.4, -18, 2.0), (0.0, 0, -0.9), 55, 3.5, 18)
 
 # ---------------- v3 的顺序（34 拍），时间从 script.md 的逐句字幕 v3 表读，保证和字幕同步 ----------------
