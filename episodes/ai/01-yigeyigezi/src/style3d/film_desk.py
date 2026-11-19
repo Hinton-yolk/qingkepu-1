@@ -147,13 +147,13 @@ def add_desk(fn, u=0.5):
     ramp.color_ramp.elements[0].position = 0.35; ramp.color_ramp.elements[1].position = 0.75
     nt.links.new(noise.outputs['Fac'], ramp.inputs['Fac']); nt.links.new(ramp.outputs['Color'], p.inputs['Base Color'])
     d.data.materials.append(m)
-    # 每拍里相机都在慢慢动（推近约 4%、横移约 2%），画面不完全静止；转场在 2D 合成里做
+    # 每拍里相机都在慢慢动，画面不完全静止；转场在 2D 合成里做
     cam_o = sc.camera
     if cam_o:
         q = cam_o.matrix_world.to_quaternion(); fwd = q @ Vector((0, 0, -1)); rgt = q @ Vector((1, 0, 0))
         dd = cam_o.data.dof.focus_distance
-        cam_o.location = cam_o.location + fwd * (0.04 * dd * ease(u)) + rgt * (0.02 * dd * (u - 0.5))
-        cam_o.data.dof.focus_distance = dd * (1 - 0.04 * ease(u))
+        cam_o.location = cam_o.location + fwd * (0.12 * dd * u) + rgt * (0.06 * dd * (u - 0.5))   # 运动草稿 v1 动效检查不过（静止 24%）：推近 12%、横移 6%，前后景有视差
+        cam_o.data.dof.focus_distance = dd * (1 - 0.12 * u)
 
 # 草稿接触表的代表时刻：沿用 film3d 的 CU
 run_jobs(post=add_desk)
