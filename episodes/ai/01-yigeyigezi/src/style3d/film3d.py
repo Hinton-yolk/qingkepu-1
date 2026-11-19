@@ -315,7 +315,7 @@ def o10(u): branch_scene(up_n=5, dn_n=1 + int(3 * ease(seg(u, 0.1, 0.8))))
 
 def o11(u):  # 回到一句：紧挨着的是黄色「?」，再往后一排灰色「?」
     reset('peach'); lights((1, 0, 0), key=850, fill=300, rim=800)
-    s = 0.6; step = 0.72
+    s = 0.74; step = 0.84
     ribbon([(-4.0, 0, -0.5), (0, 0, -0.5), (5.0, 0, -0.5)], 0.95, gradient_glass('#FFF4EC', '#FFE6D6', 'X', 0.12, -4, 5), thick=0.06)
     row('周末我想去', -3.6, -0.5 + s / 2 + 0.05, y=-0.05, s=s, step=step)
     yel_q((-3.6 + 5 * step, -0.05, -0.5 + s / 2 + 0.05), s=s)
@@ -603,7 +603,7 @@ def n_easy(u):      # 补 5：小模型猜得准的，多半是好猜的字（�
     row('睡个懒', X0 + step, -0.6, step=step, s=s_)
     x = X0 + 4 * step
     draft_tok('觉', (x, -0.6, -0.6), s=s_)
-    if u > 0.4: check((x, -0.95, -0.6 + 0.6), s=0.22 * back_out(seg(u, 0.4, 0.6)))
+    if u > 0.4: check((x + 0.28, -0.95, -0.6 + 0.34), s=0.17 * back_out(seg(u, 0.4, 0.6)))   # 勾贴在字块右上角
     model_stack(x0=1.4, z0=1.2, n=2, gap=0.92, scale=0.5, warm_upto=1, seed=3)
     ANCH['small'] = (1.4, 0, 2.4); ANCH['easy'] = (x, -0.6, -1.4)
     cam((0.4, -18, 2.4), (0.0, 0, 0.3), 58, 3.5, 18)
@@ -690,7 +690,7 @@ def run_jobs(post=None):
     for name, b, u in jobs:
         fn = V3[b - 1]
         globals()[fn](u)
-        if fn not in ('o1', 'o2', 'o3', 'o23', 'o24', 'o25'):
+        if fn not in globals().get('FN_NOAUTO', ('o1', 'o2', 'o3', 'o23', 'o24', 'o25')):
             autofit(bottom=0.63 if TIMES[b - 1][3] else 0.69)
         if post: post(fn)
         bpy.context.view_layer.update()

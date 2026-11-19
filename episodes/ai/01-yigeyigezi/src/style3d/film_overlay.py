@@ -86,7 +86,8 @@ def title(im):
     ft = f(SMILEY, size); w2 = d.textlength(l2, font=ft); x0 = 540 - w2 / 2; kw = d.textlength('一个字一个字', font=ft)
     if DESK: d.rectangle((x0 - 4, 410, x0 + kw + 4, 422), fill=AMB)
     else: d.rounded_rectangle((x0 - 8, 340, x0 + kw + 8, 400), 14, fill=YEL)
-    d.text((540, 225), l1, font=ft, fill=INK, anchor='mm'); d.text((540, 365), l2, font=ft, fill=INK, anchor='mm')
+    sw = 2 if DESK else 0   # 桌面主题：描一点边，大字问题更有分量
+    d.text((540, 225), l1, font=ft, fill=INK, anchor='mm', stroke_width=sw, stroke_fill=INK); d.text((540, 365), l2, font=ft, fill=INK, anchor='mm', stroke_width=sw, stroke_fill=INK)
 
 def big_end(im):
     d = ImageDraw.Draw(im); ft = f(SMILEY, 104)
@@ -145,7 +146,7 @@ def compose(png, js):
     if fn == 'o4' and 'row' in P:
         chip_c(im, P['row'][0], P['row'][1], '第一轮：整句送进去' if u < 0.4 else '之后：只送新写的那个字', (253, 251, 246), INK)
     if fn in ('o6', 'n_tail'):   # 观众要读的数字一屏最多 3 个：只标前三名
-        for i, pct in enumerate(['41%', '18%', '12%']):
+        for i, pct in enumerate(['41%', '18%', '12%'] if fn == 'o6' else ['41%', '18%']):
             if f'p{i}' in P: chip_c(im, P[f'p{i}'][0] + 30, P[f'p{i}'][1], pct, (255, 196, 40) if i == 0 else (253, 251, 246), INK, size=34)
     if fn == 'o1': title(im)
     if fn == 'o23': sketch_frame(im)

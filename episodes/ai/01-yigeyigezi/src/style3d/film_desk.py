@@ -13,7 +13,7 @@ _g['__file__'] = _me
 WARM, WARM2 = '#EFE5D5', '#E0D3BF'
 GRAPH, GRAPH2 = '#393C42', '#5B5F67'
 TEAL = '#1F9A8E'
-AMBER = '#E7872A'
+AMBER = '#DC8A3A'
 AMBER_L = '#EBA45A'
 SILVER = '#B6BBC2'
 
@@ -40,8 +40,8 @@ CMAP = {
     'FF6F96': ('ceramic', '#D9C7AE'), '4A8DFF': ('ceramic', '#575B62'),          # 参数：浅陶瓷 / 深陶瓷（深浅 = 大小，不分正负颜色）
     'FFC93C': ('ceramic', AMBER), 'FFD84A': ('ceramic', AMBER), '2FCF7E': ('ceramic', TEAL),
     'FBF8F2': ('ceramic', WARM), 'FDFBF6': ('ceramic', WARM), '1E2440': ('plastic', GRAPH),
-    'FFD45A': ('ceramic', AMBER_L), 'E5DBFF': ('glass', '#EAE6DF'), 'BDB6CF': ('ceramic', '#A39D94'),
-    'A9A5BC': ('ceramic', '#8E8982'), '7D7990': ('plastic', '#57534D'), '7F6BE0': ('metal', '#9FA5AD'),
+    'FFD45A': ('ceramic', AMBER_L), 'E5DBFF': ('glass', '#EAE6DF'), 'BDB6CF': ('ceramic', '#CAC3B9'),
+    'A9A5BC': ('ceramic', '#7C7872'), '7D7990': ('plastic', '#57534D'), '7F6BE0': ('metal', '#9FA5AD'),
     'FFFFFF': ('metal', SILVER), 'FAF8FF': ('glass', '#F0F1F1'), 'FFEDB8': ('glass', '#F1D2A8'),
     'E9E5FA': ('metal', SILVER), 'F2EEFF': ('ceramic', WARM2), 'EDE7FF': ('ceramic', WARM2), 'E8E2FF': ('ceramic', '#D8CBB8'),
     'D9D0FA': ('ceramic', '#CDBFAA'), '6F86C9': ('metal', '#C2C6CC'), '2B2F3D': ('plastic', GRAPH), '1F5E44': ('ceramic', '#464A50'),
@@ -84,6 +84,8 @@ def check(loc, s=0.32):
     rbox((s * 0.22, 0.04, s * 1.0), (x + s * 0.15, y - 0.06, z + s * 0.05), bevel=0.02, mat=m_ceramic(WARM, 0.3), rot=(0, math.radians(35), 0))
 
 def xmark(loc, size=1.0, rot_y=0.0, thick=0.12):
+    """作废：石墨灰 ✕，盖在压亮的浅灰字块上（审核：✕ 要和字块分得开）"""
+    thick = max(thick, 0.1); size *= 1.1
     for a in (math.pi / 4, -math.pi / 4):
         rbox((size, thick * 0.6, thick), loc, bevel=thick * 0.45, mat=m_plastic(GRAPH, 0.3), rot=(0, a + rot_y, 0))
 
@@ -98,7 +100,7 @@ def score_columns(cands, x0=-2.2, step=1.05, base=0.0, H=3.0, s=0.62, tail=0):
         ANCH[f'p{i}'] = (x + 0.35, -0.3, base + h + s + 0.25)
     for j in range(tail):   # 长尾：往后、往右排下去，越来越矮、越来越淡，望不到头
         k = len(cands) + j; x = x0 + k * step * (1 - 0.012 * j); y = 0.55 * j
-        h = max(0.02, H * 0.08 * math.exp(-j / 7)); col = '#D6CBB9' if j < 8 else '#E2D8C8'
+        h = max(0.05, H * 0.09 * math.exp(-j / 14)); col = '#CDBFAA' if j < 12 else '#D9CDBA'
         rbox((0.42, 0.42, h), (x, y, base + h / 2), bevel=0.04, mat=m_ceramic(col, 0.4))
 
 def o6(u, stack=True):   # 给每个可能的下一个字打分：候选字立在高低不同的柱子上（柱高 = 分数），从模型出口那一侧排出来
@@ -113,10 +115,10 @@ def n_tail(u):      # 补 2：其实它认识的十几万个字，每个都打�
     reset('lilac'); lights((0, 0, 1))
     g = ease(seg(u, 0.1, 0.8))
     cands = [('海', 0.41), ('睡', 0.18), ('爬', 0.12), ('吃', 0.09)]
-    score_columns(cands, x0=-1.6, step=1.05, base=0.0, tail=int(40 * g))
-    cam((-3.5, -13, 4.5), (2.5, 6, 0.8), 50, 4.0, 14)
+    score_columns(cands, x0=-1.6, step=1.05, base=0.0, tail=int(60 * g))
+    cam((-3.2, -11, 3.6), (2.2, 6, 0.9), 44, 4.0, 12)
 
-FN_NOAUTO = {'o1', 'o2', 'o3', 'o23', 'o24', 'o25'}
+FN_NOAUTO = {'o1', 'o2', 'o3', 'o23', 'o24', 'o25', 'n_tail'}   # 长尾要伸出画面，不自动取景
 
 def add_desk(fn):
     """在所有物体的最低点放一张暖白桌面（带细纹理），像拍桌上的精密模型"""
@@ -129,7 +131,7 @@ def add_desk(fn):
     bpy.ops.mesh.primitive_plane_add(size=200, location=(0, 40, zmin - 0.005))
     d = bpy.context.active_object
     m = bpy.data.materials.new('desk'); m.use_nodes = True; nt = m.node_tree; p = nt.nodes['Principled BSDF']
-    p.inputs['Roughness'].default_value = 0.72; p.inputs['Coat Weight'].default_value = 0.03
+    p.inputs['Roughness'].default_value = 0.88; p.inputs['Coat Weight'].default_value = 0.0; p.inputs['Specular IOR Level'].default_value = 0.15   # 桌面不反出灯板的「窗影」
     noise = nt.nodes.new('ShaderNodeTexNoise'); noise.inputs['Scale'].default_value = 40; noise.inputs['Detail'].default_value = 4
     ramp = nt.nodes.new('ShaderNodeValToRGB'); ramp.color_ramp.elements[0].color = hexc('#E9DDCB'); ramp.color_ramp.elements[1].color = hexc('#DCCCB5')
     ramp.color_ramp.elements[0].position = 0.35; ramp.color_ramp.elements[1].position = 0.75

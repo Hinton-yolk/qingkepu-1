@@ -66,7 +66,7 @@ def grain(im, amount=5.0, seed=1):
     n = rng.normal(0, amount, a.shape[:2])[..., None]
     return Image.fromarray(np.clip(a + n, 0, 255).astype(np.uint8))
 
-def chip(im, cx, cy, text, fill, color, size=36):
+def chip(im, cx, cy, text, fill, color, size=40):
     """标签条（Kurzgesagt：概念第一次出现时挂名字，标签颜色 = 这个东西的颜色）"""
     d = ImageDraw.Draw(im); ft = f(NOTO, size)
     w = d.textlength(text, font=ft); h = size * 1.55
