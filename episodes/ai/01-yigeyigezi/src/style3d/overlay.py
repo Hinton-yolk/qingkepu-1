@@ -1,7 +1,8 @@
 # 2D 层：手机屏幕贴图、大字问题、字幕。字留在 2D 层，保证手机上可读；3D 层由 scene.py 出。
 # 用法：python3 overlay.py ui <out.png>
 #       python3 overlay.py comp <3d.png> <out.png> <shot>
-import sys
+import sys, os, json, random
+import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 NOTO = '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc'
@@ -47,8 +48,38 @@ def ui(out):
     d.rounded_rectangle((80, H - 220, W - 80, H - 110), 55, fill=(232, 235, 244))
     im.save(out)
 
+
+def grain(im, amount=5.0, seed=1):
+    """细颗粒（BUCK Illumina 的做法），只加在画面层，字不加"""
+    a = np.asarray(im).astype(np.float32)
+    rng = np.random.default_rng(seed)
+    n = rng.normal(0, amount, a.shape[:2])[..., None]
+    return Image.fromarray(np.clip(a + n, 0, 255).astype(np.uint8))
+
+def chip(im, cx, cy, text, fill, color, size=36):
+    """标签条（Kurzgesagt：概念第一次出现时挂名字，标签颜色 = 这个东西的颜色）"""
+    d = ImageDraw.Draw(im); ft = f(NOTO, size)
+    w = d.textlength(text, font=ft); h = size * 1.55
+    x0 = min(max(cx - w / 2 - 22, 60), 940 - w - 44)       # 右边缘 ≤ 940（抖音按钮栏）
+    sh = Image.new('RGBA', im.size, (0, 0, 0, 0)); sd = ImageDraw.Draw(sh)
+    sd.rounded_rectangle((x0, cy - h / 2 + 6, x0 + w + 44, cy + h / 2 + 6), h / 2, fill=(30, 30, 60, 60))
+    sh = sh.filter(ImageFilter.GaussianBlur(8)); im.paste(sh, (0, 0), sh)
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle((x0, cy - h / 2, x0 + w + 44, cy + h / 2), h / 2, fill=fill)
+    d.text((x0 + 22 + w / 2, cy), text, font=ft, fill=color, anchor='mm')
+
 def comp(src, out, shot):
-    im = Image.open(src).convert('RGB').resize((1080, 1920), Image.LANCZOS)
+    if True:
+        im = grain(Image.open(src).convert('RGB').resize((1080, 1920), Image.LANCZOS), 5.0)
+        aj = src.rsplit('.', 1)[0] + '_anchors.json'
+        A = json.load(open(aj)) if os.path.exists(aj) else {}
+        P = {k: (v[0] * 1080, (1 - v[1]) * 1920) for k, v in A.items()}
+        if shot == 1 and P:
+            chip(im, P['qu'][0], P['qu'][1] - 40, '一个字', (253, 251, 246), INK)
+            chip(im, P['q'][0], P['q'][1] + 40, '下一个字', (255, 196, 40), INK)
+        if shot == 2 and P:
+            chip(im, P['model'][0], P['model'][1], '模型：一层一层', (75, 63, 140), (255, 255, 255))
+            chip(im, P['q'][0], P['q'][1], '下一个字', (255, 196, 40), INK)
     d = ImageDraw.Draw(im)
     # 大字问题（顶部两行，得意黑，深墨色；关键词下面垫一条黄色马克笔色块）
     l1, l2 = 'AI 为什么', '一个字一个字往外蹦？'

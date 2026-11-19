@@ -164,7 +164,7 @@ def ribbon(points, width, mat, thick=0.03, twist=None):
     smooth(ob); assign(ob, mat); return ob
 
 # ---------------- 世界：相机看到纯粉彩底色（带一点竖向渐变），照明用柔和的白棚灯 ----------------
-def world(top, bottom, light='#FFFFFF', light_strength=0.55):
+def world(top, bottom, light='#FFFFFF', light_strength=0.55, halo=None):
     w = bpy.data.worlds.new('w'); sc.world = w; w.use_nodes = True
     nt = w.node_tree; nt.nodes.clear()
     out = nt.nodes.new('ShaderNodeOutputWorld')
@@ -180,7 +180,19 @@ def world(top, bottom, light='#FFFFFF', light_strength=0.55):
     nt.links.new(tc.outputs['Generated'], sep.inputs[0])
     nt.links.new(sep.outputs['Z'], mr.inputs['Value'])
     nt.links.new(mr.outputs['Result'], ramp.inputs['Fac'])
-    nt.links.new(ramp.outputs['Color'], bg_cam.inputs['Color'])
+    if halo:   # halo = (颜色, 方向, 半径)：相机方向上一团很软的亮光（Illumina 产品镜头的背光）
+        hc, hd, hr = halo
+        dp = nt.nodes.new('ShaderNodeVectorMath'); dp.operation = 'DOT_PRODUCT'
+        nt.links.new(tc.outputs['Generated'], dp.inputs[0]); dp.inputs[1].default_value = Vector(hd).normalized()
+        mh = nt.nodes.new('ShaderNodeMapRange'); mh.inputs['From Min'].default_value = math.cos(hr); mh.inputs['From Max'].default_value = 1.0
+        mh.interpolation_type = 'SMOOTHSTEP'
+        nt.links.new(dp.outputs['Value'], mh.inputs['Value'])
+        mx = nt.nodes.new('ShaderNodeMix'); mx.data_type = 'RGBA'
+        nt.links.new(mh.outputs['Result'], mx.inputs['Factor'])
+        nt.links.new(ramp.outputs['Color'], mx.inputs['A']); mx.inputs['B'].default_value = hexc(hc)
+        nt.links.new(mx.outputs['Result'], bg_cam.inputs['Color'])
+    else:
+        nt.links.new(ramp.outputs['Color'], bg_cam.inputs['Color'])
     # 透射 / 反射看到的也是底色（玻璃里透出底色），漫反射照明用白棚
     is_vis = nt.nodes.new('ShaderNodeMath'); is_vis.operation = 'MAXIMUM'
     nt.links.new(lp.outputs['Is Camera Ray'], is_vis.inputs[0])
@@ -214,95 +226,115 @@ def camera(loc, target, lens=85, focus=None, fstop=2.8):
 PINK, BLUE, YEL, GRN = '#FF6F96', '#4A8DFF', '#FFC93C', '#36D27E'
 
 # =====================================================================
+ANCH = {}   # 要在 2D 层挂标签的点：名字 → 世界坐标；渲染时投影到屏幕，存成 json
+
 if A.shot == 1:
-    # 开头：手机里 AI 正在逐字回复，「去」字块从屏幕里浮出来，下一个位置是黄色「?」
-    world('#AFCFF8', '#93BBF2')
-    studio()
-    ph = rbox((2.3, 0.3, 4.7), (0, 0, 0), bevel=0.36, seg=10, mat=satin_metal('#DCE0EA', 0.25))
-    bez = rbox((2.2, 0.02, 4.6), (0, -0.15, 0), bevel=0.3, seg=8, mat=candy('#15171F', 0.08)); bez.parent = ph
-    # 屏幕：略小一圈、贴在正面
-    bpy.ops.mesh.primitive_plane_add(size=1, location=(0, -0.165, 0), rotation=(math.pi / 2, 0, 0))
-    scr = bpy.context.active_object; scr.scale = (2.04, 4.44, 1)
+    # 开头（3D 主视觉，产品镜头）：手机里 AI 正在逐字回复，「去」字块从屏幕里浮出来，下一个位置是黄色「?」
+    # v2：按画风草案，产品照 Illumina 的做法（渐变无缝底、轮廓光、缎面金属），去掉杂物，一帧只留底色 + 白 + 一个黄
+    world('#B9D4F8', '#8FB6F0', light_strength=0.5, halo=('#EEF5FF', (-0.06, 1.0, -0.06), 0.42))
+    area((-4, -6, 6), (0, 0, 0), 800, 6)                       # 主光
+    area((6, 4, 1.5), (0.5, 0, 0), 1400, 3, '#FFE2BF')          # 右后方暖色轮廓光：勾出机身侧面
+    area((-6, 3, 3), (0, 0, 0), 700, 3, '#DCE8FF')              # 左后方冷色轮廓光
+    ph = rbox((2.3, 0.34, 4.7), (0, 0, 0), bevel=0.4, seg=12, mat=satin_metal('#D6DAE4', 0.22))
+    bez = rbox((2.2, 0.02, 4.6), (0, -0.17, 0), bevel=0.32, seg=8, mat=candy('#121318', 0.06)); bez.parent = ph
+    bpy.ops.mesh.primitive_plane_add(size=1, location=(0, -0.185, 0), rotation=(math.pi / 2, 0, 0))
+    scr = bpy.context.active_object; scr.scale = (2.06, 4.46, 1)
     bpy.ops.object.transform_apply(scale=True)
     md = scr.modifiers.new('bev', 'BEVEL'); md.width = 0.28; md.segments = 8; md.affect = 'VERTICES'
-    if A.ui: assign(scr, image_mat(A.ui, emit_strength=0.85))
-    # 侧键（产品细节）
-    k1 = rbox((0.05, 0.12, 0.5), (1.16, 0, 0.9), bevel=0.02, mat=satin_metal('#D9DCE6'))
-    k2 = rbox((0.05, 0.12, 0.8), (-1.16, 0, 1.0), bevel=0.02, mat=satin_metal('#D9DCE6'))
-    for o in (scr, k1, k2): o.parent = ph
-    ph.rotation_euler = (math.radians(4), 0, math.radians(-24))
-    # 浮出屏幕的字块「去」，和后面的黄色「?」玻璃块
-    token('去', (1.45, -1.6, 0.75), s=0.95, rot=(0.12, 0.0, -0.28))
-    q = rbox((0.8, 0.5, 0.8), (2.35, -1.2, -0.45), bevel=0.13, mat=glass('#FFE07A', rough=0.18), rot=(0.1, 0, -0.4))
-    text3d('?', (2.35, -1.2, -0.47), 1.3, emit(YEL, 4.0), extrude=0.06, rot=(math.pi / 2 + 0.1, 0, -0.4))
-    # 前景虚化的字块（景深层次）
-    token('想', (-2.6, -5.0, -3.4), s=1.1, rot=(0.3, 0.2, 0.5))
-    token('周', (3.3, -2.5, -2.9), s=0.7, rot=(-0.3, 0.3, -0.6))
-    sphere(0.2, (-1.7, -0.8, 2.3), candy(YEL, 0.2))
-    sphere(0.12, (2.6, -0.6, 1.2), glass('#FFFFFF', 0.05))
-    for (x, y, z, r, c) in [(-3.6, 6, 2.6, 2.0, '#E4EEFC'), (4.2, 7, -2.4, 2.6, '#EAF2FD')]:
-        bpy.ops.mesh.primitive_cylinder_add(radius=r, depth=0.25, location=(x, y, z), rotation=(math.pi / 2, 0, 0), vertices=96)
-        o = bpy.context.active_object; smooth(o); assign(o, candy(c, 0.5, coat=0.5, sss=0.3))
+    if A.ui: assign(scr, image_mat(A.ui, emit_strength=0.9))
+    k1 = rbox((0.06, 0.14, 0.55), (1.16, 0, 1.0), bevel=0.025, mat=satin_metal('#C9CEDA'))
+    k2 = rbox((0.06, 0.14, 0.35), (1.16, 0, 0.3), bevel=0.025, mat=satin_metal('#C9CEDA'))
+    cam_bump = rbox((0.9, 0.08, 0.9), (0.5, 0.2, 1.6), bevel=0.2, mat=satin_metal('#C2C7D3', 0.3))
+    for o in (bez, scr, k1, k2, cam_bump): o.parent = ph
+    ph.rotation_euler = (math.radians(6), 0, math.radians(-30))
+    # 背后一大团很虚的亮光（Illumina 产品镜头的背光）
+    token('去', (1.5, -1.7, 0.8), s=0.95, rot=(0.12, 0.0, -0.3))
+    rbox((0.8, 0.5, 0.8), (2.3, -1.25, -0.55), bevel=0.13, mat=glass('#FFE07A', rough=0.15), rot=(0.1, 0, -0.4))
+    text3d('?', (2.3, -1.25, -0.57), 1.3, emit(YEL, 4.0), extrude=0.06, rot=(math.pi / 2 + 0.1, 0, -0.4))
+    token('想', (-2.9, -5.2, -3.6), s=1.1, rot=(0.3, 0.2, 0.5))          # 前景虚化，做景深层次
+    ANCH['qu'] = (1.5, -1.7, 0.8 + 0.6); ANCH['q'] = (2.3, -1.25, -0.55 - 0.55)
     camera((1.4, -15.0, 1.6), (0.5, 0, 0.45), lens=48, focus=14.2, fstop=2.0)
 
 elif A.shot == 2:
-    # 模型一层层：一摞玻璃层板，每层顶面铺粉 / 蓝参数方块；新字（黄色发光球）正往上穿过各层
-    world('#CDBFF7', '#B6A4F0')
-    studio(key=800, fill=260, rim=800)
-    layers = 5; gap = 0.8; n = 7; cell = 0.32
+    # 模型一层层（讲解镜头）。v3：用户 11-19「这三者不是要拼成三种风格」→ 不做扁平图，用同一套材质（Ordinary Folk 质感），
+    # 清晰靠 Kurzgesagt 的方法：正面构图、长焦压平、少而大的物体、一物一义、标签。
+    world('#DCD5F8', '#C2B7F0', light_strength=0.55, halo=('#F1EDFF', (0.0, 1.0, 0.05), 0.5))
+    area((-5, -8, 9), (0, 0, 1), 900, 7)
+    area((6, -6, 2), (0, 0, 1), 350, 6)
+    area((0, 6, 6), (0, 0, 1), 900, 5, '#FFF1DE')            # 背后轮廓光：给磨砂层板边缘一圈亮边
     import random; random.seed(7)
-    for L in range(layers):
-        z = -1.2 + L * gap
-        passed = L <= 2
-        rbox((n * cell + 0.3, n * cell + 0.3, 0.1), (0, 0, z), bevel=0.05,
-             mat=candy('#F4F2FB' if not passed else '#FFE7A6', rough=0.4, sss=0.3))
-        for i in range(n):
-            for j in range(n):
+    nL = 5; zs = [0.45 + k * 0.92 for k in range(nL)]; zball = (zs[2] + zs[3]) / 2
+    for k, z in enumerate(zs):
+        passed = z < zball
+        rbox((4.7, 0.34, 0.62), (0, 0, z), bevel=0.14, seg=6,
+             mat=candy('#FFEDB8' if passed else '#FAF8FF', rough=0.35, coat=0.6, sss=0.35))   # 半透的奶白层板（走过的层变暖黄）
+        for r in range(2):
+            for c in range(10):
+                if c in (4, 5): continue                                            # 中间留给「新字」走的路
                 v = random.uniform(-1, 1)
-                if i == (n - 1) // 2 and j == (n - 1) // 2: continue   # 中间留一个洞：新字从这里穿上去
                 col = PINK if v > 0 else BLUE
-                h = 0.04 + abs(v) * 0.16
-                c = rbox((cell * 0.8, cell * 0.8, h), ((i - (n - 1) / 2) * cell, (j - (n - 1) / 2) * cell, z + 0.05 + h / 2),
-                         bevel=0.03, seg=3, mat=candy(col, rough=0.25 + 0.3 * (1 - abs(v))))
-    # 黄色发光球：新字正在穿过第 3 层
-    sphere(0.22, (0.0, 0.0, -1.2 + 2.55 * gap), emit(YEL, 8.0))
-    sphere(0.36, (0.0, 0.0, -1.2 + 2.55 * gap), glass('#FFE58A', 0.2))
-    # 穿过的路径：一串淡黄的玻璃圆环（Equilibrium 的「球穿过环」）
-    for L in range(3):
-        bpy.ops.mesh.primitive_torus_add(major_radius=0.42, minor_radius=0.035, location=(0, 0, -1.2 + L * gap + 0.3))
-        t = bpy.context.active_object; smooth(t); assign(t, glass('#FFE58A', 0.1))
-    # 下方一排字块，从底层送进模型
+                x = -2.05 + c * 0.455 + (0.08 if c > 5 else 0) - (0.08 if c < 4 else 0)
+                rbox((0.34, 0.1, 0.2), (x, -0.2, z + 0.13 - r * 0.26), bevel=0.05, seg=3,
+                     mat=candy(col, rough=0.22 + 0.35 * (1 - abs(v)), sss=0.1))        # 参数：粉正蓝负的糖果小方块
+        bpy.ops.mesh.primitive_torus_add(major_radius=0.2, minor_radius=0.03, location=(0, -0.2, z), rotation=(math.pi / 2, 0, 0))
+        t = bpy.context.active_object; smooth(t); assign(t, satin_metal('#BFB6E6', 0.3))
+    # 竖向的路：一根细玻璃管穿过各层；走过的一段发黄光
+    def rod(z0, z1, r, mat):
+        bpy.ops.mesh.primitive_cylinder_add(radius=r, depth=z1 - z0, location=(0, -0.2, (z0 + z1) / 2), vertices=32)
+        o = bpy.context.active_object; smooth(o); assign(o, mat)
+    rod(zs[0] - 0.8, zs[-1] + 0.6, 0.028, candy('#E9E5FA', 0.3))
+    rod(zs[0] - 0.8, zball, 0.032, emit(YEL, 2.2))
+    sphere(0.15, (0, -0.2, zball), emit(YEL, 7.0))
+    sphere(0.25, (0, -0.2, zball), glass('#FFE58A', 0.2))
+    # 一排字块 + 黄色「?」玻璃块
+    ry = -0.55; step = 0.72
+    xs0 = -2.5 * step
     for k, ch in enumerate('周末我想去'):
-        token(ch, (-2.05 + k * 0.6, -1.2, -1.95), s=0.5, rot=(0, 0, 0.55))
-    rbox((0.5, 0.31, 0.5), (-2.05 + 5 * 0.6, -1.2, -1.95), bevel=0.09, mat=glass('#FFE07A', 0.15), rot=(0, 0, 0.55))
-    text3d('?', (-2.05 + 5 * 0.6 + 0.12, -1.38, -1.95), 0.8, emit(YEL, 4.0), extrude=0.04, rot=(math.pi / 2, 0, 0.55))
-    camera((7.2, -11.0, 1.8), (0.0, -0.3, -0.85), lens=50, focus=13.1, fstop=3.5)
+        token(ch, (xs0 + k * step - 0.36 + 0.36, -0.6, ry), s=0.6)
+    qx = xs0 + 5 * step
+    rbox((0.6, 0.37, 0.6), (qx, -0.6, ry), bevel=0.1, mat=glass('#FFE07A', 0.15))
+    text3d('?', (qx, -0.8, ry), 0.95, emit(YEL, 4.0), extrude=0.04, rot=(math.pi / 2, 0, 0))
+    # 出口：从最上面一层绕到「?」（一根细磨砂管）
+    pts = [(0, -0.2, zs[-1] + 0.6), (0, -0.2, zs[-1] + 0.85), (2.7, -0.2, zs[-1] + 0.85), (2.7, -0.2, ry + 0.7), (qx, -0.6, ry + 0.7), (qx, -0.6, ry + 0.33)]
+    cu = bpy.data.curves.new('pipe', 'CURVE'); cu.dimensions = '3D'; cu.bevel_depth = 0.03; cu.bevel_resolution = 3
+    sp = cu.splines.new('POLY'); sp.points.add(len(pts) - 1)
+    for i, p_ in enumerate(pts): sp.points[i].co = (*p_, 1)
+    po = bpy.data.objects.new('pipe', cu); bpy.context.collection.objects.link(po); cu.materials.append(glass('#D9D2FF', 0.25))
+    ANCH['model'] = (0, 0, zs[-1] + 1.3); ANCH['q'] = (qx - 0.75, -0.6, ry + 0.7)
+    camera((1.6, -32, 8.2), (0, 0, 0.9), lens=100, focus=32.6, fstop=5.6)
 
 elif A.shot == 3:
     # 分叉：句子是一条玻璃带，在「去」后面一分为二，上面一条接「海边看日落」，下面一条接「睡个懒觉」
-    world('#FFD6C2', '#FFBFA6')
+    world('#FFCFB8', '#FFB394')
     studio(key=850, fill=280, rim=750)
     s = 0.56; step = 0.66; yaw = -0.35
     stem = [(-4.6, 0, 0), (-3.0, 0, 0), (-1.2, 0, 0), (0.0, 0, 0)]
-    up = [(0.0, 0, 0), (1.0, 0, 0.5), (2.0, 0, 1.8), (3.4, 0, 2.25), (5.6, 0, 2.3)]
-    dn = [(0.0, 0, 0), (1.0, 0, -0.5), (2.0, 0, -1.8), (3.4, 0, -2.25), (5.6, 0, -2.3)]
-    ribbon(stem, 0.9, gradient_glass('#9CC6FF', '#C9B8FF', 'X', 0.1, -4.6, 0), thick=0.05)
-    ribbon(up, 0.9, gradient_glass('#C9B8FF', '#7FD8FF', 'X', 0.1, 0, 5.6), thick=0.05)
-    ribbon(dn, 0.9, gradient_glass('#C9B8FF', '#FFB0C8', 'X', 0.1, 0, 5.6), thick=0.05)
+    up = [(0.0, 0, 0), (1.0, 0, 0.7), (2.0, 0, 2.5), (3.4, 0, 3.1), (5.4, 0, 3.15)]
+    dn = [(0.0, 0, 0), (1.0, 0, -0.7), (2.0, 0, -2.5), (3.4, 0, -3.1), (5.4, 0, -3.15)]
+    ribbon(stem, 0.9, gradient_glass('#FFF4EC', '#FFE6D6', 'X', 0.12, -4.6, 0), thick=0.06)
+    ribbon(up, 0.9, gradient_glass('#FFE6D6', '#FFF4EC', 'X', 0.12, 0, 5.6), thick=0.06)
+    ribbon(dn, 0.9, gradient_glass('#FFE6D6', '#FFF4EC', 'X', 0.12, 0, 5.6), thick=0.06)
     for k, ch in enumerate('周末我想去'):
         token(ch, (-4.2 + k * step, -0.05, s / 2 + 0.05), s=s, rot=(0, 0, yaw))
     def zpath(x, z1):
-        u = max(0.0, min(1.0, (x - 0.3) / 2.2)); u = u * u * (3 - 2 * u); return z1 * u
+        u = max(0.0, min(1.0, (x - 0.4) / 2.4)); u = u * u * (3 - 2 * u); return z1 * u
     def branch(chars, z1):
         for k, ch in enumerate(chars):
             x = 2.3 + k * step
             body = '#FFD45A' if k == 0 else '#FBF8F2'
             token(ch, (x, -0.05, zpath(x, z1) + s / 2 + 0.05), s=s, body=body, rot=(0, 0, yaw))
-    branch('海边看日落', 2.27)
-    branch('睡个懒觉', -2.27)
+    branch('海边看日落', 3.12)
+    branch('睡个懒觉', -3.12)
+    ANCH['zhou'] = (-4.2 - s / 2, -0.05, s / 2); ANCH['luo'] = (2.3 + 4 * step + s / 2, -0.05, 3.12 + s); ANCH['jue'] = (2.3 + 3 * step + s / 2, -0.05, -3.12 + s)
     # 分叉点：一颗黄球
     sphere(0.2, (0.3, -0.05, 0.45), emit(YEL, 6))
     sphere(0.34, (0.3, -0.05, 0.45), glass('#FFE58A', 0.2))
-    camera((-8.6, -10.6, 2.6), (0.2, 0, -0.9), lens=33, focus=13.9, fstop=2.8)
+    camera((-9.85, -10.17, 1.4), (-0.05, 0.23, -0.35), lens=31.5, focus=14.0, fstop=2.8)
 
 bpy.ops.render.render(write_still=True)
+if ANCH:
+    import json
+    from bpy_extras.object_utils import world_to_camera_view
+    bpy.context.view_layer.update()
+    out = {k: [round(c, 4) for c in world_to_camera_view(sc, sc.camera, Vector(v))[:2]] for k, v in ANCH.items()}
+    json.dump(out, open(A.out.rsplit('.', 1)[0] + '_anchors.json', 'w'))
