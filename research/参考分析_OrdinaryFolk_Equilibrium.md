@@ -61,5 +61,4 @@
 - 节奏按用户规定（每 3–8 秒一个知识推进、关键画面停够），不照搬作品集节奏（见 `CLAUDE.md` 3D 镜头语法第 14 条）。
 
 ## 另外两个参考
-- **Kurzgesagt**（教学参考）：链接 https://kurzgesagt.org/what-we-do 能打开，但只有文字介绍和图片，没有片子；YouTube 在云端下不了。要逐帧分析的话，需要用户上传一两段片子，或者用 `tools/gemini_watch.py` 让 Gemini 看 YouTube 链接。用户要学的是「复杂概念压成一眼能认的视觉对象 + 统一的视觉身份」，不学画风。
-- **BUCK**（运动参考）：用户没给具体作品。官网 https://buck.co/work 能打开（作品列表可读）。需要的话请用户指定一两部作品。
+Kurzgesagt（教学）和 BUCK（运动）的分析在 `参考分析_Kurzgesagt_BUCK.md`（2026-11-19，用户给了链接后补学）。
