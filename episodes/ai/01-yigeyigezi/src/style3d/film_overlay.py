@@ -29,13 +29,13 @@ def parse(line):
         else: buf += ch
     out.append((buf, y)); return [(s, c) for s, c in out if s]
 
-def wrap_note(d, text, ft, maxw=900):
+def wrap_note(d, text, ft, maxw=740):   # 小字条右边缘 ≤ 940：540 + 740/2 + 22 ≈ 932
     """小字：最多两行；按「 · 」或按宽度断开"""
     parts = text.split(' · ')
     if len(parts) == 2 and all(d.textlength(p, font=ft) <= maxw for p in parts): return parts
     if d.textlength(text, font=ft) <= maxw: return [text]
     lines = ['']
-    for ch in text:
+    for ch in text.replace(' · ', '，'):
         if d.textlength(lines[-1] + ch, font=ft) > maxw: lines.append('')
         lines[-1] += ch
     return lines[:2]
@@ -58,7 +58,9 @@ def caption(im, text, note, analog):
         d.rounded_rectangle((ax, ay - 26, ax + aw, ay + 26), 12, outline=ORANGE + (255,), width=4, fill=(20, 24, 48, 205))
         d.text((ax + aw / 2, ay), '类比', font=fa, fill=ORANGE + (255,), anchor='mm')
     if note:
-        fn = f(NOTO_R, 32); nl = wrap_note(d, note, fn)
+        for fs in (32, 30, 28):   # 最多两行；放不下就把字缩小一点，不截断
+            fn = f(NOTO_R, fs); nl = wrap_note(d, note, fn)
+            if len(''.join(nl)) >= len(note.replace(' · ', '')) - 1: break
         nh = 44 * len(nl) + 14; ny1 = cy - bh / 2 - 16; ny0 = ny1 - nh
         nw = max(d.textlength(t, font=fn) for t in nl)
         d.rounded_rectangle((540 - nw / 2 - 22, ny0, 540 + nw / 2 + 22, ny1), 18, fill=(20, 24, 48, 150))
@@ -112,7 +114,8 @@ CHIPS = {   # 拍的函数名 → [(锚点, 文字, 底色, 字色)]
     'o18': [('w1', '写 1 个字', (255, 196, 40), INK), ('w4', '批改 4 个字', (253, 251, 246), INK)],
     'o19': [('mem', '显存：存着参数', (111, 134, 201), (255, 255, 255)), ('core', '计算核心', (31, 94, 68), (255, 255, 255))],
     'o20': [('core', '计算核心', (31, 94, 68), (255, 255, 255))],
-    'n_easy': [('small', '小模型', (75, 63, 140), (255, 255, 255)), ('easy', '好猜', (47, 207, 126), (255, 255, 255))],
+    'o21': [('own', '大模型自己的', (255, 196, 40), INK)],
+    'n_easy': [('small', '小模型', (75, 63, 140), (255, 255, 255)), ('easy', '好猜', (253, 251, 246), INK)],
     'n_hard': [('hard', '难猜：海边做什么？', (253, 251, 246), INK), ('count', '这一步出了 3 个', (255, 196, 40), INK)],
     'n_accept': [('top', '投机解码写的', (253, 251, 246), INK), ('bot', '大模型自己写的', (75, 63, 140), (255, 255, 255))],
     'n_timing': [('move', '搬：约 16 毫秒', (111, 134, 201), (255, 255, 255)), ('calc', '算：约 0.1 毫秒（放大）', (31, 94, 68), (255, 255, 255))],
@@ -123,6 +126,7 @@ def compose(png, js):
     im = grain(Image.open(png).convert('RGB').resize((1080, 1920), Image.LANCZOS), 5.0, seed=b)
     P = {k: (v[0] * 1080, (1 - v[1]) * 1920) for k, v in meta['anch'].items()}
     for (k, text, bg, fg) in CHIPS.get(fn, []):
+        if fn == 'o1' and k == 'qu' and u < 0.35: continue   # 「去」还没浮出来时不挂标签
         if k in P: chip(im, P[k][0], P[k][1], text, bg, fg)
     if fn == 'o4' and 'row' in P:
         chip(im, P['row'][0], P['row'][1], '第一轮：整句送进去' if u < 0.4 else '之后：只送新写的那个字', (253, 251, 246), INK)

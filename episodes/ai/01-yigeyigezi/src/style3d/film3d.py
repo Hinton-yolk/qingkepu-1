@@ -16,7 +16,7 @@ os.makedirs(F.outdir, exist_ok=True)
 from bpy_extras.object_utils import world_to_camera_view
 
 # ---------------- 节拍表（时间照用户确认的脚本 v2.1） ----------------
-BEATS = [  # (编号, 起, 止, 章节底色)
+BEATS = [  # 【已作废，仅供对照】v2.1 的 25 拍时间表；实际顺序和时间见文末 V3 和 script.md「逐句字幕 v3」
     (1, 0.0, 2.2, 'blue'), (2, 2.2, 5.4, 'blue'), (3, 5.4, 8.2, 'blue'),
     (4, 8.2, 11.2, 'lilac'), (5, 11.2, 14.0, 'lilac'), (6, 14.0, 17.0, 'lilac'), (7, 17.0, 19.8, 'lilac'),
     (8, 19.8, 22.6, 'peach'), (9, 22.6, 25.4, 'peach'), (10, 25.4, 28.2, 'peach'), (11, 28.2, 31.4, 'peach'),
@@ -29,7 +29,7 @@ BEATS = [  # (编号, 起, 止, 章节底色)
 ]
 # 底色：11-19 用户要求「色度做适当的提升」，比样张 v3 更饱和
 BG = {'blue': ('#A3C6FA', '#78A8F4'), 'lilac': ('#CBB9F8', '#AA93F1'), 'peach': ('#FFC2A2', '#FF9F75'),
-      'mint': ('#AEE9CB', '#7DD6A9'), 'butter': ('#FFE59A', '#FFCB5C'), 'rose': ('#F6C1E2', '#EB9CCF')}
+      'mint': ('#AEE9CB', '#7DD6A9'), 'butter': ('#FFE59A', '#FFCB5C'), 'rose': ('#F3B2DA', '#E688C4')}
 GREEN, GRAY, DRAFT = '#2FCF7E', '#A9A5BC', '#E5DBFF'
 
 # ---------------- 小工具 ----------------
@@ -89,10 +89,10 @@ def bookmark(loc, s=0.6):
     x, y, z = loc
     rbox((s * 0.16, 0.03, s * 0.34), (x + s * 0.3, y - s * 0.33, z + s * 0.36), bevel=0.02, mat=candy('#7F6BE0', 0.3))
 
-def xmark(loc, size=1.0, rot_y=0.0):
+def xmark(loc, size=1.0, rot_y=0.0, thick=0.12):
     """白色描边 ✕（错 / 作废）：两根交叉的白色圆角条"""
     for a in (math.pi / 4, -math.pi / 4):
-        rbox((size, 0.12, 0.16), loc, bevel=0.06, mat=candy('#FFFFFF', 0.25), rot=(0, a + rot_y, 0))
+        rbox((size, thick * 0.6, thick), loc, bevel=thick * 0.45, mat=candy('#FFFFFF', 0.25), rot=(0, a + rot_y, 0))
 
 def check(loc, s=0.32):
     """绿勾：绿色圆片 + 白勾"""
@@ -239,9 +239,9 @@ def o5(u):   # 回头看：新位置伸出细线连回前面每一个字（句�
     ANCH['q'] = (1.8, -0.6, -1.4)
     cam((1.2, -30, 3.0), (0, 0, 0.35), 90, 5.6, 30)
 
-def o6(u):   # 给每个可能的下一个字打分：模型出口冒出候选排行条
+def o6(u, stack=True):   # 给每个可能的下一个字打分：模型出口冒出候选排行条
     reset('lilac'); lights((0, 0, 1))
-    zs = model_stack(z0=-1.9, n=3, warm_upto=2, scale=0.55)
+    zs = model_stack(z0=-1.9, n=3, warm_upto=2, scale=0.55) if stack else None
     cands = [('海', 0.41), ('睡', 0.18), ('爬', 0.12), ('吃', 0.09)]
     for i, (ch, p) in enumerate(cands):
         z = 3.4 - i * 0.92; g = ease(seg(u, 0.05 + i * 0.08, 0.45 + i * 0.08))
@@ -379,8 +379,8 @@ def spec_row(drafts=0, sweep=None, verdict=False):
     for k, x in enumerate(xs):
         if k < drafts:
             if verdict and k >= 2:   # 「吃」对不上 → 作废；它后面的「饭」也一起作废：压暗、掉到下面、打 ✕
-                draft_tok(chars[k], (x, -0.6, -1.55), s=s, body='#BDB6CF')
-                xmark((x, -1.0, -1.55), size=0.7)
+                draft_tok(chars[k], (x, -0.6, -1.4), s=s, body='#BDB6CF')
+                xmark((x, -0.95, -1.4), size=0.62, thick=0.07)
             elif verdict:
                 token(chars[k], (x, -0.6, -0.6), s=s)
                 check((x, -0.95, -0.6 + 0.55), s=0.18)
@@ -418,7 +418,7 @@ def o18(u):  # 批改 4 个字和写 1 个字差不多快：两根计时条几�
     reset('rose'); lights((0, 0, 0))
     g = ease(seg(u, 0.1, 0.7))
     token('海', (-2.7, -0.4, 1.1), s=0.62)
-    rbox((3.4 * g + 0.05, 0.3, 0.42), (-2.1 + (3.4 * g) / 2, -0.3, 1.1), bevel=0.14, mat=candy(YEL, 0.25))
+    rbox((3.4 * g + 0.05, 0.3, 0.42), (-2.1 + (3.4 * g) / 2, -0.3, 1.1), bevel=0.14, mat=candy('#FFFFFF', 0.25))
     for k, ch in enumerate('海边吃饭'):
         draft_tok(ch, (-2.95 + (k % 2) * 0.55, -0.4, -0.55 + (0.28 if k < 2 else -0.28)), s=0.46)
     rbox((3.55 * g + 0.05, 0.3, 0.42), (-2.1 + (3.55 * g) / 2, -0.3, -0.55), bevel=0.14, mat=candy('#FFFFFF', 0.25))
@@ -463,6 +463,7 @@ def o21(u):  # 对得上的全收下，从第一个对不上的接着来：「�
     xs = spec_row(drafts=4, verdict=u > 0.25)
     if u > 0.55:   # 大模型自己的「看」接上来
         token('看', (xs[2], -0.6, lerp(0.6, -0.6, back_out(seg(u, 0.55, 0.8)))), s=0.5, body='#FFD45A')
+        ANCH['own'] = (xs[2], -0.6, 0.15)
     cam((0.4, -18, 2.0), (0.0, 0, -0.9), 55, 3.5, 18)
 
 def o22(u):  # 一步就出好几个字，快 2–3 倍：3D 大字
@@ -483,7 +484,7 @@ def o23(u):  # 回到聊天气泡（放在示意框里）：这次一小段一�
     s = 0.62
     for k, ch in enumerate('海边看'):
         p = back_out(seg(u, 0.2 + 0.05 * k, 0.6 + 0.05 * k))
-        token(ch, (0.9 + k * 0.7, -1.8, 0.4), s=s * max(p, 0.02), rot=(0.1, 0, -0.2))
+        token(ch, (0.55 + k * 0.62, -1.8, 0.95), s=0.56 * max(p, 0.02), rot=(0.1, 0, -0.2))
     cam((1.0, -15.0, 1.4), (0.4, 0, 0.3), 48, 2.2, 14.0)
 
 def o24(u):  # 片尾大字（2D 层）：背景是虚掉的手机
@@ -550,7 +551,7 @@ def n_attnlong(u):  # 补 3：聊得越长，每个字要回头看的越多
     cam((0.2, -22, 2.4), (0.0, 0, 0.2), 58, 4.0, 22)
 
 def n_tail(u):      # 补 2：其实它认识的十几万个字，每个都打了分
-    o6(1.0)
+    o6(1.0, stack=False)
     # 排行条后面一条很长、很淡的尾巴：越来越短、越来越淡，望不到头
     g = ease(seg(u, 0.1, 0.8))
     for i in range(int(26 * g)):
@@ -614,6 +615,45 @@ def n_hard(u):      # 补 5：难猜的常对不上，对不上就从那儿接�
     ANCH['hard'] = (xs[2] - 0.3, -0.6, 0.3); ANCH['count'] = (xs[0] - 0.5, -0.6, 1.05)
     cam((0.4, -18, 2.0), (0.0, 0, -0.9), 55, 3.5, 18)
 
+
+# ---------------- 自动取景：把所有物体和标签锚点收进安全框（审核节点 ②：右边缘 ≤ x940，不压小字和字幕） ----------------
+def screen_box(extra_pts=()):
+    from bpy_extras.object_utils import world_to_camera_view as w2c
+    bpy.context.view_layer.update()
+    xs, ys = [], []
+    dg = bpy.context.evaluated_depsgraph_get()
+    for o in bpy.data.objects:
+        if o.type not in ('MESH', 'CURVE', 'FONT') or o.get('deco'): continue
+        oe = o.evaluated_get(dg)
+        for c in oe.bound_box:
+            v = w2c(sc, sc.camera, oe.matrix_world @ Vector(c))
+            if v.z <= 0: continue
+            xs.append(v.x); ys.append(1 - v.y)
+    for pt in extra_pts:
+        v = w2c(sc, sc.camera, Vector(pt))
+        if v.z > 0: xs += [v.x - 0.11, v.x + 0.11]; ys += [1 - v.y - 0.02, 1 - v.y + 0.02]   # 标签条大约这么宽
+    return min(xs), max(xs), min(ys), max(ys)
+
+def autofit(bottom=0.64, top=0.12, left=0.07, right=0.86, fill=0.94, iters=7):
+    cam_o = sc.camera; cd_ = cam_o.data
+    for _ in range(iters):
+        x0, x1, y0, y1 = screen_box(ANCH.values())
+        k = max((x1 - x0) / ((right - left) * fill), (y1 - y0) / ((bottom - top) * fill))
+        fwd = cam_o.matrix_world.to_quaternion() @ Vector((0, 0, -1))
+        rgt = cam_o.matrix_world.to_quaternion() @ Vector((1, 0, 0))
+        up = cam_o.matrix_world.to_quaternion() @ Vector((0, 1, 0))
+        d = cd_.dof.focus_distance
+        # 拉远 / 推近：画面里的大小大约和距离成反比
+        nd = d * k
+        cam_o.location = cam_o.location - fwd * (nd - d); cd_.dof.focus_distance = nd
+        # 平移：把内容中心移到安全框中心
+        Hw = cd_.sensor_height / cd_.lens * nd; Ww = Hw * 1080 / 1920
+        dx = ((x0 + x1) / 2 - (left + right) / 2) / k
+        dy = ((y0 + y1) / 2 - (top + bottom) / 2) / k
+        cam_o.location = cam_o.location + rgt * dx * Ww - up * dy * Hw
+        bpy.context.view_layer.update()
+        if abs(k - 1) < 0.02 and abs(dx) < 0.005 and abs(dy) < 0.005: break
+
 # ---------------- v3 的顺序（34 拍），时间从 script.md 的逐句字幕 v3 表读，保证和字幕同步 ----------------
 V3 = ['o1', 'o2', 'o3', 'o4', 'n_strip', 'n_mult', 'o5', 'n_attnlong', 'o6', 'n_tail', 'o7',
       'o8', 'o9', 'o10', 'o11', 'o12', 'o13', 'o14', 'o15', 'o16', 'o17', 'o18', 'o19', 'n_mem16', 'n_timing',
@@ -625,14 +665,14 @@ def read_times():
     out = []
     for l in rows:
         c = [x.strip() for x in l.strip().strip('|').split('|')]
-        t0, t1 = c[1].split('–'); out.append((int(c[0]), float(t0), float(t1)))
+        t0, t1 = c[1].split('–'); out.append((int(c[0]), float(t0), float(t1), bool(c[4].strip())))
     return out
 import re
 TIMES = read_times()
 assert len(TIMES) == len(V3), (len(TIMES), len(V3))
 
 def beat_at(t):
-    for (b, t0, t1) in TIMES:
+    for (b, t0, t1, _n) in TIMES:
         if t < t1 or b == len(TIMES): return b, clamp((t - t0) / (t1 - t0))
 
 CU = {'o2': 0.85, 'o4': 0.3, 'o5': 0.7, 'o6': 0.8, 'o7': 0.8, 'o8': 0.8, 'o9': 0.9, 'o10': 0.9, 'o14': 0.8, 'o16': 0.85, 'o17': 0.55,
@@ -648,6 +688,8 @@ else:
 for name, b, u in jobs:
     fn = V3[b - 1]
     globals()[fn](u)
+    if fn not in ('o1', 'o2', 'o3', 'o23', 'o24', 'o25'):
+        autofit(bottom=0.63 if TIMES[b - 1][3] else 0.69)
     bpy.context.view_layer.update()
     sc.render.filepath = os.path.join(F.outdir, name + '.png')
     bpy.ops.render.render(write_still=True)
