@@ -42,6 +42,13 @@ const MAIN = cv.getContext("2d");
 const OFF = document.createElement("canvas"); OFF.width = W; OFF.height = H;
 const OFFX = OFF.getContext("2d");
 let ctx = MAIN;
+// a group fade: draw into a layer, then put the layer down once (overlapping shapes don't show through each other)
+const LAYER = document.createElement("canvas"); LAYER.width = W; LAYER.height = H; const LAYERX = LAYER.getContext("2d");
+function withLayer(a, fn) {
+  if (a >= 0.999) { fn(); return; }
+  const outer = ctx; ctx = LAYERX; ctx.reset(); fn(); ctx = outer;
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = a; ctx.drawImage(LAYER, 0, 0); ctx.restore();
+}
 
 const C = {
   ground: "#ECEBE6", ink: "#141414", acc: "#FF4A1C", paper: "#F1F0EC", dark: "#17191C",
@@ -530,7 +537,7 @@ function sectionNotes(t) {
   // the sensor: lit, framed, named (14.0–14.75), then the bar
   const sn = win(t, T.sensor, T.push + 1.4, 0.3, 0.4);
   if (sn > 0.01) { obox(SNS[0] - 62, SNS[1] - 52, 124, 104, E.p3out(prog(t, T.sensor, T.sensor + 0.5)), sn, 16); label(COPY.sensor, 104, SNS[1] + 112, 44, C.acc, t, T.sensor + 0.2, T.push + 1.4); }
-  label(COPY.cuffP, BAR.x + BAR.w / 2 + 16, BAR.y1 + 56, 44, C.paper, t, T.release, T.q6, { align: "center", alpha: 0.9 });
+  label(COPY.cuffP, BAR.x + BAR.w / 2 + 2, BAR.y1 + 56, 44, C.paper, t, T.release, T.q6, { align: "center", alpha: 0.9 });
   // the push: arrows artery → air → tube → sensor → spike
   if (t >= T.push && t < T.more + 0.4) {
     const fo = 1 - prog(t, T.more, T.more + 0.4);
@@ -569,7 +576,7 @@ function drawHill(t, a = 1) {
     const [x, y] = topOf(b);
     ctx.globalAlpha = a; ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(x, y, 14 * spring(t - tm, 18, 0.6), 0, TAU); ctx.fill();
     ctx.strokeStyle = C.paper; ctx.lineWidth = 4; ctx.stroke();
-    pill(nm, x + side * 24, y - 44, 48, t, tm + 0.1, T.q7, { align: side < 0 ? "left" : "center", edge: true });
+    pill(nm, x + side * 24, y - 56, 48, t, tm + 0.1, T.q7, { align: side < 0 ? "left" : "center", edge: true });
   }
   ctx.globalAlpha = a;
   label(COPY.algo, 1010, 1330, 44, C.paper, t, T.mkLo + 0.4, T.q7, { align: "right", weight: 400, alpha: 0.85 });
@@ -577,7 +584,7 @@ function drawHill(t, a = 1) {
 }
 
 // ================================================================ LINE (light, 31.5–39.5): your blood pressure keeps changing
-const LN = { x0: 70, x1: 1010, y: 1040, amp: 1.7 };      // v1.2: bigger, fills the middle of the frame
+const LN = { x0: 70, x1: 1010, y: 1150, amp: 1.7 };      // v1.2: bigger, fills the middle of the frame
 function bpY(x, t) {
   const u = (x - LN.x0) / (LN.x1 - LN.x0);
   const slow = 110 * Math.exp(-u / 0.22) + 26 * Math.sin(u * 7.3 + 0.6) + 14 * Math.sin(u * 15.1 + 2);
@@ -585,7 +592,7 @@ function bpY(x, t) {
   const beat = 26 * Math.pow(Math.max(0, Math.sin(u * 30 * Math.PI - ph)), 3) - 6;
   return LN.y + 40 - LN.amp * (slow + beat);
 }
-function lineK(t) { return E.p2io(prog(t, T.line, T.line + 1.4)); }
+function lineK(t) { return 0.25 + 0.75 * E.p2io(prog(t, T.line, T.line + 1.2)); }   // the line is already there at the cut
 const WIN1 = [110, 250], WIN2 = [640, 780];
 function drawLine(t) {
   ID(); ctx.fillStyle = C.ground; ctx.fillRect(-200, -200, W + 400, H + 400);
@@ -606,7 +613,7 @@ function drawLine(t) {
     // linked to its reading (from 37.25)
     const lk = E.p3out(prog(t, w === WIN1 ? T.sat + 0.4 : tw + 0.4, (w === WIN1 ? T.sat + 0.4 : tw + 0.4) + 0.4));
     if (lk > 0) {
-      const cx = (w[0] + w[1]) / 2, cy = 1300;
+      const cx = (w[0] + w[1]) / 2, cy = 1350;
       ctx.save(); ctx.globalAlpha = lk; ctx.strokeStyle = C.acc; ctx.lineWidth = 4; ctx.setLineDash([10, 9]); line(cx, yhi + 40, cx, cy - 100); ctx.setLineDash([]);
       rr(cx - 120, cy - 96, 240, 150, 24); ctx.fillStyle = C.lcd; ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = 2.6; ctx.stroke();
       ctx.fillStyle = C.lcdD; ctx.font = `700 104px ${UI}`; ctx.textAlign = "center"; ctx.fillText(val, cx, cy + 30); ctx.restore();
@@ -627,7 +634,7 @@ for (const pose of Object.keys(SD)) {
   const yo = (SEAT_Y - ry) / rs;
   for (const r of P.regs.pants) r.pts = r.pts.map((q) => (q[1] >= my - 1.5 ? [q[0], yo] : q));
 }
-const SIDE_S = 0.46, SIDE_T = [40, 598];                              // v1.2: the whole seated figure fits above y 1450 (floor ≈ 1444)
+const SIDE_S = 0.46, SIDE_T = [70, 578];                              // v1.2: the whole seated figure fits above y 1450 (floor ≈ 1444)
 const FLOOR_Y = 1840;                                                 // heart-pose px
 // per pose: the cuff (image px of that pose): centre, axis (unit), length, thickness
 const CUFFS = { heart: { c: [348, 712], ax: [0.62, 0.78], L: 150, th: 128 }, raised: { c: [500, 632], ax: [0.995, 0.08], L: 150, th: 118 }, down: { c: [180, 900], ax: [0.03, 1], L: 160, th: 160 } };
@@ -673,7 +680,7 @@ function heartLine(y, a, x0 = 180, x1 = 1040, lab = true, t = 0, t0 = 0, t1 = 99
 }
 // ---------------------------------------------------------------- the room around her (heart-pose px → screen through S, Tt)
 const sx = (S, Tt, x) => Tt[0] + S * x, sy = (S, Tt, y) => Tt[1] + S * y;
-const TABLE_Y = 754;                                                  // the table top, under the forearm of the heart pose
+const TABLE_Y = 766;                                                  // the table top, under the forearm of the heart pose (from the elbow on)
 function drawChair(S, Tt) {
   ctx.save(); ctx.fillStyle = "#B9B2A4"; ctx.strokeStyle = C.ink; ctx.lineWidth = 2.4; ctx.lineJoin = "round";
   const legW = 26 * S;
@@ -686,7 +693,7 @@ function drawDesk(S, Tt, top = TABLE_Y, x0 = 380) {                 // x0 in scr
   ctx.save(); ctx.strokeStyle = C.ink; ctx.lineWidth = 2.4; ctx.lineJoin = "round";
   const y = sy(S, Tt, top), th = 30 * S;
   ctx.fillStyle = "#B9B2A4";
-  for (const x of [x0 + 140, 1060]) { rr(x, y + th - 2, 30 * S, sy(S, Tt, FLOOR_Y) - y - th, 4); ctx.fill(); ctx.stroke(); }
+  for (const x of [x0 + 250, 1060]) { rr(x, y + th - 2, 30 * S, sy(S, Tt, FLOOR_Y) - y - th, 4); ctx.fill(); ctx.stroke(); }
   rr(x0, y, 1200, th, 6); ctx.fillStyle = C.table; ctx.fill(); ctx.stroke();
   ctx.restore();
 }
@@ -737,14 +744,14 @@ function drawSide(t) {
   const Tt = [SIDE_T[0] + 0.12 * d[0] - 40 * (1 - inK), SIDE_T[1] + 0.12 * d[1]];
   const [p0, p1, m] = poseAt(t);
   const hy = sy(SIDE_S, Tt, HEART_Y);
-  drawFloor(SIDE_S, Tt); drawDesk(SIDE_S, Tt); drawChair(SIDE_S, Tt); drawShins(SIDE_S, Tt);          // the whole room comes in with her (a cut)
+  drawFloor(SIDE_S, Tt); drawDesk(SIDE_S, Tt, TABLE_Y, sx(SIDE_S, Tt, 600)); drawChair(SIDE_S, Tt); drawShins(SIDE_S, Tt);          // the whole room comes in with her (a cut)
   const lineA = E.smooth(prog(t, T.side + 0.3, T.side + 0.8));
   heartLine(hy, lineA, sx(SIDE_S, Tt, 120), 770, t < T.raise, t, T.side + 0.5, T.raise);
-  sideMonitor(t, t >= T.down ? COPY.down : t >= T.up && t < T.raise ? COPY.up : null, E.smooth(prog(t, T.side + 0.4, T.side + 0.9)), SIDE_S, Tt);
+  sideMonitor(t, t >= T.down ? COPY.down : t >= T.up && t < T.raise ? COPY.up : null, 1, SIDE_S, Tt);
   if (m < 1) { drawPerson(p0, 1 - m, SIDE_S, Tt); drawSideCuff(p0, 1 - m, SIDE_S, Tt); }
   if (m > 0) { drawPerson(p1, m, SIDE_S, Tt); drawSideCuff(p1, m, SIDE_S, Tt); }
   const hx = sx(SIDE_S, Tt, lerp(HEART_X[p0], HEART_X[p1], m));
-  ctx.save(); ctx.globalAlpha = lineA; heartIcon(hx, hy, 20, C.ink, false, 4); ctx.restore();
+  ctx.save(); ctx.globalAlpha = lineA; heartIcon(hx, hy, 20, C.acc, true); ctx.restore();
   // below the heart: more; above: less
   const cpD = poseMap("down", CUFFS.down.c, SIDE_S, Tt), cpR = poseMap("raised", CUFFS.raised.c, SIDE_S, Tt);
   dimension(t, cpD[0] + 180, hy, cpD[1], cpD[0] + 30, COPY.more, T.col, T.raise + 0.2, cpD[0] + 204, (hy + cpD[1]) / 2 + 34);
@@ -774,23 +781,23 @@ function drawTips(t) {
   const hold = E.p3io(prog(t, T.cardHold, T.cardHold + 0.5));             // 0 → 1: the card grows big
   const demoA = 1 - E.smooth(prog(t, T.cardHold - 0.05, T.cardHold + 0.25));
   // tip 1: sit, 5 minutes, the arm at heart level, the cushion
-  const a1 = 1 - E.smooth(prog(t, T.tip2 - 0.1, T.tip2 + 0.3));
-  if (a1 > 0.01) {
+  const a1 = 1 - E.smooth(prog(t, T.tip2 - 0.2, T.tip2 + 0.1));
+  if (a1 > 0.01) withLayer(a1, () => {
     const S = SIDE_S, Tt = [SIDE_T[0] + ox, SIDE_T[1] + oy], hy = sy(S, Tt, HEART_Y);
-    ctx.save(); ctx.globalAlpha = a1;
+    ctx.save();
     const al = win(t, T.align, T.tip2, 0.3, 0.2);
     const sc = seatedScene(t, S, Tt, { hlCuff: al * (0.6 + 0.4 * Math.sin(t * 6)), hlCushion: al });
     heartLine(hy, E.smooth(prog(t, T.align, T.align + 0.4)), sx(S, Tt, 120), sx(S, Tt, 1010), false);
-    ctx.save(); ctx.globalAlpha = a1 * E.smooth(prog(t, T.tip1 + 0.3, T.tip1 + 0.6)); heartIcon(sx(S, Tt, HEART_X.heart), hy, 20, C.ink, false, 4); ctx.restore();
+    ctx.save(); ctx.globalAlpha = E.smooth(prog(t, T.tip1 + 0.3, T.tip1 + 0.6)); heartIcon(sx(S, Tt, HEART_X.heart), hy, 20, C.acc, true); ctx.restore();
     ctx.restore();
     label(COPY.pad, sc.cushion[0] + sc.cushion[2] + 28, sc.cushion[1] + sc.cushion[3] - 6, 46, C.acc, t, T.align + 0.3, T.tip2);
     // the timer ring (no seconds)
     const tk = prog(t, T.timer, T.timerEnd);
-    ctx.save(); ctx.globalAlpha = a1 * E.smooth(prog(t, T.tip1, T.tip1 + 0.3)); const cx = 860, cy = 760;
+    ctx.save(); ctx.globalAlpha = E.smooth(prog(t, T.tip1, T.tip1 + 0.3)); const cx = 860, cy = 760;
     ctx.strokeStyle = "rgba(20,20,20,0.18)"; ctx.lineWidth = 16; ctx.beginPath(); ctx.arc(cx, cy, 86, 0, TAU); ctx.stroke();
     ctx.strokeStyle = C.acc; ctx.lineCap = "round"; ctx.beginPath(); ctx.arc(cx, cy, 86, -Math.PI / 2, -Math.PI / 2 + TAU * tk); ctx.stroke();
     ctx.strokeStyle = C.ink; ctx.lineWidth = 6; const ha = -Math.PI / 2 + TAU * tk; line(cx, cy, cx + 50 * Math.cos(ha), cy + 50 * Math.sin(ha)); ctx.restore();
-  }
+  });
   // tip 2: measure, wait a minute, measure again → the average
   const a2 = win(t, T.tip2, T.tip3 + 0.2, 0.3, 0.3);
   if (a2 > 0.01) {
@@ -825,7 +832,7 @@ function drawTips(t) {
     ctx.restore();
   }
   // the checklist card
-  const ck = E.p3out(prog(t, T.card1 - 0.2, T.card1 + 0.2));
+  const ck = E.p3out(prog(t, T.card1, T.card1 + 0.25));          // after the seated scene has gone (no overlap)
   if (ck > 0.01) {
     const n = ROWS.filter((r) => t >= r.tm).length, grow = (i) => E.p3out(prog(t, ROWS[i].tm, ROWS[i].tm + 0.3));
     // compact: rows from the top of the card; heights 120 / 76 / 76; the card's bottom at 1430
@@ -839,14 +846,14 @@ function drawTips(t) {
     ctx.save(); ctx.globalAlpha = ck; rr(cx, cy, wC, ch, 28); ctx.fillStyle = "#FFFFFF"; ctx.fill(); ctx.strokeStyle = C.ink; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
     // the picture (big card only)
     if (hold > 0.01) {
-      ctx.save(); ctx.beginPath(); ctx.rect(cx, cy, wC, ch); ctx.clip(); ctx.globalAlpha = E.smooth(prog(t, T.cardHold + 0.25, T.cardHold + 0.6));
+      withLayer(E.smooth(prog(t, T.cardHold + 0.25, T.cardHold + 0.6)), () => { ctx.save(); ctx.beginPath(); ctx.rect(cx, cy, wC, ch); ctx.clip();
       const S = 0.26, Tt = [cx + 190, cy + 28];
       seatedScene(t, S, Tt, {});
       ctx.save(); ctx.strokeStyle = C.ink; ctx.lineWidth = 3; ctx.setLineDash([12, 9]); line(sx(S, Tt, 120), sy(S, Tt, HEART_Y), cx + wC - 40, sy(S, Tt, HEART_Y)); ctx.restore();
-      heartIcon(sx(S, Tt, HEART_X.heart), sy(S, Tt, HEART_Y), 13, C.ink, false, 3);
-      ctx.restore();
+      heartIcon(sx(S, Tt, HEART_X.heart), sy(S, Tt, HEART_Y), 13, C.acc, true);
+      ctx.restore(); });
     }
-    let yRow = lerp(yC + pad + 46, cy + 610, hold);
+    let yRow = lerp(yC + pad + 46, yB + 610, hold) + hyy;          // to the big card's fixed rows (not relative to the moving top)
     for (let i = 0; i < 3; i++) {
       const r = ROWS[i]; if (t < r.tm) continue; const k = grow(i);
       const size = lerp(52, 62, hold), y = yRow;
@@ -913,7 +920,7 @@ const BADGE = [200, 600];
 function endCard(t) {
   if (t < T.end) return;
   const k = E.p3io(prog(t, T.end, T.endMorph + 0.3));
-  ID(); ctx.save();
+  ID(); ctx.save(); ctx.globalAlpha = E.smooth(prog(t, T.end + 0.25, T.end + 0.45));
   const sc = lerp(0.9, 0.42, k), cx = lerp(540, BADGE[0], k), cy = lerp(880, BADGE[1], k);
   ctx.translate(cx, cy); ctx.scale(sc, sc);
   ctx.strokeStyle = C.ink; ctx.lineWidth = 8; rr(-MOW / 2, -MOH / 2, MOW, MOH, 46); ctx.fillStyle = mixHex(C.dev, C.ground, k); ctx.fill(); ctx.stroke();
@@ -979,7 +986,7 @@ function frame(t) {
     ID(); ctx.fillStyle = C.dark; ctx.fillRect(-200, -200, W + 400, H + 400);
     const bigK = E.p2io(prog(t, T.big, T.bigEnd));
     drawSection(t, 1 - 0.85 * bigK);
-    const pa = E.smooth(prog(t, T.sensor - 0.35, T.sensor)) * (1 - bigK) * (1 - 0.6 * win(t, T.beat1, T.q5, 0.3, 0.3));
+    const pa = E.smooth(prog(t, T.sensor - 0.35, T.sensor)) * (1 - clamp(2.5 * bigK)) * (1 - 0.6 * win(t, T.beat1, T.q5, 0.3, 0.3));
     if (pa > 0.01) drawPanel(t, pa, {});
     const armDim = 0.55 * win(t, T.q5, T.push + 0.05, 0.3, 0.1) + 0.45 * win(t, T.push + 0.35, T.more, 0.2, 0.3);
     if (armDim > 0.01) { ID(); ctx.save(); ctx.globalAlpha = armDim; ctx.fillStyle = C.dark; ctx.fillRect(-200, -200, W + 400, 1060 + 200); ctx.restore(); }
