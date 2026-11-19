@@ -452,7 +452,7 @@ function drawSection(t, a = 1, focus = 1) {
 // the machine panel (screen px; only after the dive)
 const PNL = { x: 70, y: 1110, w: 940, h: 330 };
 const SNS = [212, 1236];                                                  // the pressure sensor
-const BAR = { x: 362, y0: 1222, y1: 1366, w: 34 };
+const BAR = { x: 362, y0: 1222, y1: 1356, w: 34 };
 const MS = { x0: 500, x1: 990, y0: 1138, y1: 1412 };                     // the small screen
 const xBeat = (tb, R = MS) => lerp(R.x0 + 70, R.x1 - 50, prog(tb, T.push, 26.4));   // the first spike shown is the push beat's
 function cuffTubeS(t) {                                                   // the tube in the section: from the cuff's bottom to the sensor
@@ -546,7 +546,7 @@ function sectionNotes(t) {
   // the sensor: lit, framed, named (14.0–14.75), then the bar
   const sn = win(t, T.sensor, T.push + 1.4, 0.3, 0.4);
   if (sn > 0.01) { obox(SNS[0] - 62, SNS[1] - 52, 124, 104, E.p3out(prog(t, T.sensor, T.sensor + 0.5)), sn, 16); label(COPY.sensor, 90, SNS[1] + 114, 50, C.acc, t, T.sensor + 0.2, T.push + 1.4); }
-  label(COPY.cuffP, BAR.x + BAR.w / 2 + 2, BAR.y1 + 60, 50, C.paper, t, T.release, T.q6, { align: "center" });
+  label(COPY.cuffP, BAR.x + BAR.w / 2 + 2, BAR.y1 + 56, 50, C.paper, t, T.release, T.q6, { align: "center" });
   // the push: arrows artery → air → tube → sensor → spike
   if (t >= T.push && t < T.more + 0.4) {
     const fo = 1 - prog(t, T.more, T.more + 0.4);
@@ -1063,9 +1063,11 @@ function overlay(t) {
   VX = 0; VY = 0; TT = t;
   const fl = darkAt(t);
   if (fl < 0) {                                                   // the band: dark scrim + light text inside, light outside
-    const B = bandPath(t);
-    ctx.save(); let P = new Path2D(); P.rect(0, 0, W, H); P.addPath(B); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clip(P, "evenodd"); scrimOf(0, 1, groundRGB(t)); textBand(t, 0); ctx.restore();
-    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clip(bandPath(t)); scrimOf(1); textBand(t, 1); ctx.restore();
+    // the light scrim stays off the band's soft edge (so the edge stays soft); the text flips colour mid-edge;
+    // no dark scrim needed (the band itself is dark)
+    ctx.save(); let P = new Path2D(); P.rect(0, 0, W, H); P.addPath(bandPath(t, 130)); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clip(P, "evenodd"); scrimOf(0, 1, groundRGB(t)); ctx.restore();
+    ctx.save(); P = new Path2D(); P.rect(0, 0, W, H); P.addPath(bandPath(t, 50)); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clip(P, "evenodd"); textBand(t, 0); ctx.restore();
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clip(bandPath(t, 50)); textBand(t, 1); ctx.restore();
   } else {
     scrimOf(fl, t >= T.end ? 1 - prog(t, T.end, T.end + 0.3) : 1 - prog(t, T.cardHold, T.cardHold + 0.3), groundRGB(t));
     textBand(t, fl);
