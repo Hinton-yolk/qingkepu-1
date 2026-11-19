@@ -20,14 +20,21 @@ def ui(out):
     im = Image.new('RGB', (W, H), (247, 248, 252)); d = ImageDraw.Draw(im)
     d.text((W / 2, 150), 'AI 助手', font=f(NOTO, 64), fill=(60, 66, 96), anchor='mm')
     d.line((60, 230, W - 60, 230), fill=(225, 228, 238), width=3)
+    # 上一轮对话（淡）
+    d.rounded_rectangle((W - 60 - 520, 290, W - 60, 400), 50, fill=(205, 222, 255))
+    d.text((W - 100, 345), '今天天气怎么样？', font=f(NOTO, 56), fill=(70, 100, 170), anchor='rm')
+    d.rounded_rectangle((40, 440, 820, 640), 50, fill=(236, 238, 246))
+    d.text((90, 500), '晴，25 度，', font=f(NOTO, 56), fill=(120, 126, 150), anchor='lm')
+    d.text((90, 580), '适合出门走走。', font=f(NOTO, 56), fill=(120, 126, 150), anchor='lm')
+    OFF = 420
     # 用户气泡（右）
     t = '帮我写一句周末计划'; ft = f(NOTO, 74)
     tw = d.textlength(t, font=ft)
-    d.rounded_rectangle((W - 60 - tw - 80, 320, W - 60, 470), 60, fill=(74, 141, 255))
-    d.text((W - 60 - 40, 395), t, font=ft, fill='white', anchor='rm')
+    d.rounded_rectangle((W - 60 - tw - 80, 320 + OFF, W - 60, 470 + OFF), 60, fill=(74, 141, 255))
+    d.text((W - 60 - 40, 395 + OFF), t, font=ft, fill='white', anchor='rm')
     # AI 回复（左）：已写出的字 + 空出来的位置（「去」刚浮出屏幕）+ 黄色虚线「?」
-    d.rounded_rectangle((40, 560, 1020, 840), 60, fill='white', outline=(225, 228, 238), width=4)
-    ft2 = f(NOTO, 150); x = 80; cy = 700; b = 76
+    d.rounded_rectangle((40, 560 + OFF, 1020, 840 + OFF), 60, fill='white', outline=(225, 228, 238), width=4)
+    ft2 = f(NOTO, 150); x = 80; cy = 700 + OFF; b = 76
     d.text((x, cy), '周末我想', font=ft2, fill=INK, anchor='lm'); x += d.textlength('周末我想', font=ft2) + 16
     d.rounded_rectangle((x, cy - b, x + 2 * b, cy + b), 18, outline=(200, 205, 220), width=6)  # 空位：「去」飞出去了
     x += 2 * b + 22
@@ -44,15 +51,17 @@ def comp(src, out, shot):
     im = Image.open(src).convert('RGB').resize((1080, 1920), Image.LANCZOS)
     d = ImageDraw.Draw(im)
     # 大字问题（顶部两行，得意黑，深墨色；关键词下面垫一条黄色马克笔色块）
-    ft = f(SMILEY, 132)
     l1, l2 = 'AI 为什么', '一个字一个字往外蹦？'
+    size = 132
+    while d.textlength(l2, font=f(SMILEY, size)) > 800: size -= 2
+    ft = f(SMILEY, size)
     if shot == 1:
         w2 = d.textlength(l2, font=ft)
         x0 = 540 - w2 / 2
         kw = d.textlength('一个字一个字', font=ft)
-        d.rounded_rectangle((x0 - 6, 330, x0 + kw + 6, 400), 14, fill=YEL)
-        d.text((540, 215), l1, font=ft, fill=INK, anchor='mm')
-        d.text((540, 355), l2, font=ft, fill=INK, anchor='mm')
+        d.rounded_rectangle((x0 - 8, 340, x0 + kw + 8, 400), 14, fill=YEL)
+        d.text((540, 225), l1, font=ft, fill=INK, anchor='mm')
+        d.text((540, 365), l2, font=ft, fill=INK, anchor='mm')
     # 字幕：深色圆角条 + 白字，关键词黄色（沿用系列规格：中心 y 1480，60 px，≤ 13 字 / 行）
     caps = {1: [[('它不是在打字给你看', 'w')]],
             2: [[('每写一个字，', 'w')], [('都要把模型', 'w'), ('从头到尾', 'y'), ('过一遍', 'w')]],
@@ -69,8 +78,11 @@ def comp(src, out, shot):
             d.text((x, y), s, font=fc, fill=YEL if c == 'y' else (255, 255, 255), anchor='lm'); x += d.textlength(s, font=fc)
     # 小字注释（示意）
     note = {1: '一个「字」严格说是一个 token', 2: '模型的层数、格子数为示意', 3: '示意：前一个字不同，后面整句都不同'}[shot]
-    fn = f(NOTO_R, 32); nw = d.textlength(note, font=fn)
-    d.text((540, cy - bh / 2 - 34), note, font=fn, fill=(70, 76, 110), anchor='mm')
+    fn = f(NOTO_R, 32); nw = d.textlength(note, font=fn); ny = cy - bh / 2 - 44
+    bar = Image.new('RGBA', im.size, (0, 0, 0, 0)); bd = ImageDraw.Draw(bar)
+    bd.rounded_rectangle((540 - nw / 2 - 22, ny - 26, 540 + nw / 2 + 22, ny + 26), 18, fill=(20, 24, 48, 150))
+    im.paste(bar, (0, 0), bar); d = ImageDraw.Draw(im)
+    d.text((540, ny), note, font=fn, fill=(222, 226, 245), anchor='mm')
     im.save(out)
 
 if __name__ == '__main__':

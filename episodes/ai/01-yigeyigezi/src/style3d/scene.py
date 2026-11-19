@@ -216,7 +216,7 @@ PINK, BLUE, YEL, GRN = '#FF6F96', '#4A8DFF', '#FFC93C', '#36D27E'
 # =====================================================================
 if A.shot == 1:
     # 开头：手机里 AI 正在逐字回复，「去」字块从屏幕里浮出来，下一个位置是黄色「?」
-    world('#BFD8F6', '#A9C8F0')
+    world('#AFCFF8', '#93BBF2')
     studio()
     ph = rbox((2.3, 0.3, 4.7), (0, 0, 0), bevel=0.36, seg=10, mat=satin_metal('#DCE0EA', 0.25))
     bez = rbox((2.2, 0.02, 4.6), (0, -0.15, 0), bevel=0.3, seg=8, mat=candy('#15171F', 0.08)); bez.parent = ph
@@ -247,7 +247,7 @@ if A.shot == 1:
 
 elif A.shot == 2:
     # 模型一层层：一摞玻璃层板，每层顶面铺粉 / 蓝参数方块；新字（黄色发光球）正往上穿过各层
-    world('#D6CEF6', '#C3B8F0')
+    world('#CDBFF7', '#B6A4F0')
     studio(key=800, fill=260, rim=800)
     layers = 5; gap = 0.8; n = 7; cell = 0.32
     import random; random.seed(7)
@@ -273,19 +273,19 @@ elif A.shot == 2:
         t = bpy.context.active_object; smooth(t); assign(t, glass('#FFE58A', 0.1))
     # 下方一排字块，从底层送进模型
     for k, ch in enumerate('周末我想去'):
-        token(ch, (-1.75 + k * 0.6, -1.2, -2.3), s=0.5, rot=(0, 0, 0.55))
-    rbox((0.5, 0.31, 0.5), (-1.75 + 5 * 0.6, -1.2, -2.3), bevel=0.09, mat=glass('#FFE07A', 0.15), rot=(0, 0, 0.55))
-    text3d('?', (-1.75 + 5 * 0.6 + 0.12, -1.38, -2.3), 0.8, emit(YEL, 4.0), extrude=0.04, rot=(math.pi / 2, 0, 0.55))
+        token(ch, (-2.05 + k * 0.6, -1.2, -1.95), s=0.5, rot=(0, 0, 0.55))
+    rbox((0.5, 0.31, 0.5), (-2.05 + 5 * 0.6, -1.2, -1.95), bevel=0.09, mat=glass('#FFE07A', 0.15), rot=(0, 0, 0.55))
+    text3d('?', (-2.05 + 5 * 0.6 + 0.12, -1.38, -1.95), 0.8, emit(YEL, 4.0), extrude=0.04, rot=(math.pi / 2, 0, 0.55))
     camera((7.2, -11.0, 1.8), (0.0, -0.3, -0.85), lens=50, focus=13.1, fstop=3.5)
 
 elif A.shot == 3:
     # 分叉：句子是一条玻璃带，在「去」后面一分为二，上面一条接「海边看日落」，下面一条接「睡个懒觉」
-    world('#FFE2D2', '#FFD0BE')
+    world('#FFD6C2', '#FFBFA6')
     studio(key=850, fill=280, rim=750)
     s = 0.56; step = 0.66; yaw = -0.35
     stem = [(-4.6, 0, 0), (-3.0, 0, 0), (-1.2, 0, 0), (0.0, 0, 0)]
-    up = [(0.0, 0, 0), (1.0, 0, 0.3), (2.0, 0, 1.1), (3.4, 0, 1.4), (5.6, 0, 1.45)]
-    dn = [(0.0, 0, 0), (1.0, 0, -0.3), (2.0, 0, -1.1), (3.4, 0, -1.4), (5.6, 0, -1.45)]
+    up = [(0.0, 0, 0), (1.0, 0, 0.5), (2.0, 0, 1.8), (3.4, 0, 2.25), (5.6, 0, 2.3)]
+    dn = [(0.0, 0, 0), (1.0, 0, -0.5), (2.0, 0, -1.8), (3.4, 0, -2.25), (5.6, 0, -2.3)]
     ribbon(stem, 0.9, gradient_glass('#9CC6FF', '#C9B8FF', 'X', 0.1, -4.6, 0), thick=0.05)
     ribbon(up, 0.9, gradient_glass('#C9B8FF', '#7FD8FF', 'X', 0.1, 0, 5.6), thick=0.05)
     ribbon(dn, 0.9, gradient_glass('#C9B8FF', '#FFB0C8', 'X', 0.1, 0, 5.6), thick=0.05)
@@ -298,11 +298,11 @@ elif A.shot == 3:
             x = 2.3 + k * step
             body = '#FFD45A' if k == 0 else '#FBF8F2'
             token(ch, (x, -0.05, zpath(x, z1) + s / 2 + 0.05), s=s, body=body, rot=(0, 0, yaw))
-    branch('海边看日落', 1.42)
-    branch('睡个懒觉', -1.42)
+    branch('海边看日落', 2.27)
+    branch('睡个懒觉', -2.27)
     # 分叉点：一颗黄球
     sphere(0.2, (0.3, -0.05, 0.45), emit(YEL, 6))
     sphere(0.34, (0.3, -0.05, 0.45), glass('#FFE58A', 0.2))
-    camera((-8.6, -10.6, 3.0), (0.0, 0, -0.35), lens=33, focus=13.9, fstop=2.8)
+    camera((-8.6, -10.6, 2.6), (0.2, 0, -0.9), lens=33, focus=13.9, fstop=2.8)
 
 bpy.ops.render.render(write_still=True)
