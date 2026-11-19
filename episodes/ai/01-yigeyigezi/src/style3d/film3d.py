@@ -578,54 +578,46 @@ def n_timing(u):    # 补 4：光搬就要约 16 毫秒，真正的乘加只要 
     for i in range(3):
         for j in range(3):
             rbox((0.16, 0.06, 0.16), (-2.85 + i * 0.25, 0.0, -0.85 + j * 0.25), bevel=0.02, seg=2, mat=emit(GREEN, 2.0) if (i + j) % 4 == 0 else candy('#1F5E44', 0.4))
-    rbox((0.06 + 0.03 * g, 0.3, 0.42), (-1.85, -0.3, -0.6), bevel=0.02, mat=candy(GREEN, 0.25))
+    Lc = max(0.028, 4.4 * g / 160)   # 按比例：算 ≈ 搬的 1/160
+    rbox((Lc, 0.3, 0.42), (-1.9 + Lc / 2, -0.3, -0.6), bevel=0.01, mat=candy(GREEN, 0.25))
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.42, minor_radius=0.04, location=(-1.9, -0.45, -0.6), rotation=(math.pi / 2, 0, 0))
+    o = bpy.context.active_object; smooth(o); assign(o, candy('#FFFFFF', 0.25))   # 放大框：圈住那一小截
     ANCH['move'] = (-1.9 + 4.4 * g + 0.6, -0.3, 1.2); ANCH['calc'] = (-1.2, -0.3, -0.6)
     cam((0.0, -18, 2.0), (-0.3, 0, 0.3), 58, 4.0, 18)
 
-def n_accept(u):    # 补 6：收下的每个字，都是大模型自己也会选的
+def n_accept(u):    # 补 6：所以写出来的话，和大模型自己写的一样（上下两句并排，一模一样，同时亮绿勾）
     reset('rose'); lights((0, 0, 0))
-    s_ = 0.54; step = 0.62; X0 = -4.5 * step
-    row('周末我想去', X0, -0.6, step=step, s=s_)
-    for k, ch in enumerate('海边'):
-        x = X0 + (5 + k) * step; token(ch, (x, -0.6, -0.6), s=s_)
-        rbox((s_ * 1.05, 0.04, 0.05), (x, -0.95, -0.6 + s_ * 0.52), bevel=0.02, mat=emit('#FFFFFF', 3.0 * (0.5 + 0.5 * math.sin(math.pi * seg(u, 0.1, 0.9)))))
-    x = X0 + 7 * step; token('看', (x, -0.6, -0.6), s=s_, body='#FFD45A')
-    rbox((s_ * 1.05, 0.04, 0.05), (x, -0.95, -0.6 + s_ * 0.52), bevel=0.02, mat=emit('#FFFFFF', 3.0))
-    model_stack(x0=1.0, z0=0.9, n=4, gap=0.6, scale=0.6, warm_upto=3, seed=7)
-    cam((0.4, -20, 2.8), (0.0, 0, 0.5), 55, 3.5, 20)
+    s_ = 0.52; step = 0.6; X0 = -3.5 * step
+    for zr, body in ((0.5, '#FBF8F2'), (-0.9, '#FBF8F2')):
+        row('周末我想去海边看', X0, zr, step=step, s=s_)
+    if u > 0.35:
+        for zr in (0.5, -0.9):
+            check((X0 + 7 * step + 0.62, -0.7, zr), s=0.2 * back_out(seg(u, 0.35, 0.55)))
+    ANCH['top'] = (X0 + 3.5 * step, -0.6, 1.25); ANCH['bot'] = (X0 + 3.5 * step, -0.6, -1.65)
+    cam((0.4, -18, 2.0), (0.0, 0, -0.15), 55, 3.5, 18)
 
-def n_easy(u):      # 补 5：小模型猜得准的，多半是好猜的字（看日 → 落）
+def n_easy(u):      # 补 5：小模型猜得准的，多半是好猜的字（睡个懒 → 觉）
     reset('rose'); lights((0, 0, 0))
     s_ = 0.6; step = 0.7; X0 = -2.1
-    row('海边看日', X0, -0.6, step=step, s=s_)
+    row('睡个懒', X0 + step, -0.6, step=step, s=s_)
     x = X0 + 4 * step
-    draft_tok('落', (x, -0.6, -0.6), s=s_)
+    draft_tok('觉', (x, -0.6, -0.6), s=s_)
     if u > 0.4: check((x, -0.95, -0.6 + 0.6), s=0.22 * back_out(seg(u, 0.4, 0.6)))
     model_stack(x0=1.4, z0=1.2, n=2, gap=0.92, scale=0.5, warm_upto=1, seed=3)
     ANCH['small'] = (1.4, 0, 2.4); ANCH['easy'] = (x, -0.6, -1.4)
     cam((0.4, -18, 2.4), (0.0, 0, 0.3), 58, 3.5, 18)
 
-def n_hard(u):      # 补 5：难猜的常猜错，错了就从那儿接着来
+def n_hard(u):      # 补 5：难猜的常对不上，对不上就从那儿接着来（回到「海边吃饭」那句：海边后面做什么，难猜）
     reset('rose'); lights((0, 0, 0))
-    s_ = 0.54; step = 0.62; X0 = -4.5 * step
-    row('周末我想去', X0, -0.6, step=step, s=s_)
-    xs = [X0 + (5 + k) * step for k in range(4)]
-    # 小模型抢答「公园跑步」；大模型收下「公园」，「跑」对不上（去公园做什么，难猜）→ 换成大模型自己的「野」，「步」一起作废
-    for k, ch in enumerate('公园跑步'):
-        if k < 2:
-            token(ch, (xs[k], -0.6, -0.6), s=s_); check((xs[k], -0.95, -0.6 + 0.55), s=0.18)
-        elif u < 0.35:
-            draft_tok(ch, (xs[k], -0.6, -0.6), s=s_)
-        else:
-            draft_tok(ch, (xs[k], -0.6, -1.55), s=s_, body='#BDB6CF'); xmark((xs[k], -1.0, -1.55), size=0.7)
-    if u > 0.45: token('野', (xs[2], -0.6, -0.6), s=s_, body='#FFD45A')
-    ANCH['count'] = (xs[0] + step / 2, -0.6, 0.35)
+    xs = spec_row(drafts=4, verdict=u > 0.3)
+    if u > 0.5: token('看', (xs[2], -0.6, lerp(0.6, -0.6, back_out(seg(u, 0.5, 0.75)))), s=0.54, body='#FFD45A')
+    ANCH['hard'] = (xs[2], -0.6, 0.35); ANCH['count'] = (xs[0] + 0.62, -0.6, 1.0)
     cam((0.4, -18, 2.0), (0.0, 0, -0.9), 55, 3.5, 18)
 
 # ---------------- v3 的顺序（34 拍），时间从 script.md 的逐句字幕 v3 表读，保证和字幕同步 ----------------
 V3 = ['o1', 'o2', 'o3', 'o4', 'n_strip', 'n_mult', 'o5', 'n_attnlong', 'o6', 'n_tail', 'o7',
       'o8', 'o9', 'o10', 'o11', 'o12', 'o13', 'o14', 'o15', 'o16', 'o17', 'o18', 'o19', 'n_mem16', 'n_timing',
-      'o20', 'o21', 'n_accept', 'n_easy', 'n_hard', 'o22', 'o23', 'o24', 'o25']
+      'o20', 'o21', 'n_easy', 'n_hard', 'n_accept', 'o22', 'o23', 'o24', 'o25']
 def read_times():
     md = open(os.path.join(here, '..', '..', 'script.md'), encoding='utf-8').read()
     sec = md[md.index('## 逐句字幕 v3'):]
