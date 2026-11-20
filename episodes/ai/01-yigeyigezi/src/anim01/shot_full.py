@@ -538,8 +538,10 @@ def pose_extra(t):
         u = sstep(c0, c0 + 0.6, t); dst = (OX[i + 1], 0.0, ZT)
         pos = bez(top, (top[0], top[1] - 0.4, top[2] + 0.6), (dst[0], dst[1] + 0.4, dst[2] + 1.0), dst, u)
         if t < c0: pos = (top[0], top[1], lerp(top[2] - 0.5, top[2], appear))
-        if rw > 0: pos = bez(dst, (dst[0], dst[1] + 0.3, dst[2] + 0.8), (top[0], top[1] - 0.2, 1.4), (PILX[0], PILY, 0.2), rw)
-        tk.put(pos, scale=max(0.001, (appear if t < c0 else 1.0) * (1 - sstep(0.7, 1.0, rw)))); tk.look(draft=1.0, glow=0.6 * (1 - u) if t >= c0 else 0.0, glow_col=AMBER_L)
+        # 收回：从最后一个字开始依次回去，并在汇合前缩小，避免三个字块在柱脚互相穿插
+        rwi = sstep(T4_RWD[0] + 0.2 * (2 - i), T4_RWD[1] - 0.4 + 0.2 * (2 - i), t)
+        if rwi > 0: pos = bez(dst, (dst[0], dst[1] + 0.3, dst[2] + 0.8), (top[0], top[1] - 0.2, 1.4), (PILX[0], PILY, 0.2), rwi)
+        tk.put(pos, scale=max(0.001, (appear if t < c0 else 1.0) * (1 - sstep(0.45, 0.85, rwi)))); tk.look(draft=1.0, glow=0.6 * (1 - u) if t >= c0 else 0.0, glow_col=AMBER_L)
     # 每一步的「一轮」：一颗光珠从刚写下的字出发，回到模型，再到候选柱（下一步才能开始）
     lb = None
     for i, c0 in enumerate(T4_CYC[:3]):
