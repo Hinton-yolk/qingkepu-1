@@ -51,6 +51,14 @@
 - 实测：色度平均 0.14（0.10–0.19），亮度平均 0.73（样张 v1 色度 0.07–0.08，用户要「略提一点」）。「第三张太亮」：样张 v1 显卡板俯拍高光占比 40% → 草稿 v4 第 23–26 拍 0.7–2.4%（主光调暗、桌面去掉高光反射）。
 - 节点 ②：审核「修改后通过」（作废 ✕ 看不清、长尾太淡、第 15 拍「?」太小、标签小、桌面窗影），已改；监督意见已补；观众（Codex）反馈见 `../../观众反馈_草稿v4.md`。
 
+## 运动草稿 v2（2026-11-20，新账号、新环境 kepu-studio）
+- 3D：`film_desk.py` 按帧渲（12 帧 / 秒、0.25 倍分辨率、8 采样，1315 帧），在 RunPod 上渲：`python3 runpod_bundle.py <包目录> <输出目录> --fps 12 --scale 0.25 --samples 8 --chunks 8 --font <NotoSansSC-Bold.otf> --ui_dir <ui 目录>`，再 `python3 tools/runpod_render_gql.py run <包目录>/jobs.json --pods 2 --max-hours 1 --yes`（rest.runpod.io 在云容器里 502，走 GraphQL）。
+  - 字体：`NotoSansSC-Bold.otf` 从 `NotoSansCJK-Bold.ttc` 第 3 个字体导出（见 `render_all.sh`）；手机屏幕贴图 `python3 overlay.py ui <out>/ui_typing.png typing teal`、`… ui_chunks.png chunks teal`。
+  - 2 台 RTX 4090（一台 Community $0.34/时，一台 Secure $0.89/时），墙钟 27.6 分钟，实扣 $0.43（余额 10.00 → 9.57）。
+- 合成：`FILM_THEME=desk python3 motion_film.py <3D 帧目录> <工作目录> <music.wav> 12`（2D 层、拍间转场 0.4 秒、混合插帧到 30 帧、-14 LUFS）；本机约 7.6 分钟。配乐 `python3 ../music.py <music.wav>`（109.6 秒）。
+- 检查：`motion_check.py --end=106.6` PASS（正片静止 2%，最长 0.10 秒）；色度 0.11–0.20（12 个拍抽测，平均约 0.14），亮度 0.58–0.80；配乐在 19.5 秒、65.4 秒各停 0.3 秒（RMS 在停顿前后 -21.8 → -16.7 dB、-19.7 → -13.1 dB）。
+- 观众（Codex）反馈：`../../观众反馈_运动草稿v2.md`。成片和中间帧在 `out/motion_v2/`（gitignore）。
+
 ## 待办
 - ~~色度适当提升~~（已在草稿 v4 按美术规范处理：平均 0.14）。
 
