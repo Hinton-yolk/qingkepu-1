@@ -23,6 +23,11 @@ import bpy
 from mathutils import Vector, Euler, Matrix
 from bpy_extras.object_utils import world_to_camera_view
 
+def m_metal(col=SILVER, rough=0.36):
+    # GPU 上带各向异性的金属在部分视角渲成全黑（整合片第 13、15、19、28 秒），这里关掉各向异性
+    m, p = _bsdf('fmetal', **{'Base Color': hexc(col), 'Metallic': 1.0, 'Roughness': max(rough, 0.3)})
+    return m
+
 ap2 = __import__('argparse').ArgumentParser()
 ap2.add_argument('--outdir', default='/tmp/anim'); ap2.add_argument('--f0', type=int, default=0); ap2.add_argument('--f1', type=int, default=-1)
 ap2.add_argument('--fps', type=float, default=30); ap2.add_argument('--only', default='')   # --only 1.5,4.0：只渲这几个时刻（关键帧 / 调构图）
