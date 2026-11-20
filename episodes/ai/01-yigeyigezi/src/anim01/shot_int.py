@@ -34,7 +34,7 @@ FUT_U, FUT_D = '海边看日落', '个懒觉'
 
 # ---------------- C：草稿轨、小模型、大模型 ----------------
 RY = -1.45
-RAIL = Path([(3.5, -0.3, 0.012), (4.4, -0.6, 0.012), (4.5, -1.2, 0.012), (4.0, RY, 0.012), (3.2, RY, 0.012), (-2.5, RY, 0.012)])
+RAIL = Path([(3.5, -0.2, 0.012), (4.4, -0.3, 0.012), (5.0, -0.75, 0.012), (4.9, -1.3, 0.012), (4.2, RY, 0.012), (3.2, RY, 0.012), (-2.5, RY, 0.012)])
 SMALL = (-2.95, RY); PORT_X = -2.45
 WX = [-1.95, -1.25, -0.55, 0.15]
 GX0, GX1 = 0.2, 3.3; GC = (GX0 + GX1) / 2
@@ -135,13 +135,14 @@ def build():
             b = rbox((0.09, 0.09, GH), (x, y, GH / 2), bevel=0.03, mat=fm); b.parent = gantry
         b = rbox((0.09, 1.3, 0.09), (x, RY, GH), bevel=0.03, mat=fm); b.parent = gantry
     b = rbox((L, 0.09, 0.09), (GC, RY - 0.6, GH), bevel=0.03, mat=fm); b.parent = gantry
+    b = rbox((L, 0.09, 0.09), (GC, RY + 0.6, GH), bevel=0.03, mat=fm); b.parent = gantry
     vm = state_mat('roof', '#EEF0F0'); set_state(vm, draft=0.62)
     en = state_mat('entr', '#EAF6F3')                              # 入口：左端一圈淡青的门框
     for (sx, sz, dy, dz) in ((0.05, GH, -0.6, GH / 2), (0.05, GH, 0.6, GH / 2), (0.05, 0.05, 0, GH)):
         b = rbox((0.06, 0.06 if sz == GH else 1.2, sz), (GX0 - 0.06, RY + dy, dz), bevel=0.02, mat=en); b.parent = gantry
     lamps = []
     for j in range(4):
-        lm = state_mat(f'lamp{j}', '#D9D4CB'); b = rbox((0.36, 0.2, 0.12), (VX[j], RY - 0.6, GH + 0.1), bevel=0.05, mat=lm); b.parent = gantry; lamps.append(lm)
+        lm = state_mat(f'lamp{j}', '#D9D4CB'); b = rbox((0.36, 0.2, 0.12), (VX[j], RY + 0.6, GH + 0.1), bevel=0.05, mat=lm); b.parent = gantry; lamps.append(lm)
     sheet_m = state_mat('sheet', '#F4F1EA'); sheet = rbox((L - 0.2, 1.1, 0.008), (GC, RY, 0.05), bevel=0.003, mat=sheet_m); sheet.parent = gantry
     # 大模型输出口：通道右后方一个金属小盒，朝正式输出那一侧开口（琥珀色口框）
     b = rbox((0.6, 0.6, 0.62), (TPORT[0], TPORT[1], 0.31), bevel=0.08, mat=m_metal('#B9BEC5', 0.32)); b.parent = gantry
@@ -300,7 +301,7 @@ def pose(t):
             s = lerp(SC + k * STEP, SC + (k + 1) * STEP, u); scl = lerp(0.55, 1.0, sstep(t0, t0 + 0.4, t)); a = min(1.0, lin(t0, t0 + 0.15, t))
             # 退场：沿轨道收回（下面一条收回到「睡」，上面一条收回到分叉口），一边收一边缩进前一个字里
             rt = sstep(T_DRET[0] + 0.1 * (len(toks) - 1 - k), T_DRET[0] + 0.7, t) if side else sstep(T_URET[0] + 0.08 * (len(toks) - 1 - k), T_URET[1], t)
-            if rt > 0: s = lerp(s, SC, rt); scl *= 1 - 0.95 * sstep(0.6, 1.0, rt)
+            if rt > 0: s = lerp(s, SC, rt); scl *= 1 - 0.95 * sstep(0.25, 0.9, rt)
             p = path.at(s); tok.put((p[0], p[1], p[2] + 0.1 * math.sin(math.pi * u)), yaw=yaw_of(path.tan(s)) * 0.35, scale=max(0.001, scl))
             tok.look(draft=1.0, alpha=a, glow=0.3 * pick * (1 - uret) if side == 0 else 0.0, glow_col=AMBER_L)
             hide(tok.root, rt >= 0.999)
@@ -384,7 +385,7 @@ def pose(t):
     ANCH['fork_u'] = UP.at(SC + 3.5 * STEP); ANCH['fork_d'] = DN.at(SC + 2.5 * STEP)
     ANCH['qu'] = (0.0, 0.0, ZT + 0.75); ANCH['ghost'] = UP.at(SC + 2.5 * STEP)
     ANCH['small'] = (SMALL[0], RY, 1.35); ANCH['drafts'] = (lerp(WX[1], VX[1], gin) + 0.37, RY, 1.05)
-    ANCH['ver'] = (GC, RY - 0.6, GH + 0.6); ANCH['out'] = (PX[1], 0.0, ZT + 0.75)
+    ANCH['ver'] = (GC, RY + 0.6, GH + 0.6); ANCH['out'] = (PX[1], 0.0, ZT + 0.75)
     ANCH['chi'] = drafts[ACC].root.location.copy() + Vector((0, 0, 0.65)); ANCH['kan'] = kan.root.location.copy() + Vector((0, 0, 0.65))
     ANCH['acc'] = (VX[0] + 0.37, RY, 1.05)
 
