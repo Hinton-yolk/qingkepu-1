@@ -23,6 +23,15 @@ LABELS = {
           ('drafts', '草稿：还没确认', 'w', 2.5, 4.6, -80), ('ver', '大模型：一次验 4 个', 'g', 4.4, 7.9, -40),
           ('fix', '大模型自己给出这一位', 'a', 10.0, 11.8, -80)],
 }
+LABELS['int'] = [
+    ('prefix', '已有文字', 'g', 0.2, 1.6, -70), ('cells', '每个字先变成一串数（示意）', 'w', 1.0, 2.8, 120),
+    ('gather', '回看前文（示意）', 'g', 3.0, 4.9, -60), ('pill', '下一个字的候选', 'w', 7.6, 9.3, -60),
+    ('fork_u', '一种可能的续写（假设）', 'w', 11.2, 14.4, -80), ('fork_d', '另一种可能', 'w', 11.6, 14.4, 80),
+    ('qu', '选定「去」', 'a', 15.6, 17.4, -80),
+    ('small', '小模型', 'g', 20.4, 23.0, -60), ('out', '正式输出', 'g', 20.2, 23.0, -80), ('drafts', '草稿（还没确认）', 'w', 21.6, 23.6, -70),
+    ('ver', '大模型：集中验证', 'g', 23.6, 26.0, -40), ('acc', '接受', 't', 25.4, 26.4, -70), ('chi', '未接受', 'a', 25.9, 27.0, -70),
+    ('kan', '补充候选', 'a', 28.3, 29.9, -70)]
+LABELS['int'] = [(k, t, st, a, b, dy) for (k, t, st, a, b, dy) in LABELS['int']]
 TITLE = {'c': ('小模型先猜，大模型集中验证', 13.6, 17.0)}
 
 def chip(layer, cx, cy, text, sty, size=42, alpha=1.0):
@@ -90,6 +99,20 @@ def events(shot):
         for gx, tc in ((3.2, 3.95), (5.2, 4.95), (7.2, 6.2)): E += [(tc, bell(hz(78), 0.8, 0.35)), (tc + 0.08, blip(hz(83), g=0.25))]
         E += [(7.3 + 0.12 * j, blip(hz(86 - j), 0.08, 0.25)) for j in range(6)] + [(8.2, whoosh(0.7, True, 0.4)), (9.0, bell(hz(83), g=0.5)), (10.25, thud(0.7))]
         P = pad(10.5, [47, 54, 59, 62])
+    elif shot == 'int':
+        E += [(0.4 + 0.25 * k + 0.3, blip(hz(71 + 3 * k), g=0.3)) for k in range(4)] + [(1.9, whoosh(1.0, True, 0.35))]
+        E += [(3.0 + 0.12 * k, blip(hz(83 + k), 0.1, 0.25)) for k in range(3)] + [(3.55, bell(hz(79), 0.8, 0.3))] + [(3.9 + 0.1 * k, blip(hz(90 - k), 0.08, 0.25)) for k in range(3)]
+        E += [(4.45, bell(hz(86), 1.2, 0.45)), (4.95, whoosh(1.0, True, 0.3)), (5.3, blip(hz(78), g=0.25)), (5.7, blip(hz(81), g=0.25)), (5.9, whoosh(1.3, False, 0.35))]
+        E += [(7.1 + 0.07 * j, blip(hz(86 - j), 0.08, 0.25)) for j in range(6)] + [(7.6, whoosh(0.7, True, 0.4)), (8.3, bell(hz(81), 1.0, 0.35))]
+        E += [(8.7, whoosh(1.2, True, 0.35)), (10.0, thud(0.4)), (10.25, thud(0.35))] + [(10.3 + k * 0.42, blip(hz(74 + 2 * k), g=0.28)) for k in range(5)] + [(10.5 + k * 0.42, blip(hz(69 + 2 * k), g=0.24)) for k in range(3)]
+        E += [(14.0, bell(hz(81), g=0.45)), (14.6, whoosh(1.4, False, 0.35)), (15.4, whoosh(1.2, False, 0.35)), (16.7, thud(0.7)), (17.4, whoosh(1.0, False, 0.25))]
+        E += [(18.6, whoosh(1.4, True, 0.3)), (19.3, thud(0.4)), (19.6, thud(0.45))]
+        E += [(20.9 + 0.4 * j, blip(hz(84 + j), 0.1, 0.4)) for j in range(4)] + [(22.7, whoosh(1.2, True, 0.4)), (24.0, whoosh(0.7, True, 0.35))]
+        E += [(24.9, bell(hz(83), g=0.45)), (25.3, bell(hz(86), g=0.45)), (25.7, thud(0.8)), (26.2, whoosh(0.8, False, 0.35)), (27.5, thud(0.6)), (27.75, thud(0.6))]
+        E += [(26.6, whoosh(1.6, False, 0.35)), (28.15, thud(0.5)), (27.6, bell(hz(74), 0.6, 0.3)), (27.9, whoosh(0.6, True, 0.35)), (29.7, thud(0.8)), (31.2, blip(hz(84), 0.1, 0.4))]
+        N = int(34.0 * SR); P = np.zeros(N)
+        for t0, d, ch in ((0.0, 10.0, [47, 54, 59, 62]), (8.8, 10.5, [50, 57, 62, 66]), (19.4, 14.6, [43, 50, 55, 59])):
+            x = pad(d, ch); i = int(t0 * SR); n = min(len(x), N - i); P[i:i + n] += x[:n]
     else:
         E += [(1.0 + 0.45 * j, blip(hz(84 + j), 0.1, 0.4)) for j in range(4)] + [(3.4, whoosh(1.4, True, 0.45)), (5.2, whoosh(0.9, True, 0.35))]
         E += [(6.3, bell(hz(83), g=0.45)), (6.8, bell(hz(86), g=0.45)), (7.3, thud(0.8)), (7.65, blip(hz(62), 0.2, 0.3))]
@@ -138,7 +161,7 @@ if __name__ == '__main__':
         if not os.path.exists(o): compose(shot, pngs[i], metas[i]).save(o, quality=92)
     with Pool(4) as pool: pool.map(job, range(len(pngs)))
     dur = len(pngs) / 30.0
-    name = {'a': 'AnimationTest_A_Branch', 'b': 'AnimationTest_B_ModelFlow', 'c': 'AnimationTest_C_SpeculativeDecoding'}[shot]
+    name = {'a': 'AnimationTest_A_Branch', 'b': 'AnimationTest_B_ModelFlow', 'c': 'AnimationTest_C_SpeculativeDecoding', 'int': 'EP01_IntegratedAnimation_Test01'}[shot]
     wav = os.path.join(out, f'{shot}_sfx.wav'); audio(shot, dur, wav)
     mp4 = os.path.join(out, name + '.mp4')
     r = subprocess.run(['ffmpeg', '-nostdin', '-hide_banner', '-i', wav, '-af', 'loudnorm=I=-16:TP=-2:LRA=11:print_format=json', '-f', 'null', '-'], capture_output=True, text=True)

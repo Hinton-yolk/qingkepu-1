@@ -24,7 +24,7 @@ def plot(js, out, title):
             d.text((e[0] + 10, e[1] - 12 - 0 * i), k.replace('✕', '叉号'), font=f(NOTO, 22), fill=c)
     im.save(out, quality=90)
 if __name__ == '__main__':
-    for s, name in (('a', 'AnimationTest_A_Branch'), ('b', 'AnimationTest_B_ModelFlow'), ('c', 'AnimationTest_C_SpeculativeDecoding')):
-        js = f'out/post/{name}_轨迹.json'
+    for s, name, d in (('a', 'AnimationTest_A_Branch', 'out/post'), ('b', 'AnimationTest_B_ModelFlow', 'out/post'), ('c', 'AnimationTest_C_SpeculativeDecoding', 'out/post'), ('int', 'EP01_IntegratedAnimation_Test01', 'out/post_int')):
+        js = f'{d}/{name}_轨迹.json'
         if os.path.exists(js) and (len(sys.argv) < 2 or s in sys.argv[1:]):
-            plot(js, f'out/post/{name}_轨迹.jpg', name + ' · 主要对象的运动轨迹'); print('ok', s)
+            plot(js, f'{d}/{name}_轨迹.jpg', name + ' · 主要对象的运动轨迹'); print('ok', s)
