@@ -18,7 +18,7 @@ LABELS = {
           ('row', '写定了', 'g', 12.3, 14.0, -80), ('ghost', '后面的字还要一个一个写', 'w', 12.5, 14.0, -90)],
     'b': [('row', '已经写好的字', 'g', 0.2, 1.5, -70), ('plate', '每个字先变成一串数', 'w', 1.7, 3.8, 70),
           ('gate', '模型的一层（示意，实际有几十层）', 'g', 3.2, 6.9, -40),
-          ('pill', '下一个字的候选和分数（示意）', 'w', 8.0, 9.5, -110), ('out', '选中「去」', 'a', 9.7, 10.5, -90)],
+          ('pill', '下一个字的候选和分数（示意）', 'w', 7.9, 8.95, -150), ('out', '选中「去」', 'a', 9.7, 10.5, -90)],
     'c': [('small', '小模型', 'g', 0.3, 4.0, -60), ('tray', '正式输出', 'g', 0.3, 3.2, -70),
           ('drafts', '草稿：还没确认', 'w', 2.5, 4.6, -80), ('ver', '大模型：一次验 4 个', 'g', 4.4, 7.9, -40),
           ('fix', '大模型自己给出这一位', 'a', 10.0, 11.8, -80)],
@@ -130,11 +130,11 @@ def trajectories(metas, base_png, out_png, out_json):
 
 if __name__ == '__main__':
     shot, src, out = sys.argv[1], sys.argv[2], sys.argv[3]
-    os.makedirs(os.path.join(out, 'comp'), exist_ok=True)
+    os.makedirs(os.path.join(out, 'comp_' + shot), exist_ok=True)
     pngs = sorted(glob.glob(os.path.join(src, 'f*.png'))); metas = [json.load(open(p[:-4] + '.json')) for p in pngs]
     from multiprocessing import Pool
     def job(i):
-        o = os.path.join(out, 'comp', f'f{i:05d}.jpg')
+        o = os.path.join(out, 'comp_' + shot, f'f{i:05d}.jpg')
         if not os.path.exists(o): compose(shot, pngs[i], metas[i]).save(o, quality=92)
     with Pool(4) as pool: pool.map(job, range(len(pngs)))
     dur = len(pngs) / 30.0
@@ -145,7 +145,7 @@ if __name__ == '__main__':
     j = json.loads(r.stderr[r.stderr.rindex('{'):r.stderr.rindex('}') + 1])
     af = (f"loudnorm=I=-16:TP=-2:LRA=11:measured_I={j['input_i']}:measured_TP={j['input_tp']}:measured_LRA={j['input_lra']}:"
           f"measured_thresh={j['input_thresh']}:offset={j['target_offset']}:linear=true")
-    subprocess.run(['ffmpeg', '-nostdin', '-loglevel', 'error', '-y', '-framerate', '30', '-i', os.path.join(out, 'comp', 'f%05d.jpg'), '-i', wav,
+    subprocess.run(['ffmpeg', '-nostdin', '-loglevel', 'error', '-y', '-framerate', '30', '-i', os.path.join(out, 'comp_' + shot, 'f%05d.jpg'), '-i', wav,
                     '-af', af, '-c:v', 'libx264', '-crf', '18', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000',
                     '-shortest', '-movflags', '+faststart', mp4], check=True)
     mid = pngs[len(pngs) // 2]

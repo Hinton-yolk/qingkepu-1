@@ -10,8 +10,8 @@ TRAY_Z = 0.06; ZT = TRAY_Z + S / 2
 PREFIX = '周末我想'
 TX = [-1.11 + k * STEP for k in range(4)]          # 字在托盘上的 x（托盘中心在 0）
 NC = 6                                              # 每个字变成 6 个数（示意）
-CELL, CGAP = 0.17, 0.215
-PLATE_Y = -1.15                                     # 数值托盘中心（在字的前面）
+CELL, CGAP = 0.17, 0.2
+PLATE_Y = -1.38                                     # 数值托盘中心（在字的前面）
 GATES = [3.2, 5.2, 7.2]                             # 三道模型层（示意）
 X_STOP = 8.7                                        # 托盘停下的位置
 PIL_X = [10.3 + k * 0.78 for k in range(4)]; PIL_Y = -1.15
@@ -29,7 +29,7 @@ def build():
     rbox((3.2, 0.95, TRAY_Z * 2), (0, 0, 0), bevel=0.04, mat=m_metal('#C9CDD2', 0.42))         # 正式输出托盘（和 A 同一个）
     carrier = bpy.data.objects.new('carrier', None); bpy.context.collection.objects.link(carrier)
     gm = state_mat('plate', '#E8E1D6'); set_state(gm, draft=0.22)
-    plate = rbox((3.2, 1.9, 0.06), (0, 0, 0.03), bevel=0.03, mat=gm); plate.parent = carrier
+    plate = rbox((3.2, 1.6, 0.06), (0, 0, 0.035), bevel=0.03, mat=gm); plate.parent = carrier
     toks = [Tok(ch, S, f'p{k}') for k, ch in enumerate(PREFIX)]
     cells = []
     for k in range(4):
@@ -56,7 +56,7 @@ def build():
     for k in range(3):
         am = state_mat(f'arc{k}', TEAL)
         x0, x1 = TX[3], TX[k]
-        a = curve_tube([(x0, 0.78, 0.48), ((x0 + x1) / 2, 0.78, 0.95 + 0.18 * (3 - k)), (x1, 0.78, 0.48)], 0.02, am); a.parent = carrier
+        a = curve_tube([(x0, 0.6, 0.48), ((x0 + x1) / 2, 0.6, 0.95 + 0.18 * (3 - k)), (x1, 0.6, 0.48)], 0.02, am); a.parent = carrier
         arcs.append((a, am))
     pillars = []
     for k, (ch, sc_) in enumerate(CANDS):
@@ -93,7 +93,7 @@ def pose(t):
     for k, tk in enumerate(toks):
         u = conv[k]
         p_tray = (TX[k], 0, ZT)
-        p_plate = (xc + TX[k], PLATE_Y + 0.78, 0.06 + S * 0.62 / 2 + 0.01)
+        p_plate = (xc + TX[k], PLATE_Y + 0.6, 0.06 + S * 0.62 / 2 + 0.01)
         hop = 0.35 * math.sin(math.pi * u)
         pos = mix3(p_tray, p_plate, u); pos = (pos[0], pos[1], pos[2] + hop)
         tk.put(pos, pitch=-0.35 * math.sin(math.pi * u), scale=lerp(1.0, 0.62, u))
@@ -107,7 +107,7 @@ def pose(t):
             xw = xc + TX[k]
             v = cell_val(k, j, xw)
             h = max(0.01, v * uj)
-            y_local = lerp(0.78, 0.45 - j * CGAP, uj)
+            y_local = lerp(0.6, 0.28 - j * CGAP, uj)
             c.location = (TX[k], y_local, 0.06 + h / 2); c.scale = (lerp(0.4, 1, uj), lerp(0.4, 1, uj), h)
             shade = clamp((v - 0.12) / 0.5)
             col = tuple(hex3('#E3D6C2')[i] + (hex3('#4F535A')[i] - hex3('#E3D6C2')[i]) * shade for i in range(3))
@@ -119,7 +119,7 @@ def pose(t):
             if k == 3 and t > T_SCORE[0]:
                 tgt = 0 if j < 3 else j - 2
                 uf = sstep(T_SCORE[0] + 0.12 * j, T_SCORE[0] + 0.12 * j + 0.8, t)
-                start = Vector((xc + TX[3], PLATE_Y + 0.45 - j * CGAP, 0.06 + h / 2))
+                start = Vector((xc + TX[3], PLATE_Y + 0.28 - j * CGAP, 0.06 + h / 2))
                 end = Vector((PIL_X[tgt], PIL_Y, 0.15))
                 p = start.lerp(end, uf); p.z += 1.2 * math.sin(math.pi * uf)
                 c.location = Vector(p) - Vector(carrier.location)

@@ -40,7 +40,7 @@ def build():
     fut_d = [Tok(ch, S, f'd{k}') for k, ch in enumerate(FUT_D)]
     gm_u, gm_d = state_mat('strip_u', '#EDEBE6'), state_mat('strip_d', '#EDEBE6')
     set_state(gm_u, draft=0.55, col='#E4E7E8'); set_state(gm_d, draft=0.55, col='#E4E7E8')
-    strip_u, strip_d = Grow(UP, 0.84, gm_u, thick=0.025, name='strip_u', z=0.09), Grow(DN, 0.84, gm_d, thick=0.025, name='strip_d', z=0.09)
+    strip_u, strip_d = Grow(UP, 0.84, gm_u, thick=0.025, name='strip_u', z=0.09, s0=0.5), Grow(DN, 0.84, gm_d, thick=0.025, name='strip_d', z=0.13, s0=0.5)
     slot_m = state_mat('slot', AMBER); slot2_m = state_mat('slot2', AMBER)
     for m_, x in ((slot_m, XS), (slot2_m, XS + STEP)):     # 空位：托盘上一个琥珀色的方框
         for (sx, sy, dx, dy) in ((0.66, 0.05, 0, 0.33), (0.66, 0.05, 0, -0.33), (0.05, 0.66, 0.33, 0), (0.05, 0.66, -0.33, 0)):
@@ -67,7 +67,7 @@ def pose(t):
     set_state(slot2_m, glow=(1.2 + 1.0 * pulse) * sstep(*T_NEXT, t), alpha=sstep(*T_NEXT, t))
     # 轨道：从空位长出去
     g = sstep(*T_SPLIT, t)
-    strip_u.show(0.35 + g * (UP.L - 0.35)); strip_d.show(0.35 + g * (DN.L - 0.35))
+    strip_u.show(0.55 + g * (UP.L - 0.55) if g > 0 else 0); strip_d.show(0.55 + g * (DN.L - 0.55) if g > 0 else 0)
     ch_ = sstep(*T_CHOOSE, t)
     set_state(strip_d.mat, alpha=1 - 0.75 * ch_); set_state(strip_u.mat, glow=0.25 * ch_ * (1 - sstep(*T_BACK, t)), glow_col=AMBER_L)
 

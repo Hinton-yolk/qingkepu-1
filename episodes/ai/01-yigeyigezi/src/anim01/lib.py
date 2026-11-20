@@ -157,7 +157,7 @@ def new_scene():
     sc_.cycles.use_denoising = True
     try: sc_.cycles.denoiser = 'OPENIMAGEDENOISE'
     except Exception: pass
-    sc_.cycles.max_bounces = 6; sc_.cycles.transmission_bounces = 6; sc_.cycles.glossy_bounces = 3
+    sc_.cycles.max_bounces = 12; sc_.cycles.transmission_bounces = 12; sc_.cycles.glossy_bounces = 4; sc_.cycles.transparent_max_bounces = 16
     return sc_
 
 def desk(z=0.0, size=200):
@@ -190,8 +190,8 @@ class Rig:
 
 class Grow:
     """会长出来的玻璃轨道：每帧按长度重建（同一条轨道，只是长度在变）"""
-    def __init__(self, path, width, mat, thick=0.05, name='rib', z=None):
-        self.path, self.width, self.mat, self.thick, self.name, self.z = path, width, mat, thick, name, z; self.ob = None; self._s = None
+    def __init__(self, path, width, mat, thick=0.05, name='rib', z=None, s0=0.0):
+        self.path, self.width, self.mat, self.thick, self.name, self.z, self.s0 = path, width, mat, thick, name, z, s0; self.ob = None; self._s = None
     def show(self, s):
         s = round(max(0.0, min(self.path.L, s)), 3)
         if s == self._s: return
@@ -199,7 +199,9 @@ class Grow:
             me = self.ob.data; bpy.data.objects.remove(self.ob, do_unlink=True); bpy.data.meshes.remove(me); self.ob = None
         self._s = s
         if s < 0.05: return
-        pts = self.path.upto(s); step = max(1, len(pts) // 60); pts = pts[::step] + ([pts[-1]] if (len(pts) - 1) % step else [])
+        pts = [tuple(p) for p, c in zip(self.path.pts, self.path.cum) if self.s0 <= c < s] + [self.path.at(s)]
+        if s - self.s0 < 0.05: return
+        step = max(1, len(pts) // 60); pts = pts[::step] + ([pts[-1]] if (len(pts) - 1) % step else [])
         if len(pts) < 2: return
         if self.z is not None: pts = [(p[0], p[1], self.z) for p in pts]
         self.ob = flat_strip(pts, self.width, self.mat, thick=self.thick); self.ob.name = self.name
