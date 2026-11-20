@@ -40,6 +40,18 @@ LABELS['int2'] = [
     ('small', '小模型', 'g', 20.4, 21.8, -60), ('drafts', '草稿（还没确认）', 'w', 21.9, 22.9, -70),
     ('ver', '大模型：集中验证', 'g', 22.9, 24.0, -40), ('acc', '接受', 't', 24.2, 24.9, -70), ('chi', '未接受', 'a', 25.0, 26.0, -70),
     ('kan', '补充候选', 'a', 29.1, 30.4, -70)]
+LABELS['full'] = [
+    ('scr', '真实的生成单位是 token，不一定正好是一个字', 'w', 3.9, 5.4, 0), ('scr', '倒回去：下一个字是怎么来的？', 'a', 5.5, 7.4, 0),
+    ('prefix', '已有文字', 'g', 10.2, 11.6, -70), ('cells', '每个字先变成一串数（示意）', 'w', 11.0, 12.8, 120),
+    ('gather', '回看前文（示意）', 'g', 13.0, 14.9, -60), ('pill', '下一个位置的候选', 'w', 17.9, 19.3, -60),
+    ('fork_u', '一种可能的续写（假设）', 'w', 21.2, 24.2, -80), ('fork_d', '另一种可能', 'w', 21.6, 24.2, 80),
+    ('qu', '选定「去」', 'a', 25.6, 27.2, -80), ('ctx', '上下文更新：周末我想去', 'g', 27.6, 29.4, -80),
+    ('park', '前面算过的结果留着，不重算（示意）', 'w', 31.2, 32.6, -60), ('c4', '下一个位置的候选', 'w', 33.9, 35.0, -60),
+    ('step', '每一步，都要等上一步定下来', 'g', 35.3, 39.6, -90),
+    ('small', '小模型：先猜几步', 'g', 43.0, 44.5, -60), ('ver', '大模型：集中验证', 'g', 45.5, 46.6, -40),
+    ('acc', '接受', 't', 46.8, 47.5, -70), ('chi', '未接受', 'a', 47.6, 48.6, -70), ('kan', '补充候选', 'a', 51.6, 52.9, -70)]
+TITLES = {'full': [('AI 为什么一个字一个字往外蹦？', 0.3, 5.2, 330, 52), ('能不能先猜几步，再一起检查？', 40.6, 42.9, 330, 48),
+                   ('每一步，都建立在前一步之上。', 58.7, 64.5, 300, 46), ('但有些步骤，可以先猜、再验证。', 60.3, 64.5, 400, 46)]}
 TITLE = {'c': ('小模型先猜，大模型集中验证', 13.6, 17.0)}
 
 def chip(layer, cx, cy, text, sty, size=42, alpha=1.0):
@@ -67,6 +79,9 @@ def compose(shot, png, meta):
     if shot in TITLE:
         text, t0, t1 = TITLE[shot]; a = fade(t, t0, t1, 0.4)
         if a > 0: chip(lay, 500, 330, text, 'g', size=50, alpha=a)
+    for (text, t0, t1, y, sz) in TITLES.get(shot, []):
+        a = fade(t, t0, t1, 0.4)
+        if a > 0: chip(lay, 500, y, text, 'g', size=sz, alpha=a)
     ImageDraw.Draw(lay).text((70, 1840), '示意动画', font=f(NOTO, 26), fill=(90, 86, 80, 150))
     im = im.convert('RGBA'); im.alpha_composite(lay); return im.convert('RGB')
 
@@ -120,6 +135,19 @@ def events(shot):
         E += [(26.6, whoosh(1.6, False, 0.35)), (28.15, thud(0.5)), (27.6, bell(hz(74), 0.6, 0.3)), (27.9, whoosh(0.6, True, 0.35)), (29.7, thud(0.8)), (31.2, blip(hz(84), 0.1, 0.4))]
         N = int(34.0 * SR); P = np.zeros(N)
         for t0, d, ch in ((0.0, 10.0, [47, 54, 59, 62]), (8.8, 10.5, [50, 57, 62, 66]), (19.4, 14.6, [43, 50, 55, 59])):
+            x = pad(d, ch); i = int(t0 * SR); n = min(len(x), N - i); P[i:i + n] += x[:n]
+    elif shot == 'full':
+        E0, _ = events('int2')
+        E = [(t0 + (10.0 if t0 < 18.0 else 22.6), sig) for t0, sig in E0 if t0 < 17.9 or t0 >= 18.2]
+        E += [(0.8 + 0.32 * i, blip(hz(84 + (i % 5)), 0.08, 0.3)) for i in range(10)] + [(5.4 + 0.12 * k, blip(hz(76 - k), 0.06, 0.25)) for k in range(6)]
+        E += [(6.4 + 0.25 * k, whoosh(1.0, True, 0.25)) for k in range(4)] + [(8.0 + 0.25 * k, thud(0.35)) for k in range(4)]
+        E += [(28.6, blip(hz(78), g=0.3)), (29.5, whoosh(1.4, True, 0.3)), (31.0, bell(hz(79), 0.8, 0.3)), (31.6, blip(hz(90), 0.08, 0.25)), (32.1, bell(hz(86), 1.0, 0.4)),
+              (32.5, whoosh(1.1, False, 0.3)), (33.6, whoosh(0.7, True, 0.35)), (34.4, bell(hz(81), 0.9, 0.35))]
+        for i, c0 in enumerate([34.9 + 1.5 * k for k in range(3)]): E += [(c0, whoosh(0.5, False, 0.25)), (c0 + 0.6, thud(0.4)), (c0 + 0.7, blip(hz(74 + 2 * i), 0.1, 0.3))]
+        E += [(39.6, whoosh(1.1, False, 0.3)), (40.6, bell(hz(88), 1.4, 0.35))]
+        E += [(55.0 + 0.2 * i, blip(hz(74 + i), 0.08, 0.28)) for i in range(8)] + [(58.0, blip(hz(84), 0.08, 0.3)), (58.35, blip(hz(86), 0.08, 0.3)), (58.7, bell(hz(74), 2.6, 0.4)), (60.3, bell(hz(81), 2.4, 0.35))]
+        N = int(64.5 * SR); P = np.zeros(N)
+        for t0, d, ch in ((0.0, 10.4, [50, 57, 62, 66]), (10.0, 10.0, [47, 54, 59, 62]), (18.8, 10.5, [50, 57, 62, 66]), (28.4, 12.6, [45, 52, 57, 61]), (40.6, 14.2, [43, 50, 55, 59]), (54.6, 9.9, [50, 57, 62, 66])):
             x = pad(d, ch); i = int(t0 * SR); n = min(len(x), N - i); P[i:i + n] += x[:n]
     elif shot == 'int2':
         E += [(0.4 + 0.25 * k + 0.3, blip(hz(71 + 3 * k), g=0.3)) for k in range(4)] + [(1.9, whoosh(1.0, True, 0.35))]
@@ -184,7 +212,7 @@ if __name__ == '__main__':
         if not os.path.exists(o): compose(shot, pngs[i], metas[i]).save(o, quality=92)
     with Pool(4) as pool: pool.map(job, range(len(pngs)))
     dur = len(pngs) / 30.0
-    name = {'a': 'AnimationTest_A_Branch', 'b': 'AnimationTest_B_ModelFlow', 'c': 'AnimationTest_C_SpeculativeDecoding', 'int': 'EP01_IntegratedAnimation_Test01', 'int2': 'EP01_IntegratedAnimation_Test02'}[shot]
+    name = {'a': 'AnimationTest_A_Branch', 'b': 'AnimationTest_B_ModelFlow', 'c': 'AnimationTest_C_SpeculativeDecoding', 'int': 'EP01_IntegratedAnimation_Test01', 'int2': 'EP01_IntegratedAnimation_Test02', 'full': 'EP01_FullMotionDraft_v01'}[shot]
     wav = os.path.join(out, f'{shot}_sfx.wav'); audio(shot, dur, wav)
     mp4 = os.path.join(out, name + '.mp4')
     r = subprocess.run(['ffmpeg', '-nostdin', '-hide_banner', '-i', wav, '-af', 'loudnorm=I=-16:TP=-2:LRA=11:print_format=json', '-f', 'null', '-'], capture_output=True, text=True)

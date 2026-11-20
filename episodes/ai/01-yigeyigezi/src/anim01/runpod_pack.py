@@ -7,12 +7,12 @@ ap.add_argument('--scale', type=float, default=0.5); ap.add_argument('--samples'
 ap.add_argument('--shots', default='a,b,c'); ap.add_argument('--font', default=os.path.join(here, '..', 'style3d', 'out', 'motion_v2', 'NotoSansSC-Bold.otf'))
 a = ap.parse_args()
 pk = os.path.join(repo, a.pack); shutil.rmtree(pk, ignore_errors=True); os.makedirs(os.path.join(pk, 'anim01')); os.makedirs(os.path.join(pk, 'style3d'))
-for f in ('lib.py', 'shot_a.py', 'shot_b.py', 'shot_c.py', 'shot_int.py', 'shot_int2.py'): shutil.copy(os.path.join(here, f), os.path.join(pk, 'anim01', f))
+for f in ('lib.py', 'shot_a.py', 'shot_b.py', 'shot_c.py', 'shot_int.py', 'shot_int2.py', 'shot_full.py', 'ui_phone.png'): shutil.copy(os.path.join(here, f), os.path.join(pk, 'anim01', f))
 shutil.copy(os.path.join(here, 'run_shot.py'), os.path.join(pk, 'run_shot.py'))
 for f in ('film_desk.py', 'film3d.py', 'scene.py'): shutil.copy(os.path.join(here, '..', 'style3d', f), os.path.join(pk, 'style3d', f))
 shutil.copy(os.path.join(here, '..', '..', 'script.md'), os.path.join(pk, 'style3d', 'script.md'))
 shutil.copy(a.font, os.path.join(pk, 'NotoSansSC-Bold.otf'))
-DUR = {'a': 14.0, 'b': 10.5, 'c': 17.0, 'int': 34.0, 'int2': 32.0}
+DUR = {'a': 14.0, 'b': 10.5, 'c': 17.0, 'int': 34.0, 'int2': 32.0, 'full': 64.5}
 tasks = []
 for s in a.shots.split(','):
     nf = int(round(DUR[s] * 30)); step = -(-nf // a.chunks)
