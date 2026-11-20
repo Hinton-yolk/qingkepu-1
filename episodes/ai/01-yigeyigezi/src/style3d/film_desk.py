@@ -152,8 +152,10 @@ def add_desk(fn, u=0.5):
     if cam_o:
         q = cam_o.matrix_world.to_quaternion(); fwd = q @ Vector((0, 0, -1)); rgt = q @ Vector((1, 0, 0))
         dd = cam_o.data.dof.focus_distance
-        cam_o.location = cam_o.location + fwd * (0.12 * dd * u) + rgt * (0.06 * dd * (u - 0.5))   # 运动草稿 v1 动效检查不过（静止 24%）：推近 12%、横移 6%，前后景有视差
-        cam_o.data.dof.focus_distance = dd * (1 - 0.12 * u)
+        # 运动草稿 v1 动效检查不过（静止 24%）：推近 12%、横移，前后景有视差。
+        # 运动草稿 v2 审核 P1（左右出画）：推近改为「从稍远处推到自动取景的位置」（u = 1 时正好是安全框），横移 6% → 2%。
+        cam_o.location = cam_o.location + fwd * (0.12 * dd * (u - 1)) + rgt * (0.02 * dd * (u - 0.5))
+        cam_o.data.dof.focus_distance = dd * (1 + 0.12 * (1 - u))
 
 # 草稿接触表的代表时刻：沿用 film3d 的 CU
 run_jobs(post=add_desk)

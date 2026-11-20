@@ -18,23 +18,32 @@ def _one(p):
     return o
 os.makedirs(os.path.join(work, 'ov'), exist_ok=True)
 with Pool(4) as pool: ovs = pool.map(_one, frames, chunksize=8)
-prev_last = None; prev_beat = None; beat_start = 0; last_img = None
+# 运动草稿 v2 审核 P0：转场只对 3D 层做（上一拍的 3D 画面放大淡出）；上一拍的字幕、标签直接切掉，
+# 新一拍的字幕、标签在 0.1–0.35 秒淡入，两条字幕不再叠在一起。
+from film_overlay import base3d
+prev_last = None; prev_beat = None; beat_start = 0
+D, C0, C1 = 0.4, 0.1, 0.35
 for i, (p, m) in enumerate(zip(frames, meta)):
-    im = Image.open(ovs[i]).convert('RGB')
     b = m['beat']
     if b != prev_beat:
-        prev_last = last_img; beat_start = i; prev_beat = b
+        prev_last = base3d(frames[i - 1], meta[i - 1]['beat']) if i > 0 else None
+        beat_start = i; prev_beat = b
     dt = (i - beat_start) / fps
-    D = 0.4
-    if prev_last is not None and dt < D:
-        a = 1 - dt / D                                     # 上一拍的残影：慢慢放大、淡出
-        s = 1.0 + 0.05 * (1 - a)
-        w, h = prev_last.size
-        z = prev_last.resize((int(w * s), int(h * s)), Image.LANCZOS)
-        z = z.crop(((z.width - w) // 2, (z.height - h) // 2, (z.width - w) // 2 + w, (z.height - h) // 2 + h))
-        im = Image.blend(im, z, a * a)
+    if prev_last is not None and dt < max(D, C1):
+        base = base3d(p, b)
+        if dt < D:
+            a = 1 - dt / D                                 # 上一拍的 3D 残影：慢慢放大、淡出
+            s = 1.0 + 0.05 * (1 - a)
+            w, h = prev_last.size
+            z = prev_last.resize((int(w * s), int(h * s)), Image.LANCZOS)
+            z = z.crop(((z.width - w) // 2, (z.height - h) // 2, (z.width - w) // 2 + w, (z.height - h) // 2 + h))
+            base = Image.blend(base, z, a * a)
+        full = compose(p, p[:-4] + '.json', base=base)
+        k = min(1.0, max(0.0, (dt - C0) / (C1 - C0)))
+        im = Image.blend(base, full, k)
+    else:
+        im = Image.open(ovs[i]).convert('RGB')
     im.save(os.path.join(comp, f'f{i:05d}.jpg'), quality=92)
-    last_img = im.copy()
 n = len(frames)
 vid = os.path.join(work, 'video_silent.mp4')
 subprocess.run(['ffmpeg', '-nostdin', '-loglevel', 'error', '-y', '-framerate', str(fps), '-i', os.path.join(comp, 'f%05d.jpg'),

@@ -139,9 +139,12 @@ CHIPS = {   # 拍的函数名 → [(锚点, 文字, 底色, 字色)]
     'n_timing': [('move', '搬：约 16 毫秒', (111, 134, 201), (255, 255, 255)), ('calc', '算：约 0.1 毫秒（放大）', (31, 94, 68), (255, 255, 255))],
 }
 
-def compose(png, js):
+def base3d(png, b):
+    return grain(Image.open(png).convert('RGB').resize((1080, 1920), Image.LANCZOS), 4.0 if DESK else 5.0, seed=b)
+
+def compose(png, js, base=None):
     meta = json.load(open(js)); b, u = meta['beat'], meta['u']; fn = meta.get('fn', '')
-    im = grain(Image.open(png).convert('RGB').resize((1080, 1920), Image.LANCZOS), 4.0 if DESK else 5.0, seed=b)
+    im = base.copy() if base is not None else grain(Image.open(png).convert('RGB').resize((1080, 1920), Image.LANCZOS), 4.0 if DESK else 5.0, seed=b)
     P = {k: (v[0] * 1080, (1 - v[1]) * 1920) for k, v in meta['anch'].items()}
     for (k, text, bg, fg) in CHIPS.get(fn, []):
         if fn == 'o1' and k == 'qu' and u < 0.35: continue   # 「去」还没浮出来时不挂标签

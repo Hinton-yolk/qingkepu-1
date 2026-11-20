@@ -292,21 +292,22 @@ def o7(u):   # 按分数抽签：转盘停在「海」，「海」飞进空位
     cam((1.0, -30, 4.2), (0, 0, 0.75), 100, 5.6, 30)
 
 def branch_scene(up_n, dn_n, show_split=True, chosen=True):
+    # 运动草稿 v2 审核 P0：分叉在手机上太小、斜着看不清 → 改成正面略俯视、两条分支收短拉开，整体铺满安全区
     reset('peach'); lights((1, 0, 0), key=850, fill=300, rim=800)
-    s = 0.56; step = 0.66; yaw = -0.35
-    stem = [(-4.6, 0, 0), (-3.0, 0, 0), (-1.2, 0, 0), (0.0, 0, 0)]
-    ribbon(stem, 0.9, gradient_glass('#FFF4EC', '#FFE6D6', 'X', 0.12, -4.6, 0), thick=0.06)
+    s = 0.56; step = 0.66; yaw = 0.45   # 字块转向右前方的相机
+    ribbon([(-3.75, 0, 0), (-2.0, 0, 0), (-0.8, 0, 0), (0.0, 0, 0)], 0.9, gradient_glass('#FFF4EC', '#FFE6D6', 'X', 0.12, -3.75, 0), thick=0.06)
     for k, ch in enumerate('周末我想去'):
-        token(ch, (-4.2 + k * step, -0.05, s / 2 + 0.05), s=s, rot=(0, 0, yaw))
-    if show_split:
-        up = [(0.0, 0, 0), (1.0, 0, 0.7), (2.0, 0, 2.5), (3.4, 0, 3.1), (5.9, 0, 3.15)]
+        token(ch, (-3.3 + k * step, -0.05, s / 2 + 0.05), s=s, rot=(0, 0, yaw))
+    if show_split:   # 分支上的字是这一拍要看的：字块放大（0.78），整体宽度不变
+        sb, stb = 0.78, 0.86
+        up = [(0.0, 0, 0), (0.3, 0, 0.5), (0.6, 0, 1.3), (0.95, 0, 1.6), (4.95, 0, 1.62)]
         for sgn, chars, n in ((1, '海边看日落', up_n), (-1, '睡个懒觉', dn_n)):
             if n <= 0: continue
-            ribbon([(p[0], p[1], p[2] * sgn) for p in up], 0.9, gradient_glass('#FFE6D6', '#FFF4EC', 'X', 0.12, 0, 5.6), thick=0.06)
+            ribbon([(p[0], p[1], p[2] * sgn) for p in up], 1.1, gradient_glass('#FFE6D6', '#FFF4EC', 'X', 0.12, 0, 4.95), thick=0.06)
             for k, ch in enumerate(chars[:n]):
-                token(ch, (2.75 + k * step, -0.05, 3.13 * sgn + s / 2 + 0.08), s=s, body='#FFD45A' if k == 0 else '#FBF8F2', rot=(0, 0, yaw))
-        sphere(0.2, (0.3, -0.05, 0.45), emit(YEL, 6)); sphere(0.34, (0.3, -0.05, 0.45), glass('#FFE58A', 0.2))
-    cam((-9.85, -10.17, 1.4), (-0.05, 0.23, -0.35), 31.5, 2.8, 14.0)
+                token(ch, (1.3 + k * stb, -0.05, 1.62 * sgn + sb / 2 + 0.05), s=sb, body='#FFD45A' if k == 0 else '#FBF8F2', rot=(0, 0, yaw))
+        sphere(0.2, (0.05, -0.05, 0.4), emit(YEL, 6)); sphere(0.34, (0.05, -0.05, 0.4), glass('#FFE58A', 0.2))
+    cam((7.2, -8.6, 2.4), (0.9, 0, 0.0), 32, 5.6, 10.5)   # 右前方：近处的分支大，远处的「周末我想去」小
 
 def o8(u):   # 为什么不能几个字一起写？镜头退回「去」后面的空位，一分为二
     reset('peach'); lights((1, 0, 0), key=850, fill=300, rim=800)
@@ -612,7 +613,8 @@ def n_timing(u):    # 补 4：光搬就要约 16 毫秒，真正的乘加只要 
     rbox((Lc, 0.3, 0.42), (-1.9 + Lc / 2, -0.3, -0.6), bevel=0.01, mat=candy(GREEN, 0.25))
     bpy.ops.mesh.primitive_torus_add(major_radius=0.42, minor_radius=0.04, location=(-1.9, -0.45, -0.6), rotation=(math.pi / 2, 0, 0))
     o = bpy.context.active_object; smooth(o); assign(o, candy('#FFFFFF', 0.25))   # 放大框：圈住那一小截
-    ANCH['move'] = (-1.9 + 4.4 * g + 0.6, -0.3, 1.2); ANCH['calc'] = (-1.2, -0.3, -0.6)
+    # 运动草稿 v2 审核 P0：标签不再压在计时条和放大框上 →「搬」放在条的上方，「算」放在放大框下方
+    ANCH['move'] = (-1.9 + 2.2, -0.3, 1.2 + 0.62); ANCH['calc'] = (-1.6, -0.3, -0.6 - 0.78)
     cam((0.0, -18, 2.0), (-0.3, 0, 0.3), 58, 4.0, 18)
 
 def n_accept(u):    # 补 6：所以写出来的话，和大模型自己写的一样（上下两句并排，一模一样，同时亮绿勾）
