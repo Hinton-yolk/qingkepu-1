@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1080">
+<title>光标后面 · 原型 A</title>
+<style>
+  @font-face { font-family: "NotoSC"; font-weight: 700; src: url("assets/fonts/noto-sc-bold.woff2") format("woff2"); }
+  @font-face { font-family: "NotoSC"; font-weight: 400; src: url("assets/fonts/noto-sc-regular.woff2") format("woff2"); }
+  html, body { margin: 0; background: #F3EFE8; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script src="timeline.js"></script>
+<script>
+"use strict";
+// 方案 A「把光标后面打开」— every frame is a pure function of t: window.seek(t) paints it. No timers, no state.
+// World units = screen px at camera (540, 960, zoom 1). Captions are drawn in screen space on top.
+const { T, BLOCKS, CAND1, PICK1, CAND2, PICK2, COPY, W, H } = TL;
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+
+const C = {
+  bg: "#F3EFE8", bgL: "#FAF7F2", ink: "#1E1D1B", inkS: "#6F6A62", card: "#FFFDF9", cardEdge: "#E3DCCF",
+  user: "#E8E2D6", userEdge: "#D6CEBF", rule: "#D9D2C5", ghostInk: "#8C867C", ghostCard: "#F7F4EE", dash: "#A39D92",
+  cover: "#E4DDD0", coverL: "#EFE9DF", amber: "#F2B33D", amberD: "#B97A08", amberSoft: "rgba(242,179,61,0.5)",
+  steel: "#C9CED5", steelD: "#8E959E", steelL: "#EEF1F4",
+};
+const UI = "NotoSC";
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const E = {
+  io: (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2),
+  out: (x) => 1 - Math.pow(1 - x, 3), in: (x) => x * x * x, sine: (x) => 0.5 - 0.5 * Math.cos(Math.PI * x),
+};
+function spring(x, w = 16, z = 0.55) {
+  if (x <= 0) return 0;
+  const wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * x) * (Math.cos(wd * x) + ((z * w) / wd) * Math.sin(wd * x));
+}
+const pulse = (t, at, len) => (t < at || t > at + len ? 0 : Math.sin(Math.PI * (t - at) / len));
+
+// ------------------------------------------------------------------ layout (world)
+const CW = 80, X0 = 96;                                 // answer: 80 px glyphs from x = 96
+const REAL = { x: 44, y: 760, h: 220, cy: 870 };        // the AI answer card
+const GHOST = { x: 44, y: 1290, h: 220, cy: 1400 };     // the "if it were pre-written" card
+const USERB = { x: 500, y: 560, w: 536, h: 130 };
+const CARD_R = 1036;
+const chX = (i) => X0 + i * CW;
+const COVER_X0 = chX(3) + 16, COVER_X1 = 1004, COVER_H = 132;
+
+// ------------------------------------------------------------------ the real answer, block by block
+function blockState(k, t) {          // {w: 0..1 written/visible, pop: 0..1 pop-in scale progress}
+  const b = BLOCKS[k];
+  switch (k) {
+    case 0: return { w: 1, pop: 1 };
+    case 1: return { w: t >= T.pop2 ? 1 : 0, pop: spring(t - T.pop2, 20, 0.5) };
+    case 2: {
+      let w = 0;
+      if (t >= T.write && t < T.rewind) w = E.sine(prog(t, T.write, T.writeEnd));
+      else if (t >= T.rewind && t < T.rewindEnd) w = 1 - prog(t, T.rewind, T.rewindEnd);
+      else if (t >= T.flyEnd) w = 1;
+      return { w, pop: 1, wipe: t < T.flyEnd };
+    }
+    case 3: return { w: t >= T.r1 ? 1 : 0, pop: spring(t - T.r1, 20, 0.5) };
+    case 4: return { w: t >= T.r2 ? 1 : 0, pop: spring(t - T.r2, 20, 0.5) };
+    case 5: return { w: t >= T.r3 ? 1 : 0, pop: spring(t - T.r3, 20, 0.5) };
+    case 6: return { w: t >= T.fly2End ? 1 : 0, pop: 1 };
+  }
+  return { w: 0, pop: 0 };
+}
+function answerEnd(t) {
+  let x = X0;
+  BLOCKS.forEach((b, k) => { const s = blockState(k, t); if (s.w > 0) x = chX(b.i) + b.s.length * CW * s.w; });
+  return x;
+}
+
+// ------------------------------------------------------------------ the cursor (dragged in the hook)
+const PULL = 1000;
+function cursorX(t) {
+  const e = answerEnd(t);
+  if (t < T.pinch) return e;
+  if (t < T.release) {
+    let off = PULL * E.io(prog(t, T.pull, T.pullEnd));
+    off += 70 * pulse(t, T.tug1, 0.24) + 90 * pulse(t, T.tug2, 0.26);
+    return e + off;
+  }
+  const u = t - T.release;
+  return e + Math.max(-14, PULL * (1 - spring(u, 15, 0.3)));
+}
+const grabbed = (t) => t >= T.pinch && t < T.release;
+
+// ------------------------------------------------------------------ camera
+function camera(t) {
+  let cx = 540, cy = 790, z = 1;
+  const pk = E.io(prog(t, T.pull, T.pullEnd)), bk = E.io(prog(t, T.release + 0.05, T.back));
+  const hook = pk * (1 - bk);
+  cx += 300 * hook; z -= 0.38 * hook; cy += 60 * hook;
+  const zk = E.io(prog(t, T.zoomIn, T.zoomInEnd));
+  cy = lerp(cy, 840, zk); z = lerp(z, 1.04, zk);
+  const tk = E.io(prog(t, T.slots - 0.1, T.slotsEnd + 0.2));
+  cy = lerp(cy, 860, tk);
+  cx += 10 * Math.sin(t * 0.7); cy += 26 * Math.cos(t * 0.42 - 0.6); z *= 1 + 0.03 * Math.sin(t * 0.42 - 0.6);   // breathing
+  return { cx, cy, z };
+}
+function applyCam(c) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.translate(540, 960); ctx.scale(c.z, c.z); ctx.translate(-c.cx, -c.cy); }
+
+// ------------------------------------------------------------------ drawing helpers
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function card3d(x, y, w, h, r, face, edge, shadowA = 0.16, dashed = false) {
+  ctx.save();
+  if (!dashed) {
+    ctx.shadowColor = `rgba(96,72,40,${shadowA})`; ctx.shadowBlur = 46; ctx.shadowOffsetY = 22;
+    rr(x, y + 8, w, h, r); ctx.fillStyle = edge; ctx.fill();
+    ctx.shadowColor = "transparent";
+    rr(x, y + 8, w, h, r); ctx.fill();
+  }
+  rr(x, y, w, h, r); ctx.fillStyle = face; ctx.fill();
+  if (dashed) { ctx.setLineDash([16, 12]); ctx.lineWidth = 3; ctx.strokeStyle = C.dash; ctx.stroke(); ctx.setLineDash([]); }
+  else { ctx.lineWidth = 2; ctx.strokeStyle = "rgba(255,255,255,0.9)"; rr(x + 2, y + 2, w - 4, h - 4, r - 2); ctx.stroke(); }
+  ctx.restore();
+}
+function text(s, x, y, size, color, weight = 400, align = "left", base = "middle") {
+  ctx.font = `${weight} ${size}px ${UI}`; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = base; ctx.fillText(s, x, y);
+}
+function pill(s, x, y, size, fg, bg, opt = {}) {      // x,y = left/center-y
+  ctx.font = `700 ${size}px ${UI}`;
+  const w = ctx.measureText(s).width + size * 1.1 + (opt.icon ? size * 0.9 : 0), h = size * 1.7;
+  ctx.save(); ctx.globalAlpha *= opt.a ?? 1;
+  rr(x, y - h / 2, w, h, h / 2); ctx.fillStyle = bg; ctx.fill();
+  if (opt.dash) { ctx.setLineDash([8, 6]); ctx.lineWidth = 2.5; ctx.strokeStyle = C.dash; ctx.stroke(); ctx.setLineDash([]); }
+  let tx = x + size * 0.55;
+  if (opt.icon === "ai") { star(tx + size * 0.38, y, size * 0.42, fg); tx += size * 0.9; }
+  if (opt.icon === "rw") { rewindIcon(tx + size * 0.35, y, size * 0.4, fg); tx += size * 0.9; }
+  text(s, tx, y + 1, size, fg, 700);
+  ctx.restore();
+  return w;
+}
+function star(x, y, r, col) {
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) { const a = (i * Math.PI) / 4 - Math.PI / 2, rr_ = i % 2 ? r * 0.32 : r; ctx.lineTo(x + Math.cos(a) * rr_, y + Math.sin(a) * rr_); }
+  ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+}
+function rewindIcon(x, y, r, col) {
+  ctx.fillStyle = col;
+  for (const dx of [-r * 0.55, r * 0.45]) { ctx.beginPath(); ctx.moveTo(x + dx + r * 0.5, y - r * 0.6); ctx.lineTo(x + dx - r * 0.5, y); ctx.lineTo(x + dx + r * 0.5, y + r * 0.6); ctx.closePath(); ctx.fill(); }
+}
+function ruled(x0, x1, y, a = 1) {                    // blank paper: a faint dotted baseline
+  ctx.save(); ctx.globalAlpha *= a; ctx.fillStyle = C.rule;
+  for (let x = x0 + 10; x < x1 - 6; x += 22) { ctx.beginPath(); ctx.arc(x, y, 2.6, 0, 7); ctx.fill(); }
+  ctx.restore();
+}
+function cursorBar(x, cy, t, opt = {}) {
+  const idle = opt.idle ?? true;
+  const on = !idle || (t % 1.0) < 0.62;
+  const a = (on ? 1 : 0.12) * (opt.a ?? 1);
+  ctx.save(); ctx.globalAlpha *= a;
+  const w = opt.w ?? 7, h = 96;
+  rr(x + 3, cy - h / 2, w, h, 3); ctx.fillStyle = opt.color ?? C.ink; ctx.fill();
+  ctx.restore();
+}
+
+// tweezers: tip at (x, y); the arms run toward the lower right, joined at the back.
+function tweezers(x, y, gap, a) {
+  if (a <= 0) return;
+  const ang = 38 * Math.PI / 180, dx = Math.cos(ang), dy = Math.sin(ang), nx = -dy, ny = dx, L = 600;
+  const arm = (k, shadow) => {
+    const pts = [], N = 24;
+    for (let i = 0; i <= N; i++) {
+      const s = i / N, off = k * (gap / 2 * (1 - s) * (1 - s) + 7 * s + 16 * Math.sin(Math.PI * Math.min(1, s * 1.3)) * (gap > 20 ? 1 : 0.55));
+      const w = 5 + 15 * Math.pow(s, 0.7);
+      pts.push([x + dx * L * s + nx * off, y + dy * L * s + ny * off, w]);
+    }
+    ctx.beginPath();
+    pts.forEach(([px, py, w], i) => { const ox = px + nx * w / 2, oy = py + ny * w / 2; i ? ctx.lineTo(ox, oy) : ctx.moveTo(ox, oy); });
+    for (let i = pts.length - 1; i >= 0; i--) { const [px, py, w] = pts[i]; ctx.lineTo(px - nx * w / 2, py - ny * w / 2); }
+    ctx.closePath();
+    if (shadow) { ctx.fillStyle = "rgba(70,50,20,0.13)"; ctx.fill(); return; }
+    const g = ctx.createLinearGradient(x + nx * 30, y + ny * 30, x - nx * 30, y - ny * 30);
+    g.addColorStop(0, C.steelL); g.addColorStop(0.5, C.steel); g.addColorStop(1, C.steelD);
+    ctx.fillStyle = g; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = "rgba(90,96,104,0.8)"; ctx.stroke();
+  };
+  ctx.save(); ctx.globalAlpha *= a;
+  ctx.save(); ctx.translate(26, 34); ctx.filter = "blur(7px)"; arm(1, true); arm(-1, true); ctx.restore();
+  arm(-1, false); arm(1, false);
+  // grip ridges
+  ctx.strokeStyle = "rgba(90,96,104,0.45)"; ctx.lineWidth = 2;
+  for (let i = 0; i < 6; i++) {
+    const s = 0.55 + i * 0.035;
+    for (const k of [-1, 1]) {
+      const off = k * (gap / 2 * (1 - s) * (1 - s) + 7 * s + 16 * Math.sin(Math.PI * Math.min(1, s * 1.3)) * (gap > 20 ? 1 : 0.55));
+      const px = x + dx * L * s + nx * off, py = y + dy * L * s + ny * off;
+      ctx.beginPath(); ctx.moveTo(px - dx * 0 + nx * 6, py + ny * 6); ctx.lineTo(px - nx * 6, py - ny * 6); ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+// a cover sheet hinged on its top edge; theta = lift angle (0 = flat)
+function coverSheet(x0, x1, yTop, h, theta, a = 1) {
+  if (a <= 0) return;
+  const c = Math.cos(theta), s = Math.sin(theta);
+  const hb = h * c, grow = 1 + 0.10 * s, mid = (x0 + x1) / 2, half = (x1 - x0) / 2;
+  ctx.save(); ctx.globalAlpha *= a;
+  // shadow on the paper under the lifted sheet
+  if (s > 0.02) {
+    const g = ctx.createLinearGradient(0, yTop, 0, yTop + h);
+    g.addColorStop(0, `rgba(80,60,30,${0.16 * s})`); g.addColorStop(1, "rgba(80,60,30,0)");
+    ctx.fillStyle = g; ctx.fillRect(x0, yTop, x1 - x0, h);
+  } else {
+    ctx.save(); ctx.shadowColor = "rgba(80,60,30,0.18)"; ctx.shadowBlur = 10; ctx.shadowOffsetY = 3;
+    rr(x0, yTop, x1 - x0, h, 10); ctx.fillStyle = C.cover; ctx.fill(); ctx.restore();
+  }
+  ctx.beginPath();
+  ctx.moveTo(x0, yTop); ctx.lineTo(x1, yTop);
+  ctx.lineTo(mid + half * grow, yTop + hb - 8 * s); ctx.lineTo(mid - half * grow, yTop + hb - 8 * s); ctx.closePath();
+  const g = ctx.createLinearGradient(0, yTop, 0, yTop + h);
+  g.addColorStop(0, lerpCol(C.cover, "#F8F3EA", s)); g.addColorStop(1, lerpCol(C.coverL, "#FFFFFF", s * 0.8));
+  ctx.fillStyle = g; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = "rgba(150,140,120,0.5)"; ctx.stroke();
+  // faint paper hatch
+  ctx.save(); ctx.clip(); ctx.strokeStyle = "rgba(160,148,128,0.16)"; ctx.lineWidth = 2;
+  for (let xx = x0 - 120; xx < x1 + 120; xx += 26) { ctx.beginPath(); ctx.moveTo(xx, yTop); ctx.lineTo(xx + 60, yTop + hb); ctx.stroke(); }
+  ctx.restore();
+  ctx.restore();
+}
+function lerpCol(a, b, k) {
+  const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const A = p(a), B = p(b); return `rgb(${A.map((v, i) => Math.round(lerp(v, B[i], k))).join(",")})`;
+}
+
+// ------------------------------------------------------------------ candidate tiles
+const TILE_W = 220, TILE_H = 124, TILE_Y = 1250;
+function tileCenters(cx) {
+  let xs = [cx - 270, cx, cx + 270];
+  const shift = Math.max(0, xs[2] - 920) - Math.max(0, 160 - xs[0]);
+  return xs.map((v) => v - shift);
+}
+function tile(s, x, y, sc = 1, a = 1, hi = 0) {
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha *= a; ctx.translate(x, y); ctx.scale(sc, sc);
+  card3d(-TILE_W / 2, -TILE_H / 2, TILE_W, TILE_H, 22, C.card, C.cardEdge, 0.14);
+  text(s, 0, 2, 66, C.ink, 700, "center");
+  ctx.restore();
+}
+function ring(x, y, a) {
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha *= a; rr(x - TILE_W / 2 - 12, y - TILE_H / 2 - 12, TILE_W + 24, TILE_H + 24, 30);
+  ctx.lineWidth = 7; ctx.strokeStyle = C.amber; ctx.stroke(); ctx.restore();
+}
+function thread(x0, y0, x1, y1, k, a, w = 3.5) {      // amber curve, drawn up to fraction k
+  if (a <= 0 || k <= 0) return;
+  const mx = (x0 + x1) / 2, my = Math.max(y0, y1) - 10;
+  ctx.save(); ctx.globalAlpha *= a; ctx.strokeStyle = C.amber; ctx.lineWidth = w; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(x0, y0);
+  const N = 30;
+  for (let i = 1; i <= N * k; i++) { const s = i / N, q = 1 - s; ctx.lineTo(q * q * x0 + 2 * q * s * mx + s * s * x1, q * q * y0 + 2 * q * s * (y0 + 70) + s * s * y1); }
+  ctx.stroke(); ctx.restore();
+}
+
+// ------------------------------------------------------------------ the amber "前文" band (front edge)
+function bandFront(t) {
+  const e0 = chX(3) + 6;
+  if (t < T.bandEnd) return lerp(X0 - 10, e0, E.io(prog(t, T.band + 0.3, T.bandEnd)));
+  const steps = [[T.zip, chX(5)], [T.z1, chX(6)], [T.z2, chX(7)], [T.z3, chX(9)], [T.zip4, chX(11)]];
+  let x = e0;
+  for (const [at, to] of steps) { if (t < at) break; const k = spring(t - at, at === T.zip ? 11 : 18, 0.45); x = lerp(x, to + 6, k); }
+  return x;
+}
+function zipGlow(t) {
+  return Math.max(pulse(t, T.zip, 0.7) * 1, pulse(t, T.z1, 0.35) * 0.6, pulse(t, T.z2, 0.35) * 0.6, pulse(t, T.z3, 0.35) * 0.6, pulse(t, T.zip4, 0.5) * 0.8);
+}
+
+// ------------------------------------------------------------------ scene
+function drawBackground() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const g = ctx.createRadialGradient(540, 820, 100, 540, 900, 1250);
+  g.addColorStop(0, C.bgL); g.addColorStop(1, "#EAE4D9");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+}
+
+function drawUser(t) {
+  const { x, y, w, h } = USERB;
+  card3d(x, y, w, h, 44, C.user, C.userEdge, 0.08);
+  // band on the question (part of the 前文)
+  const ub = E.io(prog(t, T.band, T.band + 0.35));
+  if (ub > 0) { ctx.save(); ctx.globalAlpha = 0.9; rr(x + 52, y + 24, (w - 104) * ub, h - 48, 18); ctx.fillStyle = C.amberSoft; ctx.fill(); ctx.restore(); }
+  text(COPY.user, x + w / 2, y + h / 2 + 2, 62, C.ink, 400, "center");
+}
+
+function drawRealCard(t, cxr) {
+  const teaseH = 150 * E.io(prog(t, T.slots - 0.15, T.slots + 0.3));
+  const R = Math.max(CARD_R, grabbed(t) || t < T.release + 1 ? cxr + 74 : 0);
+  card3d(REAL.x, REAL.y, R - REAL.x, REAL.h + teaseH, 44, C.card, C.cardEdge);
+  // AI label above the card
+  pill(COPY.tagReal, REAL.x, REAL.y - 46, 34, "#FFFFFF", C.ink, { icon: "ai" });
+
+  const cy = REAL.cy, end = answerEnd(t);
+  ruled(Math.max(end, X0), R - 28, cy + 52, 1);
+
+  // the band
+  if (t >= T.band) {
+    const f = bandFront(t), gl = zipGlow(t);
+    ctx.save();
+    rr(X0 - 12, cy - 58, f - X0 + 12, 116, 20); ctx.fillStyle = C.amberSoft; ctx.fill();
+    // a slow light running through the band: the 前文 is what the next step reads
+    { const span = f - X0 + 12, px = X0 - 12 + ((t - T.band) * 420) % (span + 300) - 150;
+      ctx.save(); ctx.clip(); const g = ctx.createLinearGradient(px - 150, 0, px + 150, 0);
+      g.addColorStop(0, "rgba(255,246,220,0)"); g.addColorStop(0.5, "rgba(255,250,235,0.95)"); g.addColorStop(1, "rgba(255,246,220,0)");
+      ctx.fillStyle = g; ctx.fillRect(px - 150, cy - 60, 300, 120); ctx.restore();
+      rr(X0 - 12, cy - 58, f - X0 + 12, 116, 20); }
+    if (gl > 0) { ctx.globalAlpha = gl * 0.55; ctx.shadowColor = C.amber; ctx.shadowBlur = 36; ctx.fillStyle = "rgba(242,179,61,0.5)"; ctx.fill(); }
+    ctx.restore();
+    const la = E.out(prog(t, T.bandEnd - 0.2, T.bandEnd + 0.2));
+    pill(COPY.band, f - 84, cy - 86, 32, "#FFFFFF", C.amberD, { a: la });
+  }
+
+  // text
+  BLOCKS.forEach((b, k) => {
+    const s = blockState(k, t);
+    if (s.w <= 0) return;
+    const x = chX(b.i), wpx = b.s.length * CW;
+    ctx.save();
+    let hl = 0;
+    if (k === 2) hl = clamp(prog(t, T.thread - 0.2, T.thread + 0.1)) * (1 - prog(t, T.fly2End, T.fly2End + 0.6));
+    if (s.wipe) { ctx.beginPath(); ctx.rect(x - 4, cy - 60, wpx * s.w + 4, 120); ctx.clip(); }
+    const sc = lerp(0.55, 1, clamp(s.pop, 0, 1.2));
+    ctx.translate(x + wpx / 2, cy); ctx.scale(sc, sc); ctx.translate(-(x + wpx / 2), -cy);
+    text(b.s, x, cy + 2, CW, hl > 0 ? lerpCol(C.ink, C.amberD, hl) : C.ink, hl > 0.5 ? 700 : 400);
+    ctx.restore();
+    // ink nib at the writing edge
+    if (s.wipe && s.w > 0 && s.w < 1 && t < T.rewind) {
+      ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(x + wpx * s.w, cy + 40, 5, 0, 7); ctx.fill(); ctx.restore();
+    }
+  });
+  return R;
+}
+
+function drawGhost(t) {
+  const inK = E.out(prog(t, T.cmpIn, T.cmpInEnd)), outK = E.io(prog(t, T.ghostOut, T.ghostOutEnd));
+  const a = inK * (1 - outK);
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a; ctx.translate(-900 * outK, 220 * (1 - inK));
+  card3d(GHOST.x, GHOST.y, CARD_R - GHOST.x, GHOST.h, 40, C.ghostCard, C.cardEdge, 0.1, true);
+  pill(COPY.tagGhost, GHOST.x, GHOST.y - 46, 34, C.ink, C.ghostCard, { dash: true });
+  const cy = GHOST.cy;
+  BLOCKS.forEach((b) => text(b.s, chX(b.i), cy + 2, CW, C.ghostInk, 400));
+  // cover + ghost cursor
+  const playK = E.io(prog(t, T.gPlay, T.gPlayEnd));
+  const x0 = COVER_X0 + 3 * CW * playK;
+  const th = gTheta(t);
+  coverSheet(x0, COVER_X1, cy - COVER_H / 2, COVER_H, th);
+  cursorBar(x0 - 20, cy, t, { color: C.ghostInk, idle: !(t > T.gPlay && t < T.gPlayEnd) });
+  ctx.restore();
+}
+const DEG = Math.PI / 180;
+function gTheta(t) { return 72 * DEG * (E.io(prog(t, T.gLift, T.gLiftEnd)) - E.io(prog(t, T.gDrop, T.gDropEnd))); }
+function rTheta(t) { return 72 * DEG * E.io(prog(t, T.rLift, T.rLiftEnd)) + 60 * DEG * E.in(prog(t, T.twOut, T.twOut + 0.3)); }
+
+function drawRealCover(t) {
+  const a = E.out(prog(t, T.cmpIn, T.cmpInEnd)) * (1 - prog(t, T.twOut + 0.05, T.twOut + 0.3));
+  if (a <= 0) return;
+  const lift = -140 * E.in(prog(t, T.twOut, T.twOut + 0.3));
+  coverSheet(COVER_X0, COVER_X1, REAL.cy - COVER_H / 2 + lift, COVER_H, rTheta(t), a);
+}
+
+function tweezerState(t, cxr) {
+  const cyR = REAL.cy, cyG = GHOST.cy, gx = (COVER_X0 + COVER_X1) / 2;
+  const OPEN = 46, SHUT = 8;
+  if (t < T.twIn) return null;
+  if (t < T.release + 0.1) {
+    const k = E.out(prog(t, T.twIn, T.twAt));
+    const x = lerp(cxr + 700, cxr + 6, k), y = lerp(cyR + 760, cyR, k);
+    const gap = lerp(OPEN, SHUT, E.out(prog(t, T.twAt, T.pinch + 0.04))) + (OPEN - SHUT) * prog(t, T.release, T.release + 0.1);
+    return { x, y, gap, a: 1 };
+  }
+  if (t < T.gGo) {
+    const k = E.io(prog(t, T.release + 0.1, T.release + 0.6));
+    return { x: lerp(cxr + 6, 1120, k), y: lerp(cyR, 1420, k), gap: OPEN, a: 1 - 0.0 * k };
+  }
+  if (t < T.gDropEnd + 0.1) {
+    const k = E.io(prog(t, T.gGo, T.gGrab));
+    const yb = cyG - COVER_H / 2 + COVER_H * Math.cos(gTheta(t)) - 8 * Math.sin(gTheta(t));
+    const gap = lerp(OPEN, SHUT, prog(t, T.gGrab, T.gGrab + 0.08)) + (OPEN - SHUT) * prog(t, T.gDropEnd, T.gDropEnd + 0.1);
+    return { x: lerp(1120, gx, k), y: lerp(1420, yb, k), gap, a: 1 };
+  }
+  if (t < T.rGo) {
+    const k = E.io(prog(t, T.gDropEnd + 0.1, T.gDropEnd + 0.5));
+    return { x: lerp(gx, 860, k), y: lerp(cyG + COVER_H / 2, 1330, k), gap: OPEN, a: 1 };
+  }
+  const k = E.io(prog(t, T.rGo, T.rGrab));
+  const yb = cyR - COVER_H / 2 + COVER_H * Math.cos(rTheta(t)) - 8 * Math.sin(rTheta(t));
+  const out = E.in(prog(t, T.twOut, T.twOut + 0.45));
+  const gap = lerp(OPEN, SHUT, prog(t, T.rGrab, T.rGrab + 0.08)) + (OPEN - SHUT) * prog(t, T.twOut + 0.12, T.twOut + 0.2);
+  const a = 1 - prog(t, T.twOut + 0.25, T.twOut + 0.5);
+  if (a <= 0) return null;
+  return { x: lerp(lerp(860, gx, k), 1150, out), y: lerp(lerp(1330, yb, k), yb - 120, out) + 600 * out * out, gap, a };
+}
+
+function drawCandidates(t) {
+  // loop 1
+  const e1 = chX(3), xs1 = tileCenters(e1), seq1 = [0, 2, 1, 0, 1];
+  drawLoop(t, CAND1, PICK1, xs1, seq1, T.cand, T.hop, T.pick, T.fly, T.flyEnd, chX(3) + CW, null);
+  // loop 2
+  const e2 = chX(9), xs2 = tileCenters(e2), seq2 = [0, 2, 1];
+  drawLoop(t, CAND2, PICK2, xs2, seq2, T.cand2, T.hop2, T.pick2, T.fly2, T.fly2End, chX(9) + CW, { from: chX(3) + CW, at: T.thread, end: T.threadEnd });
+}
+function drawLoop(t, words, pick, xs, seq, tIn, hops, tPick, tFly, tFlyEnd, slotX, thr) {
+  if (t < tIn || t > tFlyEnd + 0.05) return;
+  const cy = REAL.cy, fadeOthers = E.io(prog(t, tPick, tPick + 0.3));
+  // threads from the 前文 (or from 「火锅」) to each tile
+  words.forEach((w, i) => {
+    const k = E.out(prog(t, tIn + i * 0.07, tIn + 0.5 + i * 0.07));
+    const a = (i === pick ? 1 : 1 - fadeOthers) * (1 - prog(t, tFly, tFly + 0.15));
+    if (!thr) thread(clamp(xs[i], X0 + 20, chX(3) - 10), cy + 58, xs[i], TILE_Y - TILE_H / 2 - 6, k, 0.55 * a, 3);
+    else {
+      thread(clamp(xs[i], X0 + 20, chX(9)), cy + 58, xs[i], TILE_Y - TILE_H / 2 - 6, k, 0.3 * a, 2.5);
+      const kk = E.io(prog(t, thr.at + i * 0.06, thr.end + i * 0.06));
+      thread(thr.from, cy + 50, xs[i], TILE_Y - TILE_H / 2 - 6, kk, 0.95 * a, 6);
+    }
+  });
+  // hop ring
+  let ringX = null;
+  for (let h = 0; h < hops.length; h++) {
+    if (t < hops[h]) break;
+    const prev = h ? xs[seq[h - 1]] : xs[seq[0]], k = E.out(prog(t, hops[h], hops[h] + 0.1));
+    ringX = lerp(prev, xs[seq[h]], k);
+  }
+  words.forEach((w, i) => {
+    const k = spring(t - tIn - i * 0.07, 14, 0.6);
+    const x = lerp(slotX - CW, xs[i], clamp(k, 0, 1.1)), y = lerp(cy + 20, TILE_Y, clamp(k, 0, 1.1)) + 8 * Math.sin(t * 3.2 + i * 2.1) * clamp(t - tIn - 0.5);
+    let a = clamp(k * 2), sc = lerp(0.4, 1, clamp(k, 0, 1.2));
+    if (i !== pick) { a *= 1 - fadeOthers; sc *= 1 - 0.15 * fadeOthers; tile(w, x, y, sc, a); return; }
+    const pk = 1 + 0.08 * pulse(t, tPick, 0.25);
+    const f = E.io(prog(t, tFly, tFlyEnd));
+    if (f <= 0) { tile(w, x, y, sc * pk, a); return; }
+    // fly into the slot: the tile shrinks into plain text
+    const fx = lerp(x, slotX, f), fy = lerp(y, cy, f) - 60 * Math.sin(Math.PI * f);
+    tile(w, fx, fy, lerp(1, 0.8, f), 1 - f);
+    ctx.save(); ctx.globalAlpha = f; text(w, fx, fy + 2, lerp(66, CW, f), C.ink, 400, "center"); ctx.restore();
+  });
+  const ringA = ringX === null ? 0 : (1 - prog(t, tFly, tFly + 0.12));
+  if (ringX !== null) ring(t < tPick ? ringX : xs[pick], TILE_Y, ringA);
+}
+
+function drawSlots(t) {
+  if (t < T.slots) return;
+  const cy = REAL.cy;
+  [0, 1].forEach((i) => {
+    const k = spring(t - T.slots - i * 0.18, 16, 0.5);
+    if (k <= 0) return;
+    const x = X0 + i * 132, s = clamp(k, 0, 1.2) * (1 + 0.06 * Math.sin(t * 5 + i * 1.6) * clamp(t - T.slotsEnd));
+    ctx.save(); ctx.translate(x + 60, cy + 150); ctx.scale(s, s);
+    rr(-60, -60, 120, 120, 22); ctx.fillStyle = "rgba(242,179,61,0.08)"; ctx.fill();
+    ctx.setLineDash([12, 9]); ctx.lineDashOffset = -t * 30; ctx.lineWidth = 4; ctx.strokeStyle = C.amberD; ctx.stroke(); ctx.setLineDash([]);
+    ctx.globalAlpha = 0.55 + 0.35 * Math.sin(t * 4 + i); text("？", 0, 2, 64, C.amberD, 700, "center");
+    ctx.restore();
+  });
+}
+
+// ------------------------------------------------------------------ captions (screen space)
+function richLine(s, x, y, size, a) {             // 「…」 parts in amber
+  ctx.font = `700 ${size}px ${UI}`;
+  const parts = []; let cur = "", inQ = false;
+  for (const ch of s) {
+    if (ch === "「") { if (cur) parts.push([cur, inQ]); cur = ch; inQ = true; continue; }
+    if (ch === "」") { cur += ch; parts.push([cur, inQ]); cur = ""; inQ = false; continue; }
+    cur += ch;
+  }
+  if (cur) parts.push([cur, inQ]);
+  const total = parts.reduce((w, [p]) => w + ctx.measureText(p).width, 0);
+  let xx = x - total / 2;
+  ctx.save(); ctx.globalAlpha = a;
+  for (const [p, q] of parts) { text(p, xx, y, size, q ? C.amberD : C.ink, 700, "left"); xx += ctx.measureText(p).width; }
+  ctx.restore();
+}
+function caption(t, a0, a1, lines, size, first = false) {
+  if (t < a0 - 0.01 || t > a1 + 0.25) return;
+  const kin = first ? 1 : E.out(prog(t, a0, a0 + 0.25)), kout = prog(t, a1, a1 + 0.22);
+  const a = kin * (1 - kout), dy = (1 - kin) * 26 - kout * 20;
+  const sc = first ? 1 + 0.03 * (1 - E.out(prog(t, 0, 0.5))) : 1;
+  ctx.save(); ctx.translate(540, 270 + dy); ctx.scale(sc, sc);
+  const lh = size * 1.22, y0 = -((lines.length - 1) * lh) / 2;
+  lines.forEach((l, i) => richLine(l, 0, y0 + i * lh, size, a));
+  ctx.restore();
+}
+function drawCaptions(t) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  // a soft wash so captions sit on clean paper even when the camera moves
+  const g = ctx.createLinearGradient(0, 0, 0, 520);
+  g.addColorStop(0, "rgba(243,239,232,0.96)"); g.addColorStop(0.75, "rgba(243,239,232,0.85)"); g.addColorStop(1, "rgba(243,239,232,0)");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, 520);
+  caption(t, 0, 4.15, [COPY.q1a, COPY.q1b], 104, true);
+  const sa1 = E.out(prog(t, T.empty, T.empty + 0.25)) * (1 - prog(t, 4.0, 4.2));
+  if (sa1 > 0) { ctx.save(); ctx.globalAlpha = sa1; text(COPY.q1c, 540, 450, 52, C.inkS, 700, "center"); ctx.restore(); }
+  caption(t, T.cap2, T.cap3 - 0.25, [COPY.c2], 84);
+  caption(t, T.cap3, T.cap4 - 0.25, [COPY.c3], 76);
+  caption(t, T.cap4, T.cap5 - 0.25, [COPY.c4], 84);
+  caption(t, T.cap5, T.cap6 - 0.25, [COPY.c5a, COPY.c5b], 92);
+  caption(t, T.cap6, T.cap7 - 0.25, [COPY.c6a, COPY.c6b], 92);
+  caption(t, T.cap7, 99, [COPY.q7a, COPY.q7b], 104);
+  // slow-motion tag
+  const sa = prog(t, T.slowTag, T.slowTag + 0.15) * (1 - prog(t, T.slowOff, T.slowOff + 0.2));
+  if (sa > 0) pill(COPY.slow, 48, 470, 34, "#FFFFFF", C.inkS, { icon: "rw", a: sa });
+  // one small note, once the candidates appear
+  const na = prog(t, T.cand, T.cand + 0.4);
+  if (na > 0) { ctx.save(); ctx.globalAlpha = na * 0.9; text(COPY.note, 540, 1832, 30, C.inkS, 400, "center"); ctx.restore(); }
+}
+
+// ------------------------------------------------------------------ frame
+function frame(t) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.filter = "none";
+  drawBackground();
+  const cam = camera(t);
+  applyCam(cam);
+  drawUser(t);
+  const cxr = cursorX(t);
+  drawRealCard(t, cxr);
+  drawRealCover(t);
+  const writing = (t > T.write && t < T.writeEnd) || (t > T.rewind && t < T.rewindEnd) || (t > T.pinch && t < T.release + 0.7);
+  cursorBar(cxr, REAL.cy, t, { idle: !writing, w: grabbed(t) ? 9 : 7 });
+  drawSlots(t);
+  drawGhost(t);
+  drawCandidates(t);
+  const tw = tweezerState(t, cxr);
+  if (tw) { applyCam(cam); tweezers(tw.x, tw.y, tw.gap, tw.a); }
+  drawCaptions(t);
+}
+
+window.seek = (t) => frame(t);
+Promise.all([document.fonts.load(`700 40px ${UI}`), document.fonts.load(`400 40px ${UI}`)]).then(() => { frame(0); window.ready = true; });
+</script>
+</body>
+</html>
