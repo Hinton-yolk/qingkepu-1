@@ -1,0 +1,150 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>样张 5 · 暖光桌面工业设计</title>
+<style>
+@font-face { font-family: NS; src: url(/assets/fonts/NotoSansSC-500.woff); font-weight: 500; }
+@font-face { font-family: NS; src: url(/assets/fonts/NotoSansSC-700.woff); font-weight: 700; }
+@font-face { font-family: NS; src: url(/assets/fonts/NotoSansSC-900.woff); font-weight: 900; }
+@font-face { font-family: IN; src: url(/assets/fonts/Inter-var.woff); font-weight: 100 900; }
+html, body { margin: 0; background: #000; } canvas { display: block; }
+</style></head><body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script type="importmap">{ "imports": { "three": "/v4-3d/node_modules/three/build/three.module.js", "three/addons/": "/v4-3d/node_modules/three/examples/jsm/" } }</script>
+<script type="module">
+// Style 5 · warm tabletop industrial design (after the user's reference image, 2026-11-21): matte cream blocks and layered
+// slabs, charcoal bases with brushed-aluminium tops and screws, frosted glass panels, coral accents, black cables, a glowing
+// light pipe; low warm sun with long soft shadows; high 3/4 view; tilt-shift blur at the top and bottom.
+import * as THREE from "three";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { W, H, COPY, F, FI, fonts, rr, tw, txt, rich, mulberry } from "./common.mjs";
+await fonts();
+const R0 = mulberry(3);
+
+const glc = Object.assign(document.createElement("canvas"), { width: W, height: H });
+const R = new THREE.WebGLRenderer({ canvas: glc, antialias: true, preserveDrawingBuffer: true });
+R.setPixelRatio(1); R.setSize(W, H, false); R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap;
+R.toneMapping = THREE.ACESFilmicToneMapping; R.toneMappingExposure = 0.95; R.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene(); scene.background = new THREE.Color("#5E4F3E");
+scene.environment = new THREE.PMREMGenerator(R).fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.3;
+scene.add(new THREE.HemisphereLight("#FFF1DE", "#7A6448", 0.4));
+const sun = new THREE.DirectionalLight("#FFD3A0", 5.8); sun.position.set(-13, 6.2, -9); sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096); Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 60 });
+sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.02; scene.add(sun, sun.target);
+
+// ---- materials ----
+const M = {
+  table: new THREE.MeshStandardMaterial({ color: "#DCCDB4", roughness: 0.9 }),
+  cream: new THREE.MeshStandardMaterial({ color: "#EEE6D8", roughness: 0.82 }),
+  cream2: new THREE.MeshStandardMaterial({ color: "#E2D8C6", roughness: 0.85 }),
+  coal: new THREE.MeshStandardMaterial({ color: "#2B2726", roughness: 0.55 }),
+  alu: new THREE.MeshPhysicalMaterial({ color: "#C9CBCE", metalness: 1, roughness: 0.32, anisotropy: 0.7, anisotropyRotation: 0 }),
+  coral: new THREE.MeshStandardMaterial({ color: "#EE6A47", roughness: 0.5 }),
+  glass: new THREE.MeshPhysicalMaterial({ color: "#F4F1EA", transmission: 1, roughness: 0.32, thickness: 0.12, ior: 1.5, clearcoat: 1, clearcoatRoughness: 0.15 }),
+  rubber: new THREE.MeshStandardMaterial({ color: "#1C1A19", roughness: 0.45 }),
+  screw: new THREE.MeshStandardMaterial({ color: "#8E9196", metalness: 1, roughness: 0.4 }),
+};
+const add = (m, x, y, z, o = {}) => { m.position.set(x, y, z); if (o.ry) m.rotation.y = o.ry; m.castShadow = o.cast ?? true; m.receiveShadow = true; scene.add(m); return m; };
+const RB = (w, h, d, r = 0.06) => new RoundedBoxGeometry(w, h, d, 4, r);
+const table = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), M.table); table.rotation.x = -Math.PI / 2; table.receiveShadow = true; scene.add(table);
+function tex(s, wpx, hpx, font, col) { const c = Object.assign(document.createElement("canvas"), { width: wpx, height: hpx }), x = c.getContext("2d"); x.font = font; x.fillStyle = col; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(s, wpx / 2, hpx / 2 + hpx * 0.04); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; }
+function decal(t, w, h, o = {}) { return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: t, transparent: true, roughness: 0.7, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, ...o })); }
+// a device: charcoal base + brushed aluminium top plate with four screws (+ optional frosted glass panel at the back)
+function device(w, d, o = {}) {
+  const g = new THREE.Group(), bh = o.bh ?? 0.36;
+  const base = new THREE.Mesh(RB(w, bh, d, 0.08), M.coal); base.position.y = bh / 2; base.castShadow = base.receiveShadow = true; g.add(base);
+  if (o.alu !== false) { const top = new THREE.Mesh(RB(w - 0.08, 0.07, d - 0.08, 0.03), M.alu); top.position.y = bh + 0.035; top.castShadow = top.receiveShadow = true; g.add(top);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const s = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.02, 16), M.screw); s.position.set(sx * (w / 2 - 0.16), bh + 0.08, sz * (d / 2 - 0.16)); g.add(s); } }
+  if (o.panel) { const ph = o.panel, pw = w - 0.4; const p = new THREE.Mesh(RB(pw, ph, 0.07, 0.03), M.glass); p.position.set(0, bh + 0.07 + ph / 2, -d / 2 + 0.22); g.add(p);
+    for (const sx of [-1, 1]) { const cl = new THREE.Mesh(RB(0.12, 0.22, 0.2, 0.02), M.alu); cl.position.set(sx * (pw / 2 - 0.2), bh + 0.18, -d / 2 + 0.22); cl.castShadow = true; g.add(cl); }
+    g.userData.panelY = bh + 0.07 + ph / 2; g.userData.panelZ = -d / 2 + 0.22 + 0.04; }
+  g.userData.top = bh + (o.alu === false ? 0 : 0.07); scene.add(g); return g;
+}
+function connector(p, dir) { const g = new THREE.Group(); const a = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.22, 16), M.alu); a.rotation.z = Math.PI / 2; g.add(a); const b = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.045, 0.16, 16), M.rubber); b.rotation.z = Math.PI / 2; b.position.x = 0.18; g.add(b); g.position.copy(p); g.rotation.y = dir; g.traverse((m) => { m.castShadow = true; }); scene.add(g); }
+function cable(pts, r = 0.045) { const c = new THREE.CatmullRomCurve3(pts.map((p) => new THREE.Vector3(...p))); const m = new THREE.Mesh(new THREE.TubeGeometry(c, 120, r, 12), M.rubber); m.castShadow = true; m.receiveShadow = true; scene.add(m); }
+
+// ---- 1 · the input: the word on a long tray (top of frame) ----
+const LETTER = 0.62, PITCH = 0.7;
+const tray = device(10 * PITCH + 0.6, 1.25, { bh: 0.28 }); tray.position.set(0.6, 0, -7.0);
+[..."strawberry"].forEach((ch, i) => { const c = add(new THREE.Mesh(RB(LETTER, LETTER, LETTER, 0.06), M.cream), tray.position.x + (i - 4.5) * PITCH, tray.userData.top + LETTER / 2, tray.position.z);
+  const d = decal(tex(ch, 256, 256, FI(800, 200), "#2B2726"), 0.46, 0.46); d.position.z = LETTER / 2 + 0.002; c.add(d); });
+
+// ---- 2 · the tokenizer: a device with a frosted glass panel; the word goes in on the left ----
+const tok = device(4.2, 2.3, { bh: 0.5, panel: 1.15 }); tok.position.set(-0.4, 0, -2.9);
+{ const coral = add(new THREE.Mesh(RB(0.55, 0.42, 0.55, 0.05), M.coral), tok.position.x + 1.4, tok.userData.top + 0.21, tok.position.z + 0.55);
+  const pt = tok.position; // three blades of light behind the glass = the cuts (schematic)
+  for (const dx of [-0.55, 0.25]) { const b = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 1.2), new THREE.MeshBasicMaterial({ color: "#FFD7A6", transparent: true, opacity: 0.9, toneMapped: false })); b.position.set(pt.x + dx, tok.userData.panelY, pt.z + tok.userData.panelZ - 0.06); scene.add(b); } }
+cable([[tray.position.x - 3.85, 0.18, -7.0], [-5.2, 0.05, -6.0], [-4.4, 0.05, -2.8], [tok.position.x - 2.25, 0.25, -2.6]]);
+connector(new THREE.Vector3(tray.position.x - 3.75, 0.16, -7.0), Math.PI); connector(new THREE.Vector3(tok.position.x - 2.15, 0.25, -2.6), Math.PI);
+
+// ---- 3 · three tokens on their pads, each with a small glass display showing its number ----
+const TOK = [["str", "#496", -2.3, 0.7], ["aw", "#675", 2.4, 0.7], ["berry", "#15717", 0.0, 3.6]];
+const pads = TOK.map(([s, id, x, z]) => {
+  const w = s.length * 0.72 + 0.9, pad = device(w, 1.9, { bh: 0.34, panel: 0.95, alu: false }); pad.position.set(x, 0, z);
+  const blk = add(new THREE.Mesh(RB(s.length * 0.72, 0.66, 0.66, 0.07), M.cream), x, pad.userData.top + 0.33, z + 0.35);
+  [...s].forEach((ch, i) => { const d = decal(tex(ch, 256, 256, FI(800, 200), "#2B2726"), 0.48, 0.48); d.position.set((i - (s.length - 1) / 2) * 0.72, 0, 0.332); blk.add(d); });
+  const nd = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(w - 0.6, 0.36 * id.length), 0.42), new THREE.MeshBasicMaterial({ map: tex(id, 120 * id.length, 160, FI(800, 128), "#EE6A47"), transparent: true, toneMapped: false, depthWrite: false }));
+  nd.position.set(x, pad.userData.panelY, z + pad.userData.panelZ); scene.add(nd);
+  return { pad, x, z, w };
+});
+// the light pipe from the tokenizer to the pads (warm glow core inside clear tube)
+const pipe = new THREE.CatmullRomCurve3([[0.9, 0.32, -1.75], [1.2, 0.12, -1.0], [0.2, 0.12, -0.4], [-0.4, 0.12, 1.2], [0.0, 0.12, 2.2], [0.3, 0.3, 2.65]].map((p) => new THREE.Vector3(...p)));
+{ const outer = new THREE.Mesh(new THREE.TubeGeometry(pipe, 160, 0.14, 16), new THREE.MeshPhysicalMaterial({ color: "#FFFFFF", transmission: 1, roughness: 0.08, thickness: 0.3, ior: 1.45, clearcoat: 1 })); outer.castShadow = true; scene.add(outer);
+  const core = new THREE.Mesh(new THREE.TubeGeometry(pipe, 160, 0.035, 8), new THREE.MeshBasicMaterial({ color: "#FFC27A", toneMapped: false })); scene.add(core);
+  const halo = new THREE.Mesh(new THREE.TubeGeometry(pipe, 160, 0.09, 12), new THREE.MeshBasicMaterial({ color: "#FFB766", transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })); scene.add(halo);
+  const glow = new THREE.PointLight("#FFB060", 3, 4, 1.5); glow.position.set(0.0, 0.4, 0.6); scene.add(glow); }
+cable([[tok.position.x - 1.2, 0.2, -1.75], [-2.8, 0.05, -1.0], [pads[0].x - 0.6, 0.2, pads[0].z - 0.95]], 0.04);
+cable([[tok.position.x + 1.9, 0.2, -1.75], [3.4, 0.05, -1.0], [pads[1].x + 0.3, 0.2, pads[1].z - 0.95]], 0.04);
+cable([[pads[1].x + pads[1].w / 2, 0.18, pads[1].z], [5.4, 0.05, 2.4], [pads[2].x + pads[2].w / 2 + 0.1, 0.18, pads[2].z + 0.3]], 0.04);
+connector(new THREE.Vector3(pads[1].x + pads[1].w / 2 + 0.05, 0.18, pads[1].z), 0); connector(new THREE.Vector3(pads[2].x + pads[2].w / 2 + 0.05, 0.18, pads[2].z + 0.3), 0);
+
+// ---- props: layered slabs, stray cubes, a coral disc on a small pad ----
+function slabs(x, z, w, d, n, ry = 0) { for (let i = 0; i < n; i++) add(new THREE.Mesh(RB(w - i * 0.02, 0.1, d - i * 0.02, 0.03), i % 2 ? M.cream2 : M.cream), x, 0.05 + i * 0.1, z, { ry }); }
+slabs(4.9, -3.2, 2.6, 2.2, 3, 0.02); slabs(-5.4, 4.2, 2.8, 2.2, 3, -0.03); slabs(5.0, 6.4, 2.4, 1.8, 2, 0.05); slabs(-5.2, -1.2, 1.8, 1.6, 4, 0.04);
+add(new THREE.Mesh(RB(0.8, 0.8, 0.8, 0.05), M.cream), 5.2, 0.4, -6.8); add(new THREE.Mesh(RB(0.6, 0.6, 0.6, 0.05), M.cream2), 5.9, 0.3, -6.1); add(new THREE.Mesh(RB(0.7, 0.7, 0.7, 0.05), M.coral), 4.6, 0.35, -7.6);
+add(new THREE.Mesh(RB(1.1, 0.7, 1.1, 0.05), M.cream), -5.3, 0.35, 1.4); add(new THREE.Mesh(RB(0.7, 0.45, 0.7, 0.05), M.cream2), -4.6, 0.22, 2.2);
+{ const sp = device(1.6, 1.6, { bh: 0.3 }); sp.position.set(-2.8, 0, 6.6); add(new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.18, 40), M.coral), -2.8, sp.userData.top + 0.09, 6.6); }
+{ const sp = device(1.4, 1.4, { bh: 0.26 }); sp.position.set(-5.6, 0, -4.6); add(new THREE.Mesh(RB(0.5, 0.42, 0.5, 0.05), M.coral), -5.6, sp.userData.top + 0.21, -4.6); }
+
+// ---- camera: high 3/4 ----
+const cam = new THREE.PerspectiveCamera(30, W / H, 0.1, 300), dir = new THREE.Vector3(0.36, 0.95, 1).normalize();
+const pts = []; for (const x of [-4.3, 4.9]) for (const z of [-7.6, 4.6]) for (const y of [0, 1.2]) pts.push(new THREE.Vector3(x, y, z));
+const tgt = new THREE.Vector3(0.2, 0, -1.2); let dist = 30, yc = 0;
+for (let it = 0; it < 6; it++) {
+  cam.position.copy(tgt).addScaledVector(dir, dist); cam.lookAt(tgt); cam.updateMatrixWorld(true); cam.updateProjectionMatrix();
+  let mx = 0, y0 = 1, y1 = -1; for (const p of pts) { const q = p.clone().project(cam); mx = Math.max(mx, Math.abs(q.x)); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+  dist *= Math.max(mx / 0.95, (y1 - y0) / 1.02); yc = (y0 + y1) / 2;
+}
+cam.position.copy(tgt).addScaledVector(dir, dist); cam.lookAt(tgt); cam.updateMatrixWorld(true);
+// shift the picture (not the perspective) so the pipeline sits between the headline and the caption
+cam.setViewOffset(W, H, 0, Math.round(((1 - yc) / 2 - (1 - 0.12) / 2) * H), W, H); cam.updateProjectionMatrix();
+const comp = new EffectComposer(R); comp.setSize(W, H);
+comp.addPass(new RenderPass(scene, cam));
+const ao = new GTAOPass(scene, cam, W, H); ao.updateGtaoMaterial({ radius: 0.9, distanceExponent: 1.5, thickness: 1.2, scale: 1.25, samples: 16 }); ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 }); ao.blendIntensity = 1.0; comp.addPass(ao);
+comp.addPass(new OutputPass());
+comp.render();
+const proj = (v) => { const p = v.clone().project(cam); return { x: (p.x + 1) / 2 * W, y: (1 - p.y) / 2 * H }; };
+
+// ---- 2D: tilt-shift blur (top / bottom), warm vignette, then type ----
+const ctx = document.getElementById("c").getContext("2d");
+ctx.drawImage(glc, 0, 0);
+for (const [y0, y1, dirn] of [[0, 640, -1], [1500, 1920, 1]]) {
+  const B = Object.assign(document.createElement("canvas"), { width: W, height: H }), b = B.getContext("2d"); b.filter = "blur(9px)"; b.drawImage(glc, 0, 0);
+  const M2 = Object.assign(document.createElement("canvas"), { width: W, height: H }), m = M2.getContext("2d"); const gr = m.createLinearGradient(0, dirn < 0 ? y1 : y0, 0, dirn < 0 ? y0 : y1); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, "rgba(0,0,0,1)"); m.fillStyle = gr; m.fillRect(0, y0, W, y1 - y0);
+  m.globalCompositeOperation = "source-in"; m.drawImage(B, 0, 0); ctx.drawImage(M2, 0, 0);
+}
+{ ctx.save(); ctx.globalCompositeOperation = "soft-light"; const pool = ctx.createRadialGradient(470, 820, 60, 470, 820, 760); pool.addColorStop(0, "rgba(255,214,160,.85)"); pool.addColorStop(1, "rgba(255,214,160,0)"); ctx.fillStyle = pool; ctx.fillRect(0, 0, W, H); ctx.restore();
+  ctx.save(); ctx.globalCompositeOperation = "multiply"; const v = ctx.createRadialGradient(520, 860, 420, 520, 900, 1300); v.addColorStop(0, "rgba(255,255,255,1)"); v.addColorStop(1, "rgba(120,92,62,1)"); ctx.fillStyle = v; ctx.fillRect(0, 0, W, H); ctx.restore(); }
+const INK = "#2B2726", CORAL = "#E25C38";
+function card(cx, cy, w, h, a = 0.9) { ctx.save(); ctx.shadowColor = "rgba(60,40,20,.25)"; ctx.shadowBlur = 24; ctx.shadowOffsetY = 8; ctx.fillStyle = `rgba(246,240,230,${a})`; rr(ctx, cx - w / 2, cy - h / 2, w, h, 18); ctx.fill(); ctx.restore(); }
+{ const f = F(900, 86), w = tw(ctx, "AI 怎么读字？", f) + 84; card(540, 300, w, 128); rich(ctx, COPY.head, 540, 302, f, INK, CORAL); }
+const tagAt = (v, s, dy = -90, f = F(700, 32), dx = 0) => { const p = proj(v), w = tw(ctx, s, f) + 40; ctx.save(); ctx.strokeStyle = "rgba(43,39,38,.5)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(p.x + dx, p.y + dy); ctx.lineTo(p.x, p.y); ctx.stroke(); ctx.fillStyle = "rgba(43,39,38,.7)"; ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, 7); ctx.fill(); ctx.restore(); card(p.x + dx, p.y + dy, w, 56, 0.9); txt(ctx, s, p.x + dx, p.y + dy + 1, { font: f, color: INK }); };
+tagAt(new THREE.Vector3(tok.position.x - 1.75, 1.6, tok.position.z - 0.93), COPY.tool, -95, F(700, 32), -170);
+tagAt(new THREE.Vector3(pads[1].x + 0.9, 1.45, pads[1].z - 0.75), COPY.aiSees + "：编号", -95);
+txt(ctx, COPY.src, 540, 1262, { font: F(700, 30), color: "rgba(43,39,38,.8)" });
+{ const f = F(700, 52), w = tw(ctx, COPY.cap, f) + 64; card(525, 1347, w, 92, 0.92); txt(ctx, COPY.cap, 525, 1349, { font: f, color: INK }); }
+window.ready = true;
+</script></body></html>
