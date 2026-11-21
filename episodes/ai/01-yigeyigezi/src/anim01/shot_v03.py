@@ -651,6 +651,11 @@ def pose_ledger(t):
         b.location = (x, y, 0.83 if k == 0 else 0.47 + 0.09 * (k - 1)); b.scale = (max(0.001, g),) * 3; b.hide_render = g < 0.01
         set_state(m, glow=(1.5 * bump(t, tt_ + 0.2, 0.2) + 0.3) if k == 0 else 1.2 * bump(t, tt_ + 0.15, 0.12), glow_col=AMBER if k == 0 else '#C8D0D8')
 
+    dz = led.location.z                                             # 字块和计数块跟着账本一起沉下去（收尾时镜头要从上面飞过）
+    if dz < -1e-4:
+        for tk in ledA + ledB + [ledK]: tk.root.location.z += dz
+        for b, m in tallA + tallB: b.location.z += dz
+
 # ---------------------------------------------------------------- 收尾：下一个空位，又有两个候选在抢
 def pose_close(t):
     for k, tk in enumerate(close_c):
