@@ -295,7 +295,7 @@ function drawRealCard(t, cxr) {
   const R = Math.max(CARD_R, grabbed(t) || t < T.release + 1 ? cxr + 74 : 0);
   card3d(REAL.x, REAL.y, R - REAL.x, REAL.h + teaseH, 44, C.card, C.cardEdge);
   // AI label above the card
-  pill(COPY.tagReal, REAL.x, REAL.y - 46, 34, "#FFFFFF", C.ink, { icon: "ai" });
+  pill(COPY.tagReal, REAL.x, REAL.y - 50, 42, "#FFFFFF", C.ink, { icon: "ai" });
 
   const cy = REAL.cy, end = answerEnd(t);
   ruled(Math.max(end, X0), R - 28, cy + 52, 1);
@@ -314,7 +314,7 @@ function drawRealCard(t, cxr) {
     if (gl > 0) { ctx.globalAlpha = gl * 0.55; ctx.shadowColor = C.amber; ctx.shadowBlur = 36; ctx.fillStyle = "rgba(242,179,61,0.5)"; ctx.fill(); }
     ctx.restore();
     const la = E.out(prog(t, T.bandEnd - 0.2, T.bandEnd + 0.2));
-    pill(COPY.band, f - 84, cy - 86, 32, "#FFFFFF", C.amberD, { a: la });
+    pill(COPY.band, f - 98, cy - 92, 40, "#FFFFFF", C.amberD, { a: la });
   }
 
   // text
@@ -342,9 +342,9 @@ function drawGhost(t) {
   const inK = E.out(prog(t, T.cmpIn, T.cmpInEnd)), outK = E.io(prog(t, T.ghostOut, T.ghostOutEnd));
   const a = inK * (1 - outK);
   if (a <= 0) return;
-  ctx.save(); ctx.globalAlpha = a; ctx.translate(-900 * outK, 220 * (1 - inK));
+  ctx.save(); ctx.globalAlpha = a; ctx.translate(-60 * outK, 220 * (1 - inK) + 40 * outK);
   card3d(GHOST.x, GHOST.y, CARD_R - GHOST.x, GHOST.h, 40, C.ghostCard, C.cardEdge, 0.1, true);
-  pill(COPY.tagGhost, GHOST.x, GHOST.y - 46, 34, C.ink, C.ghostCard, { dash: true });
+  pill(COPY.tagGhost, GHOST.x, GHOST.y - 50, 42, C.ink, C.ghostCard, { dash: true });
   const cy = GHOST.cy;
   BLOCKS.forEach((b) => text(b.s, chX(b.i), cy + 2, CW, C.ghostInk, 400));
   // cover + ghost cursor
@@ -494,7 +494,7 @@ function drawCaptions(t) {
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, 520);
   caption(t, 0, 4.15, [COPY.q1a, COPY.q1b], 104, true);
   const sa1 = E.out(prog(t, T.empty, T.empty + 0.25)) * (1 - prog(t, 4.0, 4.2));
-  if (sa1 > 0) { ctx.save(); ctx.globalAlpha = sa1; text(COPY.q1c, 540, 450, 52, C.inkS, 700, "center"); ctx.restore(); }
+  if (sa1 > 0) { ctx.save(); ctx.globalAlpha = sa1; text(COPY.q1c, 540, 450, 64, C.ink, 700, "center"); ctx.restore(); }
   caption(t, T.cap2, T.cap3 - 0.25, [COPY.c2], 84);
   caption(t, T.cap3, T.cap4 - 0.25, [COPY.c3], 76);
   caption(t, T.cap4, T.cap5 - 0.25, [COPY.c4], 84);
@@ -503,10 +503,9 @@ function drawCaptions(t) {
   caption(t, T.cap7, 99, [COPY.q7a, COPY.q7b], 104);
   // slow-motion tag
   const sa = prog(t, T.slowTag, T.slowTag + 0.15) * (1 - prog(t, T.slowOff, T.slowOff + 0.2));
-  if (sa > 0) pill(COPY.slow, 48, 470, 34, "#FFFFFF", C.inkS, { icon: "rw", a: sa });
+  if (sa > 0) pill(COPY.slow, 48, 470, 42, "#FFFFFF", C.inkS, { icon: "rw", a: sa });
   // one small note, once the candidates appear
-  const na = prog(t, T.cand, T.cand + 0.4);
-  if (na > 0) { ctx.save(); ctx.globalAlpha = na * 0.9; text(COPY.note, 540, 1832, 30, C.inkS, 400, "center"); ctx.restore(); }
+  text(COPY.note, 540, 1826, 40, "#57524A", 400, "center");
 }
 
 // ------------------------------------------------------------------ frame
