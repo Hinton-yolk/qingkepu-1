@@ -238,6 +238,7 @@ def run(shot):
     os.makedirs(AA.outdir, exist_ok=True)
     for fi in frames:
         t = fi / FPS
+        if os.environ.get('KEPU_SKIP_DONE') and os.path.exists(os.path.join(AA.outdir, f'f{fi:05d}.json')): continue   # 断点续渲
         ANCH.clear(); shot['pose'](t)
         bpy.context.view_layer.update()
         sc_.render.filepath = os.path.join(AA.outdir, f'f{fi:05d}.png')

@@ -53,6 +53,29 @@ LABELS['full'] = [
 TITLES = {'full': [('AI 为什么一个字一个字往外蹦？', 0.3, 5.2, 330, 52), ('能不能先猜几步，再一起检查？', 40.6, 42.9, 330, 48),
                    ('每一步，都建立在前一步之上。', 58.7, 64.5, 300, 46), ('但有些步骤，可以先猜、再验证。', 60.3, 64.5, 400, 46)]}
 TITLE = {'c': ('小模型先猜，大模型集中验证', 13.6, 17.0)}
+# ---- V02：时间都写成「场景时间」（shot_v02.py 的时间）；成片里第二、四幕被压紧，提示跟着压紧 ----
+LABELS['v02'] = [
+    ('scr', '生成单位其实是 token（不一定正好一个字）', 'w', 2.6, 4.6, 260), ('scr', '倒回去：下一个字是怎么来的？', 'a', 5.5, 7.4, 0),
+    ('prefix', '已有文字', 'g', 10.2, 11.6, -70), ('cells', '每个字先变成一串数（示意）', 'w', 11.0, 12.8, 120),
+    ('gather', '回看前文（示意）', 'g', 13.0, 14.9, -60), ('pill', '下一个位置的候选', 'w', 17.9, 19.3, -60),
+    ('fork_u', '一种可能的续写（假设）', 'w', 21.2, 24.2, -80), ('fork_d', '另一种可能', 'w', 21.6, 24.2, 80),
+    ('qu', '选定「去」', 'a', 25.6, 27.2, -80), ('ctx', '上下文更新：周末我想去', 'g', 27.6, 29.4, -80),
+    ('park', '前面算过的结果留着，不重算（示意）', 'w', 31.2, 32.6, -60), ('c4', '下一个位置的候选', 'w', 33.9, 34.7, -60),
+    ('step', '大模型第 1 轮 → 海', 'g', 34.8, 36.3, -90), ('step', '第 2 轮：等「海」写定 → 边', 'g', 36.3, 37.8, -90),
+    ('step', '第 3 轮：等「边」写定 → 看', 'g', 37.8, 39.5, -90),
+    ('ctx', '起点：周末我想去', 'a', 40.9, 43.2, -80),
+    ('small', '小模型：先猜几步', 'g', 45.3, 47.0, -60), ('drafts', '草稿：还不算数', 'w', 47.0, 48.5, -80),
+    ('ver', '大模型：一轮处理，评估 4 个位置', 'g', 48.6, 51.2, -40), ('under', '每个位置只看它前面的字', 't', 49.2, 51.2, 40),
+    ('acc', '接受', 't', 51.5, 52.9, -70), ('chi', '未接受', 'a', 52.4, 53.8, -70), ('fan', '跟着作废', 'w', 52.7, 53.8, -70),
+    ('res', '写进正式输出', 'g', 54.4, 55.6, -60), ('kan', '这一位用大模型自己的结果', 'a', 57.4, 58.9, -70)]
+TITLES['v02'] = [('AI 为什么一个字一个字往外蹦？', 0.3, 4.6, 330, 52),
+                 ('做法一：一步一步，每步等上一步写定', 34.6, 39.5, 300, 40),
+                 ('回到同一个起点，换一种办法。', 40.3, 43.4, 330, 46), ('做法二：先猜几步，再一起验收', 43.6, 48.4, 300, 40),
+                 ('接受与否按两个模型的概率规则（示意），不看意思通不通', 51.3, 53.9, 1420, 32),
+                 ('一步一步：大模型 3 轮 → 海 边 看', 59.1, 62.7, 300, 42), ('先猜再验：大模型 1 轮 → 海 边 看', 59.7, 62.7, 390, 42),
+                 ('另加小模型猜草稿；条件合适时，整体更快', 60.4, 62.7, 470, 34),
+                 ('每一步，都建立在前一步之上。', 66.5, 72.0, 300, 46), ('但可以先猜几步，再一起验收。', 68.1, 72.0, 400, 46)]
+TIMEMAP = None   # [(成片时间, 场景时间)]，由 __main__ 读入
 
 def chip(layer, cx, cy, text, sty, size=42, alpha=1.0):
     bg, fg = STY[sty]; d = ImageDraw.Draw(layer); ft = f(NOTO, size)
@@ -149,6 +172,26 @@ def events(shot):
         N = int(64.5 * SR); P = np.zeros(N)
         for t0, d, ch in ((0.0, 10.4, [50, 57, 62, 66]), (10.0, 10.0, [47, 54, 59, 62]), (18.8, 10.5, [50, 57, 62, 66]), (28.4, 12.6, [45, 52, 57, 61]), (40.6, 14.2, [43, 50, 55, 59]), (54.6, 9.9, [50, 57, 62, 66])):
             x = pad(d, ch); i = int(t0 * SR); n = min(len(x), N - i); P[i:i + n] += x[:n]
+    elif shot == 'v02':
+        E0, _ = events('full')
+        S = [(t0, sig) for t0, sig in E0 if 5.3 <= t0 < 39.5]                       # 第一幕倒回之后到第四幕结束：和 V01 相同
+        S += [(T, blip(hz(84 + (i % 5)), 0.08, 0.3)) for i, T in enumerate([0.6 + 0.08 * i for i in range(4)] + [1.3 + 0.38 * i for i in range(6)])]
+        S += [(40.3, bell(hz(81), 1.6, 0.3))] + [(41.2 + 0.12 * k, blip(hz(74 + 2 * k), 0.08, 0.25)) for k in range(5)]
+        S += [(43.0, whoosh(1.8, True, 0.3)), (45.0, thud(0.5))]
+        S += [(45.4 + 0.4 * j, blip(hz(84 + j), 0.1, 0.4)) for j in range(4)] + [(45.5 + 0.4 * j, whoosh(1.2, False, 0.15)) for j in range(4)]
+        S += [(48.6, whoosh(0.8, True, 0.35))] + [(49.35, bell(hz(m), 1.4, 0.3)) for m in (79, 83, 86, 91)]   # 4 个位置一个和弦：同一轮
+        S += [(51.4, bell(hz(83), g=0.45)), (51.9, bell(hz(86), g=0.45)), (52.4, thud(0.8)), (52.5, blip(hz(55), 0.3, 0.3)), (52.75, blip(hz(50), 0.25, 0.25))]
+        S += [(53.8, whoosh(1.2, False, 0.3)), (55.2, thud(0.6)), (55.45, thud(0.6)), (55.6, whoosh(1.3, True, 0.3)), (56.95, thud(0.45))]
+        S += [(56.9, bell(hz(74), 0.6, 0.3)), (57.2, whoosh(0.8, True, 0.35)), (58.8, thud(0.8))]
+        S += [(59.1, blip(hz(79), 0.12, 0.35)), (59.7, blip(hz(86), 0.12, 0.35)), (60.4, bell(hz(91), 1.6, 0.3))]
+        S += [(62.8 + 0.2 * i, blip(hz(74 + i), 0.08, 0.28)) for i in range(8)] + [(65.8, blip(hz(84), 0.08, 0.3)), (66.15, blip(hz(86), 0.08, 0.3)), (66.5, bell(hz(74), 2.6, 0.4)), (68.1, bell(hz(81), 2.4, 0.35))]
+        ft, st = np.array(TIMEMAP).T
+        sc2f = lambda x: float(np.interp(x, st, ft))
+        E = [(sc2f(t0), sig) for t0, sig in S]
+        N = int(ft[-1] * SR) + SR; P = np.zeros(N)
+        for a, b, ch in ((0.0, 10.4, [50, 57, 62, 66]), (10.0, 20.0, [47, 54, 59, 62]), (18.8, 29.3, [50, 57, 62, 66]), (28.4, 40.2, [45, 52, 57, 61]),
+                         (40.0, 48.6, [43, 50, 55, 59]), (48.3, 53.9, [45, 52, 57, 60]), (53.6, 63.0, [41, 48, 53, 57]), (62.6, 72.0, [50, 57, 62, 66])):
+            fa, fb = sc2f(a), sc2f(b); x = pad(fb - fa, ch); i = int(fa * SR); n = min(len(x), N - i); P[i:i + n] += x[:n]
     elif shot == 'int2':
         E += [(0.4 + 0.25 * k + 0.3, blip(hz(71 + 3 * k), g=0.3)) for k in range(4)] + [(1.9, whoosh(1.0, True, 0.35))]
         E += [(3.0 + 0.12 * k, blip(hz(83 + k), 0.1, 0.25)) for k in range(3)] + [(3.55, bell(hz(79), 0.8, 0.3))] + [(3.9 + 0.1 * k, blip(hz(90 - k), 0.08, 0.25)) for k in range(3)]
@@ -206,13 +249,15 @@ if __name__ == '__main__':
     shot, src, out = sys.argv[1], sys.argv[2], sys.argv[3]
     os.makedirs(os.path.join(out, 'comp_' + shot), exist_ok=True)
     pngs = sorted(glob.glob(os.path.join(src, 'f*.png'))); metas = [json.load(open(p[:-4] + '.json')) for p in pngs]
+    tmp = os.path.join(src, '..', 'timemap.json')
+    if shot == 'v02': TIMEMAP = json.load(open(tmp))
     from multiprocessing import Pool
     def job(i):
         o = os.path.join(out, 'comp_' + shot, f'f{i:05d}.jpg')
         if not os.path.exists(o): compose(shot, pngs[i], metas[i]).save(o, quality=92)
     with Pool(4) as pool: pool.map(job, range(len(pngs)))
     dur = len(pngs) / 30.0
-    name = {'a': 'AnimationTest_A_Branch', 'b': 'AnimationTest_B_ModelFlow', 'c': 'AnimationTest_C_SpeculativeDecoding', 'int': 'EP01_IntegratedAnimation_Test01', 'int2': 'EP01_IntegratedAnimation_Test02', 'full': 'EP01_FullMotionDraft_v01'}[shot]
+    name = {'a': 'AnimationTest_A_Branch', 'b': 'AnimationTest_B_ModelFlow', 'c': 'AnimationTest_C_SpeculativeDecoding', 'int': 'EP01_IntegratedAnimation_Test01', 'int2': 'EP01_IntegratedAnimation_Test02', 'full': 'EP01_FullMotionDraft_v01', 'v02': 'EP01_FullMotionDraft_v02'}[shot]
     wav = os.path.join(out, f'{shot}_sfx.wav'); audio(shot, dur, wav)
     mp4 = os.path.join(out, name + '.mp4')
     r = subprocess.run(['ffmpeg', '-nostdin', '-hide_banner', '-i', wav, '-af', 'loudnorm=I=-16:TP=-2:LRA=11:print_format=json', '-f', 'null', '-'], capture_output=True, text=True)
