@@ -1,0 +1,105 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>样张 3 · 像素游戏</title>
+<style>
+@font-face { font-family: NS; src: url(/assets/fonts/NotoSansSC-500.woff); font-weight: 500; }
+@font-face { font-family: NS; src: url(/assets/fonts/NotoSansSC-700.woff); font-weight: 700; }
+@font-face { font-family: NS; src: url(/assets/fonts/NotoSansSC-900.woff); font-weight: 900; }
+@font-face { font-family: IN; src: url(/assets/fonts/Inter-var.woff); font-weight: 100 900; }
+html, body { margin: 0; background: #000; } canvas { display: block; }
+</style></head><body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script type="module">
+// Style 3 · 8-bit game. Graphics on a 270×480 grid (×4), text on 540×960 (×2) with anti-aliasing thresholded away.
+// Palette: PICO-8's 16 colours only.
+import { W, H, COPY, F, FI, fonts, mulberry } from "./common.mjs";
+await fonts();
+const P8 = { k: "#000000", navy: "#1D2B53", plum: "#7E2553", dgreen: "#008751", brown: "#AB5236", dgrey: "#5F574F", lgrey: "#C2C3C7", white: "#FFF1E8",
+  red: "#FF004D", orange: "#FFA300", yellow: "#FFEC27", green: "#00E436", blue: "#29ADFF", lav: "#83769C", pink: "#FF77A8", peach: "#FFCCAA" };
+const G = Object.assign(document.createElement("canvas"), { width: 270, height: 480 }), g = G.getContext("2d");
+const T = Object.assign(document.createElement("canvas"), { width: 540, height: 960 }), tt = T.getContext("2d");
+const R = mulberry(8);
+const px = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+
+// ---- crisp pixel text on the 540×960 layer: threshold the glyph alpha, tint, 1-px outline ----
+function ptext(s, x, y, size, col, o = {}) {
+  const font = o.font || F(900, size), S = Object.assign(document.createElement("canvas"), { width: 540, height: size * 2 }), sc = S.getContext("2d");
+  sc.font = font; const w = Math.ceil(sc.measureText(s).width) + 4; S.width = w; sc.font = font; sc.textBaseline = "middle"; sc.fillStyle = "#fff"; sc.fillText(s, 2, size);
+  const d = sc.getImageData(0, 0, S.width, S.height); for (let i = 3; i < d.data.length; i += 4) d.data[i] = d.data[i] > (o.th ?? 120) ? 255 : 0; sc.putImageData(d, 0, 0);
+  const tint = (c) => { const C2 = Object.assign(document.createElement("canvas"), { width: S.width, height: S.height }), cc = C2.getContext("2d"); cc.drawImage(S, 0, 0); cc.globalCompositeOperation = "source-in"; cc.fillStyle = c; cc.fillRect(0, 0, S.width, S.height); return C2; };
+  const x0 = Math.round(o.align === "left" ? x : o.align === "right" ? x - w : x - w / 2), y0 = Math.round(y - size);
+  if (o.shadow) tt.drawImage(tint(o.shadow), x0 + 2, y0 + 2);
+  if (o.outline) { const ol = tint(o.outline); for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, 1], [-1, 1], [1, -1]]) tt.drawImage(ol, x0 + dx, y0 + dy); }
+  tt.drawImage(tint(col), x0, y0); return w;
+}
+
+// ---- sky, stars, skyline ----
+const bands = [P8.navy, P8.navy, "#2A2552", "#3B2754", P8.plum];
+for (let y = 0; y < 300; y++) { const k = Math.min(bands.length - 1, Math.floor((y / 300) * bands.length)); px(0, y, 270, 1, bands[k]); if (k < bands.length - 1 && (y % 60) > 52) for (let x = (y % 2); x < 270; x += 2) px(x, y, 1, 1, bands[k + 1]); }
+for (let i = 0; i < 70; i++) { const x = R() * 270, y = R() * 230; px(x, y, 1, 1, R() < 0.3 ? P8.yellow : R() < 0.5 ? P8.lgrey : P8.white); }
+for (const [x, y] of [[30, 60], [222, 96], [140, 40]]) { px(x - 2, y, 5, 1, P8.white); px(x, y - 2, 1, 5, P8.white); }
+let sx = 0; while (sx < 270) { const w = 10 + Math.floor(R() * 16), h = 18 + Math.floor(R() * 40); px(sx, 300 - h, w, h, "#16203F"); for (let wy = 300 - h + 4; wy < 296; wy += 6) for (let wx = sx + 2; wx < sx + w - 2; wx += 4) if (R() < 0.35) px(wx, wy, 2, 2, P8.yellow); sx += w + 1; }
+
+// ---- ground: bricks ----
+for (let y = 300; y < 480; y += 10) for (let x = (((y - 300) / 10) % 2) * -8; x < 270; x += 16) { px(x, y, 16, 10, P8.k); px(x + 1, y + 1, 14, 8, P8.brown); px(x + 1, y + 1, 14, 1, P8.peach); px(x + 1, y + 8, 14, 1, "#7A3A26"); }
+px(0, 298, 270, 3, P8.green); px(0, 300, 270, 1, P8.dgreen);
+
+// ---- the three pieces (just cut), with studs ----
+const U = 20, GAP = 12, total = 10 * U + 2 * GAP, X0 = Math.round((270 - total) / 2), PY = 196, PH = 28;
+const COL = [[P8.blue, P8.navy, P8.white], [P8.orange, P8.brown, P8.yellow], [P8.pink, P8.plum, P8.peach]];
+const pieces = []; let x = X0;
+COPY.pieces.forEach(([s, id], k) => { pieces.push({ s, id, x, w: s.length * U, dy: [0, -7, -3][k] }); x += s.length * U + GAP; });
+pieces.forEach(({ x, w, dy }, k) => {
+  const [c, sh, hi] = COL[k], y = PY + dy;
+  for (let u = 0; u < w / U; u++) { px(x + u * U + 5, y - 4, 10, 5, P8.k); px(x + u * U + 6, y - 3, 8, 4, c); px(x + u * U + 6, y - 3, 8, 1, hi); }
+  px(x, y, w, PH, P8.k); px(x + 1, y + 1, w - 2, PH - 2, c); px(x + 1, y + 1, w - 2, 2, hi); px(x + 1, y + PH - 5, w - 2, 4, sh);
+  px(x + 1, y + 3, 1, PH - 8, hi);
+});
+// speed lines under the flying middle piece
+for (const [lx, ly, lw] of [[pieces[1].x + 6, PY + 28, 10], [pieces[1].x + 22, PY + 31, 8], [pieces[1].x + 14, PY + 34, 12]]) px(lx, ly, lw, 1, P8.lgrey);
+
+// ---- the sword through gap 1 and its slash arc; a fading arc at gap 2 ----
+const g1 = pieces[0].x + pieces[0].w + GAP / 2, g2 = pieces[1].x + pieces[1].w + GAP / 2;
+function arc(cx, cy, r, a0, a1, col, thick = 2) { for (let a = a0; a <= a1; a += 0.012) for (let t = 0; t < thick; t++) px(cx + Math.cos(a) * (r - t), cy + Math.sin(a) * (r - t), 1, 1, col); }
+arc(g1 + 40, PY - 6, 48, 2.05, 3.35, P8.white, 3); arc(g1 + 40, PY - 6, 45, 2.15, 3.2, P8.blue, 2);
+for (let a = 2.2; a <= 3.1; a += 0.09) px(g2 + 36 + Math.cos(a) * 42, PY - 4 + Math.sin(a) * 42, 1, 1, P8.lgrey);   // dotted: cut a moment ago
+// sword: straight down through gap 1 (the cut just happened), hilt above the pieces
+{ const bx = Math.round(g1) - 2, top = PY - 46, tip = PY + 36;
+  px(bx - 1, top, 6, tip - top + 1, P8.k); px(bx, top, 4, tip - top - 2, P8.lgrey); px(bx + 1, top, 1, tip - top - 4, P8.white); px(bx + 1, tip - 2, 2, 2, P8.lgrey);
+  px(bx - 8, top - 4, 20, 5, P8.k); px(bx - 7, top - 3, 18, 3, P8.yellow);
+  px(bx - 1, top - 18, 6, 14, P8.k); px(bx, top - 17, 4, 13, P8.brown); px(bx - 1, top - 22, 6, 5, P8.k); px(bx, top - 21, 4, 3, P8.yellow); }
+// sparks
+for (const [cx, cy, col] of [[g1 - 8, PY + 6, P8.yellow], [g1 + 8, PY - 6, P8.white], [g1 - 4, PY + 24, P8.white], [g2 + 6, PY + 10, P8.yellow], [g2 - 7, PY - 2, P8.lgrey]]) { px(cx - 2, cy, 5, 1, col); px(cx, cy - 2, 1, 5, col); }
+// crumbs (pixel bits falling)
+for (const [cx, cy] of [[g1 - 3, PY + 40], [g1 + 4, PY + 46], [g1 - 1, PY + 54], [g2 + 2, PY + 42], [g2 - 3, PY + 50]]) px(cx, cy, 2, 2, P8.lgrey);
+
+// ---- inventory: what the AI sees ----
+const SY = 250, SH = 26;
+pieces.forEach(({ x, w }, k) => { const sw = Math.max(w, 52), sx2 = x + w / 2 - sw / 2; px(sx2, SY, sw, SH, P8.white); px(sx2 + 1, SY + 1, sw - 2, SH - 2, P8.k); px(sx2 + 2, SY + 2, sw - 4, SH - 4, P8.navy); px(sx2 + 3, SY + 3, sw - 6, SH - 6, P8.k);
+  for (let j = 0; j < 3; j++) px(x + w / 2 - 1, PY + PH + 8 + j * 6, 2, 3, COL[k][0]); px(x + w / 2 - 3, PY + PH + 24, 6, 1, COL[k][0]); px(x + w / 2 - 2, PY + PH + 25, 4, 1, COL[k][0]); px(x + w / 2 - 1, PY + PH + 26, 2, 1, COL[k][0]); });
+
+// ---- dialog box (the caption) ----
+px(6, 322, 258, 56, P8.white); px(8, 324, 254, 52, P8.k); px(9, 325, 252, 50, P8.dgrey); px(10, 326, 250, 48, P8.k);
+px(244, 364, 7, 2, P8.yellow); px(245, 366, 5, 1, P8.yellow); px(246, 367, 3, 1, P8.yellow); px(247, 368, 1, 1, P8.yellow);   // ▼
+
+// ---- text layer (540×960) ----
+ptext("TOKEN ×3", 22, 58, 16, P8.yellow, { align: "left", font: FI(800, 16), outline: P8.k });
+ptext("STAGE 1-1 分词关", 518, 58, 16, P8.white, { align: "right", font: F(900, 16), outline: P8.k });
+{ // headline with a highlighted word
+  const parts = [["AI 怎么", P8.white], ["读", P8.yellow], ["字？", P8.white]], size = 42, font = F(900, size);
+  tt.font = font; let wsum = parts.reduce((s, p) => s + tt.measureText(p[0]).width, 0) + 8, xx = 270 - wsum / 2;
+  for (const [s, c] of parts) xx += ptext(s, xx, 150, size, c, { align: "left", outline: P8.k, shadow: P8.plum }) - 4;
+}
+pieces.forEach(({ s, x, w, dy }) => { [...s].forEach((ch, i) => ptext(ch, (x + i * U + U / 2) * 2, (PY + dy + 14) * 2, 26, P8.white, { font: FI(800, 26), outline: P8.k })); });
+// tool tag
+ptext(COPY.tool, g1 * 2, (PY - 80) * 2, 16, P8.white, { font: F(900, 16), outline: P8.k, shadow: P8.navy });
+ptext(COPY.aiSees, 270, (SY - 9) * 2, 17, P8.lgrey, { font: F(900, 17), outline: P8.k });
+pieces.forEach(({ id, x, w }, k) => ptext(id, (x + w / 2) * 2, (SY + SH / 2) * 2, 20, COL[k][0], { font: FI(800, 20), outline: P8.k }));
+ptext(COPY.src, 270, (SY + SH + 9) * 2, 15, P8.lgrey, { font: F(700, 15), outline: P8.k });
+ptext("要先把它切成一块一块的", 34, 676, 22, P8.white, { align: "left", font: F(900, 22) });
+ptext("“积木”", 34, 712, 22, P8.yellow, { align: "left", font: F(900, 22) });
+
+// ---- compose: nearest-neighbour upscale ----
+const ctx = document.getElementById("c").getContext("2d");
+ctx.imageSmoothingEnabled = false; ctx.drawImage(G, 0, 0, W, H); ctx.drawImage(T, 0, 0, W, H);
+window.ready = true;
+</script></body></html>
