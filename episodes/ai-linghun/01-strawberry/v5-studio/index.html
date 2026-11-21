@@ -1,0 +1,468 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>AI 灵魂拷问 EP.01 · v5 暖光桌面样片</title>
+<style>
+@font-face { font-family: NS; src: url(/assets/fonts/NotoSansSC-500.woff); font-weight: 500; }
+@font-face { font-family: NS; src: url(/assets/fonts/NotoSansSC-700.woff); font-weight: 700; }
+@font-face { font-family: NS; src: url(/assets/fonts/NotoSansSC-900.woff); font-weight: 900; }
+@font-face { font-family: IN; src: url(/assets/fonts/Inter-var.woff); font-weight: 100 900; }
+html, body { margin: 0; background: #000; } canvas { display: block; }
+</style></head><body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script src="/timeline.js"></script>
+<script type="importmap">{ "imports": { "three": "/v4-3d/node_modules/three/build/three.module.js", "three/addons/": "/v4-3d/node_modules/three/examples/jsm/" } }</script>
+<script type="module">
+// 「AI 灵魂拷问」EP.01 — v5 sample (first ~31 s) in the warm-tabletop industrial-design look (user's reference, 2026-11-21).
+// window.seek(t) is a pure function of t. three.js renders the table; the 2D layer adds headline, gauge, captions and labels.
+// Story on the table: phone → letters fly onto a tray → the tray feeds the tokenizer (frosted glass) → three blocks land on
+// three pads, each with a small glass display → AI view: letters fade, displays light up the numbers → pads slide together → one block.
+import * as THREE from "three";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+
+const { W, H, L } = window.TL;
+const a = (i) => L[i].t0, b = (i) => L[i].t1;
+const DUR = +(a(10) + 0.3).toFixed(2); window.DUR = DUR;
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+const USE_AO = !(window.NO_AO);
+
+// ---------- math ----------
+const clamp = (x, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, x));
+const ramp = (t, t0, t1) => clamp((t - t0) / (t1 - t0));
+const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const smooth = (x) => x * x * x * (x * (x * 6 - 15) + 10);
+const eo = (x) => 1 - Math.pow(1 - x, 3);
+const back = (x) => { const c1 = 1.9, c3 = c1 + 1; return x <= 0 ? 0 : x >= 1 ? 1 : 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const lerp = (p, q, x) => p + (q - p) * x;
+const vis = (t, t0, t1, fi = 0.3, fo = 0.3) => ramp(t, t0, t0 + fi) * (1 - ramp(t, t1 - fo, t1));
+const bump = (t, t0, d = 0.35) => Math.sin(Math.PI * ramp(t, t0, t0 + d));
+function hop(t, t0, d, h) { const p = ramp(t, t0, t0 + d), u = t - (t0 + d); return { y: h * Math.sin(Math.PI * p), sq: u > 0 ? 0.14 * Math.exp(-u * 11) * Math.cos(u * 22) : (p > 0 ? -0.05 * Math.sin(Math.PI * p) : 0) }; }
+function mulberry(seed) { return function () { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let x = Math.imul(seed ^ (seed >>> 15), 1 | seed); x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x; return ((x ^ (x >>> 14)) >>> 0) / 4294967296; }; }
+
+// ---------- 2D helpers ----------
+const F = (w, s) => `${w} ${s}px NS, "Noto Sans CJK SC", sans-serif`;
+const FI = (w, s) => `${w} ${s}px IN, NS, "Noto Sans CJK SC", sans-serif`;
+await Promise.all([F(500, 40), F(700, 40), F(900, 40)].map((f) => document.fonts.load(f, "字")).concat([document.fonts.load(FI(800, 40), "a"), document.fonts.load(FI(700, 40), "a")]));
+function rr(x, y, w, h, r, c = ctx) { c.beginPath(); c.roundRect(x, y, w, h, r); }
+function tw(s, font, c = ctx) { c.save(); c.font = font; const w = c.measureText(s).width; c.restore(); return w; }
+function txt(s, x, y, o = {}) { ctx.save(); ctx.font = o.font || F(700, 40); ctx.fillStyle = o.color || INK; ctx.textAlign = o.align || "center"; ctx.textBaseline = "middle"; ctx.globalAlpha *= o.alpha ?? 1; ctx.fillText(s, x, y); ctx.restore(); }
+function rich(s, x, y, font, color, hl) {
+  const parts = []; s.replace(/\[([^\]]+)\]|([^\[]+)/g, (m, h, n) => parts.push(h ? [h, hl] : [n, color]));
+  ctx.save(); ctx.font = font; ctx.textBaseline = "middle"; ctx.textAlign = "left";
+  const total = parts.reduce((w, p) => w + ctx.measureText(p[0]).width, 0); let cx = x - total / 2;
+  for (const [str, col] of parts) { ctx.fillStyle = col; ctx.fillText(str, cx, y); cx += ctx.measureText(str).width; } ctx.restore(); return total;
+}
+const INK = "#2B2726", CORAL = "#E25C38", CREAMC = "rgba(246,240,230,", GREEN = "#3E8E6A";
+function card(cx, cy, w, h, o = {}) { ctx.save(); ctx.globalAlpha *= o.alpha ?? 1; ctx.translate(cx, cy); ctx.scale(o.scale ?? 1, o.scale ?? 1); ctx.rotate(o.rot || 0);
+  ctx.shadowColor = "rgba(60,40,20,.25)"; ctx.shadowBlur = 22; ctx.shadowOffsetY = 7; ctx.fillStyle = o.bg || CREAMC + (o.a ?? 0.93) + ")"; rr(-w / 2, -h / 2, w, h, o.r ?? 18); ctx.fill(); ctx.restore(); }
+function label(s, cx, cy, o = {}) { const f = o.font || F(700, 34), w = tw(s, f) + (o.pad ?? 44), h = o.h || 60; if ((o.alpha ?? 1) <= 0) return;
+  card(cx, cy, w, h, { ...o, r: o.r ?? h / 2 }); ctx.save(); ctx.globalAlpha *= o.alpha ?? 1; ctx.translate(cx, cy); ctx.scale(o.scale ?? 1, o.scale ?? 1); ctx.rotate(o.rot || 0); txt(s, 0, 2, { font: f, color: o.color || INK }); ctx.restore(); }
+
+// ---------- renderer / scene ----------
+const glc = Object.assign(document.createElement("canvas"), { width: W, height: H });
+const R = new THREE.WebGLRenderer({ canvas: glc, antialias: true, preserveDrawingBuffer: true });
+R.setPixelRatio(1); R.setSize(W, H, false); R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap;
+R.toneMapping = THREE.ACESFilmicToneMapping; R.toneMappingExposure = 0.95; R.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene(); scene.background = new THREE.Color("#5E4F3E");
+scene.environment = new THREE.PMREMGenerator(R).fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.3;
+const hemi = new THREE.HemisphereLight("#FFF1DE", "#7A6448", 0.4); scene.add(hemi);
+const sun = new THREE.DirectionalLight("#FFD3A0", 5.8); sun.position.set(-13, 6.2, -9); sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096); Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 60 });
+sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.02; scene.add(sun, sun.target);
+
+const M = {
+  table: new THREE.MeshStandardMaterial({ color: "#DCCDB4", roughness: 0.9 }),
+  cream: new THREE.MeshStandardMaterial({ color: "#EEE6D8", roughness: 0.82 }),
+  cream2: new THREE.MeshStandardMaterial({ color: "#E2D8C6", roughness: 0.85 }),
+  coal: new THREE.MeshStandardMaterial({ color: "#2B2726", roughness: 0.55 }),
+  alu: new THREE.MeshPhysicalMaterial({ color: "#C9CBCE", metalness: 1, roughness: 0.32, anisotropy: 0.7 }),
+  coral: new THREE.MeshStandardMaterial({ color: "#EE6A47", roughness: 0.5 }),
+  glass: new THREE.MeshPhysicalMaterial({ color: "#F4F1EA", transmission: 1, roughness: 0.32, thickness: 0.12, ior: 1.5, clearcoat: 1, clearcoatRoughness: 0.15 }),
+  rubber: new THREE.MeshStandardMaterial({ color: "#1C1A19", roughness: 0.45 }),
+  screw: new THREE.MeshStandardMaterial({ color: "#8E9196", metalness: 1, roughness: 0.4 }),
+};
+const RB = (w, h, d, r = 0.06) => new RoundedBoxGeometry(w, h, d, 4, r);
+const put = (m, x, y, z, o = {}) => { m.position.set(x, y, z); if (o.ry) m.rotation.y = o.ry; m.castShadow = o.cast ?? true; m.receiveShadow = true; scene.add(m); return m; };
+{ const t = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), M.table); t.rotation.x = -Math.PI / 2; t.receiveShadow = true; scene.add(t); }
+function tex(s, wpx, hpx, font, col) { const c = Object.assign(document.createElement("canvas"), { width: wpx, height: hpx }), x = c.getContext("2d"); x.font = font; x.fillStyle = col; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(s, wpx / 2, hpx / 2 + hpx * 0.04); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; }
+function decal(t, w, h) { return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: t, transparent: true, roughness: 0.7, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })); }
+function device(w, d, o = {}) {
+  const g = new THREE.Group(), bh = o.bh ?? 0.36;
+  const base = new THREE.Mesh(RB(w, bh, d, 0.08), M.coal); base.position.y = bh / 2; base.castShadow = base.receiveShadow = true; g.add(base);
+  if (o.alu !== false) { const top = new THREE.Mesh(RB(w - 0.08, 0.07, d - 0.08, 0.03), M.alu); top.position.y = bh + 0.035; top.receiveShadow = true; g.add(top);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const s = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.02, 16), M.screw); s.position.set(sx * (w / 2 - 0.16), bh + 0.08, sz * (d / 2 - 0.16)); g.add(s); } }
+  const top = bh + (o.alu === false ? 0 : 0.07);
+  if (o.panel) { const ph = o.panel, pw = w - 0.4, pz = o.front ? d / 2 - 0.2 : -d / 2 + 0.2; const p = new THREE.Mesh(RB(pw, ph, 0.07, 0.03), M.glass); p.position.set(0, top + ph / 2, pz); g.add(p);
+    for (const sx of [-1, 1]) { const cl = new THREE.Mesh(RB(0.12, 0.22, 0.2, 0.02), M.alu); cl.position.set(sx * (pw / 2 - 0.2), top + 0.11, pz); cl.castShadow = true; g.add(cl); }
+    g.userData.panel = { y: top + ph / 2, z: pz, w: pw, h: ph }; }
+  g.userData.top = top; scene.add(g); return g;
+}
+function connector(p, dir) { const g = new THREE.Group(); const a1 = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.22, 16), M.alu); a1.rotation.z = Math.PI / 2; g.add(a1); const b1 = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.045, 0.16, 16), M.rubber); b1.rotation.z = Math.PI / 2; b1.position.x = 0.18; g.add(b1); g.position.copy(p); g.rotation.y = dir; g.traverse((m) => { m.castShadow = true; }); scene.add(g); }
+function cable(pts, r = 0.045) { const c = new THREE.CatmullRomCurve3(pts.map((p) => new THREE.Vector3(...p))); const m = new THREE.Mesh(new THREE.TubeGeometry(c, 120, r, 12), M.rubber); m.castShadow = m.receiveShadow = true; scene.add(m); }
+
+// ---------- layout ----------
+const WORD = "strawberry", P = 0.66, CUBE = 0.56;
+const GIDS = [[0, 1, 2], [3, 4], [5, 6, 7, 8, 9]], GROUP = (i) => (i < 3 ? 0 : i < 5 ? 1 : 2), RIDX = [2, 7, 8];
+const X = (i) => (i - 4.5) * P;
+const tray = device(10 * P + 0.5, 1.0, { bh: 0.42 }); tray.position.set(0, 0, -4.35);
+const TRAY_Y = tray.userData.top + CUBE / 2, TRAY_Z = -4.35;
+const tok = device(8.0, 1.9, { bh: 0.42, panel: 1.15, front: true }); tok.position.set(0, 0, -2.85);
+const DECK_Y = tok.userData.top + CUBE / 2, DECK_Z = -3.1;
+put(new THREE.Mesh(RB(0.5, 0.4, 0.5, 0.05), M.coral), 3.55, tok.userData.top + 0.2, -3.45);
+const PADW = GIDS.map((ids) => ids.length * P + 0.5), PADZ = 0.0, GAPP = 0.4;
+const PADX0 = (() => { const tot = PADW.reduce((s, w) => s + w, 0) + 2 * GAPP; let x = -tot / 2; return PADW.map((w) => { const c = x + w / 2; x += w + GAPP; return c; }); })();
+const PADX1 = (() => { const tot = PADW.reduce((s, w) => s + w, 0); let x = -tot / 2; return PADW.map((w) => { const c = x + w / 2; x += w; return c; }); })();   // touching
+const pads = PADW.map((w, g) => { const d = device(w, 1.6, { bh: 0.34, panel: 1.0, alu: false }); d.position.set(PADX0[g], 0, PADZ); return d; });
+const PAD_TOP = pads[0].userData.top, BLOCK_Y = PAD_TOP + CUBE / 2, BLOCK_Z = PADZ + 0.25;
+const mergedPad = device(PADW.reduce((s, w) => s + w, 0), 1.6, { bh: 0.34, panel: 1.0, alu: false }); mergedPad.position.set(0, 0, PADZ);
+// phone on a stand, back left
+const PH = { w: 1.9, h: 3.6, x: -3.9, z: -6.9, lean: -0.2, ry: 0.28 };
+const phone = new THREE.Group(); scene.add(phone);
+{ const st = new THREE.Mesh(RB(1.5, 0.12, 1.1, 0.04), M.alu); st.position.set(0, 0.06, 0.15); st.castShadow = st.receiveShadow = true; phone.add(st);
+  const lip = new THREE.Mesh(RB(1.5, 0.22, 0.12, 0.03), M.alu); lip.position.set(0, 0.2, 0.62); lip.castShadow = true; phone.add(lip);
+  const body = new THREE.Mesh(RB(PH.w, PH.h, 0.14, 0.07), M.coal); body.position.set(0, 0.12 + PH.h / 2 * Math.cos(PH.lean), 0.5 - PH.h / 2 * Math.sin(-PH.lean)); body.rotation.x = PH.lean; body.castShadow = true; phone.add(body);
+  phone.userData.body = body; }
+phone.position.set(PH.x, 0, PH.z); phone.rotation.y = PH.ry;
+const SCRW = PH.w - 0.14, SCRH = PH.h - 0.14, SPX = 600 / SCRW;
+const scrC = Object.assign(document.createElement("canvas"), { width: 600, height: Math.round(SCRH * SPX) }), scrX = scrC.getContext("2d");
+const scrTex = new THREE.CanvasTexture(scrC); scrTex.colorSpace = THREE.SRGBColorSpace; scrTex.anisotropy = 8;
+const screen = new THREE.Mesh(new THREE.PlaneGeometry(SCRW, SCRH), new THREE.MeshBasicMaterial({ map: scrTex, toneMapped: false })); screen.position.z = 0.072; phone.userData.body.add(screen);
+// cables, the light pipe, props
+cable([[tray.position.x - 3.8, 0.2, TRAY_Z], [-4.8, 0.05, -5.0], [-4.2, 0.05, -6.2], [PH.x + 0.5, 0.1, PH.z + 0.9]]); connector(new THREE.Vector3(tray.position.x - 3.7, 0.2, TRAY_Z), Math.PI);
+cable([[-4.05, 0.2, -2.6], [-5.2, 0.05, -1.6], [-5.3, 0.05, -0.2], [PADX0[0] - PADW[0] / 2 - 0.05, 0.18, PADZ + 0.4]], 0.04); connector(new THREE.Vector3(-4.0, 0.2, -2.6), Math.PI);
+const pipe = new THREE.CatmullRomCurve3([[4.0, 0.3, -2.5], [5.1, 0.12, -1.9], [5.3, 0.12, -0.6], [PADX0[2] + PADW[2] / 2 + 0.05, 0.25, PADZ + 0.3]].map((p) => new THREE.Vector3(...p)));
+const pipeCore = new THREE.MeshBasicMaterial({ color: "#FFC27A", toneMapped: false });
+{ const outer = new THREE.Mesh(new THREE.TubeGeometry(pipe, 120, 0.13, 16), new THREE.MeshPhysicalMaterial({ color: "#FFFFFF", transmission: 1, roughness: 0.08, thickness: 0.3, ior: 1.45, clearcoat: 1 })); outer.castShadow = true; scene.add(outer);
+  scene.add(new THREE.Mesh(new THREE.TubeGeometry(pipe, 120, 0.032, 8), pipeCore)); }
+const pulses = [0, 1, 2].map(() => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 12), new THREE.MeshBasicMaterial({ color: "#FFE2B8", toneMapped: false })); const l = new THREE.PointLight("#FFB060", 0, 2.5, 1.6); m.add(l); scene.add(m); m.userData.l = l; return m; });
+function slabs(x, z, w, d, n, ry = 0) { for (let i = 0; i < n; i++) put(new THREE.Mesh(RB(w - i * 0.02, 0.1, d - i * 0.02, 0.03), i % 2 ? M.cream2 : M.cream), x, 0.05 + i * 0.1, z, { ry }); }
+slabs(6.4, -4.6, 2.6, 2.2, 3, 0.02); slabs(-6.6, 1.4, 2.6, 2.2, 3, -0.03); slabs(6.6, 1.2, 2.2, 1.8, 2, 0.05); slabs(-7.0, -3.6, 1.8, 1.6, 4, 0.04); slabs(1.0, 3.4, 3.0, 1.6, 2, -0.02);
+put(new THREE.Mesh(RB(0.8, 0.8, 0.8, 0.05), M.cream), 4.6, 0.4, -7.4); put(new THREE.Mesh(RB(0.6, 0.6, 0.6, 0.05), M.cream2), 5.3, 0.3, -6.7); put(new THREE.Mesh(RB(0.7, 0.7, 0.7, 0.05), M.coral), 4.0, 0.35, -8.2);
+{ const sp = device(1.5, 1.5, { bh: 0.3 }); sp.position.set(-4.8, 0, 3.4); put(new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.18, 40), M.coral), -4.8, sp.userData.top + 0.09, 3.4); }
+
+// ---------- the letter cubes, the token blocks, the displays ----------
+const letterTex = [...WORD].map((ch) => tex(ch, 256, 256, FI(800, 200), "#FFFFFF"));
+const cubes = [...WORD].map((ch, i) => { const m = new THREE.Mesh(RB(CUBE, CUBE, CUBE, 0.06), M.cream.clone()); m.castShadow = m.receiveShadow = true; scene.add(m);
+  const d = decal(letterTex[i], 0.42, 0.42); d.material.color.set(INK); d.position.z = CUBE / 2 + 0.003; m.add(d); return { m, d, i }; });
+function makeBlock(n, letters) { const m = new THREE.Mesh(RB(n * P - 0.1, CUBE, CUBE, 0.07), M.cream.clone()); m.castShadow = m.receiveShadow = true; scene.add(m);
+  const ds = [...letters].map((ch, j) => { const d = decal(tex(ch, 256, 256, FI(800, 200), "#FFFFFF"), 0.42, 0.42); d.material.color.set(INK); d.position.set((j - (n - 1) / 2) * P, 0, CUBE / 2 + 0.003); m.add(d); return d; });
+  return { m, ds }; }
+const blocks = GIDS.map((ids) => makeBlock(ids.length, ids.map((i) => WORD[i]).join("")));
+const merged = makeBlock(10, WORD);
+function display(dev, s) {     // the number on the pad's glass: soft coral glow + a bright core, as large as the panel allows
+  const pn = dev.userData.panel, cw = 150 * s.length + 120, ch = 260, c = Object.assign(document.createElement("canvas"), { width: cw, height: ch }), x = c.getContext("2d");
+  x.font = FI(800, 170); x.textAlign = "center"; x.textBaseline = "middle"; x.filter = "blur(14px)"; x.fillStyle = "#FF7A50"; x.fillText(s, cw / 2, ch / 2 + 8); x.filter = "none"; x.fillStyle = "#FF8A62"; x.fillText(s, cw / 2, ch / 2 + 8);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  let w = pn.w - 0.1, h = w * ch / cw; if (h > 0.52) { h = 0.52; w = h * cw / ch; }
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t, transparent: true, toneMapped: false, depthWrite: false, opacity: 0 }));
+  m.position.set(0, pn.y + pn.h / 2 - h / 2 - 0.06, pn.z + 0.045); dev.add(m); return m; }   // upper part of the glass, clear of the block
+const IDS = ["#496", "#675", "#15717"];
+const disp = pads.map((p, g) => display(p, IDS[g])), dispM = display(mergedPad, "#73700");
+
+// scanner light bar (L1 scan and the x-ray)
+const scanM = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.9), new THREE.MeshBasicMaterial({ color: "#FFE3BC", transparent: true, opacity: 0.95, toneMapped: false, depthWrite: false }));
+const scanH = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.9), new THREE.MeshBasicMaterial({ map: (() => { const c = Object.assign(document.createElement("canvas"), { width: 128, height: 4 }), x = c.getContext("2d"), gr = x.createLinearGradient(0, 0, 128, 0); gr.addColorStop(0, "rgba(255,200,140,0)"); gr.addColorStop(0.5, "rgba(255,220,170,1)"); gr.addColorStop(1, "rgba(255,200,140,0)"); x.fillStyle = gr; x.fillRect(0, 0, 128, 4); return new THREE.CanvasTexture(c); })(), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, toneMapped: false, depthWrite: false }));
+const scanL = new THREE.PointLight("#FFC890", 0, 2.4, 1.5); scene.add(scanM, scanH, scanL);
+// the cut: two blades of light behind the tokenizer's glass
+const blades = [2, 4].map((i) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 1.0), new THREE.MeshBasicMaterial({ color: "#FFE6C4", transparent: true, opacity: 0, toneMapped: false, depthWrite: false })); m.position.set((X(i) + X(i + 1)) / 2, DECK_Y + 0.1, DECK_Z + 0.36); scene.add(m); return m; });
+const cutL = new THREE.PointLight("#FFC890", 0, 3, 1.5); cutL.position.set(-0.6, DECK_Y + 0.4, DECK_Z + 0.6); scene.add(cutL);
+
+// ---------- timing ----------
+const LAUNCH = a(1) + 0.45, STAG = 0.05, FLY = 0.8;
+const SCAN1 = [a(1) + 2.05, b(1) - 0.85];
+const redT = (k) => a(2) + 0.05 + k * 0.3, redOff = [a(4) + 3.1, a(4) + 3.5];
+const XR = [a(4) + 3.7, a(5) + 0.15];
+const READ0 = a(5) + 0.45, READ_DT = 0.22;
+const FEED = [a(6) + 0.45, a(6) + 1.25];                  // the tray feeds the cubes into the tokenizer
+const CUT = a(6) + 1.55, FUSE = CUT + 0.45;
+const exitT = (g) => CUT + 0.85 + g * 0.32, EXIT = 0.7;
+const hopT = (g) => a(7) + 0.95 + g * 0.62;               // str · aw · berry
+const aiv = (t) => vis(t, a(7) + 0.15, a(9) + 0.45, 0.45, 0.45);
+const SINK = [a(8) + 0.45, a(8) + 0.85], RISE = [a(8) + 0.7, a(8) + 1.05], M_EXIT = a(8) + 1.05, MERGE_T = M_EXIT - 0.3;   // the sentence goes through the tokenizer again: one block comes out
+const TOK = a(9) + 0.1;
+const readIdx = (t) => { const r = (t - READ0) / READ_DT; return r >= 0 && r < 10 ? Math.floor(r) : -1; };
+const numOn = (g, t) => ramp(t, hopT(g) + 0.35, hopT(g) + 0.6) * (1 - ramp(t, SINK[0], SINK[0] + 0.25));
+const numOnM = (t) => ramp(t, M_EXIT + EXIT, M_EXIT + EXIT + 0.25);
+const sep = (t) => ease(ramp(t, CUT + 0.02, CUT + 0.25)) * (1 - ease(ramp(t, CUT + 0.3, FUSE)));
+
+// ---------- phone screen ----------
+const QF = F(700, 40), Q1 = " 里有几个 r？";
+let QL = null;
+function qLayout() { if (QL) return QL; const w = tw(WORD + Q1, QF, scrX) + 56, x = 600 - 40 - w, y = 240, h = 96, x0 = x + 28;
+  const xs = [...WORD].map((ch, i) => x0 + tw(WORD.slice(0, i), QF, scrX) + tw(ch, QF, scrX) / 2); return (QL = { w, x, y, h, x0, xs, ty: y + h / 2 }); }
+function drawScreen(t) {
+  const x = scrX, w = scrC.width, h = scrC.height; x.clearRect(0, 0, w, h); x.fillStyle = "#1E1C1B"; x.fillRect(0, 0, w, h);
+  x.fillStyle = "#FBF8F2"; rr(8, 8, w - 16, h - 16, 64, x); x.fill();
+  x.font = F(700, 36); x.fillStyle = INK; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText("AI 助手", w / 2, 120);
+  x.fillStyle = "rgba(0,0,0,.07)"; x.fillRect(8, 170, w - 16, 3);
+  const q = qLayout(); x.fillStyle = "#3A3532"; rr(q.x, q.y, q.w, q.h, 30, x); x.fill();
+  x.font = QF; x.textAlign = "center"; const gh = 0.4 * ramp(t, LAUNCH + 1.0, LAUNCH + 1.5);
+  [...WORD].forEach((ch, i) => { if (t < LAUNCH + i * STAG) { x.fillStyle = "#fff"; x.fillText(ch, q.xs[i], q.ty + 2); } else if (gh > 0) { x.fillStyle = `rgba(255,255,255,${gh})`; x.fillText(ch, q.xs[i], q.ty + 2); } }); x.fillStyle = "#fff";
+  x.textAlign = "left"; x.fillText(Q1, q.x0 + tw(WORD, QF, x), q.ty + 2);
+  const pop = back(ramp(t, -0.12, 0.3)), ay = q.y + 210;
+  x.fillStyle = CORAL; x.beginPath(); x.arc(64, ay, 28, 0, 7); x.fill(); x.font = FI(800, 24); x.fillStyle = "#fff"; x.textAlign = "center"; x.fillText("AI", 64, ay + 1);
+  x.save(); x.translate(110, ay); x.scale(pop, pop); x.fillStyle = "#ECE5D8"; rr(0, -50, 200, 100, 32, x); x.fill(); x.font = F(900, 50); x.fillStyle = INK; x.fillText("2 个。", 100, 3); x.restore();
+  for (let i = 0; i < 3; i++) { x.fillStyle = `rgba(43,39,38,${0.15 + 0.25 * Math.max(0, Math.sin(t * 6 - i))})`; x.beginPath(); x.arc(126 + i * 24, ay + 112, 7, 0, 7); x.fill(); }
+  x.font = F(700, 36); x.fillStyle = "rgba(43,39,38,.82)"; x.textAlign = "center"; x.fillText("示意：早期 AI 的常见错答", w / 2, ay + 220);
+  scrTex.needsUpdate = true;
+}
+const _v = new THREE.Vector3();
+function screenWorld(px, py) { phone.updateMatrixWorld(true); return new THREE.Vector3(px / SPX - SCRW / 2, SCRH / 2 - py / SPX, 0.09).applyMatrix4(phone.userData.body.matrixWorld); }
+
+// ---------- camera: keys solved once (direction, target, fov; distance from a fit set or fixed) ----------
+const cam = new THREE.PerspectiveCamera(32, W / H, 0.1, 300);
+const OFFY = 110; cam.setViewOffset(W, H, 0, OFFY, W, H);   // the picture sits a little above centre (headline above, captions below)
+const box = (x0, x1, y0, y1, z0, z1) => { const o = []; for (const x of [x0, x1]) for (const y of [y0, y1]) for (const z of [z0, z1]) o.push(new THREE.Vector3(x, y, z)); return o; };
+const FIT = {
+  tray: box(-3.6, 3.6, 0, 1.1, -4.9, -3.8),
+  trayPhone: box(-5.0, 3.6, 0, 3.9, -7.6, -3.8),
+  sys: box(-4.6, 4.6, 0, 1.6, -4.9, 0.8),
+  pads: box(-4.6, 4.6, 0, 1.4, -3.0, 0.8),
+  merged: box(-4.1, 4.1, 0, 2.4, -0.8, 0.8),
+};
+function K(t, tgt, az, el, fov, fit, m = 0.92, dist) {
+  const dir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)), T = new THREE.Vector3(...tgt);
+  if (!dist) { dist = 20; for (let it = 0; it < 6; it++) { cam.position.copy(T).addScaledVector(dir, dist); cam.fov = fov; cam.updateProjectionMatrix(); cam.lookAt(T); cam.updateMatrixWorld(true);
+    let mx = 0; for (const p of FIT[fit]) { _v.copy(p).project(cam); mx = Math.max(mx, Math.abs(_v.x)); } dist *= mx / m; } }
+  return [t, { pos: T.clone().addScaledVector(dir, dist), tgt: T, fov }];
+}
+const PHC = [PH.x + 0.35, 1.75, PH.z + 0.6];
+const KEYS = [
+  K(0, PHC, 0.22, 0.3, 30, null, 0, 13.8),
+  K(LAUNCH, PHC, 0.2, 0.32, 30, null, 0, 13.2),
+  K(a(1) + 2.1, [-0.7, 0.9, -5.2], 0.32, 0.55, 34, "trayPhone", 0.9),
+  K(a(2) + 0.1, [0, 0.7, -4.35], 0.26, 0.5, 34, "tray", 0.9),
+  K(a(4) + 0.3, [0, 0.7, -4.5], -0.24, 0.55, 34, "trayPhone", 0.9),
+  K(XR[0] - 0.2, [0, 0.6, -4.35], -0.3, 0.5, 34, "tray", 0.9),
+  K(XR[0] + 1.0, [0, 0.7, -4.35], -0.1, 0.5, 34, "tray", 0.92),
+  K(READ0 - 0.15, [X(1), 0.75, TRAY_Z], 0.12, 0.42, 34, null, 0, 8.6),
+  K(READ0 + 10 * READ_DT, [X(8), 0.75, TRAY_Z], 0.12, 0.42, 34, null, 0, 8.6),
+  K(FEED[0], [0, 0.6, -2.3], 0.3, 0.72, 34, "sys", 0.92),
+  K(CUT, [0, 0.6, -2.3], 0.26, 0.7, 34, "sys", 0.95),
+  K(a(7) + 0.2, [0, 0.6, -1.2], 0.22, 0.62, 34, "pads", 0.92),
+  K(a(8) + 0.3, [0, 0.6, -0.8], -0.18, 0.6, 34, "pads", 0.92),
+  K(TOK, [0, 1.0, 0.0], 0.04, 0.42, 34, "merged", 0.9),
+  K(DUR, [0, 1.1, 0.0], -0.12, 0.42, 34, "merged", 0.9),
+];
+const _p = new THREE.Vector3(), _q = new THREE.Vector3();
+function cameraAt(t) {
+  let k = 0; while (k < KEYS.length - 2 && t > KEYS[k + 1][0]) k++;
+  const [t0, A] = KEYS[k], [t1, B] = KEYS[k + 1], u = smooth(ramp(t, t0, t1));
+  _p.lerpVectors(A.pos, B.pos, u); _q.lerpVectors(A.tgt, B.tgt, u);
+  _p.x += 0.12 * Math.sin(t * 0.63); _p.y += 0.08 * Math.sin(t * 0.81 + 1.3);
+  const sh = t > CUT ? Math.exp(-(t - CUT) * 10) : 0; _p.x += 0.06 * sh * Math.sin(t * 83); _p.y += 0.05 * sh * Math.cos(t * 71);
+  cam.position.copy(_p); cam.fov = lerp(A.fov, B.fov, u); cam.updateProjectionMatrix(); cam.lookAt(_q); cam.updateMatrixWorld(true);
+}
+function proj(v) { _v.copy(v).project(cam); return { x: (_v.x + 1) / 2 * W, y: (1 - _v.y) / 2 * H }; }
+const P3 = (x, y, z) => proj(new THREE.Vector3(x, y, z));
+
+// ---------- per-frame 3D state ----------
+const startPos = []; function cubeStart(i) { if (!startPos[i]) { const q = qLayout(); startPos[i] = screenWorld(q.xs[i], q.ty); } return startPos[i]; }
+const tA = new THREE.Color(), tB = new THREE.Color();
+const padX = (g) => PADX0[g];
+const sink = (t) => 0.95 * ease(ramp(t, SINK[0], SINK[1]));
+function update3D(t) {
+  cameraAt(t);
+  drawScreen(t);
+  const k = aiv(t);
+  sun.intensity = 5.8 * (1 - 0.6 * k); hemi.intensity = 0.4 * (1 - 0.45 * k); scene.environmentIntensity = 0.3 * (1 - 0.4 * k);
+  const rd = readIdx(t);
+  // scanner bar: L1 scan, then the x-ray sweep
+  const s1 = ramp(t, SCAN1[0], SCAN1[1]), xr = ramp(t, XR[0], XR[0] + 1.2);
+  const sOn = (s1 > 0 && s1 < 1) ? lerp(-3.6, 3.6, ease(s1)) : (xr > 0 && xr < 1 ? lerp(-3.6, 3.6, ease(xr)) : null);
+  scanM.visible = scanH.visible = sOn !== null; scanL.intensity = sOn !== null ? 2.5 : 0;
+  if (sOn !== null) { for (const m of [scanM, scanH]) m.position.set(sOn, TRAY_Y + 0.05, TRAY_Z + 0.33); scanL.position.set(sOn, TRAY_Y + 0.6, TRAY_Z + 0.8); }
+  // cubes
+  const fused = t >= FUSE;
+  cubes.forEach(({ m, d, i }) => {
+    const t0 = LAUNCH + i * STAG; m.visible = t >= t0 && !fused; if (!m.visible) return;
+    const g = GROUP(i);
+    let x = X(i), y = TRAY_Y, z = TRAY_Z, rx = 0, rz = 0, s = 1, sq = 0;
+    const p = ramp(t, t0, t0 + FLY);
+    if (p < 1) { const S = cubeStart(i), q = 1 - (1 - p) * (1 - p); x = lerp(S.x, x, q); y = lerp(S.y, y, q) + 1.8 * Math.sin(Math.PI * p); z = lerp(S.z, z, q); rx = -2 * Math.PI * (1 - q); rz = 0.3 * Math.sin(Math.PI * p) * (i % 2 ? 1 : -1); s = lerp(0.18, 1, eo(p)); }
+    else { const u = t - (t0 + FLY); y += 0.3 * Math.abs(Math.sin(u * 10)) * Math.exp(-u * 6.5); sq += 0.18 * Math.exp(-u * 12) * Math.cos(u * 22); }
+    const rk = RIDX.indexOf(i); if (rk >= 0) { const h = hop(t, redT(rk), 0.4, 0.75); y += h.y; sq += h.sq; }
+    if (i === rd) y += 0.18 * Math.sin(Math.PI * ramp((t - READ0) % READ_DT, 0, READ_DT));
+    // feed into the tokenizer: slide forward (a little wave), up onto the deck
+    const f = ease(ramp(t, FEED[0] + (9 - i) * 0.025, FEED[1] + (9 - i) * 0.025));
+    z = lerp(z, DECK_Z, f); y = lerp(y, DECK_Y, f) + 0.12 * Math.sin(Math.PI * f);
+    x += [-0.14, 0, 0.14][g] * sep(t);
+    m.position.set(x, y - (CUBE / 2) * sq, z); m.rotation.set(rx, 0, rz); m.scale.set(s * (1 + 0.5 * sq), s * (1 - sq), s * (1 + 0.5 * sq));
+    const red = rk >= 0 ? ramp(t, redT(rk) + 0.05, redT(rk) + 0.25) * (1 - ramp(t, redOff[0], redOff[1])) : 0;
+    tA.set("#EEE6D8").lerp(tB.set("#EE6A47"), red); m.material.color.copy(tA);
+    d.material.color.copy(tA.set(INK).lerp(tB.set("#FFFFFF"), red));
+    let em = 0; if (sOn !== null && f === 0) em = 0.25 * clamp(1 - Math.abs(x - sOn) / 0.8); if (i === rd) em = 0.22;
+    m.material.emissive.set("#FFB75E"); m.material.emissiveIntensity = em;
+  });
+  // the cut: blades flash, then the three blocks take over
+  blades.forEach((bl) => { bl.material.opacity = bump(t, CUT - 0.05, 0.3); });
+  cutL.intensity = 4 * bump(t, CUT - 0.05, 0.35);
+    blocks.forEach(({ m, ds }, g) => {
+    const ids = GIDS[g], cx = (X(ids[0]) + X(ids[ids.length - 1])) / 2;
+    m.visible = fused && t < SINK[1]; if (!m.visible) return;
+    let x = cx, y = DECK_Y, z = DECK_Z, sq = 0, ry = 0;
+    const flash = Math.exp(-(t - FUSE) * 9); m.material.emissive.set("#FFE2BE"); m.material.emissiveIntensity = 0.5 * flash;
+    const e = ramp(t, exitT(g), exitT(g) + EXIT);
+    if (e > 0) { const q = ease(e); x = lerp(cx, padX(g), q); z = lerp(DECK_Z, BLOCK_Z, q); y = lerp(DECK_Y, BLOCK_Y, q) + 1.9 * Math.sin(Math.PI * e); ry = 0.25 * Math.sin(Math.PI * e) * (g - 1);
+      const u = t - (exitT(g) + EXIT); if (u > 0) sq += 0.16 * Math.exp(-u * 11) * Math.cos(u * 22); }
+    if (e >= 1) { const h = hop(t, hopT(g), 0.42, 0.7); y += h.y; sq += h.sq; }
+    y -= sink(t);
+    m.position.set(x, y - (CUBE / 2) * sq, z); m.rotation.set(0, ry, 0); m.scale.set(1 + 0.5 * sq, 1 - sq, 1 + 0.5 * sq);
+    const lf = 1 - ramp(t, hopT(g) + 0.08, hopT(g) + 0.32);   // letters are gone before the number lights (AI view)
+    ds.forEach((d) => { d.material.opacity = lf; });
+  });
+  pads.forEach((p, g) => { p.visible = t < SINK[1]; p.position.y = -sink(t); disp[g].material.opacity = numOn(g, t); });
+  mergedPad.visible = t >= RISE[0]; mergedPad.position.y = -0.95 * (1 - ease(ramp(t, RISE[0], RISE[1])));
+  cutL.intensity += 3 * bump(t, M_EXIT - 0.3, 0.35);
+  merged.m.visible = t >= MERGE_T;
+  if (merged.m.visible) {
+    const e = ramp(t, M_EXIT, M_EXIT + EXIT), q = ease(e), u = t - (M_EXIT + EXIT), sq = u > 0 ? 0.15 * Math.exp(-u * 10) * Math.cos(u * 20) : 0, lift = ease(ramp(t, TOK, TOK + 0.8)), sway = ramp(t, TOK + 0.8, TOK + 1.4);
+    merged.m.position.set(0, lerp(DECK_Y, BLOCK_Y, q) + 1.9 * Math.sin(Math.PI * e) + 0.75 * lift + 0.06 * sway * Math.sin((t - TOK) * 2.2) - (CUBE / 2) * sq, lerp(DECK_Z, BLOCK_Z, q) + 0.5 * lift);
+    merged.m.rotation.set(0.12 * lift, 0.12 * sway * Math.sin((t - TOK - 0.8) * 1.5), 0); merged.m.scale.set(1 + 0.4 * sq, 1 - sq, 1 + 0.4 * sq);
+    merged.m.material.emissive.set("#FFE2BE"); merged.m.material.emissiveIntensity = u > 0 ? 0.45 * Math.exp(-u * 10) : 0;
+    const lf = ramp(t, TOK + 0.1, TOK + 0.6); merged.ds.forEach((d) => { d.material.opacity = lf; });
+    dispM.material.opacity = numOnM(t);
+  }
+  // light pipe: a pulse runs to the pads as each block comes out
+  const PT = [exitT(0), exitT(1), exitT(2)], P2 = M_EXIT;
+  pulses.forEach((pm, g) => { let u = ramp(t, PT[g] - 0.3, PT[g] + 0.6); if (g === 1 && t > P2 - 0.4) u = ramp(t, P2 - 0.3, P2 + 0.6); pm.visible = u > 0 && u < 1; if (!pm.visible) return; pipe.getPointAt(u, pm.position); pm.userData.l.intensity = 3; });
+  pipeCore.color.set("#FFC27A").multiplyScalar(1 + 0.6 * Math.max(...[0, 1, 2].map((g) => bump(t, exitT(g) - 0.3, 0.9)), bump(t, M_EXIT - 0.3, 0.9)));
+}
+
+// ---------- render ----------
+let comp = null;
+if (USE_AO) { comp = new EffectComposer(R); comp.setSize(W, H); comp.addPass(new RenderPass(scene, cam));
+  const ao = new GTAOPass(scene, cam, W, H); ao.updateGtaoMaterial({ radius: 0.9, distanceExponent: 1.5, thickness: 1.2, scale: 1.25, samples: 12 }); ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 }); comp.addPass(ao); comp.addPass(new OutputPass()); }
+const blurC = Object.assign(document.createElement("canvas"), { width: W, height: H }), blurX = blurC.getContext("2d");
+const maskC = Object.assign(document.createElement("canvas"), { width: W, height: H }), maskX = maskC.getContext("2d");
+function grade(t) {
+  // tilt-shift (top and bottom), warm light pool, darker edges; the AI view darkens a little more and cools
+  blurX.clearRect(0, 0, W, H); blurX.filter = "blur(8px)"; blurX.drawImage(glc, 0, 0); blurX.filter = "none";
+  for (const [y0, y1, up] of [[0, 600, true], [1520, 1920, false]]) {
+    maskX.clearRect(0, 0, W, H); maskX.globalCompositeOperation = "source-over"; const gr = maskX.createLinearGradient(0, up ? y1 : y0, 0, up ? y0 : y1); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, "rgba(0,0,0,1)"); maskX.fillStyle = gr; maskX.fillRect(0, y0, W, y1 - y0);
+    maskX.globalCompositeOperation = "source-in"; maskX.drawImage(blurC, 0, 0); ctx.drawImage(maskC, 0, 0); }
+  ctx.save(); ctx.globalCompositeOperation = "soft-light"; const pool = ctx.createRadialGradient(470, 820, 60, 470, 820, 760); pool.addColorStop(0, `rgba(255,214,160,${0.85 * (1 - 0.6 * aiv(t))})`); pool.addColorStop(1, "rgba(255,214,160,0)"); ctx.fillStyle = pool; ctx.fillRect(0, 0, W, H); ctx.restore();
+  ctx.save(); ctx.globalCompositeOperation = "multiply"; const v = ctx.createRadialGradient(520, 860, 420, 520, 900, 1300); v.addColorStop(0, "rgba(255,255,255,1)"); v.addColorStop(1, "rgba(120,92,62,1)"); ctx.fillStyle = v; ctx.fillRect(0, 0, W, H); ctx.restore();
+  const k = aiv(t); if (k > 0) { ctx.save(); ctx.globalCompositeOperation = "multiply"; ctx.fillStyle = `rgba(150,160,190,${0.35 * k})`; ctx.fillRect(0, 0, W, H); ctx.restore(); }
+}
+
+// ---------- 2D overlays ----------
+function overlays(t) {
+  const trayFront = (x, dy = 0) => P3(x, TRAY_Y - CUBE / 2, TRAY_Z + 0.55);
+  // "AI：2 个", crossed in L2, droops in L3
+  const st = vis(t, b(1) - 0.75, a(4) + 0.35, 0.2, 0.3);
+  if (st > 0) { const p = P3(-0.7, TRAY_Y + 1.6, TRAY_Z), s = back(ramp(t, b(1) - 0.75, b(1) - 0.4)), sag = ramp(t, a(3), a(3) + 0.5);
+    ctx.save(); ctx.globalAlpha = st; ctx.translate(p.x, p.y + 16 * sag); ctx.rotate(-0.1 * sag + 0.035 * sag * Math.sin(t * 5)); ctx.scale(s, s);
+    card(0, 0, 230, 84, { r: 22 }); ctx.fillStyle = CREAMC + "0.93)"; ctx.beginPath(); ctx.moveTo(-18, 40); ctx.lineTo(0, 62); ctx.lineTo(18, 40); ctx.fill();
+    txt("AI：2 个", 0, 2, { font: F(900, 40) });
+    const x = ramp(t, a(2) + 0.85, a(2) + 1.0); if (x > 0) { ctx.strokeStyle = CORAL; ctx.lineWidth = 8; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(-86, -28); ctx.lineTo(-86 + 172 * x, -28 + 56 * x); ctx.stroke(); const x2 = ramp(t, a(2) + 1.0, a(2) + 1.12); if (x2 > 0) { ctx.beginPath(); ctx.moveTo(86, -28); ctx.lineTo(86 - 172 * x2, -28 + 56 * x2); ctx.stroke(); } }
+    ctx.restore();
+    const c3 = ramp(t, a(2) + 0.7, a(2) + 0.85); if (c3 > 0) { const q = P3(2.6, TRAY_Y + 2.3, TRAY_Z); label("答案：3 个", q.x, q.y, { font: F(900, 40), h: 80, bg: CORAL, color: "#fff", alpha: st, scale: back(ramp(t, a(2) + 0.7, a(2) + 1.0)) }); } }
+  // 1 2 3 over the r's (kept below the answer pill)
+  RIDX.forEach((i, kk) => { const al = ramp(t, redT(kk), redT(kk) + 0.12) * (1 - ramp(t, redOff[0], redOff[1] + 0.1)); if (al <= 0) return;
+    const h = hop(t, redT(kk), 0.4, 0.75), p = P3(X(i), TRAY_Y + 0.75 + h.y, TRAY_Z), s = back(ramp(t, redT(kk), redT(kk) + 0.3));
+    ctx.save(); ctx.globalAlpha = al; ctx.translate(p.x, p.y); ctx.scale(s, s); txt(String(kk + 1), 0, 0, { font: FI(900, 50), color: CORAL }); ctx.restore(); });
+  // "很多新 AI 已经能答对": three answer cards
+  const nb = vis(t, a(4) + 0.25, a(4) + 3.6, 0.2, 0.3);
+  if (nb > 0) [[-2.6, 0.5], [0, 0.1], [2.6, 0.35]].forEach(([x, dy], kk) => { const t0 = a(4) + 0.25 + kk * 0.28, s = back(ramp(t, t0, t0 + 0.32)); if (s <= 0) return;
+    const p = P3(x, TRAY_Y + 2.0 + dy * 0.6 + 0.08 * Math.sin(t * 2 + kk), TRAY_Z);
+    ctx.save(); ctx.globalAlpha = nb; ctx.translate(p.x, p.y); ctx.scale(s, s); card(0, 0, 200, 76, { r: 22 });
+    ctx.fillStyle = CORAL; ctx.beginPath(); ctx.arc(-62, 0, 20, 0, 7); ctx.fill(); txt("AI", -62, 1, { font: FI(800, 17), color: "#fff" }); txt("3 个 ✓", 24, 2, { font: F(900, 36), color: GREEN }); ctx.restore(); });
+  const below = () => Math.min(trayFront(0).y + 110, 1225);
+  label("✓ 很多新 AI 已经能答对", 540, below(), { font: F(700, 36), h: 66, alpha: vis(t, a(4) + 0.1, a(4) + 3.6, 0.25, 0.3), color: GREEN });
+  // x-ray: brackets appear under the three groups behind the scan line, "秘密在这里"
+  const xa = vis(t, XR[0], XR[1], 0.15, 0.4), xx = lerp(-3.6, 3.6, ease(ramp(t, XR[0], XR[0] + 1.2)));
+  if (xa > 0) { GIDS.forEach((ids, g) => { const xl = X(ids[0]) - 0.28, xr2 = Math.min(X(ids[ids.length - 1]) + 0.28, xx); if (xr2 <= xl) return;
+      const A1 = P3(xl, tray.userData.top + 0.02, TRAY_Z + 0.52), B1 = P3(xr2, tray.userData.top + 0.02, TRAY_Z + 0.52);
+      ctx.save(); ctx.globalAlpha = xa; ctx.strokeStyle = CORAL; ctx.lineWidth = 7; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(A1.x + 4, A1.y + 8); ctx.lineTo(A1.x + 4, A1.y + 26); ctx.lineTo(B1.x - 4, B1.y + 26); if (xr2 >= X(ids[ids.length - 1]) + 0.27) ctx.lineTo(B1.x - 4, B1.y + 8); ctx.stroke(); ctx.restore(); });
+    label("秘密在这里", 540, below() + 20, { font: F(900, 40), h: 74, bg: CORAL, color: "#fff", alpha: xa * ramp(t, XR[0] + 0.55, XR[0] + 0.7), scale: back(ramp(t, XR[0] + 0.55, XR[0] + 0.85)) }); }
+  // reading eye
+  const ea = vis(t, READ0 - 0.25, READ0 + 10 * READ_DT + 0.3, 0.2, 0.3);
+  if (ea > 0) { const r = clamp((t - READ0) / READ_DT, 0, 9.5), i0 = Math.floor(r), f = r - i0, x = lerp(X(Math.min(i0, 9)), X(Math.min(i0 + 1, 9)), smooth(clamp((f - 0.6) / 0.4))); const p = P3(x, TRAY_Y + 0.8, TRAY_Z); eye(p.x, p.y, ea); }
+  label("我们：一个字母一个字母地看", 540, below(), { font: F(700, 36), h: 66, alpha: vis(t, a(5) + 0.45, a(6) + 0.3) });
+  // tokenizer tag, "AI：先切成一块块积木"
+  const ta = vis(t, FEED[0] - 0.1, exitT(2) + 0.6, 0.3, 0.3);
+  if (ta > 0) { const p = P3(-3.4, tok.userData.top + 1.2, tok.position.z + 0.75); const q = { x: p.x - 10, y: p.y - 120 };
+    ctx.save(); ctx.globalAlpha = ta; ctx.strokeStyle = "rgba(43,39,38,.55)"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(q.x, q.y + 30); ctx.lineTo(p.x, p.y); ctx.stroke(); ctx.fillStyle = "rgba(43,39,38,.75)"; ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, 7); ctx.fill(); ctx.restore();
+    label("分词器（示意）", Math.max(q.x, 190), q.y, { font: F(900, 36), h: 64, alpha: ta }); }
+  const padsFront = P3(0, 0, PADZ + 0.8);
+  label("AI：先切成一块块积木", 540, Math.min(padsFront.y + 80, 1225), { font: F(900, 38), h: 68, alpha: vis(t, a(6) + 0.5, a(7) + 0.3) });
+  // AI view
+  const k = aiv(t);
+  if (k > 0) { label("AI 的视角（示意）", 540, 530, { font: F(900, 38), h: 70, bg: "rgba(43,39,38,.9)", color: "#F6F0E6", alpha: k, scale: lerp(0.9, 1, eo(k)) });
+    label("编号：GPT-4 分词器实测", 540, Math.min(padsFront.y + 80, 1225), { font: F(700, 32), h: 58, alpha: k * vis(t, a(7) + 0.6, a(8) + 0.35) }); }
+  // the numbers, large and clear, above each glass display
+  const numTag = (s, x, al, sc) => { if (al <= 0) return; const p = P3(x, PAD_TOP + 1.22, PADZ - 0.6); label(s, p.x, p.y - 34, { font: FI(800, 42), h: 70, bg: CORAL, color: "#fff", alpha: al, scale: sc }); };
+  IDS.forEach((s, g) => numTag(s, padX(g), numOn(g, t), back(ramp(t, hopT(g) + 0.35, hopT(g) + 0.65))));
+  numTag("#73700", 0, numOnM(t) * (1 - ramp(t, a(9) + 0.9, a(9) + 1.2)), back(ramp(t, M_EXIT + EXIT, M_EXIT + EXIT + 0.3)));
+  // the sentence (L8): the tokenizer's real cut of it — 8 pieces, " strawberry" is one of them
+  const sa = vis(t, a(8) + 0.2, a(9) + 0.3, 0.3, 0.3);
+  if (sa > 0) { const TOKS = ["How", "many", "r", "'s", "are", "in", "strawberry", "?"], f = FI(700, 34), ws = TOKS.map((x) => tw(x, f) + 26), tot = ws.reduce((x, y) => x + y, 0) + 8 * (TOKS.length - 1);
+    const p = P3(0, BLOCK_Y + 2.25, PADZ - 0.6); let x = 540 - tot / 2;
+    TOKS.forEach((s, j) => { const pj = back(ramp(t, a(8) + 0.25 + j * 0.06, a(8) + 0.55 + j * 0.06)); const hi = j === 6; card(x + ws[j] / 2, p.y, ws[j], 54, { alpha: sa, r: 12, bg: hi ? CORAL : undefined, scale: pj });
+      ctx.save(); ctx.globalAlpha = sa; ctx.translate(x + ws[j] / 2, p.y); ctx.scale(pj, pj); txt(s, 0, 1, { font: f, color: hi ? "#fff" : INK }); ctx.restore(); x += ws[j] + 8; }); }
+  label("这句切成 8 块，“ strawberry”（带空格）是 1 块 · 实测", 540, Math.min(padsFront.y + 80, 1225), { font: F(700, 32), h: 58, alpha: vis(t, a(8) + 0.4, a(9) + 0.3) });
+  // Token (L9)
+  const tk = ramp(t, a(9) + 1.1, a(9) + 1.4);
+  if (tk > 0) { const p = P3(0, BLOCK_Y - CUBE / 2 + 0.75, BLOCK_Z + 0.85), y = Math.min(p.y + 120, 1225);
+    ctx.save(); ctx.globalAlpha = tk; ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(540, p.y + 10); ctx.lineTo(540, y - 38); ctx.stroke(); ctx.restore();
+    label("Token", 540, y, { font: FI(800, 48), h: 82, bg: INK, color: "#F6F0E6", scale: back(ramp(t, a(9) + 1.1, a(9) + 1.45)), alpha: tk }); }
+}
+function eye(x, y, al) { ctx.save(); ctx.globalAlpha *= al; ctx.translate(x, y); card(0, 0, 112, 70, { r: 35 });
+  ctx.fillStyle = "#fff"; ctx.strokeStyle = INK; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(-38, 0); ctx.quadraticCurveTo(0, -34, 38, 0); ctx.quadraticCurveTo(0, 34, -38, 0); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(0, 2, 12, 0, 7); ctx.fill(); ctx.restore(); }
+
+// ---------- UI: headline, depth gauge (labels under the dots), captions ----------
+const LEVELS = ["对话", "模型", "芯片"], GXs = (i) => 420 + i * 120, GY = 400;
+const level = (t) => ease(ramp(t, a(6) + 0.2, a(6) + 0.9));
+function gauge(t) {
+  const al = vis(t, a(5) - 0.1, DUR + 1, 0.4, 0.3); if (al <= 0) return;
+  const v = level(t); ctx.save(); ctx.globalAlpha = al;
+  card(540, GY + 16, 330, 84, { r: 24, a: 0.8 });
+  ctx.strokeStyle = "rgba(43,39,38,.3)"; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(GXs(0), GY); ctx.lineTo(GXs(2), GY); ctx.stroke();
+  ctx.strokeStyle = CORAL; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(GXs(0), GY); ctx.lineTo(GXs(0) + v * 120, GY); ctx.stroke();
+  LEVELS.forEach((n, i) => { const near = clamp(1 - Math.abs(v - i)); ctx.fillStyle = near > 0.5 ? CORAL : "#F6F0E6"; ctx.strokeStyle = near > 0.5 ? CORAL : INK; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(GXs(i), GY, 9 + 4 * near, 0, 7); ctx.fill(); ctx.stroke();
+    txt(n, GXs(i), GY + 34, { font: F(near > 0.5 ? 900 : 700, 30), color: near > 0.5 ? CORAL : "rgba(43,39,38,.7)" }); });
+  ctx.restore();
+}
+const HEADS = () => [[0, a(4) + 2.0, "AI [数不清]字母？"], [a(4) + 2.0, a(5), "它为什么会[错]？"], [a(5), DUR + 1, "AI 怎么[读]字？"]];
+function headline(t) {
+  for (const [t0, t1, s] of HEADS()) { if (t < t0 - 0.01 || t > t1 + 0.15) continue;
+    const inn = t0 <= 0 ? 1 : ramp(t, t0 + 0.1, t0 + 0.4), out = 1 - ramp(t, t1, t1 + 0.14), sc = lerp(1.08, 1, eo(inn)) * lerp(1, 0.94, 1 - out);
+    const f = F(900, 84), w = tw(s.replace(/[\[\]]/g, ""), f) + 84;
+    ctx.save(); ctx.globalAlpha = inn * out; ctx.translate(540, 290); ctx.scale(sc, sc); card(0, 0, w, 124); rich(s, 0, 2, f, INK, CORAL); ctx.restore(); }
+}
+const CAPW = (s) => tw(s.replace(/[，；：。]$/, ""), F(700, 52)), CAPMAX = 800, CAPX = 525;
+function chunks(s) { const parts = s.match(/[^，；：。？]+[，；：。？]?/g) || [s], out = []; const short = (x) => x.replace(/[，；：。？、]/g, "").length <= 4;
+  for (const p of parts) { const prev = out[out.length - 1]; if (out.length && (CAPW(prev + p) <= CAPMAX || short(prev))) out[out.length - 1] += p; else out.push(p); } return out; }
+function wrap2(c) { if (CAPW(c) <= CAPMAX) return [c]; let best = -1, bd = 1e9, q = 0;
+  for (let e = 1; e < c.length; e++) { if (c[e - 1] === "“") q++; if (c[e - 1] === "”") q--; if (q > 0 || (/[A-Za-z]/.test(c[e - 1]) && /[A-Za-z]/.test(c[e]))) continue;
+    if (/[一二三四五六七八九十几百千万亿]/.test(c[e - 1]) && /[个块次万亿千百]/.test(c[e])) continue;
+    const punct = /[，；：、]/.test(c[e - 1]), good = punct || /[了是就都也里不 ]/.test(c[e - 1]) || /[和而但就都也]/.test(c[e]) || c[e] === "“" || (c[e - 1] === "的" && !/[“”]/.test(c[e]));
+    const d = Math.abs(CAPW(c.slice(0, e)) - CAPW(c.slice(e))) / 52 + (good ? 0 : 10) - (punct ? 8 : 0); if (d < bd) { bd = d; best = e; } }
+  return [c.slice(0, best).trim(), c.slice(best).trim()]; }
+function captions(t) {
+  let i = -1; for (let n = 0; n < 10; n++) if (L[n].t0 <= t) i = n; if (i < 0 || t >= L[i].t1 + 0.5) return;   // the sample ends with line 9
+  const cs = chunks(L[i].text), lens = cs.map((c) => c.length), tot = lens.reduce((x, y) => x + y, 0); let acc = L[i].t0, idx = 0;
+  for (let j = 0; j < cs.length; j++) { const d = (L[i].t1 - L[i].t0) * lens[j] / tot; if (t >= acc) idx = j; acc += d; }
+  const st = L[i].t0 + (L[i].t1 - L[i].t0) * lens.slice(0, idx).reduce((x, y) => x + y, 0) / tot;
+  const rows = wrap2(cs[idx].replace(/[，；：。]$/, "")).map((r) => r.replace(/[，；：。]$/, "")), al = st <= 0.05 ? 1 : ramp(t, st, st + 0.1);
+  const font = F(700, 52), w = Math.max(...rows.map((r) => tw(r, font))), top = rows.length > 1 ? 1262 : 1306, hgt = rows.length > 1 ? 150 : 84;
+  ctx.save(); ctx.globalAlpha = al; card(CAPX, top + hgt / 2, w + 56, hgt, { r: 22 }); rows.forEach((r, n) => txt(r, CAPX, top + 44 + n * 66, { font, color: INK })); ctx.restore();
+}
+
+// ---------- frame ----------
+window.seek = function (t) {
+  update3D(t);
+  if (comp) comp.render(); else R.render(scene, cam);
+  ctx.reset(); ctx.drawImage(glc, 0, 0);
+  grade(t);
+  overlays(t); gauge(t); headline(t); captions(t);
+};
+window.seek(0); window.ready = true;
+</script>
+</body></html>
