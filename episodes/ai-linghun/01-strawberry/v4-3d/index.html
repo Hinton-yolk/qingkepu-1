@@ -1,0 +1,634 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>AI 灵魂拷问 EP.01 · v4 3D 样片</title>
+<style>
+@font-face { font-family: NS; src: url(/assets/fonts/NotoSansSC-500.woff); font-weight: 500; }
+@font-face { font-family: NS; src: url(/assets/fonts/NotoSansSC-700.woff); font-weight: 700; }
+@font-face { font-family: NS; src: url(/assets/fonts/NotoSansSC-900.woff); font-weight: 900; }
+@font-face { font-family: IN; src: url(/assets/fonts/Inter-var.woff); font-weight: 100 900; }
+html, body { margin: 0; background: #000; }
+canvas { display: block; }
+</style></head>
+<body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script src="/timeline.js"></script>
+<script type="importmap">{ "imports": { "three": "/v4-3d/node_modules/three/build/three.module.js", "three/addons/": "/v4-3d/node_modules/three/examples/jsm/" } }</script>
+<script type="module">
+// 「AI 灵魂拷问」EP.01 — v4 sample: the first ~31 s (to 「这种积木，行业里叫 Token。」) rebuilt in real 3D (three.js).
+// window.seek(t) is a pure function of t. The 3D scene is rendered into an offscreen WebGL canvas, drawn into #c,
+// then the 2D layer (headline, depth gauge, captions, labels anchored to 3D points) goes on top.
+// World units: one letter block = 1 unit. Letter blocks are white alphabet cubes; tokens are coloured studded bricks.
+import * as THREE from "three";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+
+const { W, H, L } = window.TL;
+const a = (i) => L[i].t0, b = (i) => L[i].t1;
+const DUR = +(a(10) + 0.3).toFixed(2); window.DUR = DUR;
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+
+// ---------- palette ----------
+const C = {
+  cream: "#F3EEE3", ink: "#1C1B22", soft: "rgba(28,27,34,.6)", tile: "#FFFDF8", edge: "#D8D0C0",
+  red: "#E5483B", yellow: "#F2B33D", blue: "#2F6FDB", green: "#2FA36B", paper: "#F6F3EC",
+};
+const BRICK = [C.red, C.yellow, C.blue, C.green];
+
+// ---------- math ----------
+const clamp = (x, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, x));
+const ramp = (t, t0, t1) => clamp((t - t0) / (t1 - t0));
+const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const smooth = (x) => x * x * x * (x * (x * 6 - 15) + 10);
+const eo = (x) => 1 - Math.pow(1 - x, 3);
+const back = (x) => { const c1 = 1.9, c3 = c1 + 1; return x <= 0 ? 0 : x >= 1 ? 1 : 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const lerp = (p, q, x) => p + (q - p) * x;
+const vis = (t, t0, t1, fi = 0.3, fo = 0.3) => ramp(t, t0, t0 + fi) * (1 - ramp(t, t1 - fo, t1));
+const bump = (t, t0, d = 0.35) => Math.sin(Math.PI * ramp(t, t0, t0 + d));
+function mulberry(seed) { return function () { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let x = Math.imul(seed ^ (seed >>> 15), 1 | seed); x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x; return ((x ^ (x >>> 14)) >>> 0) / 4294967296; }; }
+function hex(c) { const n = parseInt(c.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+function mixc(c1, c2, x) { const p = hex(c1), q = hex(c2); return `rgb(${p.map((v, i) => Math.round(lerp(v, q[i], x))).join(",")})`; }
+// a hop of height h starting at t0, lasting d; returns {y, sq} where sq is the squash on landing (0 = none)
+function hop(t, t0, d, h) {
+  const p = ramp(t, t0, t0 + d), y = h * Math.sin(Math.PI * p);
+  const u = t - (t0 + d), sq = u > 0 ? 0.16 * Math.exp(-u * 11) * Math.cos(u * 22) : (p > 0 ? -0.06 * Math.sin(Math.PI * p) : 0);
+  return { y, sq };
+}
+
+// ---------- 2D helpers (same look as the v3 draft) ----------
+const F = (w, s) => `${w} ${s}px NS, "Noto Sans CJK SC", sans-serif`;
+const FI = (w, s) => `${w} ${s}px IN, NS, "Noto Sans CJK SC", sans-serif`;
+await Promise.all([
+  document.fonts.load(F(500, 40), "字"), document.fonts.load(F(700, 40), "字"), document.fonts.load(F(900, 40), "字"),
+  document.fonts.load(FI(800, 40), "a"), document.fonts.load(FI(700, 40), "a"),
+]);   // canvas textures below are drawn once: the fonts must be ready first
+function rr(x, y, w, h, r, c = ctx) { c.beginPath(); c.roundRect(x, y, w, h, r); }
+function txt(s, x, y, o = {}) {
+  ctx.save(); ctx.font = o.font || F(700, 40); ctx.fillStyle = o.color || C.ink;
+  ctx.textAlign = o.align || "center"; ctx.textBaseline = o.base || "middle"; ctx.globalAlpha *= o.alpha ?? 1;
+  ctx.fillText(s, x, y); ctx.restore();
+}
+function tw(s, font, c = ctx) { c.save(); c.font = font; const w = c.measureText(s).width; c.restore(); return w; }
+function rich(s, x, y, font, color, hl, align = "center") {
+  const parts = []; s.replace(/\[([^\]]+)\]|([^\[]+)/g, (m, h, n) => parts.push(h ? [h, hl] : [n, color]));
+  ctx.save(); ctx.font = font; ctx.textBaseline = "middle"; ctx.textAlign = "left";
+  const total = parts.reduce((w, p) => w + ctx.measureText(p[0]).width, 0);
+  let cx = align === "center" ? x - total / 2 : x;
+  for (const [str, col] of parts) { ctx.fillStyle = col; ctx.fillText(str, cx, y); cx += ctx.measureText(str).width; }
+  ctx.restore(); return total;
+}
+function pill(s, x, y, o = {}) {
+  const font = o.font || F(700, 34), w = tw(s, font) + (o.padX ?? 40), h = o.h || 64;
+  ctx.save(); ctx.globalAlpha *= o.alpha ?? 1;
+  ctx.translate(x, y); ctx.scale(o.scale ?? 1, o.scale ?? 1); ctx.rotate(o.rot || 0);
+  if (o.shadow !== false) { ctx.fillStyle = "rgba(0,0,0,.12)"; rr(-w / 2 + 3, -h / 2 + 7, w, h, h / 2); ctx.fill(); }
+  ctx.fillStyle = o.bg || C.ink; rr(-w / 2, -h / 2, w, h, h / 2); ctx.fill();
+  if (o.stroke) { ctx.lineWidth = 4; ctx.strokeStyle = o.stroke; ctx.stroke(); }
+  txt(s, 0, 2, { font, color: o.color || C.paper });
+  ctx.restore();
+}
+// a note on a soft cream backing so it reads over the 3D table
+function note(s, x, y, o = {}) {
+  const font = o.font || F(700, 36), al = o.alpha ?? 1; if (al <= 0) return;
+  const w = tw(s, font) + 36, h = o.h || 58;
+  ctx.save(); ctx.globalAlpha *= al; ctx.fillStyle = o.bg || "rgba(243,238,227,.82)"; rr(x - w / 2, y - h / 2, w, h, h / 2); ctx.fill(); ctx.restore();
+  txt(s, x, y + 1, { font, color: o.color || C.ink, alpha: al });
+}
+
+// ---------- 3D setup ----------
+const glc = document.createElement("canvas"); glc.width = W; glc.height = H;
+const R = new THREE.WebGLRenderer({ canvas: glc, antialias: true, preserveDrawingBuffer: true });
+R.setPixelRatio(1); R.setSize(W, H, false);
+R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap;
+R.toneMapping = THREE.NeutralToneMapping; R.toneMappingExposure = 1.0;
+R.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(C.cream);
+scene.fog = new THREE.Fog(C.cream, 36, 90);
+const cam = new THREE.PerspectiveCamera(42, W / H, 0.1, 300);
+scene.environment = new THREE.PMREMGenerator(R).fromScene(new RoomEnvironment(), 0.04).texture;   // soft studio reflections
+scene.environmentIntensity = 0.55;
+scene.add(new THREE.HemisphereLight("#FFFFFF", "#E2D3B8", 1.0));
+const key = new THREE.DirectionalLight("#FFF4E2", 2.3);
+key.position.set(7, 17, 11); key.castShadow = true; key.shadow.mapSize.set(2048, 2048);
+Object.assign(key.shadow.camera, { left: -15, right: 15, top: 15, bottom: -15, near: 1, far: 70 });
+key.shadow.bias = -0.0004; key.shadow.normalBias = 0.025;
+scene.add(key, key.target);
+const rim = new THREE.DirectionalLight("#DCE6FF", 0.8); rim.position.set(-9, 7, -8); scene.add(rim);
+
+const P = 1.0, TH = 0.94, Y0 = 0.1, YC = Y0 + TH / 2;   // pitch, block size, top of the baseplate studs, block centre height
+const TX = (i) => (i - 4.5) * P;
+const tmpA = new THREE.Color(), tmpB = new THREE.Color();
+function setCol(mat, c1, c2, k) { mat.color.copy(tmpA.set(c1)).lerp(tmpB.set(c2), clamp(k)); }
+
+// baseplate: a cream table with low studs (instanced)
+{
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(260, 260), new THREE.MeshStandardMaterial({ color: "#EEE5D2", roughness: 0.92 }));
+  ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+  const sg = new THREE.CylinderGeometry(0.3, 0.3, Y0, 28); sg.translate(0, Y0 / 2, 0);
+  const pts = []; for (let x = -30; x <= 30; x += 1.6) for (let z = -44; z <= 16; z += 1.6) pts.push([x + 0.8, z + 0.8]);
+  const im = new THREE.InstancedMesh(sg, new THREE.MeshStandardMaterial({ color: "#F0E8D7", roughness: 0.75 }), pts.length);
+  const m = new THREE.Matrix4(); pts.forEach(([x, z], i) => im.setMatrixAt(i, m.makeTranslation(x, 0, z)));
+  im.receiveShadow = true; scene.add(im);
+}
+
+// ---------- geometry / material factories ----------
+const studGeo = new THREE.CylinderGeometry(0.17, 0.17, 0.16, 28); studGeo.translate(0, 0.08, 0);
+const plastic = (col, o = {}) => new THREE.MeshPhysicalMaterial({ color: col, roughness: 0.3, clearcoat: 0.65, clearcoatRoughness: 0.22, transparent: !!o.transparent });
+function makeBrick(n, col, o = {}) {        // n units long, one unit deep; origin at the brick centre
+  const g = new THREE.Group(), mat = plastic(col, { transparent: true }), smat = plastic(col);
+  const body = new THREE.Mesh(new RoundedBoxGeometry(n * P - 0.06, TH, P - 0.06, 4, 0.11), mat);
+  body.castShadow = body.receiveShadow = true; g.add(body);
+  const studs = [];
+  for (let k = 0; k < n; k++) for (const dx of [-0.23, 0.23]) for (const dz of [-0.23, 0.23]) {
+    const s = new THREE.Mesh(studGeo, smat); s.position.set((k - (n - 1) / 2) * P + dx, TH / 2 - 0.01, dz); s.castShadow = true; g.add(s); studs.push(s);
+  }
+  return { g, body, mat, smat, studs, n };
+}
+function canvasTex(wpx, hpx, draw) {
+  const c = document.createElement("canvas"); c.width = wpx; c.height = hpx; draw(c.getContext("2d"), wpx, hpx);
+  const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8; return tx;
+}
+// white text on transparent; the decal's material colour tints it (ink or white)
+function textTex(s, wpx, hpx, font) {
+  return canvasTex(wpx, hpx, (x, w, h) => { x.font = font; x.fillStyle = "#fff"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(s, w / 2, h / 2 + h * 0.03); });
+}
+function decal(tex, w, h, color) {
+  return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, transparent: true, color, roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -2, depthWrite: false }));
+}
+function rrShape(w, h, r) {
+  const s = new THREE.Shape(), x = -w / 2, y = -h / 2;
+  s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r); s.lineTo(x + w, y + h - r);
+  s.quadraticCurveTo(x + w, y + h, x + w - r, y + h); s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y); return s;
+}
+
+// ---------- timing (everything keys off the narration in timeline.js) ----------
+const WORD = "strawberry";
+const GROUP = (i) => (i < 3 ? 0 : i < 5 ? 1 : 2), GIDS = [[0, 1, 2], [3, 4], [5, 6, 7, 8, 9]];
+const GCOL = [C.red, C.yellow, C.blue], GX = GIDS.map((ids) => ids.reduce((s, i) => s + TX(i), 0) / ids.length);
+const RIDX = [2, 7, 8];
+const LAUNCH = a(1) + 0.45, STAG = 0.05, FLY = 0.8;              // letters leave the phone
+const SCAN1 = [a(1) + 2.0, b(1) - 0.85];                          // the AI "looks" at the word
+const redT = (k) => a(2) + 0.05 + k * 0.3;                         // the three r's hop and turn red
+const redOff = [a(4) + 3.1, a(4) + 3.5];
+const XR = [a(4) + 3.7, a(5) + 0.15];                              // x-ray glimpse
+const READ0 = a(5) + 0.45, READ_DT = 0.22;                         // reading one letter at a time
+const KN = { in0: a(6) + 0.3, in1: a(6) + 0.85 }, CUT = a(6) + 1.15; // the knives
+const washT = (i) => CUT + 0.45 + GIDS[GROUP(i)].indexOf(i) * 0.07;
+const fuseT = (g) => CUT + 0.45 + GIDS[g].length * 0.07 + 0.25;
+const studT = (g, k) => fuseT(g) + 0.05 + k * 0.012;
+const hopT = (g) => a(7) + 0.95 + g * 0.62;                        // str · aw · berry
+const spinT = (g) => b(7) - 0.3 + g * 0.18, SPIN = 0.6;            // turn round: the AI sees the number side
+const MERGE = [a(8) + 0.85, a(8) + 1.35], MERGE_T = a(8) + 1.4;    // in a sentence: one brick
+const TOK = a(9) + 0.1;                                            // the merged brick lifts and turns back to the letters
+const vf = (t) => vis(t, a(7) + 0.1, a(9) + 0.35, 0.3, 0.3);       // the AI-view frame
+
+// ---------- the phone ----------
+const PHW = 3.0, PHH = 6.0, SCRW = 2.84, SCRH = 5.84, SPX = 600 / SCRW;   // screen texture: 600 × 1236 px
+const phone = new THREE.Group(); scene.add(phone);
+{
+  const pg = new THREE.ExtrudeGeometry(rrShape(PHW, PHH, 0.44), { depth: 0.22, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.05, bevelSegments: 4, curveSegments: 18 });
+  pg.translate(0, 0, -0.11);
+  const body = new THREE.Mesh(pg, new THREE.MeshPhysicalMaterial({ color: "#23232B", roughness: 0.35, clearcoat: 0.8, clearcoatRoughness: 0.2 }));
+  body.castShadow = true; phone.add(body);
+}
+const scrC = document.createElement("canvas"); scrC.width = 600; scrC.height = Math.round(SCRH * SPX);
+const scrX = scrC.getContext("2d"), scrTex = new THREE.CanvasTexture(scrC); scrTex.colorSpace = THREE.SRGBColorSpace; scrTex.anisotropy = 8;
+const screen = new THREE.Mesh(new THREE.PlaneGeometry(SCRW, SCRH), new THREE.MeshBasicMaterial({ map: scrTex, toneMapped: false, fog: false }));
+screen.position.z = 0.165; phone.add(screen);
+const QF = F(700, 44), Q1 = " 里有几个 r？";
+let QL = null;   // question bubble layout on the screen texture
+function qLayout() {
+  if (QL) return QL;
+  const w = tw(WORD + Q1, QF, scrX) + 60, x = 600 - 44 - w, y = 250, h = 100, x0 = x + 30;
+  const xs = [...WORD].map((ch, i) => x0 + tw(WORD.slice(0, i), QF, scrX) + tw(ch, QF, scrX) / 2);
+  return (QL = { w, x, y, h, x0, xs, ty: y + h / 2 });
+}
+function drawScreen(t) {
+  const x = scrX, w = scrC.width, h = scrC.height;
+  x.clearRect(0, 0, w, h); x.fillStyle = "#23232B"; x.fillRect(0, 0, w, h);
+  x.fillStyle = "#FBFAF7"; rr(10, 10, w - 20, h - 20, 74, x); x.fill();
+  x.fillStyle = "#23232B"; rr(w / 2 - 66, 34, 132, 36, 18, x); x.fill();
+  x.font = F(700, 38); x.fillStyle = C.ink; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText("AI 助手", w / 2, 140);
+  x.fillStyle = "rgba(0,0,0,.08)"; x.fillRect(10, 190, w - 20, 3);
+  const q = qLayout();
+  x.fillStyle = C.blue; rr(q.x, q.y, q.w, q.h, 32, x); x.fill();
+  x.font = QF; x.fillStyle = "#fff"; x.textAlign = "center";
+  [...WORD].forEach((ch, i) => { if (t < LAUNCH + i * STAG) x.fillText(ch, q.xs[i], q.ty + 2); });
+  x.textAlign = "left"; x.fillText(Q1, q.x0 + tw(WORD, QF, x), q.ty + 2);
+  // the answer pops at frame 0
+  const pop = back(ramp(t, -0.12, 0.3)), ay = q.y + 220;
+  x.fillStyle = C.ink; x.beginPath(); x.arc(70, ay, 30, 0, 7); x.fill();
+  x.font = FI(800, 26); x.fillStyle = C.paper; x.textAlign = "center"; x.fillText("AI", 70, ay + 1);
+  x.save(); x.translate(118, ay); x.scale(pop, pop);
+  x.fillStyle = "#ECE8DF"; rr(0, -52, 210, 104, 34, x); x.fill();
+  x.font = F(900, 52); x.fillStyle = C.ink; x.fillText("2 个。", 105, 3); x.restore();
+  for (let i = 0; i < 3; i++) { x.fillStyle = `rgba(28,27,34,${0.15 + 0.25 * Math.max(0, Math.sin(t * 6 - i))})`; x.beginPath(); x.arc(134 + i * 26, ay + 118, 8, 0, 7); x.fill(); }
+  x.font = F(700, 36); x.fillStyle = "rgba(28,27,34,.6)"; x.textAlign = "center"; x.fillText("示意：早期 AI 的常见错答", w / 2, ay + 230);
+  scrTex.needsUpdate = true;
+}
+function phonePose(t, o = phone) {
+  const out = ease(ramp(t, a(1) + 1.0, a(1) + 2.0));            // leaves to the left once the letters are out
+  o.position.set(-12 * out, 3.45 + 0.07 * Math.sin(t * 1.7), -1.8 - 2.5 * out);
+  o.rotation.set(-0.07 + 0.015 * Math.sin(t * 1.1), 0.13 + 0.03 * Math.sin(t * 0.8) + 0.55 * out, 0.12 * out);
+  o.visible = out < 1;
+  o.updateMatrixWorld(true);
+}
+const _ph = new THREE.Object3D();
+function letterStart(i) {                                         // where letter i sits on the screen when it takes off
+  const q = qLayout(); phonePose(LAUNCH + i * STAG, _ph);
+  return new THREE.Vector3((q.xs[i] / SPX) - SCRW / 2, SCRH / 2 - q.ty / SPX, 0.2).applyMatrix4(_ph.matrixWorld);
+}
+
+// ---------- the word: 10 letter blocks inside 3 token groups ----------
+const groups = GIDS.map((ids, g) => {
+  const G = new THREE.Group(); scene.add(G);
+  const br = makeBrick(ids.length, GCOL[g]); G.add(br.g);
+  // the number side (the back face): what the AI sees
+  const id = ["#496", "#675", "#15717"][g];
+  const nd = decal(textTex(id, Math.round(ids.length * 256), 170, FI(800, 128)), ids.length * P - 0.2, 0.66, "#ffffff");
+  nd.position.set(0, 0, -(P - 0.06) / 2 - 0.004); nd.rotation.y = Math.PI; br.g.add(nd);
+  const tiles = ids.map((i) => {
+    const m = new THREE.Mesh(new RoundedBoxGeometry(TH, TH, TH, 4, 0.12), new THREE.MeshPhysicalMaterial({ color: C.tile, roughness: 0.5, clearcoat: 0.25, transparent: true }));
+    m.castShadow = m.receiveShadow = true;
+    const lt = decal(textTex(WORD[i], 256, 256, FI(800, 236)), 0.86, 0.86, C.ink); lt.position.z = TH / 2 + 0.004; m.add(lt);
+    G.add(m); return { i, m, lt, start: null };
+  });
+  return { g, G, br, nd, tiles };
+});
+// the merged brick (" strawberry" in a sentence = 1 token): letters on the front, the number on the back
+const M = makeBrick(10, C.green); scene.add(M.g);
+{
+  const word = canvasTex(2560, 256, (x, w, h) => { x.font = FI(800, 210); x.fillStyle = "#fff"; x.textAlign = "center"; x.textBaseline = "middle"; [...WORD].forEach((ch, i) => x.fillText(ch, (i + 0.5) * 256, h / 2 + 8)); });   // same glyph size as the letter blocks
+  const fd = decal(word, 10, 1.0, "#ffffff"); fd.position.z = (P - 0.06) / 2 + 0.004; M.g.add(fd);
+  const nd = decal(textTex("#73700", 2560, 200, FI(800, 150)), 9.6, 0.75, "#ffffff"); nd.position.z = -(P - 0.06) / 2 - 0.004; nd.rotation.y = Math.PI; M.g.add(nd);
+}
+
+// the AI's scan bar (a thin blue light slab)
+const scanBar = new THREE.Mesh(new THREE.BoxGeometry(0.07, 1.7, 1.7), new THREE.MeshBasicMaterial({ color: C.blue, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+const scanGlow = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.7, 1.7), new THREE.MeshBasicMaterial({ color: "#7FA8F0", transparent: true, opacity: 0.12, depthWrite: false, fog: false }));
+scene.add(scanBar, scanGlow);
+
+// the two knives of the "tokenizer" (schematic): steel blade, dark spine, yellow grip
+const KX = [(TX(2) + TX(3)) / 2, (TX(4) + TX(5)) / 2];
+const knives = KX.map((x) => {
+  const k = new THREE.Group();
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.7, 1.75), new THREE.MeshStandardMaterial({ color: "#E8ECF2", metalness: 0.55, roughness: 0.22 }));
+  blade.position.y = 0.85; blade.castShadow = true; k.add(blade);
+  const spine = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.18, 1.66), new THREE.MeshStandardMaterial({ color: "#5B6170", metalness: 0.6, roughness: 0.35 }));
+  spine.position.y = 1.75; k.add(spine);
+  const grip = new THREE.Mesh(new RoundedBoxGeometry(0.5, 0.75, 1.55, 4, 0.2), plastic(C.yellow)); grip.position.y = 2.2; grip.castShadow = true; k.add(grip);
+  scene.add(k); k.userData.x = x; return k;
+});
+// crumbs at the chop
+const crumbGeo = new THREE.BoxGeometry(0.09, 0.09, 0.09), crumbMat = new THREE.MeshStandardMaterial({ color: "#F4EBDA", roughness: 0.8 });
+const crumbs = []; for (let j = 0; j < 24; j++) { const m = new THREE.Mesh(crumbGeo, crumbMat); m.castShadow = true; scene.add(m); const r = mulberry(j * 97 + 3); crumbs.push({ m, k: j % 2, vx: (r() - 0.5) * 3.2, vy: 2 + r() * 3, vz: 0.8 + r() * 2.4, spin: r() * 12 }); }
+
+// background props: a few bricks scattered on the far table (environment, parallax)
+{
+  const R0 = mulberry(77);
+  const spots = [[-10, -9], [-14, -16], [11, -11], [15, -18], [-18, -26], [20, -8], [-21, -7], [16, -30], [-12, 7], [12, 6], [-7, -24], [7, -26]];
+  spots.forEach(([x, z], i) => {
+    const n = 1 + Math.floor(R0() * 3), br = makeBrick(n, BRICK[i % 4]);
+    br.g.position.set(x, YC, z); br.g.rotation.y = (R0() - 0.5) * 1.4; br.mat.transparent = false; scene.add(br.g);
+    if (R0() < 0.45) { const t2 = makeBrick(Math.max(1, n - 1), BRICK[(i + 2) % 4]); t2.g.position.set(x + 0.3, YC + TH, z + 0.1); t2.g.rotation.y = br.g.rotation.y + 0.2; t2.mat.transparent = false; scene.add(t2.g); }
+  });
+}
+
+// ---------- camera: keyframed shots, eased; a slow hand-held drift on top ----------
+const S = (pos, tgt, fov = 42, fit = 1) => ({ pos: new THREE.Vector3(...pos), tgt: new THREE.Vector3(...tgt), fov, fit });
+const KEYS = [
+  [0, S([1.2, 5.5, 13.6], [0, 2.82, -1.8], 42, 0)],
+  [LAUNCH, S([0.8, 5.3, 13.0], [0, 2.75, -1.8], 42, 0)],
+  [a(1) + 2.05, S([6.8, 7.2, 21.5], [-0.4, -0.3, 0])],
+  [a(2) + 0.1, S([5.6, 6.4, 20.0], [-0.3, -0.1, 0])],
+  [a(4) + 0.3, S([-5.0, 7.0, 21.0], [0.2, -0.3, 0])],
+  [XR[0] - 0.2, S([-6.2, 6.6, 21.5], [0.3, -0.3, 0])],
+  [XR[0] + 1.0, S([-2.4, 2.8, 21.5], [0.1, 0.1, 0], 40)],
+  [READ0 - 0.15, S([-3.3, 4.6, 15.6], [-3.3, -0.35, 0], 40, 0)],
+  [READ0 + 10 * READ_DT, S([3.3, 4.6, 15.6], [3.3, -0.35, 0], 40, 0)],
+  [KN.in0 + 0.35, S([12.0, 8.6, 22.5], [-0.8, -0.3, 0], 40)],
+  [CUT, S([10.8, 7.9, 20.8], [-0.8, -0.3, 0], 40)],
+  [a(7) + 0.3, S([-5.6, 7.4, 22.5], [0.3, -0.3, 0])],
+  [a(8) + 0.2, S([5.2, 7.4, 23.0], [-0.3, -0.3, 0])],
+  [TOK, S([0.4, 6.8, 24.0], [0, 0.3, 0])],
+  [DUR, S([-1.6, 6.4, 23.0], [0, 0.6, 0])],
+];
+const _p = new THREE.Vector3(), _q = new THREE.Vector3(), _d = new THREE.Vector3(), FITX = 0.86;
+// the corners the framing must keep in view: the word (wider while the cut gaps are open), and the lifted brick at the end
+function fitPts(t) {
+  const hx = 5.0 + 0.36 * sep(t), lift = ease(ramp(t, TOK, TOK + 0.8)), out = [];
+  for (const x of [-hx, hx]) for (const y of [Y0, Y0 + TH + 0.2 + 1.0 * lift]) for (const z of [-0.5, 0.5 + 0.6 * lift]) out.push(new THREE.Vector3(x, y, z));
+  return out;
+}
+function cameraAt(t) {
+  let k = 0; while (k < KEYS.length - 2 && t > KEYS[k + 1][0]) k++;
+  const [t0, A] = KEYS[k], [t1, B] = KEYS[k + 1], u = smooth(ramp(t, t0, t1));
+  _p.lerpVectors(A.pos, B.pos, u); _q.lerpVectors(A.tgt, B.tgt, u);
+  let fov = lerp(A.fov, B.fov, u);
+  const fit = lerp(A.fit, B.fit, u);
+  if (fit > 0) {                       // dolly along the view line until the word's outer corners sit at ±FITX of the frame
+    const d0 = _p.distanceTo(_q), dir = _d.subVectors(_p, _q).normalize();
+    let d = d0;
+    for (let it = 0; it < 4; it++) {
+      cam.position.copy(_q).addScaledVector(dir, d); cam.fov = fov; cam.updateProjectionMatrix(); cam.lookAt(_q); cam.updateMatrixWorld(true);
+      let mx = 0; for (const v of fitPts(t)) { _v.copy(v).project(cam); mx = Math.max(mx, Math.abs(_v.x)); }
+      d *= mx / FITX;
+    }
+    _p.copy(_q).addScaledVector(dir, lerp(d0, d, fit));
+  }
+  _p.x += 0.22 * Math.sin(t * 0.63); _p.y += 0.14 * Math.sin(t * 0.81 + 1.3);
+  const sh = t > CUT ? Math.exp(-(t - CUT) * 9) * ramp(t, CUT, CUT + 0.02) : 0;     // the chop shakes the camera
+  _p.x += 0.16 * sh * Math.sin(t * 83); _p.y += 0.12 * sh * Math.cos(t * 71);
+  fov -= 2.2 * sh;
+  cam.position.copy(_p); cam.fov = fov; cam.updateProjectionMatrix(); cam.lookAt(_q); cam.updateMatrixWorld(true);
+}
+let ky_ = 9;
+const _v = new THREE.Vector3();
+function proj(x, y, z) { _v.set(x, y, z).project(cam); return { x: (_v.x + 1) / 2 * W, y: (1 - _v.y) / 2 * H }; }
+function projObj(o, dx = 0, dy = 0, dz = 0) { o.updateMatrixWorld(true); _v.set(dx, dy, dz).applyMatrix4(o.matrixWorld); return proj(_v.x, _v.y, _v.z); }
+
+// ---------- per-frame state ----------
+const readIdx = (t) => { const r = (t - READ0) / READ_DT; return r >= 0 && r < 10 ? Math.floor(r) : -1; };
+const sep = (t) => ease(ramp(t, CUT + 0.03, CUT + 0.32)) * (1 - ease(ramp(t, MERGE[0], MERGE[1])));
+const scanX1 = (t) => { const s = ramp(t, SCAN1[0], SCAN1[1]); return s > 0 && s < 1 ? lerp(-5.9, 5.9, ease(s)) : null; };
+const xrX = (t) => lerp(-6, 6, ease(ramp(t, XR[0], XR[0] + 1.2)));
+const xrA = (t) => vis(t, XR[0], XR[1], 0.15, 0.4);
+
+function update3D(t) {
+  cameraAt(t);
+  phonePose(t);
+  if (phone.visible) drawScreen(t);
+  const rd = readIdx(t), sx1 = scanX1(t), xa = xrA(t), xx = xrX(t), sp = sep(t);
+  const merged = t >= MERGE_T;
+  groups.forEach(({ G, br, nd, tiles }, g) => {
+    G.visible = !merged;
+    if (merged) return;
+    // group transform: separation after the cut, hops, the turn to the number side, merge
+    let y = 0, sq = 0, ry = 0;
+    const f = t - fuseT(g); if (f > 0) sq += 0.14 * Math.exp(-f * 10) * Math.cos(f * 20);
+    for (const [t0, d, h] of [[hopT(g), 0.44, 0.95], [spinT(g), SPIN, 1.15]]) { const hp = hop(t, t0, d, h); y += hp.y; sq += hp.sq; }
+    ry = Math.PI * ease(ramp(t, spinT(g), spinT(g) + SPIN));
+    G.position.set(GX[g] + [-0.36, 0, 0.36][g] * sp, YC + y - (TH / 2) * sq, 0);
+    G.rotation.set(0, ry, 0); G.scale.set(1 + 0.5 * sq, 1 - sq, 1 + 0.5 * sq);
+    // the brick body: hidden before the fusion, ghosted inside the blocks during the x-ray
+    const fused = t >= fuseT(g);
+    const left = TX(GIDS[g][0]) - 0.5, inner = xa * clamp((xx - left) / 0.8);
+    br.body.visible = fused || inner > 0.01;
+    br.mat.opacity = fused ? 1 : 0.9 * inner; br.mat.depthWrite = fused;
+    br.body.scale.set(fused ? 1 : 0.94, fused ? 1 : 0.78, fused ? 1 : 0.78);
+    const fl = fused ? Math.exp(-(t - fuseT(g)) * 9) : 0;
+    br.mat.emissive.set("#ffffff"); br.mat.emissiveIntensity = 0.55 * fl;
+    nd.visible = fused;
+    br.studs.forEach((s, k) => { const p = back(ramp(t, studT(g, k), studT(g, k) + 0.22)); s.visible = p > 0.01; s.scale.set(1, Math.max(p, 0.001), 1); });
+    // the letter blocks
+    tiles.forEach((T) => {
+      const { i, m, lt } = T;
+      const t0 = LAUNCH + i * STAG;
+      if (t < t0) { m.visible = false; return; }
+      m.visible = true;
+      // flight from the phone screen, tumbling once, then a landing bounce
+      const p = ramp(t, t0, t0 + FLY), q = 1 - (1 - p) * (1 - p);
+      if (!T.start) T.start = letterStart(i);
+      const ex = TX(i), ey = YC, ez = 0;
+      let wx = lerp(T.start.x, ex, q), wy = lerp(T.start.y, ey, q) + 2.4 * Math.sin(Math.PI * p), wz = lerp(T.start.z, ez, q);
+      let s = lerp(0.2, 1, eo(p)), rx = -2 * Math.PI * (1 - q), rz = 0.35 * Math.sin(Math.PI * p) * (i % 2 ? 1 : -1);
+      const u = t - (t0 + FLY);
+      let tsq = 0;
+      if (u > 0) { wy += 0.42 * Math.abs(Math.sin(u * 10)) * Math.exp(-u * 6.5); tsq = 0.2 * Math.exp(-u * 12) * Math.cos(u * 22); }
+      // the three r's hop (L2); the reading hop (L5)
+      const rk = RIDX.indexOf(i);
+      if (rk >= 0) { const hp = hop(t, redT(rk), 0.4, 0.9); wy += hp.y; tsq += hp.sq; }
+      if (i === rd) wy += 0.22 * Math.sin(Math.PI * ramp((t - READ0) % READ_DT, 0, READ_DT));
+      // into the group's local frame (the group is at rest until the cut, so this is exact)
+      m.position.set(wx - GX[g] - (p < 1 ? [-0.36, 0, 0.36][g] * sp : 0), wy - YC - (TH / 2) * tsq, wz);
+      if (p >= 1) m.position.x = ex - GX[g];
+      m.rotation.set(rx, 0, rz); m.scale.set(s * (1 + 0.5 * tsq), s * (1 - tsq), s * (1 + 0.5 * tsq));
+      // colour: red r's, the token colour washing in after the cut, reading / scanning glows
+      const red = rk >= 0 ? ramp(t, redT(rk) + 0.05, redT(rk) + 0.25) * (1 - ramp(t, redOff[0], redOff[1])) : 0;
+      const wash = ramp(t, washT(i), washT(i) + 0.25);
+      setCol(m.material, C.tile, red > 0 ? C.red : GCOL[g], Math.max(red, wash));
+      setCol(lt.material, C.ink, "#ffffff", Math.max(red, wash));
+      let em = 0, emc = C.blue;
+      if (sx1 !== null) em = 0.35 * clamp(1 - Math.abs(ex - sx1) / 0.9);
+      if (i === rd) { em = 0.28; emc = "#FFB238"; }
+      m.material.emissive.set(emc); m.material.emissiveIntensity = em;
+      // x-ray: blocks behind the scan line turn see-through, revealing the brick inside
+      const xk = xa * clamp((xx - (ex - 0.5)) / 0.5);
+      m.material.opacity = 1 - 0.8 * xk; m.material.depthWrite = xk < 0.02;
+      lt.material.opacity = 1 - 0.45 * xk;
+      // after the fusion the block body disappears: the brick body takes over (same size), the letter stays on it
+      m.material.visible = !(t >= fuseT(g));
+      if (t >= fuseT(g)) { m.position.z = 0; m.rotation.set(0, 0, 0); m.scale.set(1, 1, 1); m.position.y = 0; }
+    });
+  });
+  // the merged brick
+  M.g.visible = merged;
+  if (merged) {
+    const u = t - MERGE_T, fl = 0.75 * Math.exp(-u * 13);
+    const rise = ease(ramp(t, TOK, TOK + 0.8)), sway = ramp(t, TOK + 0.8, TOK + 1.4);
+    const sq = 0.15 * Math.exp(-u * 10) * Math.cos(u * 20);
+    M.g.position.set(0, YC + 1.0 * rise + 0.08 * sway * Math.sin((t - TOK) * 2.2) - (TH / 2) * sq, 0.6 * rise);
+    M.g.rotation.set(0.05 * sway * Math.sin((t - TOK) * 1.3), Math.PI + Math.PI * rise + 0.2 * sway * Math.sin((t - TOK - 0.8) * 1.6), 0);
+    M.g.scale.set(1 + 0.4 * sq, 1 - sq, 1 + 0.4 * sq);
+    M.mat.emissive.set("#ffffff"); M.mat.emissiveIntensity = 0.6 * fl; M.smat.emissive.set("#ffffff"); M.smat.emissiveIntensity = 0.6 * fl;
+    M.studs.forEach((s) => { const d = Math.abs(s.position.x) * 0.035; s.scale.set(1, 1 + 0.7 * bump(t, MERGE_T + d, 0.22), 1); });
+  }
+  // scan bar (L1) and x-ray scanner (L4)
+  const xs = xa > 0 && ramp(t, XR[0], XR[0] + 1.2) < 1 ? xx : null, sx = sx1 ?? xs;
+  scanBar.visible = scanGlow.visible = sx !== null;
+  if (sx !== null) { scanBar.position.set(sx, YC + 0.2, 0); scanGlow.position.set(sx - 0.45, YC + 0.2, 0); }
+  // knives: come down, hover, chop, lift away
+  const kin = ease(ramp(t, KN.in0, KN.in1)), chop = ramp(t, CUT - 0.07, CUT), up = ease(ramp(t, CUT + 0.4, CUT + 0.95));
+  const ky = ky_ = lerp(lerp(9, 1.9, kin), Y0, chop * chop) + 9 * up + (chop === 0 ? 0.12 * Math.sin(t * 9) * kin : 0);
+  knives.forEach((k, j) => { k.visible = t > KN.in0 - 0.05 && up < 1; k.position.set(k.userData.x + [-0.36, 0.36][j] * 0 , ky, 0); k.rotation.set(0, 0, 0.04 * (1 - chop) * Math.sin(t * 7 + j)); });
+  crumbs.forEach((c) => {
+    const u = t - CUT; c.m.visible = u > 0 && u < 0.75;
+    if (!c.m.visible) return;
+    c.m.position.set(KX[c.k] + c.vx * u * 0.5, Y0 + 0.9 + c.vy * u - 9 * u * u, 0.5 + c.vz * u * 0.6);
+    if (c.m.position.y < Y0 + 0.05) c.m.position.y = Y0 + 0.05;
+    c.m.rotation.set(c.spin * u, c.spin * u * 0.7, 0); const s = 1 - u / 0.75; c.m.scale.set(s, s, s);
+  });
+  R.render(scene, cam);
+}
+
+// ---------- 2D layer ----------
+const rowFront = () => proj(0, Y0, 0.55);
+function overlays(t) {
+  const row = rowFront(), below = Math.min(row.y + 120, 1220);
+  // "AI：2 个" (end of L1), crossed out in L2; "答案：3 个"
+  const st = vis(t, b(1) - 0.75, a(4) + 0.3, 0.2, 0.25);
+  if (st > 0) {
+    const pA = proj(-3.4, YC + 2.4, 0), s = back(ramp(t, b(1) - 0.75, b(1) - 0.4));
+    const sag = ramp(t, a(3), a(3) + 0.5);                              // 「你可能觉得它笨」: the bubble droops
+    ctx.save(); ctx.globalAlpha = st; ctx.translate(pA.x, pA.y + 18 * sag); ctx.rotate(-0.12 * sag + 0.04 * sag * Math.sin(t * 5)); ctx.scale(s, s);
+    ctx.fillStyle = "rgba(0,0,0,.12)"; rr(-117, -37, 240, 88, 24); ctx.fill();
+    ctx.fillStyle = C.paper; rr(-120, -44, 240, 88, 24); ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = C.ink; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-20, 44); ctx.lineTo(0, 66); ctx.lineTo(20, 44); ctx.fillStyle = C.paper; ctx.fill(); ctx.stroke();
+    txt("AI：2 个", 0, 2, { font: F(900, 40) });
+    const x = ramp(t, a(2) + 0.85, a(2) + 1.0);
+    if (x > 0) { ctx.strokeStyle = C.red; ctx.lineWidth = 9; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(-90, -30); ctx.lineTo(-90 + 180 * x, -30 + 60 * x); ctx.stroke(); if (x >= 1) { const x2 = ramp(t, a(2) + 1.0, a(2) + 1.12); ctx.beginPath(); ctx.moveTo(90, -30); ctx.lineTo(90 - 180 * x2, -30 + 60 * x2); ctx.stroke(); } }
+    ctx.restore();
+    const c3 = ramp(t, a(2) + 0.7, a(2) + 0.85);
+    if (c3 > 0) { const pB = proj(3.2, YC + 2.4, 0); pill("答案：3 个", pB.x, pB.y, { font: F(900, 40), bg: C.red, h: 84, scale: back(ramp(t, a(2) + 0.7, a(2) + 1.0)), alpha: st }); }
+  }
+  // 1 2 3 over the r's
+  RIDX.forEach((i, k) => {
+    const al = ramp(t, redT(k), redT(k) + 0.12) * (1 - ramp(t, redOff[0], redOff[1] + 0.1));
+    if (al <= 0) return;
+    const hp = hop(t, redT(k), 0.4, 0.9), p = proj(TX(i), YC + 1.25 + hp.y, 0), s = back(ramp(t, redT(k), redT(k) + 0.3));
+    ctx.save(); ctx.globalAlpha = al; ctx.translate(p.x, p.y); ctx.scale(s, s); txt(String(k + 1), 0, 0, { font: FI(900, 54), color: C.red }); ctx.restore();
+  });
+  // 「现在很多新 AI 已经能答对了」: three answers pop up
+  const nb = vis(t, a(4) + 0.25, a(4) + 3.6, 0.2, 0.3);
+  if (nb > 0) [[-3.6, 0.55], [0, 0.15], [3.6, 0.35]].forEach(([x, dz], k) => {
+    const t0 = a(4) + 0.25 + k * 0.28, s = back(ramp(t, t0, t0 + 0.32)); if (s <= 0) return;
+    const p = proj(x, YC + 3.3 + 0.12 * Math.sin(t * 2 + k), dz);
+    ctx.save(); ctx.globalAlpha = nb; ctx.translate(p.x, p.y); ctx.scale(s, s);
+    ctx.fillStyle = "rgba(0,0,0,.12)"; rr(-92, -32, 190, 76, 24); ctx.fill();
+    ctx.fillStyle = "#fff"; rr(-95, -38, 190, 76, 24); ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = C.green; ctx.stroke();
+    ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(-58, 0, 20, 0, 7); ctx.fill(); txt("AI", -58, 1, { font: FI(800, 17), color: C.paper });
+    txt("3 个 ✓", 22, 2, { font: F(900, 36), color: C.green });
+    ctx.restore();
+  });
+  const ok = vis(t, a(4) + 0.1, a(4) + 3.6, 0.25, 0.3);
+  if (ok > 0) pill("✓ 很多新 AI 已经能答对", 540, below, { font: F(700, 38), bg: C.green, h: 72, alpha: ok, scale: back(ramp(t, a(4) + 0.1, a(4) + 0.4)) });
+  const xa = xrA(t);
+  if (xa > 0) pill("秘密在这里", 540, below, { font: F(900, 40), bg: C.blue, h: 76, alpha: xa * ramp(t, XR[0] + 0.9, XR[0] + 1.2), scale: back(ramp(t, XR[0] + 0.9, XR[0] + 1.25)) });
+  // the reading eye (L5)
+  const ea = vis(t, READ0 - 0.25, READ0 + 10 * READ_DT + 0.3, 0.2, 0.3);
+  if (ea > 0) { const r = clamp((t - READ0) / READ_DT, 0, 9.5), i0 = Math.floor(r), f = r - i0, x = lerp(TX(Math.min(i0, 9)), TX(Math.min(i0 + 1, 9)), smooth(clamp((f - 0.6) / 0.4))); const p = proj(x, YC + 1.35, 0); eye(p.x, p.y, ea); }
+  note("我们：一个字母一个字母地看", 540, below, { alpha: vis(t, a(5) + 0.45, a(6) + 0.3) });
+  note("AI：先切成一块块积木", 540, below, { font: F(900, 40), alpha: vis(t, a(6) + 0.45, a(7) + 0.3) });
+  // the knives' label
+  const ka = vis(t, KN.in0 + 0.3, CUT + 0.7, 0.25, 0.3);
+  if (ka > 0) { const p = proj((KX[0] + KX[1]) / 2, ky_ + 3.6, 0); pill("分词器（示意）", p.x, Math.max(p.y, 520), { font: F(900, 38), bg: C.ink, h: 72, alpha: ka, scale: back(ramp(t, KN.in0 + 0.3, KN.in0 + 0.65)) }); }
+  note("切法和编号：GPT-4 分词器实测", 540, below, { font: F(700, 34), color: C.soft, alpha: vis(t, a(7) + 0.5, a(8) + 0.35) });
+  // the sentence (L8)
+  const sa = vis(t, a(8) + 0.2, a(9) + 0.3, 0.3, 0.3);
+  if (sa > 0) { const p = proj(0, YC + 2.6, 0); ctx.save(); ctx.globalAlpha = sa; ctx.fillStyle = "rgba(243,238,227,.82)"; rr(140, p.y - 42, 800, 84, 42); ctx.fill(); rich("How many r's are in [strawberry]?", 540, p.y, FI(700, 42), C.ink, C.green); ctx.restore(); }
+  note("句子里（前面有空格）整个词 = 1 块 · 实测", 540, below, { font: F(700, 34), color: C.soft, alpha: vis(t, a(8) + 0.4, a(9) + 0.3) });
+  // Token (L9)
+  const tk = ramp(t, a(9) + 1.1, a(9) + 1.4);
+  if (tk > 0) {
+    const p = projObj(M.g, 0, -TH / 2, 0), y = Math.min(p.y + 110, 1220);
+    ctx.save(); ctx.globalAlpha = tk; ctx.strokeStyle = C.ink; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(540, p.y + 18); ctx.lineTo(540, y - 36); ctx.stroke(); ctx.restore();
+    pill("Token", 540, y, { font: FI(800, 48), h: 84, bg: C.green, scale: back(ramp(t, a(9) + 1.1, a(9) + 1.45)), alpha: tk });
+  }
+}
+function eye(x, y, al) {
+  ctx.save(); ctx.globalAlpha *= al; ctx.translate(x, y);
+  ctx.fillStyle = "#fff"; ctx.strokeStyle = C.ink; ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.moveTo(-44, 0); ctx.quadraticCurveTo(0, -40, 44, 0); ctx.quadraticCurveTo(0, 40, -44, 0); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(0, 2, 14, 0, 7); ctx.fill();
+  ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(4, -3, 4, 0, 7); ctx.fill();
+  ctx.restore();
+}
+// the AI-view frame (L7–L8): blue tint, scan lines, corner brackets, a tag
+function viewfinder(t) {
+  const v = vf(t); if (v <= 0) return;
+  ctx.save(); ctx.globalAlpha = v;
+  ctx.fillStyle = "rgba(47,111,219,.06)"; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "rgba(47,111,219,.045)"; for (let y = (t * 90) % 14; y < H; y += 14) ctx.fillRect(0, y, W, 4);
+  const m = lerp(-60, 0, eo(v)), x0 = 60 - m, y0 = 480 - m, x1 = 1020 + m, y1 = 1240 + m, Lb = 96;
+  ctx.strokeStyle = C.blue; ctx.lineWidth = 12; ctx.lineCap = "round";
+  for (const [x, y, sx, sy] of [[x0, y0, 1, 1], [x1, y0, -1, 1], [x0, y1, 1, -1], [x1, y1, -1, -1]]) { ctx.beginPath(); ctx.moveTo(x, y + sy * Lb); ctx.lineTo(x, y); ctx.lineTo(x + sx * Lb, y); ctx.stroke(); }
+  ctx.restore();
+  pill("AI 的视角", 540, 480, { font: F(900, 38), bg: C.blue, h: 72, alpha: v });
+}
+
+// ---------- UI: depth gauge, headline, captions (as in v3) ----------
+function level(t) { return ease(ramp(t, a(6) + 0.2, a(6) + 0.9)); }
+const LEVELS = ["对话", "模型", "芯片"], GXs = (i) => 400 + i * 140, GY = 404;
+function gauge(t) {
+  const al = vis(t, a(5) - 0.1, DUR + 1, 0.4, 0.3);
+  if (al <= 0) return;
+  const v = level(t), ink = C.ink, acc = C.red;
+  ctx.save(); ctx.globalAlpha = al;
+  ctx.fillStyle = "rgba(243,238,227,.75)"; rr(GXs(0) - 52, GY - 26, GXs(2) - GXs(0) + 130, 52, 26); ctx.fill();
+  ctx.strokeStyle = ink; ctx.globalAlpha *= 0.3; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(GXs(0), GY); ctx.lineTo(GXs(2), GY); ctx.stroke(); ctx.globalAlpha /= 0.3;
+  ctx.strokeStyle = acc; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(GXs(0), GY); ctx.lineTo(GXs(0) + v * 140, GY); ctx.stroke();
+  LEVELS.forEach((name, i) => {
+    const near = clamp(1 - Math.abs(v - i)), x = GXs(i);
+    ctx.fillStyle = near > 0.5 ? acc : C.cream; ctx.strokeStyle = near > 0.5 ? acc : ink; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(x, GY, 9 + 4 * near, 0, 7); ctx.fill(); ctx.globalAlpha *= 0.6 + 0.4 * near; ctx.stroke(); ctx.globalAlpha /= 0.6 + 0.4 * near;
+    txt(name, x + 22, GY + 1, { font: F(near > 0.5 ? 900 : 500, 26), align: "left", color: near > 0.5 ? acc : ink, alpha: 0.4 + 0.6 * near });
+  });
+  const x = GXs(0) + v * 140, pr = 16 + 5 * Math.sin(t * 4);
+  ctx.globalAlpha *= 0.35; ctx.strokeStyle = acc; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, GY, pr, 0, 7); ctx.stroke();
+  ctx.restore();
+}
+const HEADS = () => [
+  [0, a(4) + 2.0, "AI [数不清]字母？"],
+  [a(4) + 2.0, a(5), "它为什么会[错]？"],
+  [a(5), DUR + 1, "AI 怎么[读]字？"],
+];
+function headline(t) {
+  const col = C.ink, hl = C.red;
+  for (const [t0, t1, s] of HEADS()) {
+    if (t < t0 - 0.01 || t > t1 + 0.15) continue;
+    const inn = t0 <= 0 ? 1 : ramp(t, t0 + 0.1, t0 + 0.4), out = 1 - ramp(t, t1, t1 + 0.14);
+    const sc = lerp(1.12, 1, eo(inn)) * lerp(1, 0.94, 1 - out);
+    let font = F(900, 88); const w = tw(s.replace(/[\[\]]/g, ""), font); if (w > 900) font = F(900, Math.floor(88 * 900 / w));
+    ctx.save(); ctx.globalAlpha = inn * out; ctx.translate(540, 300); ctx.scale(sc, sc);
+    rich(s, 0, 0, font, col, hl); ctx.restore();
+  }
+}
+const CAPW = (s) => tw(s.replace(/[，；：。]$/, ""), F(700, 52));
+const CAPMAX = 800, CAPX = 525;
+function chunks(s) {
+  const parts = s.match(/[^，；：。？]+[，；：。？]?/g) || [s], out = [];
+  const short = (x) => x.replace(/[，；：。？、]/g, "").length <= 4;
+  for (const p of parts) {
+    const prev = out[out.length - 1];
+    if (out.length && (CAPW(prev + p) <= CAPMAX || short(prev))) out[out.length - 1] += p; else out.push(p);
+  }
+  return out;
+}
+function wrap2(c) {
+  if (CAPW(c) <= CAPMAX) return [c];
+  let best = -1, bd = 1e9, q = 0;
+  for (let e = 1; e < c.length; e++) {
+    if (c[e - 1] === "“") q++; if (c[e - 1] === "”") q--;
+    if (q > 0 || (/[A-Za-z]/.test(c[e - 1]) && /[A-Za-z]/.test(c[e]))) continue;
+    if (/[一二三四五六七八九十几百千万亿]/.test(c[e - 1]) && /[个块次万亿千百]/.test(c[e])) continue;
+    const punct = /[，；：、]/.test(c[e - 1]);
+    const good = punct || /[了是就都也里不 ]/.test(c[e - 1]) || /[和而但就都也]/.test(c[e]) || c[e] === "“" || (c[e - 1] === "的" && !/[“”]/.test(c[e]));
+    const d = Math.abs(CAPW(c.slice(0, e)) - CAPW(c.slice(e))) / 52 + (good ? 0 : 10) - (punct ? 8 : 0);
+    if (d < bd) { bd = d; best = e; }
+  }
+  return [c.slice(0, best).trim(), c.slice(best).trim()];
+}
+function captions(t) {
+  let i = -1;
+  for (let n = 0; n < L.length; n++) if (L[n].t0 <= t) i = n;
+  if (i < 0 || t >= L[i].t1 + 0.5) return;
+  const cs = chunks(L[i].text), lens = cs.map((c) => c.length), tot = lens.reduce((x, y) => x + y, 0);
+  let acc = L[i].t0, idx = 0;
+  for (let j = 0; j < cs.length; j++) { const d = (L[i].t1 - L[i].t0) * lens[j] / tot; if (t >= acc) idx = j; acc += d; }
+  const st = L[i].t0 + (L[i].t1 - L[i].t0) * lens.slice(0, idx).reduce((x, y) => x + y, 0) / tot;
+  const rows = wrap2(cs[idx].replace(/[，；：。]$/, "")).map((r) => r.replace(/[，；：。]$/, ""));
+  const al = st <= 0.05 ? 1 : ramp(t, st, st + 0.1);
+  const font = F(700, 52), w = Math.max(...rows.map((r) => tw(r, font)));
+  const top = rows.length > 1 ? 1262 : 1306, hgt = rows.length > 1 ? 150 : 82;
+  ctx.save(); ctx.globalAlpha = al;
+  ctx.fillStyle = "rgba(255,255,255,.8)"; rr(CAPX - w / 2 - 26, top, w + 52, hgt, 22); ctx.fill();
+  rows.forEach((r, n) => txt(r, CAPX, top + 43 + n * 66, { font, color: C.ink }));
+  ctx.restore();
+}
+
+// ---------- frame ----------
+window.seek = function (t) {
+  update3D(t);
+  ctx.reset();
+  ctx.drawImage(glc, 0, 0);
+  const tw_ = ramp(t, a(1) + 1.2, a(1) + 2.0);
+  if (tw_ > 0) { const g = ctx.createLinearGradient(0, 0, 0, 520); g.addColorStop(0, `rgba(243,238,227,${0.92 * tw_})`); g.addColorStop(0.6, `rgba(243,238,227,${0.6 * tw_})`); g.addColorStop(1, "rgba(243,238,227,0)"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, 520); }
+  overlays(t);
+  viewfinder(t);
+  gauge(t); headline(t); captions(t);
+};
+window.seek(0); window.ready = true;
+</script>
+</body></html>

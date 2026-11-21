@@ -40,5 +40,13 @@
 | 17 | 如今多数 AI 已能答对 | **发布前用当下主流产品实测并存档截图** | 待测 |
 | 18 | 「AI 根本“看不见”字母」（底稿原句的引号已恢复） | 模型的输入是 Token 编号。tiktoken README（「What is BPE anyway?」一节）：「Language models don't see text like you and I, instead they see a sequence of numbers (known as tokens).」引号表示是口语化的说法：字母信息能在训练中被间接学到（Kaushal & Mahowald 2022，What do tokens know about their characters and how do they know it?，NAACL），这也是现在很多新 AI 能答对的原因之一；有的模型还会先把单词逐个字母拆开再数。**后半句的出处待核** | 〔摘〕 |
 
+## v4 3D 样片（前 31 秒）新加的画面
+| # | 画面 | 依据 / 说明 | 等级 |
+|---|---|---|---|
+| 19 | 两把刀落下，把 strawberry 切成 str / aw / berry，标「分词器（示意）」 | 切分位置同 #1（`cl100k_base` 实测）。刀是示意：真实的分词器（BPE）是按词表里的合并规则把字节组合成 Token，不是一刀一刀切 | 〔类比〕〔测〕 |
+| 20 | 积木翻到背面露出 #496 #675 #15717；合成一块后是 #73700；进出「AI 的视角」框 | 编号同 #1、#2。「积木背面是编号」是示意：模型的输入是 Token 编号（tiktoken README：「they see a sequence of numbers (known as tokens)」，见 #18），编号再被换成向量（#9） | 〔类比〕〔摘〕 |
+| 21 | 「现在很多新 AI 已经能答对了」：弹出三个「AI：3 个 ✓」气泡 | 示意，不指认具体产品；事实待测，同 #17 | 待测 |
+| 22 | x 光一瞥：字母方块变透明，里面是三块彩色积木 | 示意：预告后面「切成积木」；三块的切法同 #1 | 〔类比〕 |
+
 ## 画面上的数字
 2、1 2 3（数 r）、#496 #675 #15717、#73700、15 块、3 块、长约 5 倍、2 块碎片（龘）、≈ 2000 亿次、2 × 参数量、20 块、≈ 4 万亿次。数字条上滚动的数值是随机的（已标「数值为示意」）。全部见上表。
