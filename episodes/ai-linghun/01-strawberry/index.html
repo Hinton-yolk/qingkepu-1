@@ -1,0 +1,852 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>AI 灵魂拷问 EP.01 · strawberry</title>
+<style>
+@font-face { font-family: NS; src: url(assets/fonts/NotoSansSC-500.woff); font-weight: 500; }
+@font-face { font-family: NS; src: url(assets/fonts/NotoSansSC-700.woff); font-weight: 700; }
+@font-face { font-family: NS; src: url(assets/fonts/NotoSansSC-900.woff); font-weight: 900; }
+@font-face { font-family: IN; src: url(assets/fonts/Inter-var.woff); font-weight: 100 900; }
+html, body { margin: 0; background: #000; }
+canvas { display: block; }
+</style></head>
+<body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script src="timeline.js"></script>
+<script>
+// 「AI 灵魂拷问」EP.01 — draft. window.seek(t) is a pure function of t; randomness only from seeded mulberry32.
+// Look of the series (proposal): warm cream "toy-block" world on the surface (phone / AI model layers), deep navy once we
+// dig into the chip. The depth gauge on the left says how deep we are. Tokens are toy bricks.
+const { W, H, L, END_CARD, DUR } = window.TL;
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+const a = (i) => L[i].t0, b = (i) => L[i].t1;
+
+// ---------- palette ----------
+const C = {
+  cream: "#F3EEE3", ink: "#1C1B22", soft: "rgba(28,27,34,.55)", tile: "#FFFDF8", edge: "#D8D0C0",
+  red: "#E5483B", yellow: "#F2B33D", blue: "#2F6FDB", green: "#2FA36B",
+  navy: "#111A2C", glow: "#FFD166", paper: "#F6F3EC", skin: "#EBCBA5",
+};
+const BRICK = [C.red, C.yellow, C.blue, C.green];
+// motion tuning (studio rule: no still stretch > 0.6 s). cam = slow floating camera in px; amb* = drifting background bricks
+const TUNE = Object.assign({ plate: 0.045, plateV: 60, cam: 12, camW: 1.2, bob: 8, camS: 0.007, ambA: 0.12, ambN: 22, ambV: 1.3, ambS: 1 }, window.TUNE || {});
+
+// ---------- math ----------
+const clamp = (x, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, x));
+const ramp = (t, t0, t1) => clamp((t - t0) / (t1 - t0));
+const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const eo = (x) => 1 - Math.pow(1 - x, 3);
+const back = (x) => { const c1 = 1.9, c3 = c1 + 1; return x <= 0 ? 0 : x >= 1 ? 1 : 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const lerp = (p, q, x) => p + (q - p) * x;
+const vis = (t, t0, t1, fi = 0.3, fo = 0.3) => ramp(t, t0, t0 + fi) * (1 - ramp(t, t1 - fo, t1));
+const bump = (t, t0, d = 0.35) => Math.sin(Math.PI * ramp(t, t0, t0 + d));
+function mulberry(seed) { return function () { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let x = Math.imul(seed ^ (seed >>> 15), 1 | seed); x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x; return ((x ^ (x >>> 14)) >>> 0) / 4294967296; }; }
+const hash = (i) => mulberry(i * 7919 + 13)();
+function hex(c) { const n = parseInt(c.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+function mixc(c1, c2, x) { const p = hex(c1), q = hex(c2); return `rgb(${p.map((v, i) => Math.round(lerp(v, q[i], x))).join(",")})`; }
+function shade(c, k) { const p = hex(c); return `rgb(${p.map((v) => Math.round(k < 0 ? v * (1 + k) : v + (255 - v) * k)).join(",")})`; }
+
+// ---------- drawing helpers ----------
+const F = (w, s) => `${w} ${s}px NS, "Noto Sans CJK SC", sans-serif`;
+const FI = (w, s) => `${w} ${s}px IN, NS, "Noto Sans CJK SC", sans-serif`;
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function txt(s, x, y, o = {}) {
+  ctx.save(); ctx.font = o.font || F(700, 40); ctx.fillStyle = o.color || C.ink;
+  ctx.textAlign = o.align || "center"; ctx.textBaseline = o.base || "middle"; ctx.globalAlpha *= o.alpha ?? 1;
+  ctx.fillText(s, x, y); ctx.restore();
+}
+function tw(s, font) { ctx.save(); ctx.font = font; const w = ctx.measureText(s).width; ctx.restore(); return w; }
+// rich text: [word] is drawn in the highlight colour
+function rich(s, x, y, font, color, hl, align = "center") {
+  const parts = []; s.replace(/\[([^\]]+)\]|([^\[]+)/g, (m, h, n) => parts.push(h ? [h, hl] : [n, color]));
+  ctx.save(); ctx.font = font; ctx.textBaseline = "middle"; ctx.textAlign = "left";
+  const total = parts.reduce((w, p) => w + ctx.measureText(p[0]).width, 0);
+  let cx = align === "center" ? x - total / 2 : x;
+  for (const [str, col] of parts) { ctx.fillStyle = col; ctx.fillText(str, cx, y); cx += ctx.measureText(str).width; }
+  ctx.restore(); return total;
+}
+function pill(s, x, y, o = {}) {
+  const font = o.font || F(700, 34), w = tw(s, font) + (o.padX ?? 40), h = o.h || 64;
+  ctx.save(); ctx.globalAlpha *= o.alpha ?? 1;
+  ctx.translate(x, y); ctx.scale(o.scale ?? 1, o.scale ?? 1); ctx.rotate(o.rot || 0);
+  ctx.fillStyle = o.bg || C.ink; rr(-w / 2, -h / 2, w, h, h / 2); ctx.fill();
+  if (o.stroke) { ctx.lineWidth = 4; ctx.strokeStyle = o.stroke; ctx.stroke(); }
+  txt(s, 0, 2, { font, color: o.color || C.paper });
+  ctx.restore();
+}
+// a toy brick: body + studs on top. letters (optional) are drawn by the caller.
+function brick(cx, cy, w, h, col, o = {}) {
+  const x = cx - w / 2, y = cy - h / 2, al = o.alpha ?? 1;
+  if (al <= 0) return;
+  ctx.save(); ctx.globalAlpha *= al;
+  ctx.fillStyle = "rgba(0,0,0,.13)"; rr(x + 3, y + 9, w, h, 14); ctx.fill();
+  const n = Math.max(1, Math.round(w / 66)), st = o.stud ?? 1;
+  if (st > 0) {
+    const sw = Math.min(30, (w / n) * 0.5), sh = 15 * st;
+    ctx.fillStyle = shade(col, -0.12);
+    for (let i = 0; i < n; i++) { const sx = x + ((i + 0.5) * w) / n; rr(sx - sw / 2, y - sh + 2, sw, sh + 6, 5); ctx.fill(); }
+  }
+  ctx.fillStyle = col; rr(x, y, w, h, 14); ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,.2)"; rr(x + 7, y + 6, w - 14, Math.min(22, h * 0.24), 9); ctx.fill();
+  if (o.label) txt(o.label, cx, cy + 3, { font: o.font || F(900, o.size || 46), color: o.tc || "#fff", alpha: o.la ?? 1 });
+  if (o.ring) { ctx.lineWidth = 6; ctx.strokeStyle = o.ring; rr(x - 10, y - 22, w + 20, h + 32, 20); ctx.stroke(); }
+  ctx.restore();
+}
+function tile(cx, cy, s, ch, o = {}) {
+  const al = o.alpha ?? 1; if (al <= 0) return;
+  ctx.save(); ctx.globalAlpha *= al;
+  if ((o.box ?? 1) > 0) {
+    ctx.globalAlpha *= o.box ?? 1;
+    ctx.fillStyle = o.bg || C.tile; rr(cx - s / 2, cy - s / 2, s, s, s * 0.2); ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = o.edge || C.edge; ctx.stroke();
+    ctx.globalAlpha /= o.box ?? 1;
+  }
+  txt(ch, cx, cy + s * 0.01, { font: FI(800, s * 0.6), color: o.fg || C.ink });
+  ctx.restore();
+}
+
+// ---------- depth (0 phone · 1 AI model · 2 chip · 3 memory) ----------
+function level(t) {
+  let v = 0;
+  v += ease(ramp(t, a(5) + 0.2, a(5) + 0.9));
+  v += ease(ramp(t, a(22) - 0.2, a(22) + 0.6));
+  v -= 2 * ease(ramp(t, a(26) - 0.3, a(26) + 0.7));
+  return v;
+}
+const dark = (t) => clamp(level(t) - 1);
+
+// ---------- background + ambient bricks ----------
+function background(t) {
+  const k = dark(t);
+  ctx.fillStyle = C.cream; ctx.fillRect(0, 0, W, H);
+  // the cream world stands on a toy baseplate: sparse studs, drifting slowly (keeps the frame alive between beats)
+  if (TUNE.plate > 0) {
+    const P = 120, off = (t * TUNE.plateV) % P;
+    ctx.save(); ctx.lineWidth = 5;
+    for (let y = -P; y < H + P; y += P) for (let x = -P; x < W + P; x += P) {
+      const cx = x + off + P / 2, cy = y + off * 0.6 + P / 2;
+      ctx.strokeStyle = `rgba(28,27,34,${TUNE.plate})`; ctx.beginPath(); ctx.arc(cx, cy, 20, 0, 7); ctx.stroke();
+      ctx.strokeStyle = `rgba(255,255,255,${TUNE.plate * 4})`; ctx.beginPath(); ctx.arc(cx - 2, cy - 2, 14, 3.4, 5.2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  if (k > 0) { // going down into the chip: the dark opens from the chip's centre (an iris), and closes again on the way up
+    ctx.fillStyle = C.navy; ctx.beginPath(); ctx.arc(560, 900, 1250 * eo(k), 0, 7); ctx.fill();
+    const g = ctx.createRadialGradient(560, 900, 60, 560, 900, 820);
+    g.addColorStop(0, `rgba(60,90,150,${0.35 * k})`); g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
+  for (let i = 0; i < TUNE.ambN; i++) {
+    const r = mulberry(i * 31 + 5), x = 60 + r() * 960, sp = (26 + r() * 30) * TUNE.ambV, ph = r() * 2400, sz = (26 + r() * 30) * TUNE.ambS;
+    const y = H + 120 - ((t * sp + ph) % (H + 260));
+    const sway = Math.sin(t * 0.6 + i) * 14;
+    ctx.save(); ctx.translate(x + sway, y); ctx.rotate(Math.sin(t * 0.4 + i * 2) * 0.4);
+    if (k < 1) { ctx.globalAlpha = TUNE.ambA * (1 - k); ctx.fillStyle = BRICK[i % 4]; rr(-sz / 2, -sz * 0.35, sz, sz * 0.7, 6); ctx.fill(); }
+    if (k > 0) { ctx.globalAlpha = 0.35 * k; ctx.fillStyle = C.glow; ctx.beginPath(); ctx.arc(0, 0, 2 + sz / 14, 0, 7); ctx.fill(); }
+    ctx.restore();
+  }
+}
+
+// ---------- A · the chat on a phone ----------
+const PH = { cx: 560, cy: 850, w: 480, h: 760 }, PS = 1.18;   // drawn at PS× around its centre
+const Q = "strawberry 里有几个 r？", QF = F(700, 32);
+function qLayout() {
+  const w = tw(Q, QF) + 44, x = PH.cx + PH.w / 2 - 34 - w, y = PH.cy - PH.h / 2 + 170;
+  const x0 = x + 22, word = "strawberry";
+  const xs = []; for (let i = 0; i < word.length; i++) xs.push(PH.cx + PS * (x0 + tw(word.slice(0, i), QF) + tw(word[i], QF) / 2 - PH.cx));
+  return { x, y, w, h: 76, xs, ty: PH.cy + PS * (y + 38 - PH.cy) };
+}
+function scenePhone(t) {
+  const out = ease(ramp(t, a(1) + 0.4, a(1) + 1.1));
+  if (out >= 1) return;
+  const { cx, w, h } = PH, cy = PH.cy + 140 * out;
+  ctx.save(); ctx.globalAlpha = 1 - out;
+  ctx.translate(cx, cy); ctx.rotate(Math.sin(t * 0.9) * 0.01); ctx.scale(PS, PS); ctx.translate(-cx, -cy);
+  ctx.fillStyle = "rgba(0,0,0,.14)"; rr(cx - w / 2 + 10, cy - h / 2 + 22, w, h, 64); ctx.fill();
+  ctx.fillStyle = "#23232B"; rr(cx - w / 2, cy - h / 2, w, h, 64); ctx.fill();
+  ctx.fillStyle = "#FBFAF7"; rr(cx - w / 2 + 14, cy - h / 2 + 14, w - 28, h - 28, 52); ctx.fill();
+  ctx.fillStyle = "#23232B"; rr(cx - 56, cy - h / 2 + 28, 112, 30, 15); ctx.fill();
+  txt("AI 助手", cx, cy - h / 2 + 98, { font: F(700, 30) });
+  ctx.fillStyle = "rgba(0,0,0,.08)"; ctx.fillRect(cx - w / 2 + 14, cy - h / 2 + 130, w - 28, 2);
+  // the question (the word strawberry leaves the bubble when the letters fly out)
+  const q = qLayout(), qy = q.y + (cy - PH.cy);
+  ctx.fillStyle = C.blue; rr(q.x, qy, q.w, q.h, 26); ctx.fill();
+  const go = 1 - ramp(t, a(1) + 0.42, a(1) + 0.5);
+  ctx.save(); ctx.font = QF; ctx.textBaseline = "middle"; ctx.fillStyle = "#fff";
+  ctx.globalAlpha *= go; ctx.fillText("strawberry", q.x + 22, qy + 38); ctx.globalAlpha /= Math.max(go, 1e-6) || 1;
+  ctx.restore();
+  ctx.save(); ctx.font = QF; ctx.textBaseline = "middle"; ctx.fillStyle = "#fff"; ctx.globalAlpha = 1 - out;
+  ctx.fillText(" 里有几个 r？", q.x + 22 + tw("strawberry", QF), qy + 38); ctx.restore();
+  // the answer pops at frame 0
+  const pop = back(ramp(t, -0.12, 0.3)), ay = qy + 130;
+  ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(cx - w / 2 + 62, ay + 38, 24, 0, 7); ctx.fill();
+  txt("AI", cx - w / 2 + 62, ay + 39, { font: FI(800, 20), color: C.paper });
+  ctx.save(); ctx.translate(cx - w / 2 + 100, ay + 38); ctx.scale(pop, pop);
+  ctx.fillStyle = "#ECE8DF"; rr(0, -42, 170, 84, 28); ctx.fill();
+  txt("2 个。", 85, 2, { font: F(900, 42) });
+  ctx.restore();
+  // typing dots under the answer, so the screen is alive
+  for (let i = 0; i < 3; i++) { ctx.fillStyle = `rgba(28,27,34,${0.15 + 0.25 * Math.max(0, Math.sin(t * 6 - i))})`; ctx.beginPath(); ctx.arc(cx - w / 2 + 112 + i * 22, ay + 130, 6, 0, 7); ctx.fill(); }
+  txt("示意：早期 AI 的常见错答", cx, cy + h / 2 - 54, { font: F(500, 22), color: "rgba(28,27,34,.45)" });
+  ctx.restore();
+}
+
+// ---------- A→B · the word on letter tiles ----------
+const WORD = "strawberry", S = 68, G = 6;
+const TX = (i) => 560 - (10 * S + 9 * G) / 2 + S / 2 + i * (S + G);
+const ROWY = 800;
+const GROUP = (i) => (i < 3 ? 0 : i < 5 ? 1 : 2);
+const GCOL = [C.red, C.yellow, C.blue];
+const ISR = (i) => i === 2 || i === 7 || i === 8;
+function sceneWord(t) {
+  const t0 = a(1) + 0.42;
+  if (t < t0 || t > a(9) + 0.6) return;
+  const exit = ease(ramp(t, a(9) - 0.1, a(9) + 0.5));          // the merged brick leaves when the chain-word scene starts
+  const q = qLayout();
+  const rIdx = [2, 7, 8];
+  const redOn = (i) => { const k = rIdx.indexOf(i); return k < 0 ? 0 : ramp(t, a(2) + 0.05 + k * 0.3, a(2) + 0.25 + k * 0.3) * (1 - ramp(t, a(4), a(4) + 0.5)); };
+  // reading sweep (L4): one letter at a time
+  const rs = (t - a(4) - 0.45) / 0.22, readIdx = rs >= 0 && rs < 10 ? Math.floor(rs) : -1;
+  // cut (L5)
+  const cutT = a(5) + 1.35, sep = ease(ramp(t, cutT + 0.3, cutT + 0.8)), m = ease(ramp(t, cutT + 0.8, cutT + 1.6));
+  const merge = ease(ramp(t, a(7) + 0.9, a(7) + 1.7));
+  const gdx = [-34, 0, 34].map((d) => d * sep * (1 - merge));
+  const bounce = (g) => -26 * bump(t, a(6) + 0.95 + g * 0.62, 0.38) - 16 * bump(t, a(5) + 3.1 + g * 0.18, 0.32) - 16 * bump(t, a(6) - 0.15 + g * 0.18, 0.32);
+  ctx.save(); ctx.globalAlpha = 1 - exit; ctx.translate(0, -140 * exit);
+  // bricks under the tiles
+  if (m > 0) {
+    for (let g = 0; g < 3; g++) {
+      const ids = [...WORD].map((_, i) => i).filter((i) => GROUP(i) === g);
+      const x0 = TX(ids[0]) + gdx[g] - S / 2 - 10, x1 = TX(ids[ids.length - 1]) + gdx[g] + S / 2 + 10;
+      brick((x0 + x1) / 2, ROWY + bounce(g) + TUNE.bob * Math.sin(t * 2.4 - g * 1.2), x1 - x0, 104, GCOL[g], { alpha: m * (1 - merge), stud: m });
+    }
+    if (merge > 0) brick(560, ROWY + TUNE.bob * Math.sin(t * 2.4 - 1.2), TX(9) - TX(0) + S + 20, 104, C.green, { alpha: merge, stud: 1 });
+  }
+  for (let i = 0; i < 10; i++) {
+    const tf = t0 + i * 0.035, p = ease(ramp(t, tf, tf + 0.65));
+    const x = lerp(q.xs[i], TX(i), p) + gdx[GROUP(i)], y0 = q.ty + (PH.cy - PH.cy);
+    let y = lerp(y0, ROWY, p) + (m > 0 ? bounce(GROUP(i)) : 0) + TUNE.bob * p * Math.sin(t * 2.4 - (m > 0 ? GROUP(i) * 1.2 : i * 0.5));
+    const lift = i === readIdx ? -12 : 0;
+    const s = lerp(30 * PS, S, p);
+    const r = redOn(i);
+    const fg = m > 0 ? mixc(C.ink, "#FFFFFF", m) : r > 0 ? mixc(C.ink, "#FFFFFF", r) : C.ink;
+    const letterAlpha = 1 - 0.62 * merge;   // once it is one brick, the letters fade: the AI only sees the brick
+    tile(x, y + lift, s, WORD[i], { box: p * (1 - m), bg: r > 0 ? mixc(C.tile, C.red, r) : i === readIdx ? "#FFF3D6" : C.tile, edge: i === readIdx ? C.yellow : C.edge, fg: p < 0.3 && m === 0 ? "#fff" : fg, alpha: letterAlpha });
+  }
+  // counting the r's (L2)
+  rIdx.forEach((i, k) => {
+    const tk = a(2) + 0.05 + k * 0.3, al = ramp(t, tk, tk + 0.12) * (1 - ramp(t, a(4), a(4) + 0.4));
+    if (al > 0) { const s = back(ramp(t, tk, tk + 0.3)); ctx.save(); ctx.globalAlpha *= al; ctx.translate(TX(i), ROWY - 84); ctx.scale(s, s); txt(String(k + 1), 0, 0, { font: FI(900, 44), color: C.red }); ctx.restore(); }
+  });
+  // reading eye (L4)
+  if (readIdx >= 0 || (t > a(4) && t < a(5))) {
+    const ex = TX(clamp(rs, 0, 9)), al = vis(t, a(4) + 0.2, a(5) + 0.2, 0.25, 0.3);
+    eye(ex, ROWY - 100, al);
+  }
+  // the AI's scan: while it "thinks" about the question (L1), and before the cut (L5) — a band sweeps the word
+  const sc1 = ramp(t, a(1) + 1.25, b(1) - 0.8), sc5a = ramp(t, a(5) + 0.1, cutT - 0.05);
+  const sc5 = sc1 > 0 && sc1 < 1 ? sc1 : sc5a;
+  if (sc5 > 0 && sc5 < 1) {
+    const xs = lerp(TX(0) - 60, TX(9) + 60, ease(sc5));
+    ctx.save(); const g = ctx.createLinearGradient(xs - 90, 0, xs + 30, 0);
+    g.addColorStop(0, "rgba(47,111,219,0)"); g.addColorStop(1, "rgba(47,111,219,.35)");
+    ctx.fillStyle = g; ctx.fillRect(xs - 90, ROWY - 70, 120, 140);
+    ctx.fillStyle = C.blue; ctx.fillRect(xs + 26, ROWY - 74, 6, 148); ctx.restore();
+  }
+  // cut lines (L5)
+  const cl = ramp(t, cutT, cutT + 0.25) * (1 - ramp(t, cutT + 0.7, cutT + 1.0));
+  if (cl > 0) for (const xc of [(TX(2) + TX(3)) / 2, (TX(4) + TX(5)) / 2]) {
+    ctx.save(); ctx.strokeStyle = C.red; ctx.lineWidth = 6; ctx.setLineDash([16, 10]); ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(xc, ROWY - 80); ctx.lineTo(xc, ROWY - 80 + 160 * cl); ctx.stroke(); ctx.restore();
+  }
+  // token ids (L6–L8): the AI sees numbers, not letters
+  const idA = vis(t, a(6) + 0.4, a(7) + 1.2, 0.3, 0.3), idB = vis(t, a(7) + 1.5, a(9), 0.3, 0.2);
+  [["#496", 0], ["#675", 1], ["#15717", 2]].forEach(([s, g]) => {
+    const ids = [...WORD].map((_, i) => i).filter((i) => GROUP(i) === g), xc = (TX(ids[0]) + TX(ids[ids.length - 1])) / 2 + gdx[g];
+    txt(s, xc, ROWY + 92, { font: FI(700, 28), color: C.soft, alpha: idA });
+  });
+  txt("编号 #73700", 560, ROWY + 92, { font: FI(700, 28), color: C.soft, alpha: idB });
+  ctx.restore();
+  // labels under the row
+  txt("我们：一个字母一个字母地看", 560, 960, { font: F(700, 36), color: C.ink, alpha: vis(t, a(4) + 0.2, a(5) + 0.4) });
+  txt("AI：先切成一块块积木", 560, 960, { font: F(700, 36), color: C.ink, alpha: vis(t, a(5) + 0.4, a(8) + 0.2) * (1 - exit) });
+  txt("切法：GPT-4 分词器实测", 560, 1012, { font: F(500, 26), color: C.soft, alpha: vis(t, a(6) + 0.4, a(7) + 0.4) });
+  // the sentence context (L7): with a space in front, the whole word is one block
+  const ctxA = vis(t, a(7) + 0.2, a(9), 0.3, 0.2);
+  if (ctxA > 0) {
+    rich("How many r in [strawberry]?", 560, 640, FI(700, 40), C.soft, C.green);
+    txt("在句子里（前面有空格）：整个词 = 1 块 · GPT-4 / GPT-4o 实测", 560, 1012, { font: F(500, 26), color: C.soft, alpha: ctxA });
+    ctx.save(); ctx.globalAlpha = 1; ctx.restore();
+  }
+  // Token name (L8)
+  const tk = ramp(t, a(8) + 1.15, a(8) + 1.5) * (1 - exit);
+  if (tk > 0) {
+    ctx.save(); ctx.globalAlpha = tk; ctx.strokeStyle = C.ink; ctx.lineWidth = 4;
+    const x0 = TX(0) - S / 2 - 10, x1 = TX(9) + S / 2 + 10;
+    ctx.beginPath(); ctx.moveTo(x0, ROWY + 128); ctx.lineTo(x0, ROWY + 140); ctx.lineTo(x1, ROWY + 140); ctx.lineTo(x1, ROWY + 128); ctx.stroke();
+    ctx.restore();
+    pill("Token", 560, ROWY + 196, { font: FI(800, 40), scale: back(ramp(t, a(8) + 1.15, a(8) + 1.45)), alpha: tk, bg: C.green });
+  }
+  // AI's confident answer (end of L1) and the correction (L2)
+  const st = vis(t, b(1) - 0.75, a(4) + 0.3, 0.2, 0.3);
+  if (st > 0) {
+    const s = back(ramp(t, b(1) - 0.75, b(1) - 0.4));
+    ctx.save(); ctx.globalAlpha = st; ctx.translate(410, 600); ctx.scale(s, s);
+    ctx.fillStyle = C.paper; rr(-120, -44, 240, 88, 24); ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = C.ink; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-20, 44); ctx.lineTo(0, 66); ctx.lineTo(20, 44); ctx.fillStyle = C.paper; ctx.fill(); ctx.stroke();
+    txt("AI：2 个", 0, 2, { font: F(900, 40) });
+    const x = ramp(t, a(2) + 0.85, a(2) + 1.0);
+    if (x > 0) { ctx.strokeStyle = C.red; ctx.lineWidth = 9; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(-90, -30); ctx.lineTo(-90 + 180 * x, -30 + 60 * x); ctx.stroke(); if (x >= 1) { ctx.beginPath(); ctx.moveTo(90, -30); ctx.lineTo(90 - 180 * ramp(t, a(2) + 1.0, a(2) + 1.12), -30 + 60 * ramp(t, a(2) + 1.0, a(2) + 1.12)); ctx.stroke(); } }
+    ctx.restore();
+    const c3 = ramp(t, a(2) + 0.7, a(2) + 0.85);
+    if (c3 > 0) pill("答案：3 个", 720, 600, { font: F(900, 40), bg: C.red, h: 84, scale: back(ramp(t, a(2) + 0.7, a(2) + 1.0)), alpha: st });
+  }
+  // "most AIs get it right now"
+  const ok = vis(t, a(3) + 0.1, a(4) + 0.1, 0.25, 0.3);
+  if (ok > 0) pill("✓ 如今多数 AI 已能答对", 560, 980, { font: F(700, 34), bg: C.green, alpha: ok, scale: back(ramp(t, a(3) + 0.1, a(3) + 0.4)) });
+}
+function eye(x, y, al) {
+  if (al <= 0) return;
+  ctx.save(); ctx.globalAlpha *= al; ctx.translate(x, y);
+  ctx.fillStyle = "#fff"; ctx.strokeStyle = C.ink; ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.moveTo(-34, 0); ctx.quadraticCurveTo(0, -30, 34, 0); ctx.quadraticCurveTo(0, 30, -34, 0); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(0, 0, 11, 0, 7); ctx.fill();
+  ctx.restore();
+}
+
+// ---------- C · the chain-word player ----------
+const CHAIN = [["今", 120], ["天天", 200], ["气", 120], ["真", 120], ["好", 120]];
+function sceneChain(t) {
+  const al = vis(t, a(9) - 0.05, a(11) + 0.2, 0.3, 0.45);
+  if (al <= 0) return;
+  ctx.save(); ctx.globalAlpha = al;
+  // bookshelves behind (L10)
+  const sh = vis(t, a(10) - 0.2, a(11) + 0.4, 0.6, 0.3);
+  if (sh > 0) shelves(t, sh);
+  const total = CHAIN.reduce((w, c) => w + c[1], 0) + 14 * (CHAIN.length - 1);
+  let x = 560 - total / 2; const y = 840;
+  let lastX = x;
+  CHAIN.forEach(([s, w], k) => {
+    const td = a(9) + 0.35 + k * 0.42, p = ramp(t, td, td + 0.38);
+    if (p > 0) {
+      const yy = y - 180 * (1 - back(p)) + Math.sin(t * 2.4 - k * 0.9) * (3 + TUNE.bob);
+      brick(x + w / 2, yy, w, 110, BRICK[k % 4], { alpha: Math.min(1, p * 3), label: s, size: 52 });
+      lastX = x + w;
+    }
+    x += w + 14;
+  });
+  // the cursor waiting for the next block
+  const blink = Math.floor(t * 2.4) % 2 === 0 ? 1 : 0.15;
+  ctx.fillStyle = `rgba(28,27,34,${0.8 * blink})`; ctx.fillRect(lastX + 16, y - 52, 8, 104);
+  txt("一块一块往外接", 560, 990, { font: F(700, 36), alpha: vis(t, a(9) + 0.3, a(11), 0.3, 0.2) });
+  txt("切法：GPT-4o 分词器实测", 560, 1042, { font: F(500, 26), color: C.soft, alpha: vis(t, a(9) + 1.2, a(11), 0.3, 0.2) });
+  const kp = ramp(t, a(10) + 2.1, a(10) + 2.4);
+  if (kp > 0) pill("接龙高手", 560, 660, { font: F(900, 44), h: 84, bg: C.ink, scale: back(ramp(t, a(10) + 2.1, a(10) + 2.45)), alpha: kp });
+  ctx.restore();
+}
+function shelves(t, al) {
+  ctx.save(); ctx.globalAlpha *= al * 0.2;
+  for (let row = 0; row < 4; row++) {
+    const y = 500 + row * 190, off = ((t * (14 + row * 5)) % 400);
+    ctx.fillStyle = "#8B7B63"; ctx.fillRect(0, y + 120, W, 10);
+    let x = -off; let i = row * 100;
+    while (x < W + 40) {
+      const r = mulberry(i++), w = 18 + r() * 20, h = 80 + r() * 38;
+      ctx.fillStyle = [C.red, C.yellow, C.blue, C.green, "#8E6CC4", "#6B5B45"][Math.floor(r() * 6)];
+      ctx.fillRect(x, y + 120 - h, w - 3, h);
+      x += w;
+    }
+  }
+  ctx.restore();
+}
+
+// ---------- D · heard the name, never saw it ----------
+function scenePhoneCall(t) {
+  const al = vis(t, a(11) - 0.1, a(14) + 0.1, 0.4, 0.4);
+  if (al <= 0) return;
+  ctx.save(); ctx.globalAlpha = al;
+  const bob = Math.sin(t * 2.2) * 4;
+  // stick figure
+  const hx = 330, hy = 760 + bob;
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 10; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.beginPath(); ctx.moveTo(hx, hy + 50); ctx.lineTo(hx, hy + 190); ctx.moveTo(hx, hy + 190); ctx.lineTo(hx - 40, hy + 300); ctx.moveTo(hx, hy + 190); ctx.lineTo(hx + 40, hy + 300);
+  ctx.moveTo(hx, hy + 90); ctx.lineTo(hx - 50, hy + 160); ctx.moveTo(hx, hy + 90); ctx.lineTo(hx + 34, hy + 50); ctx.lineTo(hx + 44, hy - 4); ctx.stroke();
+  ctx.fillStyle = C.paper; ctx.beginPath(); ctx.arc(hx, hy, 50, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.save(); ctx.translate(hx + 50, hy - 6); ctx.rotate(-0.35 + 0.05 * Math.sin(t * 9)); ctx.fillStyle = C.ink; rr(-15, -34, 30, 64, 8); ctx.fill(); ctx.restore();
+  // the voice coming out of the phone
+  const talk = vis(t, a(11) + 0.15, a(13) + 0.3, 0.3, 0.3);
+  for (let k = 0; k < 3; k++) {
+    const ph = (t * 1.1 + k / 3) % 1, r = 30 + ph * 110;
+    ctx.save(); ctx.globalAlpha *= talk * (1 - ph); ctx.strokeStyle = C.blue; ctx.lineWidth = 10; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.arc(hx + 66, hy - 18, r, -0.7, 0.7); ctx.stroke(); ctx.restore();
+  }
+  // what you hear: the sound of the name, clear
+  const py = ramp(t, a(11) + 2.0, a(11) + 2.4);
+  if (py > 0) txt("lǐ  sī  ruì", 712, 700 - 20 * (1 - eo(py)), { font: FI(700, 56), color: C.blue, alpha: py });
+  // the caller's question
+  const qb = ramp(t, a(12), a(12) + 0.3);
+  if (qb > 0) {
+    const s = back(ramp(t, a(12), a(12) + 0.35));
+    ctx.save(); ctx.globalAlpha *= qb; ctx.translate(700, 560); ctx.scale(s, s);
+    const w = tw("我的名字一共几笔？", F(900, 38)) + 56;
+    ctx.fillStyle = "#fff"; ctx.strokeStyle = C.ink; ctx.lineWidth = 4;
+    rr(-w / 2, -44, w, 88, 26); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-w / 2 + 40, 40); ctx.lineTo(-w / 2 + 10, 84); ctx.lineTo(-w / 2 + 80, 44); ctx.fill(); ctx.stroke();
+    txt("我的名字一共几笔？", 0, 2, { font: F(900, 38) });
+    ctx.restore();
+  }
+  // what it looks like: you never saw it — blurred
+  const fc = ramp(t, a(12) + 0.7, a(12) + 1.1);
+  if (fc > 0) {
+    ctx.save(); ctx.globalAlpha *= fc;
+    ctx.fillStyle = "rgba(255,255,255,.85)"; rr(510, 790, 400, 200, 26); ctx.fill();
+    ctx.setLineDash([14, 10]); ctx.lineWidth = 4; ctx.strokeStyle = C.soft; ctx.stroke(); ctx.setLineDash([]);
+    ctx.filter = `blur(${12 + 2 * Math.sin(t * 3)}px)`;
+    txt("李思睿", 710 + 10 * Math.sin(t * 1.7), 892, { font: F(900, 110), color: C.ink, alpha: 0.75 });
+    ctx.filter = "none";
+    txt("写出来长什么样？", 710, 1030, { font: F(700, 30), color: C.soft });
+    ctx.restore();
+  }
+  // the figure's question mark (L13)
+  const qm = ramp(t, a(13), a(13) + 0.3);
+  if (qm > 0) txt("?", hx, hy - 96 - 10 * Math.abs(Math.sin(t * 4)), { font: FI(900, 72), color: C.red, alpha: qm });
+  const sv = ramp(t, a(13) + 1.1, a(13) + 1.4);
+  if (sv > 0) pill("听过 ≠ 看过", 560, 1130, { font: F(900, 44), h: 84, bg: C.ink, scale: back(ramp(t, a(13) + 1.1, a(13) + 1.45)), alpha: sv });
+  ctx.restore();
+}
+
+// ---------- D2 · Chinese: common words are one block, rare characters break ----------
+function sceneChinese(t) {
+  const al = vis(t, a(14) - 0.1, a(16) + 0.1, 0.4, 0.4);
+  if (al <= 0) return;
+  ctx.save(); ctx.globalAlpha = al;
+  const p1 = ramp(t, a(14) + 0.35, a(14) + 0.65);
+  if (p1 > 0) {
+    const s = back(ramp(t, a(14) + 0.35, a(14) + 0.7));
+    ctx.save(); ctx.translate(370, 860 + Math.sin(t * 2.4) * (3 + TUNE.bob)); ctx.scale(s, s);
+    brick(0, 0, 240, 150, C.yellow, { label: "你好", size: 70 });
+    const rp = ((t - a(14) - 0.35) % 1.2) / 1.2;
+    ctx.globalAlpha *= 0.5 * (1 - rp); ctx.strokeStyle = C.yellow; ctx.lineWidth = 6; rr(-120 - 40 * rp, -75 - 40 * rp, 240 + 80 * rp, 150 + 80 * rp, 20 + 20 * rp); ctx.stroke();
+    ctx.restore();
+    txt("常见词：1 块", 370, 1000, { font: F(700, 34), alpha: p1 });
+  }
+  const p2 = ramp(t, a(15) - 0.2, a(15) + 0.1);
+  if (p2 > 0) {
+    const s = back(ramp(t, a(15) - 0.2, a(15) + 0.15)), cr = ease(ramp(t, a(15) + 0.7, a(15) + 1.1));
+    for (const side of [-1, 1]) {
+      ctx.save(); ctx.translate(750 + side * 28 * cr, 860 + Math.sin(t * 2.4 - 1.2) * (3 + TUNE.bob) + 10 * cr); ctx.rotate(side * 0.09 * cr); ctx.scale(s, s);
+      // a jagged cut down the middle
+      ctx.beginPath();
+      const zig = [[0, -110], [14, -60], [-10, -20], [12, 20], [-8, 60], [6, 110]];
+      if (side < 0) { ctx.moveTo(-140, -110); zig.forEach(([x, y]) => ctx.lineTo(x * cr, y)); ctx.lineTo(-140, 110); }
+      else { ctx.moveTo(140, -110); zig.forEach(([x, y]) => ctx.lineTo(x * cr, y)); ctx.lineTo(140, 110); }
+      ctx.closePath(); ctx.clip();
+      brick(0, 0, 180, 150, C.blue, { label: "龘", size: 92 });
+      ctx.restore();
+    }
+    txt(cr > 0.5 ? "生僻字：碎成 2 块" : "生僻字", 750, 1000, { font: F(700, 34), alpha: p2 });
+  }
+  txt("切法：GPT-4o 分词器实测", 560, 1070, { font: F(500, 26), color: C.soft, alpha: vis(t, a(14) + 1.6, a(16), 0.3, 0.2) });
+  ctx.restore();
+}
+
+// ---------- E · letters are long, blocks are short ----------
+const RA = { y: 790, s: 40, g: 4, wg: 18, x0: 218, words: ["I", "like", "strawberry"] };
+const RB = { y: 1000, x0: 218, bricks: [["I", 76], ["like", 150], ["strawberry", 300]], gap: 12 };
+function rowA() { const out = []; let x = RA.x0 + RA.s / 2; RA.words.forEach((w, wi) => { for (const ch of w) { out.push([ch, x]); x += RA.s + RA.g; } x += RA.wg - RA.g; }); return out; }
+function rowB() { const out = []; let x = RB.x0; RB.bricks.forEach(([s, w]) => { out.push([s, x + w / 2, w]); x += w + RB.gap; }); return out; }
+function sceneLength(t) {
+  const al = vis(t, a(16) - 0.1, a(20) + 0.6, 0.35, 0.35);
+  if (al <= 0) return;
+  const A = rowA(), B = rowB();
+  ctx.save(); ctx.globalAlpha = al;
+  // sweeps: L17 once (slow vs quick), L19 again with the bill
+  const sweep = (t0, per, n) => { const k = (t - t0) / per; return k >= 0 && k < n ? Math.floor(k) : k >= n ? n : -1; };
+  const s1A = sweep(a(17) - 0.05, 0.15, 15), s1B = sweep(a(17) - 0.05, 0.15, 3);
+  const s2A = sweep(a(19) + 0.5, 0.13, 15), s2B = sweep(a(19) + 0.5, 0.13, 3);
+  const inS2 = t > a(19) + 0.4;
+  const curA = inS2 ? s2A : s1A, curB = inS2 ? s2B : s1B;
+  const fadeA = 1 - ramp(t, a(20) - 0.05, a(20) + 0.35);
+  txt("按字母读 · 15 块", RA.x0, RA.y - 70, { font: F(700, 32), align: "left", color: C.soft, alpha: ramp(t, a(16) + 0.5, a(16) + 0.8) * fadeA });
+  A.forEach(([ch, x], i) => {
+    const p = ramp(t, a(16) + 0.5 + i * 0.04, a(16) + 0.7 + i * 0.04);
+    const on = i === curA;
+    tile(x, RA.y - (on ? 10 : 0) - 60 * (1 - eo(p)) + TUNE.bob * 0.7 * Math.sin(t * 2.4 - i * 0.45), RA.s, ch, { alpha: p * fadeA, bg: on ? "#FFE3DE" : C.tile, edge: on ? C.red : C.edge });
+  });
+  txt("按积木读 · 3 块", RB.x0, RB.y - 82, { font: F(700, 32), align: "left", color: C.soft, alpha: ramp(t, a(16) + 1.3, a(16) + 1.6) * fadeA });
+  // the strawberry brick carries on into the next scene
+  const fly = ease(ramp(t, a(20) - 0.1, a(20) + 0.8));
+  B.forEach(([s, x, w], k) => {
+    const p = ramp(t, a(16) + 1.3 + k * 0.1, a(16) + 1.55 + k * 0.1);
+    const on = k === curB;
+    if (k < 2) brick(x, RB.y - (on ? 10 : 0) + TUNE.bob * Math.sin(t * 2.4 - k * 1.1), w, 84, BRICK[k + 1], { alpha: p * fadeA, label: s, font: FI(800, 38), stud: p });
+  });
+  // L18: the length bracket
+  const br = vis(t, a(18) + 0.4, a(20) + 0.2, 0.35, 0.3);
+  if (br > 0) {
+    const xa = A[A.length - 1][1] + RA.s / 2, xb = B[2][1] + B[2][2] / 2;
+    ctx.save(); ctx.globalAlpha *= br; ctx.strokeStyle = C.red; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(RA.x0, RA.y + 40); ctx.lineTo(RA.x0 + (xa - RA.x0) * eo(ramp(t, a(18) + 0.4, a(18) + 1.0)), RA.y + 40); ctx.stroke();
+    ctx.strokeStyle = C.green;
+    ctx.beginPath(); ctx.moveTo(RB.x0, RB.y + 56); ctx.lineTo(RB.x0 + (xb - RB.x0) * eo(ramp(t, a(18) + 0.4, a(18) + 0.7)), RB.y + 56); ctx.stroke();
+    ctx.restore();
+    pill("长约 5 倍", 800, 892, { font: F(900, 38), bg: C.red, h: 76, alpha: br, scale: back(ramp(t, a(18) + 1.0, a(18) + 1.35)) });
+  }
+  // L19: the bill — every block read adds a line on the bill
+  const bl = vis(t, a(19) + 0.2, a(20) + 0.3, 0.3, 0.3);
+  if (bl > 0) {
+    txt("每读一块，记一笔账", RA.x0, 1112, { font: F(700, 30), align: "left", color: C.soft, alpha: bl });
+    const nA = clamp(s2A + 1, 0, 15), nB = clamp(s2B + 1, 0, 3);
+    ctx.save(); ctx.globalAlpha *= bl;
+    for (let i = 0; i < nA; i++) { ctx.fillStyle = C.red; rr(RA.x0 + i * 42, 1150, 38, 30, 6); ctx.fill(); }
+    for (let i = 0; i < nB; i++) { ctx.fillStyle = C.green; rr(RA.x0 + i * 42, 1196, 38, 30, 6); ctx.fill(); }
+    ctx.restore();
+  }
+  ctx.restore();
+}
+function sceneCarry(t) {   // the strawberry brick from row B flies to the centre (L20) and flips into numbers (L21)
+  if (t < a(16) || t > a(22)) return;
+  const al = vis(t, a(16) - 0.1, a(20) + 0.6, 0.35, 0.35), fly = ease(ramp(t, a(20) - 0.1, a(20) + 0.8));
+  const [s, x, w] = rowB()[2];
+  const p = ramp(t, a(16) + 1.5, a(16) + 1.75);
+  const k2 = (t - a(17) + 0.05) / 0.15, inS2 = t > a(19) + 0.4, k3 = (t - a(19) - 0.5) / 0.13;
+  const on = fly === 0 && ((!inS2 && k2 >= 2 && k2 < 3) || (inS2 && k3 >= 2 && k3 < 3));
+  const k = 1 - ramp(t, a(21) + 1.7, a(21) + 1.95);     // flips into numbers in L21
+  if (p > 0 && k > 0 && t < a(23)) {
+    const cx = lerp(x, 560, fly), cy = lerp(RB.y, 820, fly) - (on ? 10 : 0) + TUNE.bob * Math.sin(t * 2.4 - 2.2), sc = lerp(1, 1.5, fly) * (1 + 0.02 * TUNE.bob / 6 * Math.sin(t * 3));
+    const look = ramp(t, a(20) + 0.8, a(21) + 1.7);
+    ctx.save(); ctx.globalAlpha = p * Math.min(al + fly, 1); ctx.translate(cx, cy); ctx.rotate(0.05 * Math.sin(look * Math.PI * 1.5)); ctx.scale(sc * (1 + 0.22 * look), sc * (1 + 0.22 * look) * k);
+    brick(0, 0, w, 84, C.green, { label: s, font: FI(800, 38), stud: p }); ctx.restore();
+    const mg = vis(t, a(20) + 0.7, a(21) + 1.75, 0.3, 0.2);
+    if (mg > 0) {
+      const ang = (t - a(20)) * 2.2, mx = cx + 150 * Math.cos(ang), my = cy + 50 * Math.sin(ang);
+      ctx.save(); ctx.globalAlpha = mg; ctx.strokeStyle = C.ink; ctx.lineWidth = 12;
+      ctx.beginPath(); ctx.arc(mx, my, 62, 0, 7); ctx.stroke();
+      ctx.lineCap = "round"; ctx.lineWidth = 18; ctx.beginPath(); ctx.moveTo(mx + 46, my + 46); ctx.lineTo(mx + 96, my + 96); ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,.25)"; ctx.beginPath(); ctx.arc(mx, my, 56, 0, 7); ctx.fill(); ctx.restore();
+    }
+  }
+}
+
+// ---------- F · one block becomes thousands of numbers, then the chip ----------
+function ribbonCell(i) { const v = hash(i) * 3 - 1.5; return (v < 0 ? "−" : "") + Math.abs(v).toFixed(2); }
+function sceneNumbers(t) {
+  const tf = a(21) + 1.95;
+  const open = ramp(t, tf, tf + 0.3);
+  const into = ease(ramp(t, a(22) - 0.1, a(22) + 0.8));              // the ribbon pours into the chip
+  if (open <= 0 || into >= 1) return;
+  ctx.save(); ctx.globalAlpha = 1 - into;
+  const y = lerp(820, 900, into), hh = 120 * open * (1 - 0.7 * into), x0 = lerp(110, 470, into), x1 = lerp(W + 60, 650, into);
+  ctx.save(); rr(x0, y - hh / 2, x1 - x0, hh, 20); ctx.clip();
+  ctx.fillStyle = C.paper; ctx.fillRect(x0, y - hh / 2, x1 - x0, hh);
+  ctx.fillStyle = C.green; ctx.fillRect(x0, y - hh / 2, x1 - x0, 10);
+  const scroll = Math.max(0, t - tf) * 110, cw = 160;
+  const first = Math.floor(scroll / cw);
+  for (let i = first; i < first + 9; i++) {
+    const x = x0 + 40 + i * cw - scroll + 60;
+    txt(ribbonCell(i), x, y + 6, { font: FI(700, 40), color: C.ink });
+    ctx.fillStyle = "rgba(0,0,0,.08)"; ctx.fillRect(x + cw / 2 - 1, y - hh / 2 + 18, 2, hh - 30);
+  }
+  ctx.restore();
+  // brace + label
+  const lb = vis(t, a(21) + 3.8, a(22) + 0.2, 0.3, 0.3);
+  if (lb > 0) {
+    ctx.save(); ctx.globalAlpha *= lb; ctx.strokeStyle = C.ink; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(130, 740); ctx.lineTo(130, 724); ctx.lineTo(1000, 724); ctx.lineTo(1000, 740); ctx.stroke(); ctx.restore();
+    pill("几千个数字，排成一行", 560, 660, { font: F(900, 40), h: 80, alpha: lb, scale: back(ramp(t, a(21) + 3.8, a(21) + 4.15)) });
+    txt("……", 1010, 900, { font: F(900, 40), color: C.soft, alpha: lb });
+  }
+  ctx.restore();
+}
+// chip: zoom in during L22, out during L25
+function zoomIn(t) { return ease(ramp(t, a(22) + 0.9, a(22) + 2.0)) * (1 - ease(ramp(t, a(25), a(25) + 1.3))); }
+function sceneChip(t) {
+  const al = vis(t, a(22) - 0.1, a(26) + 0.4, 0.5, 0.5);
+  if (al <= 0) return;
+  const z = zoomIn(t);
+  const die = lerp(230, 820, z), pkg = 400 * (die / 230);
+  const cx = 560, cy = 900;
+  ctx.save(); ctx.globalAlpha = al;
+  // package
+  if (pkg < 2400) {
+    ctx.save(); ctx.globalAlpha *= 1 - 0.85 * z;
+    ctx.fillStyle = "rgba(0,0,0,.35)"; rr(cx - pkg / 2 + 14, cy - pkg / 2 + 22, pkg, pkg, pkg * 0.05); ctx.fill();
+    ctx.fillStyle = "#3A404C"; rr(cx - pkg / 2, cy - pkg / 2, pkg, pkg, pkg * 0.05); ctx.fill();
+    ctx.fillStyle = "#C9A24B";
+    const n = 14, pw = pkg / (n * 2);
+    for (let i = 0; i < n; i++) {
+      const o = -pkg / 2 + pw * (2 * i + 1);
+      ctx.fillRect(cx + o - pw / 3, cy - pkg / 2 - pkg * 0.04, pw * 0.66, pkg * 0.04);
+      ctx.fillRect(cx + o - pw / 3, cy + pkg / 2, pw * 0.66, pkg * 0.04);
+      ctx.fillRect(cx - pkg / 2 - pkg * 0.04, cy + o - pw / 3, pkg * 0.04, pw * 0.66);
+      ctx.fillRect(cx + pkg / 2, cy + o - pw / 3, pkg * 0.04, pw * 0.66);
+    }
+    const live = vis(t, a(25) + 1.0, a(26) + 0.3, 0.4, 0.3);
+    if (live > 0) for (let i = 0; i < 16; i++) {
+      const u = ((t * 0.35 + i / 16) % 1) * 4, side = Math.floor(u), f = u - side, half = pkg / 2 + pkg * 0.06;
+      const [px, py] = [[-half + 2 * half * f, -half], [half, -half + 2 * half * f], [half - 2 * half * f, half], [-half, half - 2 * half * f]][side];
+      ctx.save(); ctx.globalAlpha = live; ctx.fillStyle = C.glow; ctx.shadowColor = C.glow; ctx.shadowBlur = 16;
+      ctx.beginPath(); ctx.arc(cx + px, cy + py, 7, 0, 7); ctx.fill(); ctx.restore();
+    }
+    ctx.restore();
+  }
+  // die
+  ctx.fillStyle = mixc("#596173", "#1B2438", z); rr(cx - die / 2, cy - die / 2, die, die, 10 + 10 * z); ctx.fill();
+  ctx.save(); rr(cx - die / 2, cy - die / 2, die, die, 10 + 10 * z); ctx.clip();
+  // fine grid on the die (seen from outside)
+  ctx.strokeStyle = `rgba(255,255,255,${0.14 * (1 - z)})`; ctx.lineWidth = 1;
+  for (let i = 1; i < 12; i++) { const o = -die / 2 + (die * i) / 12; ctx.beginPath(); ctx.moveTo(cx + o, cy - die / 2); ctx.lineTo(cx + o, cy + die / 2); ctx.moveTo(cx - die / 2, cy + o); ctx.lineTo(cx + die / 2, cy + o); ctx.stroke(); }
+  // the workers
+  if (z > 0.05) workers(t, cx, cy, die, z);
+  ctx.restore();
+  // L22 label
+  const lb = vis(t, a(22) + 3.0, a(23) + 0.2, 0.3, 0.3);
+  if (lb > 0) pill("只做两件事：乘法 × 和加法 +", 560, 450, { font: F(900, 40), h: 82, bg: C.glow, color: C.ink, alpha: lb, scale: back(ramp(t, a(22) + 3.0, a(22) + 3.35)) });
+  // L23–L24 counter
+  counter(t);
+  // L25 GPU label
+  const gl = vis(t, a(25) + 1.6, a(26) + 0.3, 0.3, 0.3);
+  if (gl > 0) {
+    ctx.save(); ctx.globalAlpha *= gl; ctx.strokeStyle = C.glow; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(cx + 150, cy - 150); ctx.lineTo(cx + 230, cy - 270); ctx.lineTo(cx + 300, cy - 270); ctx.stroke(); ctx.restore();
+    pill("GPU", cx + 330, cy - 270, { font: FI(900, 54), h: 92, bg: C.glow, color: C.ink, alpha: gl, scale: back(ramp(t, a(25) + 1.6, a(25) + 1.95)) });
+    txt("示意", cx, cy + 300, { font: F(500, 24), color: "rgba(246,243,236,.5)", alpha: gl });
+  }
+  ctx.restore();
+}
+function workers(t, cx, cy, die, z) {
+  const n = 8, cell = die / n;
+  ctx.save(); ctx.globalAlpha *= clamp((z - 0.05) / 0.5);
+  const dim = 1 - 0.6 * vis(t, a(23) + 0.2, b(24) + 0.3, 0.3, 0.3);
+  ctx.globalAlpha *= dim;
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    const x = cx - die / 2 + (c + 0.5) * cell, y = cy - die / 2 + (r + 0.5) * cell + cell * 0.12;
+    const k = cell / 92, ph = (t * 1.6 - (c + r) * 0.07) % 1, beat = Math.sin(ph * Math.PI * 2);
+    ctx.save(); ctx.translate(x, y); ctx.scale(k, k);
+    // body + arms (hammering)
+    ctx.fillStyle = C.blue; rr(-16, 4, 32, 28, 8); ctx.fill();
+    ctx.strokeStyle = C.skin; ctx.lineWidth = 6; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(-14, 12); ctx.lineTo(-24, 2 - 8 * beat); ctx.moveTo(14, 12); ctx.lineTo(24, 2 + 8 * beat); ctx.stroke();
+    ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, -8, 12, 0, 7); ctx.fill();
+    ctx.fillStyle = C.yellow; ctx.beginPath(); ctx.arc(0, -11, 13, Math.PI, 0); ctx.fill(); ctx.fillRect(-16, -12, 32, 4);
+    // what it is computing right now
+    const sym = ph < 0.5 ? "×" : "+", fl = 0.35 + 0.65 * Math.abs(Math.sin(ph * Math.PI * 2));
+    txt(sym, 0, -40, { font: FI(900, 28), color: C.glow, alpha: fl });
+    ctx.restore();
+  }
+  ctx.restore();
+}
+function counter(t) {
+  const al = vis(t, a(23) + 0.2, b(24) + 0.35, 0.3, 0.3);
+  if (al <= 0) return;
+  ctx.save(); ctx.globalAlpha *= al;
+  ctx.fillStyle = "rgba(9,13,24,.86)"; rr(170, 740, 780, 330, 30); ctx.fill();
+  ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,209,102,.5)"; ctx.stroke();
+  const second = ramp(t, a(24) + 0.6, a(24) + 0.9);
+  txt("每读一块积木", 560, 808, { font: F(700, 38), color: C.paper, alpha: 1 - second });
+  txt("一句话 ≈ 20 块积木", 560, 808, { font: F(700, 38), color: C.paper, alpha: second });
+  const run = ease(ramp(t, a(23) + 2.5, a(23) + 3.9)), n = Math.round(2000 * run);
+  const sw = ramp(t, a(24) + 1.7, a(24) + 2.0);
+  txt(`≈ ${n} 亿次`, 560, 920, { font: FI(900, 104), color: C.glow, alpha: 1 - sw });
+  if (sw > 0) { const s = back(ramp(t, a(24) + 1.7, a(24) + 2.05)); ctx.save(); ctx.translate(560, 920); ctx.scale(s, s); txt("≈ 4 万亿次", 0, 0, { font: FI(900, 104), color: C.glow, alpha: sw }); ctx.restore(); }
+  txt(second > 0.5 ? "估算：20 块 × 每块约 2000 亿次" : "千亿参数模型 · 估算：每块约 2 × 参数量 次运算", 560, 1022, { font: F(500, 26), color: "rgba(246,243,236,.6)" });
+  // the sentence's 20 blocks
+  for (let i = 0; i < 20; i++) {
+    const p = ramp(t, a(24) + 0.2 + i * 0.035, a(24) + 0.4 + i * 0.035) * (1 - ramp(t, b(24), b(24) + 0.3));
+    if (p > 0) { ctx.save(); ctx.globalAlpha *= p; ctx.fillStyle = BRICK[i % 4]; rr(203 + i * 34.5, 640 - 30 * (1 - eo(p)), 30, 24, 5); ctx.fill(); ctx.restore(); }
+  }
+  ctx.restore();
+}
+
+// ---------- G · back up: we don't see the world in the same blocks ----------
+function scenePunch(t) {
+  const al = vis(t, a(26) - 0.05, a(29) + 0.1, 0.4, 0.4);
+  if (al <= 0) return;
+  const up = ease(ramp(t, a(27) - 0.1, a(27) + 0.5));
+  ctx.save(); ctx.globalAlpha = al;
+  ctx.translate(560, 860); ctx.scale(lerp(1, 0.86, up), lerp(1, 0.86, up)); ctx.translate(-560, -860 + 110 * up);
+  const cards = [[370, "我们看到"], [750, "AI 看到"]];
+  cards.forEach(([x, title], k) => {
+    const p = ramp(t, a(26) + 0.2 + k * 0.6, a(26) + 0.5 + k * 0.6);
+    if (p <= 0) return;
+    const s = back(ramp(t, a(26) + 0.2 + k * 0.6, a(26) + 0.55 + k * 0.6));
+    ctx.save(); ctx.translate(x, 860); ctx.scale(s, s); ctx.globalAlpha *= p;
+    ctx.fillStyle = "#fff"; rr(-170, -200, 340, 400, 30); ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = C.edge; ctx.stroke();
+    txt(title, 0, -150, { font: F(900, 38) });
+    const hl = vis(t, a(26) + 2.4, a(27) + 0.2, 0.3, 0.3), pulse = 0.5 + 0.5 * Math.sin(t * 6);
+    if (k === 0) {
+      [...WORD].forEach((ch, i) => {
+        const r = Math.floor(i / 5), c = i % 5;
+        tile(-124 + c * 62, -40 + r * 72 + Math.sin(t * 2.4 - i * 0.5) * (2 + 0.6 * TUNE.bob), 54, ch, { bg: ISR(i) ? "#FFE3DE" : C.tile, edge: ISR(i) ? C.red : (i === 0 && hl > 0 ? C.red : C.edge) });
+      });
+      if (hl > 0) { ctx.save(); ctx.globalAlpha *= hl * (0.6 + 0.4 * pulse); ctx.strokeStyle = C.red; ctx.lineWidth = 6; rr(-158, -74, 68, 68, 14); ctx.stroke(); ctx.restore(); }
+      txt("最小单位：字母", 0, 150, { font: F(700, 30), color: C.red, alpha: hl });
+    } else {
+      brick(0, 0 + Math.sin(t * 2.4) * (3 + 0.6 * TUNE.bob), 280, 96, C.green, { label: "strawberry", font: FI(800, 40), la: 0.35, ring: hl > 0 ? `rgba(229,72,59,${hl * (0.6 + 0.4 * pulse)})` : null });
+      txt("#73700", 0, 84, { font: FI(700, 28), color: C.soft });
+      txt("最小单位：积木", 0, 150, { font: F(700, 30), color: C.red, alpha: hl });
+    }
+    ctx.restore();
+  });
+  ctx.restore();
+  // the big lines (L27, L28)
+  const b1 = vis(t, a(27), a(28) - 0.02, 0.25, 0.2), b2 = vis(t, a(28), a(29), 0.25, 0.3);
+  if (b1 > 0) { ctx.save(); ctx.globalAlpha = b1 * al; rich("很多时候我们觉得别人", 560, 1150, F(900, 60), C.ink, C.red); rich("[“连这都不会”]", 560, 1236, F(900, 60), C.ink, C.red); ctx.restore(); }
+  if (b2 > 0) { const s = lerp(1.08, 1, eo(ramp(t, a(28), a(28) + 0.3))); ctx.save(); ctx.globalAlpha = b2 * al; ctx.translate(560, 1190); ctx.scale(s, s); rich("也许只是他看世界用的[积木]，", 0, -44, F(900, 60), C.ink, C.red); rich("和你不同。", 0, 44, F(900, 60), C.ink, C.red); ctx.restore(); }
+}
+
+// ---------- H · next episode tease ----------
+function sceneTease(t) {
+  const al = vis(t, a(29) - 0.05, END_CARD + 0.1, 0.4, 0.35);
+  if (al <= 0) return;
+  ctx.save(); ctx.globalAlpha = al;
+  ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(200, 600, 30, 0, 7); ctx.fill();
+  txt("AI", 200, 601, { font: FI(800, 24), color: C.paper });
+  ctx.fillStyle = "#fff"; rr(250, 560, 680, 330, 30); ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = C.edge; ctx.stroke();
+  const line1 = "当然知道！这段情节出自……", n = Math.floor(clamp((t - a(29) - 0.2) * 11, 0, line1.length));
+  txt(line1.slice(0, n), 290, 620, { font: F(700, 34), align: "left" });
+  [600, 540, 620, 380].forEach((w, i) => {
+    const p = ramp(t, a(29) + 1.4 + i * 0.5, a(29) + 1.9 + i * 0.5);
+    ctx.fillStyle = "rgba(28,27,34,.16)"; rr(290, 680 + i * 52, w * p, 26, 13); ctx.fill();
+  });
+  const bd = ramp(t, a(30) + 0.4, a(30) + 0.7);
+  if (bd > 0) pill("自信 100%", 840, 560, { font: F(900, 36), bg: C.red, h: 72, rot: -0.08, alpha: bd, scale: back(ramp(t, a(30) + 0.4, a(30) + 0.75)) });
+  // blocks keep coming; one of them is a wrong guess
+  for (let i = 0; i < 6; i++) {
+    const p = ramp(t, a(29) + 0.4 + i * 0.35, a(29) + 0.7 + i * 0.35);
+    if (p <= 0) continue;
+    const wrong = i === 5, sh = wrong ? Math.sin(t * 30) * 6 * vis(t, a(30) + 1.0, a(31), 0.1, 0.2) : 0;
+    brick(258 + i * 112 + 46 + sh, 1010 - 120 * (1 - back(p)) + TUNE.bob * Math.sin(t * 2.4 - i * 0.8), 92, 80, wrong ? C.red : BRICK[(i + 1) % 4], { alpha: Math.min(1, p * 3), label: wrong ? "?" : "", size: 52 });
+  }
+  ctx.restore();
+}
+
+// ---------- end card ----------
+function endCard(t) {
+  const al = ramp(t, END_CARD, END_CARD + 0.4);
+  if (al <= 0) return;
+  ctx.save(); ctx.globalAlpha = al;
+  ctx.fillStyle = C.cream; ctx.fillRect(0, 0, W, H);
+  // four bricks stack up
+  for (let i = 0; i < 4; i++) {
+    const p = ramp(t, END_CARD + 0.1 + i * 0.18, END_CARD + 0.45 + i * 0.18);
+    if (p > 0) brick(540 + (i % 2 ? 50 : -50), 600 - i * 74 + (-200 * (1 - back(p))), 180, 70, BRICK[i], { alpha: Math.min(1, p * 3) });
+  }
+  const s = back(ramp(t, END_CARD + 0.2, END_CARD + 0.55));
+  ctx.save(); ctx.translate(540, 820); ctx.scale(s, s); txt("AI 灵魂拷问", 0, 0, { font: F(900, 128) }); ctx.restore();
+  txt("#01  AI 看不见字母  ✓", 540, 960, { font: F(700, 46), color: C.ink, alpha: ramp(t, END_CARD + 0.6, END_CARD + 0.9) });
+  txt("下期 #02", 540, 1080, { font: F(900, 40), color: C.red, alpha: ramp(t, END_CARD + 0.9, END_CARD + 1.2) });
+  txt("AI 为什么一本正经地胡说八道？", 540, 1150, { font: F(900, 50), alpha: ramp(t, END_CARD + 1.0, END_CARD + 1.3) });
+  ctx.restore();
+}
+
+// ---------- UI: depth gauge, headline, captions ----------
+const LEVELS = ["手机", "模型", "芯片", "内存"], LY = (i) => 640 + i * 140;
+function gauge(t) {
+  const al = vis(t, a(4) - 0.1, END_CARD + 0.2, 0.4, 0.3);
+  if (al <= 0) return;
+  const k = dark(t), v = level(t), ink = mixc(C.ink, C.paper, k), acc = k > 0.5 ? C.glow : C.red;
+  ctx.save(); ctx.globalAlpha = al;
+  ctx.strokeStyle = ink; ctx.globalAlpha *= 0.3; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(60, LY(0)); ctx.lineTo(60, LY(3)); ctx.stroke(); ctx.globalAlpha /= 0.3;
+  ctx.strokeStyle = acc; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(60, LY(0)); ctx.lineTo(60, LY(0) + v * 140); ctx.stroke();
+  LEVELS.forEach((name, i) => {
+    const near = clamp(1 - Math.abs(v - i)), y = LY(i);
+    ctx.fillStyle = near > 0.5 ? acc : mixc(C.cream, C.navy, k); ctx.strokeStyle = near > 0.5 ? acc : ink; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(60, y, 11 + 4 * near, 0, 7); ctx.fill(); ctx.globalAlpha *= 0.6 + 0.4 * near; ctx.stroke(); ctx.globalAlpha /= 0.6 + 0.4 * near;
+    txt(name, 82, y + 1, { font: F(near > 0.5 ? 900 : 500, 22), align: "left", color: near > 0.5 ? acc : ink, alpha: 0.35 + 0.65 * near });
+  });
+  // the marker breathes so the gauge is alive
+  const y = LY(0) + v * 140, pr = 18 + 6 * Math.sin(t * 4);
+  ctx.globalAlpha *= 0.35; ctx.strokeStyle = acc; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(60, y, pr, 0, 7); ctx.stroke();
+  ctx.restore();
+}
+const HEADS = () => [
+  [0, a(3) + 1.8, "AI [数不清]字母？"],
+  [a(3) + 1.8, a(4), "它为什么会[错]？"],
+  [a(4), a(9), "AI 怎么[读]字？"],
+  [a(9), a(11), "它是个[接龙]高手"],
+  [a(11), a(14), "听过，却没[见过]"],
+  [a(14), a(16), "中文也[一样]"],
+  [a(16), a(20), "为什么不按[字母]读？"],
+  [a(20), a(25), "一块积木，要[算]多少？"],
+  [a(25), a(26), "小工人住在 [GPU] 里"],
+  [a(26), a(29), "不是笨，是[视角]不同"],
+  [a(29), a(31), "它会不会[猜错]？"],
+  [a(31), END_CARD, "下期：它为什么[胡说八道]？"],
+];
+function headline(t) {
+  const k = dark(t), col = mixc(C.ink, C.paper, k), hl = k > 0.5 ? C.glow : C.red;
+  for (const [t0, t1, s] of HEADS()) {
+    if (t < t0 - 0.01 || t > t1 + 0.15) continue;
+    const inn = t0 <= 0 ? 1 : ramp(t, t0 + 0.1, t0 + 0.4), out = 1 - ramp(t, t1, t1 + 0.14);
+    const sc = lerp(1.12, 1, eo(inn)) * lerp(1, 0.94, 1 - out);
+    let font = F(900, 88); const w = tw(s.replace(/[\[\]]/g, ""), font); if (w > 900) font = F(900, Math.floor(88 * 900 / w));
+    ctx.save(); ctx.globalAlpha = inn * out; ctx.translate(560, 300); ctx.scale(sc, sc);
+    rich(s, 0, 0, font, col, hl); ctx.restore();
+  }
+}
+// captions: the narration, split at commas into chunks of ≤ 16 characters, timed by length
+const CAPW = (s) => tw(s.replace(/[，；：。]$/, ""), F(700, 52));   // captions are measured in pixels: ≤ 900 px a chunk
+function chunks(s) {
+  const parts = s.match(/[^，；：]+[，；：]?/g) || [s], out = [];
+  for (const p of parts) { if (out.length && CAPW(out[out.length - 1] + p) <= 900) out[out.length - 1] += p; else out.push(p); }
+  const fin = [];
+  const cut = (c) => {                         // still too long: cut near the middle at a natural break, never inside “…” or a Latin word
+    if (CAPW(c) <= 900) { fin.push(c); return; }
+    let best = -1, bd = 1e9, q = 0;
+    for (let e = 1; e < c.length; e++) {
+      if (c[e - 1] === "“") q++; if (c[e - 1] === "”") q--;
+      if (q > 0 || /[A-Za-z]/.test(c[e - 1]) && /[A-Za-z]/.test(c[e])) continue;
+      const good = /[的了是就都也， ]/.test(c[e - 1]) || /[和而但就都也]/.test(c[e]) || c[e] === "“";
+      const d = Math.abs(e - c.length / 2) + (good ? 0 : 6);
+      if (d < bd) { bd = d; best = e; }
+    }
+    cut(c.slice(0, best)); cut(c.slice(best));
+  };
+  out.forEach(cut);
+  return fin.filter((x) => x.length);
+}
+const BIG = new Set([27, 28]);
+function captions(t) {
+  if (t >= END_CARD) return;
+  const k = dark(t);
+  for (let i = 0; i < L.length; i++) {
+    if (BIG.has(i)) continue;
+    const next = i + 1 < L.length ? L[i + 1].t0 : END_CARD;
+    if (t < L[i].t0 - 0.05 || t >= Math.min(next, L[i].t1 + 0.5)) continue;
+    const cs = chunks(L[i].text), lens = cs.map((c) => c.length), tot = lens.reduce((x, y) => x + y, 0);
+    let acc = L[i].t0, idx = 0;
+    for (let j = 0; j < cs.length; j++) { const d = (L[i].t1 - L[i].t0) * lens[j] / tot; if (t >= acc) idx = j; acc += d; }
+    const st = L[i].t0 + (L[i].t1 - L[i].t0) * lens.slice(0, idx).reduce((x, y) => x + y, 0) / tot;
+    const s = cs[idx].replace(/[，；：。]$/, "");
+    const al = st <= 0.05 ? 1 : ramp(t, st - 0.05, st + 0.1);
+    const font = F(700, 52), w = Math.min(tw(s, font), 940);
+    ctx.save(); ctx.globalAlpha = al;
+    ctx.fillStyle = k > 0.5 ? "rgba(0,0,0,.42)" : "rgba(255,255,255,.72)"; rr(560 - w / 2 - 28, 1306, w + 56, 82, 22); ctx.fill();
+    txt(s, 560, 1349, { font, color: k > 0.5 ? C.paper : C.ink });
+    ctx.restore();
+  }
+}
+
+// ---------- frame ----------
+window.seek = function (t) {
+  ctx.reset();
+  background(t);
+  ctx.save();
+  const dz = 1 + TUNE.camS * Math.sin(t * 0.9);       // a slow floating camera on the stage
+  ctx.translate(560, 900); ctx.scale(dz, dz);
+  ctx.translate(-560 + TUNE.cam * Math.cos(t * TUNE.camW), -900 + 0.75 * TUNE.cam * Math.sin(t * TUNE.camW));
+  scenePhone(t); sceneWord(t); sceneChain(t); scenePhoneCall(t); sceneChinese(t);
+  sceneLength(t); sceneCarry(t); sceneNumbers(t); sceneChip(t); scenePunch(t); sceneTease(t);
+  ctx.restore();
+  gauge(t); headline(t); captions(t);
+  endCard(t);
+};
+window.ready = false;
+Promise.all([
+  document.fonts.load(F(500, 40), "字"), document.fonts.load(F(700, 40), "字"), document.fonts.load(F(900, 40), "字"),
+  document.fonts.load(FI(800, 40), "a"), document.fonts.load(`900 40px "Noto Sans CJK SC"`, "龘"),
+]).then(() => { window.seek(0); window.ready = true; });
+</script>
+</body></html>
