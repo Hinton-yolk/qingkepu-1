@@ -1,6 +1,6 @@
 # EP01 · Full Motion Draft V02（内容逻辑与动画因果精修）
 
-《AI 为什么一个字一个字往外蹦？》：约 68.3 秒，540×960 渲染、1080×1920 合成，原生 30 fps，无配音（只有原创合成音乐和音效）。本机 CPU 渲染，没用付费 GPU。
+《AI 为什么一个字一个字往外蹦？》：约 68.3 秒，540×960 渲染、1080×1920 合成，原生 30 fps，无配音（只有原创合成音乐和音效）。改动的段按用户指令在 RunPod 渲染（低成本预览档，没有升级材质、灯光和分辨率）。
 
 ## 怎么做的（工程）
 - 场景：`shot_v02.py`（由 V01 的 `shot_full.py` 改来）。
@@ -11,7 +11,8 @@
 - 手机界面贴图：`make_ui_v2.py` 生成 `ui_phone_v2.png`。
 
 ```bash
-bash render_v02.sh        # 本机 CPU 渲改动的段（可断点续渲）
+python3 ../../../../../tools/runpod_render_gql.py ...   # 本轮实际用法：RunPod 渲改动的段（打包见 runpod_pack.py --ranges）
+bash render_v02.sh        # 备用：本机 CPU 渲改动的段（可断点续渲，很慢）
 bash finalize_v02.sh      # 帧表 → 合成 → 局部视频 → 接触表 → 交付目录
 # 看某几个时刻的构图（场景时间）：
 blender -b -P shot_v02.py -- --outdir /tmp/x --scale 0.25 --samples 8 --font <NotoSansSC-Bold.otf> --only 49.8,52.6
