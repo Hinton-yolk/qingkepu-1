@@ -16,8 +16,8 @@
 | 6 | 「I like strawberry」按字母 15 块、按积木 3 块，长约 5 倍 | 15 个字母（不算空格）；两个编码都是 I / like / strawberry 3 块；15 ÷ 3 = 5 | 〔测〕 |
 | 7 | 「这种积木，行业里叫 Token」 | Token 是分词器切出的最小单位，模型输入输出都以 Token 为单位 | 〔摘〕tiktoken README |
 | 8 | 积木 = Token | 类比。Token 不一定对应完整的字或词，可以是半个词、一个字节碎片；画面小字「积木不按词语切」（「今天天气真好」里的「天天」） | 〔类比〕 |
-| 8a | 「AI 说话也是一块一块往外接的」 | 自回归语言模型每次预测下一个 Token，再把它接到输入后面继续预测。Brown et al. 2020，Language Models are Few-Shot Learners，arXiv:2005.14165，第 2 节 | 〔摘〕 |
-| 8b | 「读遍了整座图书馆的接龙高手」 | 类比。训练数据量的量级：Llama 3 预训练用了超过 15 万亿个 Token（arXiv:2407.21783，摘要和 3.1 节） | 〔类比〕 |
+| 8a | 「AI 说话也是一块一块往外接的」 | 自回归语言模型每次预测下一个 Token，再把它接到输入后面继续预测。Brown et al. 2020，Language Models are Few-Shot Learners，arXiv:2005.14165，摘要：「GPT-3, an autoregressive language model with 175 billion parameters」 | 〔摘〕 |
+| 8b | 「读遍了整座图书馆的接龙高手」 | 类比。训练数据量的量级：Llama 3 预训练语料约 15 万亿个 Token（arXiv:2407.21783 第 1 节「about 15T multilingual tokens」；405B 版本用了 15.6T，**发布前对照原文核实所在小节**） | 〔类比〕 |
 | 8c | 电话里听名字、问笔画 | 类比，说的是「模型认得这块积木，却看不到它由哪几个字母组成」。不成立的地方：模型能在训练中间接学到很多积木的拼写（见 #18），所以并非完全不知道；人听名字问笔画是真的不知道 | 〔类比〕 |
 | 8d | 「因为太慢、太贵」 | 英文平均每个 Token 约 4 个字节（tiktoken README：「each token corresponds to about 4 bytes」），按字母读，序列会长好几倍；每多一块就多一次完整的前向计算（#10） | 〔摘〕 |
 
@@ -41,4 +41,4 @@
 | 18 | 「AI 根本“看不见”字母」（底稿原句的引号已恢复） | 模型的输入是 Token 编号。tiktoken README（「What is BPE anyway?」一节）：「Language models don't see text like you and I, instead they see a sequence of numbers (known as tokens).」引号表示是口语化的说法：字母信息能在训练中被间接学到（Kaushal & Mahowald 2022，What do tokens know about their characters and how do they know it?，NAACL），这也是现在很多新 AI 能答对的原因之一；有的模型还会先把单词逐个字母拆开再数。**后半句的出处待核** | 〔摘〕 |
 
 ## 画面上的数字
-2、3、#496 #675 #15717、#73700、15、3、5 倍、2000 亿、20、4 万亿。全部见上表。
+2、1 2 3（数 r）、#496 #675 #15717、#73700、15 块、3 块、长约 5 倍、2 块碎片（龘）、≈ 2000 亿次、2 × 参数量、20 块、≈ 4 万亿次。数字条上滚动的数值是随机的（已标「数值为示意」）。全部见上表。

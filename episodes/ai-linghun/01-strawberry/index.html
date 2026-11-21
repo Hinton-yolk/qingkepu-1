@@ -156,11 +156,11 @@ function qLayout() {
   return { x, y, w, h: 76, xs, ty: PH.cy + PS * (y + 38 - PH.cy) };
 }
 function scenePhone(t) {
-  const out = ease(ramp(t, a(1) + 0.4, a(1) + 1.1));
+  const out = ease(ramp(t, a(1) + 0.78, a(1) + 1.35));   // leaves after every letter has left the bubble
   if (out >= 1) return;
-  const { cx, w, h } = PH, cy = PH.cy + 1300 * out;
+  const { w, h } = PH, cy = PH.cy, cx = PH.cx - 1400 * out;      // slides out to the left (fully off-screen at out = 1)
   ctx.save();
-  ctx.translate(cx, cy); ctx.rotate(Math.sin(t * 0.9) * 0.01); ctx.scale(PS, PS); ctx.translate(-cx, -cy);
+  ctx.translate(cx, cy); ctx.rotate(Math.sin(t * 0.9) * 0.01 - 0.12 * out); ctx.scale(PS, PS); ctx.translate(-cx, -cy);
   ctx.fillStyle = "rgba(0,0,0,.14)"; rr(cx - w / 2 + 10, cy - h / 2 + 22, w, h, 64); ctx.fill();
   ctx.fillStyle = "#23232B"; rr(cx - w / 2, cy - h / 2, w, h, 64); ctx.fill();
   ctx.fillStyle = "#FBFAF7"; rr(cx - w / 2 + 14, cy - h / 2 + 14, w - 28, h - 28, 52); ctx.fill();
@@ -168,7 +168,7 @@ function scenePhone(t) {
   txt("AI 助手", cx, cy - h / 2 + 98, { font: F(700, 30) });
   ctx.fillStyle = "rgba(0,0,0,.08)"; ctx.fillRect(cx - w / 2 + 14, cy - h / 2 + 130, w - 28, 2);
   // the question (the word strawberry leaves the bubble when the letters fly out)
-  const q = qLayout(), qy = q.y + (cy - PH.cy);
+  const q0 = qLayout(), q = { ...q0, x: q0.x + (cx - PH.cx) }, qy = q.y;
   ctx.fillStyle = C.blue; rr(q.x, qy, q.w, q.h, 26); ctx.fill();
   const go = 1 - ramp(t, a(1) + 0.42, a(1) + 0.5);
   ctx.save(); ctx.font = QF; ctx.textBaseline = "middle"; ctx.fillStyle = "#fff";
@@ -267,7 +267,7 @@ function sceneWord(t) {
   txt("编号 #73700（GPT-4）", RCX, ROWY + 94, { font: F(700, 30), color: C.soft, alpha: idB });
   ctx.restore();
   // labels under the row
-  txt("我们：一个字母一个字母地看", RCX, 960, { font: F(700, 36), color: C.ink, alpha: vis(t, a(5) + 0.2, a(6) + 0.4) });
+  txt("我们：一个字母一个字母地看", RCX, 960, { font: F(700, 36), color: C.ink, alpha: vis(t, a(5) + 0.45, a(6) + 0.4) });
   txt("AI：先切成一块块积木", RCX, 960, { font: F(700, 36), color: C.ink, alpha: vis(t, a(6) + 0.4, a(9) + 0.2) * (1 - exit) });
   txt("切法：GPT-4 分词器实测", RCX, 1016, { font: F(700, 34), color: C.soft, alpha: vis(t, a(7) + 0.4, a(8) + 0.4) });
   // the sentence context (L7): with a space in front, the whole word is one block
@@ -304,7 +304,7 @@ function sceneWord(t) {
   const ok = vis(t, a(4) + 0.1, a(4) + 3.6, 0.25, 0.3);
   if (ok > 0) pill("✓ 很多新 AI 已经能答对", RCX, 980, { font: F(700, 36), bg: C.green, alpha: ok, scale: back(ramp(t, a(4) + 0.1, a(4) + 0.4)) });
   // the x-ray glimpse (L4 「恰恰藏着 AI 最底层的秘密」): a scan reveals blocks under the letters, then they hide again
-  const xr = vis(t, a(4) + 3.7, a(5) + 0.35, 0.2, 0.45), xs = lerp(TX(0) - 70, TX(9) + 70, ease(ramp(t, a(4) + 3.7, a(4) + 4.9)));
+  const xr = vis(t, a(4) + 3.7, a(5) + 0.15, 0.2, 0.4), xs = lerp(TX(0) - 70, TX(9) + 70, ease(ramp(t, a(4) + 3.7, a(4) + 4.9)));
   if (xr > 0 && m === 0) {
     ctx.save(); ctx.globalAlpha = xr;
     for (let g = 0; g < 3; g++) {
@@ -579,11 +579,11 @@ function sceneNumbers(t) {
 function zoomIn(t) { return ease(ramp(t, a(23) + 0.9, a(23) + 2.0)) * (1 - ease(ramp(t, a(26), a(26) + 1.3))); }
 function sceneChip(t) {
   // appears only once the dark has opened, and is gone before the dark closes again (no grey overlap)
-  const al = vis(t, a(23) + 0.3, a(27) - 0.25, 0.45, 0.4);
+  const al = vis(t, a(23) + 0.3, a(27) - 0.05, 0.45, 0.35);
   if (al <= 0) return;
   const z = zoomIn(t);
   const P0 = 440, D0 = 0.38 * P0, die = lerp(D0, 640, z), sf = die / D0;
-  const cx = 560, cy = 900;
+  const cx = 560, cy = 880;
   ctx.save(); ctx.globalAlpha = al;
   // package, seen from above (schematic): substrate · interposer · one big die · six HBM stacks (three each side). No edge pins.
   ctx.save(); ctx.translate(cx, cy); ctx.scale(sf, sf); ctx.globalAlpha *= 1 - 0.92 * z;
@@ -618,12 +618,17 @@ function sceneChip(t) {
   const lb = vis(t, a(23) + 3.0, a(24) + 0.2, 0.3, 0.3);
   if (lb > 0) pill("只做两件事：乘法 × 和加法 +", 560, 462, { font: F(900, 40), h: 82, bg: C.glow, color: C.ink, alpha: lb, scale: back(ramp(t, a(23) + 3.0, a(23) + 3.35)) });
   // what is schematic here, always on screen while the chip is (≥ 36 px)
-  txt("示意：云端机房里的 GPU 芯片", 560, 1236, { font: F(700, 36), color: "rgba(246,243,236,.75)", alpha: 1 - ramp(z, 0.3, 0.6) });
-  txt("示意：1 个小工人 ≈ 1 个乘加单元", 560, 1236, { font: F(700, 36), color: "rgba(246,243,236,.75)", alpha: ramp(z, 0.3, 0.6) });
+  const nA = 1 - ramp(z, 0.3, 0.6), nB = ramp(z, 0.3, 0.6);
+  for (const [str, na] of [["示意：云端机房里的 GPU 芯片", nA], ["示意：1 个小工人 ≈ 1 个乘加单元", nB]]) {
+    if (na <= 0) continue;
+    const w = tw(str, F(700, 36)) + 40;
+    ctx.save(); ctx.globalAlpha *= na; ctx.fillStyle = "rgba(9,13,24,.82)"; rr(560 - w / 2, 1210, w, 50, 25); ctx.fill(); ctx.restore();
+    txt(str, 560, 1236, { font: F(700, 36), color: "rgba(246,243,236,.85)", alpha: na });
+  }
   // L23–L24 counter
   counter(t);
   // L26 GPU label
-  const gl = vis(t, a(26) + 1.6, a(27) - 0.25, 0.3, 0.3);
+  const gl = vis(t, a(26) + 1.6, a(27) - 0.05, 0.3, 0.3);
   if (gl > 0) {
     ctx.save(); ctx.globalAlpha *= gl; ctx.strokeStyle = C.glow; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.moveTo(cx + D0 / 2 - 10, cy - D0 / 2 + 10); ctx.lineTo(cx + 190, cy - 300); ctx.lineTo(cx + 200, cy - 300); ctx.stroke(); ctx.restore();
@@ -657,19 +662,19 @@ function counter(t) {
   const al = vis(t, a(24) + 0.2, b(25) + 0.35, 0.3, 0.3);
   if (al <= 0) return;
   ctx.save(); ctx.globalAlpha *= al;
-  ctx.fillStyle = "rgba(9,13,24,.88)"; rr(170, 740, 780, 330, 30); ctx.fill();
+  ctx.fillStyle = "rgba(9,13,24,.88)"; rr(170, 720, 780, 330, 30); ctx.fill();
   ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,209,102,.5)"; ctx.stroke();
-  const sw = ramp(t, a(25) + 1.0, a(25) + 1.3);                 // header and number switch together
-  txt("每读一块积木", 560, 808, { font: F(700, 38), color: C.paper, alpha: 1 - sw });
-  txt("一句话 ≈ 20 块积木", 560, 808, { font: F(700, 38), color: C.paper, alpha: sw });
-  const run = ease(ramp(t, a(24) + 2.5, a(24) + 3.9)), n = Math.round(2000 * run);
-  const shown = ramp(t, a(24) + 2.4, a(24) + 2.6);              // no number until it starts rolling
-  txt(`≈ ${n} 亿次`, 560, 920, { font: FI(900, 104), color: C.glow, alpha: shown * (1 - sw) });
-  if (sw > 0) { const s2 = back(ramp(t, a(25) + 1.0, a(25) + 1.35)); ctx.save(); ctx.translate(560, 920); ctx.scale(s2, s2); txt("≈ 4 万亿次", 0, 0, { font: FI(900, 104), color: C.glow, alpha: sw }); ctx.restore(); }
-  txt(sw > 0.5 ? "估算：20 块 × 每块 2000 亿次" : "估算：每块 ≈ 2 × 参数量", 560, 1024, { font: F(700, 34), color: "rgba(246,243,236,.75)", alpha: sw > 0.5 ? 1 : shown });
+  const T1 = a(25) + 1.0, out = 1 - ramp(t, T1, T1 + 0.12), inn = ramp(t, T1 + 0.12, T1 + 0.3);   // old out first, then new in
+  txt("每读一块积木", 560, 788, { font: F(700, 38), color: C.paper, alpha: out });
+  txt("一句话 ≈ 20 块积木", 560, 788, { font: F(700, 38), color: C.paper, alpha: inn });
+  const run = ease(ramp(t, a(24) + 0.35, a(24) + 3.7)), n = Math.round(2000 * run);    // rolls while the sentence is said
+  txt(`≈ ${n} 亿次`, 560, 900, { font: FI(900, 104), color: C.glow, alpha: ramp(t, a(24) + 0.3, a(24) + 0.45) * out });
+  if (inn > 0) { const s2 = back(ramp(t, T1 + 0.12, T1 + 0.45)); ctx.save(); ctx.translate(560, 900); ctx.scale(s2, s2); txt("≈ 4 万亿次", 0, 0, { font: FI(900, 104), color: C.glow, alpha: inn }); ctx.restore(); }
+  txt("估算：每块 ≈ 2 × 参数量", 560, 1004, { font: F(700, 34), color: "rgba(246,243,236,.75)", alpha: out });
+  txt("估算：20 块 × 每块 2000 亿次", 560, 1004, { font: F(700, 34), color: "rgba(246,243,236,.75)", alpha: inn });
   for (let i = 0; i < 20; i++) {
     const p = ramp(t, a(25) + 0.2 + i * 0.035, a(25) + 0.4 + i * 0.035) * (1 - ramp(t, b(25), b(25) + 0.3));
-    if (p > 0) { ctx.save(); ctx.globalAlpha *= p; ctx.fillStyle = BRICK[i % 4]; rr(213 + i * 34.5, 640 - 30 * (1 - eo(p)), 30, 24, 5); ctx.fill(); ctx.restore(); }
+    if (p > 0) { ctx.save(); ctx.globalAlpha *= p; ctx.fillStyle = BRICK[i % 4]; rr(213 + i * 34.5, 620 - 30 * (1 - eo(p)), 30, 24, 5); ctx.fill(); ctx.restore(); }
   }
   ctx.restore();
 }
