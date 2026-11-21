@@ -19,8 +19,8 @@ FPS, DUR = 30, 20.0
 
 # ---------------- 时间表（秒） ----------------
 T_DOOR = (0.0, 1.5)          # 门从半开到全开（第一帧门已经开了一条缝，里面透出光）
-T_SEA = 1.75                 # 「海洋」落定（2D 层同一时刻）
-T_SEA_FORM = (1.95, 3.4)     # 雾从中间散开、海面升起、天和太阳出来
+T_SEA = 1.45                 # 「海洋」落定（2D 层同一时刻）
+T_SEA_FORM = (1.6, 2.65)     # 雾从中间散开、海面升起、天和太阳出来
 T_RW = (7.5, 8.9)            # 演示回放：海退下、雾回来
 T_FOR = 9.7                  # 「森林」落定
 T_FOR_FORM = (9.9, 12.0)     # 地面升起、树从门口往远处一层层长出来
@@ -264,13 +264,13 @@ fog_wrap(wnt, _p.outputs[0], wout); WAVE = _n1
 bpy.ops.mesh.primitive_plane_add(size=1, location=(0, 300, 0)); w1 = bpy.context.active_object; w1.name = 'seaFar'; w1.scale = (900, 600, 1); w1.data.materials.append(wat_m); w1.parent = sea
 bpy.ops.mesh.primitive_plane_add(size=1, location=(0, YF / 2 + 0.05, 0)); w2 = bpy.context.active_object; w2.name = 'seaIn'; w2.scale = (CX1 - CX0, -YF + 0.1, 1); w2.data.materials.append(wat_m); w2.parent = sea
 # 冷藏室里那一截海水的正面切面（像鱼缸）：看得出水有深度
-body_m, _bnt, _bout = nodes_mat('waterbody')            # 冷藏室里那一块海水：透明的水 + 体积吸收（越深越蓝，看得进去）
-_bp = _bnt.nodes.new('ShaderNodeBsdfPrincipled'); _bp.inputs['Base Color'].default_value = (1, 1, 1, 1); _bp.inputs['Roughness'].default_value = 0.04
-_bp.inputs['Transmission Weight'].default_value = 1.0; _bp.inputs['IOR'].default_value = 1.03
-_bv = _bnt.nodes.new('ShaderNodeVolumeAbsorption'); _bv.inputs['Color'].default_value = H('#2E9CC0'); _bv.inputs['Density'].default_value = 2.2
-_bs = _bnt.nodes.new('ShaderNodeVolumeScatter'); _bs.inputs['Color'].default_value = H('#8FE0EA'); _bs.inputs['Density'].default_value = 2.6
-_bad = _bnt.nodes.new('ShaderNodeAddShader'); _bnt.links.new(_bv.outputs[0], _bad.inputs[0]); _bnt.links.new(_bs.outputs[0], _bad.inputs[1])
-_bnt.links.new(_bp.outputs[0], _bout.inputs['Surface']); _bnt.links.new(_bad.outputs[0], _bout.inputs['Volume'])
+body_m, _bnt, _bout = nodes_mat('waterbody')            # 冷藏室里那一块海水的切面：上浅下深的蓝绿（不透明，避免透射把地板和黑底折进来）
+_bp = _bnt.nodes.new('ShaderNodeBsdfPrincipled'); _bp.inputs['Roughness'].default_value = 0.25; _bp.inputs['Coat Weight'].default_value = 0.6
+_btc = _bnt.nodes.new('ShaderNodeTexCoord'); _bsx = _bnt.nodes.new('ShaderNodeSeparateXYZ'); _br = _bnt.nodes.new('ShaderNodeValToRGB')
+_br.color_ramp.elements[0].color = H('#0E3E63'); _br.color_ramp.elements[1].color = H('#2E9DBA'); _br.color_ramp.elements[0].position = 0.0; _br.color_ramp.elements[1].position = 1.0
+_bnt.links.new(_btc.outputs['Generated'], _bsx.inputs[0]); _bnt.links.new(_bsx.outputs['Z'], _br.inputs['Fac'])
+_bnt.links.new(_br.outputs['Color'], _bp.inputs['Base Color']); _bnt.links.new(_br.outputs['Color'], _bp.inputs['Emission Color']); _bp.inputs['Emission Strength'].default_value = 0.35
+_bnt.links.new(_bp.outputs[0], _bout.inputs['Surface'])
 seabody = box((CX1 - CX0 - 0.004, -YF - 0.03, 1.0), (0, YF / 2, 0), body_m, 0.0, 'seabody')
 SB_C = [sum(v[i] for v in seabody.bound_box) / 8 for i in range(3)]          # 网格自身中心的偏移（每帧移动时要扣掉）   # 冷藏室里的一整块海水（看得到正面的水深）
 # 低太阳（看得见的日轮，海面上有一条反光的路）+ 太阳光

@@ -10,7 +10,7 @@ from overlay import f, NOTO, NOTO_R, grain
 W, Hh = 1080, 1920
 INK, SUB, CARD = (34, 36, 40), (120, 116, 110), (255, 253, 250)
 SEA_C, FOR_C = (36, 118, 176), (70, 128, 52)
-T_SEA, T_RW, T_FOR = 1.75, (7.5, 8.9), 9.7
+T_SEA, T_RW, T_FOR = 1.45, (7.5, 8.9), 9.7
 # 故事句子：按语义片段一段段出来（第一帧已经有「我打开」）
 CHUNKS = [('我', -1.0), ('打开', -0.5), ('冰箱', 0.15), ('，', 0.3), ('里面', 0.5), ('竟然', 0.7), ('是', 0.9), ('一片', 1.05)]
 
@@ -22,7 +22,7 @@ def back_out(u, k=1.7): u = max(0.0, min(1.0, u)); u1 = u - 1; return 1 + (k + 1
 def seg_state(t):
     """当前续写片段：(文字, 颜色, 出现程度 0..1, 句号出现程度)"""
     if t < T_RW[0] + 0.2:
-        return '海洋', SEA_C, back_out(sstep(T_SEA, T_SEA + 0.3, t)) if t >= T_SEA else 0.0, sstep(2.25, 2.4, t)
+        return '海洋', SEA_C, back_out(sstep(T_SEA, T_SEA + 0.3, t)) if t >= T_SEA else 0.0, sstep(1.95, 2.1, t)
     if t < T_FOR:
         r = sstep(T_RW[0] + 0.3, T_RW[0] + 1.2, t)                  # 回放：片段从右往左收回到光标处
         return '海洋', SEA_C, 1.0 - r, 1.0 - sstep(T_RW[0] + 0.2, T_RW[0] + 0.4, t)
@@ -115,8 +115,8 @@ def compose(png, meta):
         d.rounded_rectangle((250, 1700, 830, 1710), 5, fill=(255, 255, 255, int(120 * a)))
         x = 830 - 580 * u; d.rounded_rectangle((250, 1700, x, 1710), 5, fill=(31, 154, 142, int(230 * a)))
         d.ellipse((x - 14, 1691, x + 14, 1719), fill=(255, 255, 255, int(255 * a)))
-    note(lay, '示意：门里的画面是我们对文字含义的想象，不是模型生成的图像', t, 3.8, 7.2)
-    note(lay, '示意：这里按词语演示；实际生成单位是 token，一个词可能是一个或几个 token', t, 12.6, 15.9)
+    note(lay, '示意：门里是对文字含义的想象，不是模型画的图', t, 3.4, 7.2)
+    note(lay, '示意：按词语演示；实际生成单位是 token', t, 12.6, 15.9)
     pill(lay, 1600, ['为什么后一步，要接着前一步生成？'], t, 16.4, 21.0)
     im.alpha_composite(lay); return im.convert('RGB')
 
