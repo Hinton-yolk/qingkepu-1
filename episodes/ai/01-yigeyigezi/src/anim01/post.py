@@ -3,6 +3,8 @@
 # 2D 层只放简短提示（标签条），不放大段字幕；提示挂在 3D 物体投影到屏幕的锚点上，跟着物体走。
 import sys, os, glob, json, math, subprocess
 import numpy as np
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import v03_time
 from PIL import Image, ImageDraw, ImageFilter
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'style3d'))
 from overlay import f, NOTO, grain
@@ -75,6 +77,45 @@ TITLES['v02'] = [('AI 为什么一个字一个字往外蹦？', 0.3, 4.6, 330, 5
                  ('一步一步：大模型 3 轮 → 海 边 看', 59.1, 62.7, 300, 42), ('先猜再验：大模型 1 轮 → 海 边 看', 59.7, 62.7, 390, 42),
                  ('另加小模型猜草稿；条件合适时，整体更快', 60.4, 62.7, 470, 34),
                  ('每一步，都建立在前一步之上。', 66.5, 72.0, 300, 46), ('但可以先猜几步，再一起验收。', 68.1, 72.0, 400, 46)]
+
+# ---- V03（观众优先重剪）：时间都写成场景时间（shot_v03.py）；成片时间由 v03_time 映射 ----
+# 信息分三级：一级 = 画面上方的大字（同一时刻只有一句）；二级 = 挂在物体上的短标签；三级 = 底部的小字限定（不和主要动作抢）
+_S5, _E0 = 49.6, 49.6 + 15.4; _EB = _E0 + 3.6; _TC = 49.6 + 25.0; _DUR = 79.0
+LABELS['v03'] = [
+    ('pill', '候选和分数：模型现算的（示意）', 'w', 7.9, 9.4, -150),
+    ('cells', '每个字先变成一串数（示意）', 'w', 11.0, 12.8, 120), ('gate', '大模型', 'g', 11.7, 13.6, -40),
+    ('gather', '回看前文（示意）', 'g', 13.0, 14.9, -60), ('pill', '下一个字的候选', 'w', 17.9, 19.4, -60),
+    ('fork_u', '出门：去海边看日落', 'w', 21.6, 24.3, -90), ('fork_d', '宅家：睡个懒觉', 'w', 21.9, 24.3, 100),
+    ('qu', '选定「去」', 'a', 25.4, 27.2, -80), ('ctx', '上下文：周末我想去', 'g', 27.4, 29.4, -80),
+    ('park', '算过的留着，不重算（示意）', 'w', 31.2, 32.6, -60),
+    ('step', '第 1 步 → 海', 'g', 34.9, 35.6, -90), ('ctx', '「海」并进上下文', 't', 35.6, 37.3, -80),
+    ('c4', '候选整组换了', 'w', 37.5, 38.6, -70), ('step', '第 2 步 → 边', 'g', 38.1, 38.9, -90),
+    ('ctx', '「边」也并进上下文', 't', 38.9, 39.6, -80), ('step', '第 3 步 → 看', 'g', 40.4, 41.2, -90),
+    ('ctx', '起点：周末我想去', 'a', 45.2, 47.0, -80),
+    ('small', '小模型（更小，也要算）', 'g', 49.3, 51.7, -70), ('drafts', '草稿：还不算数', 'w', 51.0, 52.6, -90),
+    ('park5', '每个位置只看它前面的字', 't', _S5 + 4.4, _S5 + 5.9, -60),
+    ('picks', '大模型每一位的首选', 'a', _S5 + 6.9, _S5 + 8.2, -60),
+    ('d0', '一致 → 接受', 't', _S5 + 8.5, _S5 + 9.25, -70), ('d1', '一致 → 接受', 't', _S5 + 9.2, _S5 + 9.95, -70),
+    ('d2', '不一致', 'a', _S5 + 10.0, _S5 + 11.0, 190), ('d3', '后面的跟着作废', 'w', _S5 + 10.3, _S5 + 11.6, 270),
+    ('d2', '用大模型的首选', 'a', _S5 + 11.9, _S5 + 13.0, -170),
+    ('rowA', '一步一步', 'g', _E0 - 0.3, _E0 + 9.5, 0), ('rowB', '先猜再验', 'g', _EB - 0.6, _E0 + 9.5, 0),
+    ('talA', '大模型 3 轮', 'a', _E0 + 3.3, _E0 + 9.5, 0), ('talB', '小模型 4 步 + 大模型 1 轮', 'a', _EB + 3.0, _E0 + 9.5, 0)]
+TITLES['v03'] = [('AI 的下一个字，还没定？', 3.6, 7.7, 300, 64),
+                 ('倒回去看：候选怎么算出来的？', 9.3, 11.2, 300, 50),
+                 ('选不同，后面也不同', 22.4, 25.1, 300, 60),
+                 ('下一步，要等上一步确定。', 41.3, 43.8, 300, 58),
+                 ('回到同一个起点，换一种办法。', 44.0, 46.9, 300, 52),
+                 ('既然要一步步来，能不能先猜几步？', 47.1, 49.6, 300, 48),
+                 ('小模型：先猜 4 步', 49.7, 51.9, 300, 56),
+                 ('大模型：一趟，4 个位置一起算', _S5 + 2.3, _S5 + 5.7, 300, 50),
+                 ('大模型算 1 轮，写下 3 个字', _S5 + 12.8, _S5 + 15.0, 300, 52),
+                 ('两种做法，大模型各算几轮？', _E0 - 0.2, _EB + 2.8, 300, 50),
+                 ('大模型少等几轮，才有机会更快', _EB + 3.0, _E0 + 9.6, 300, 48),
+                 ('每一步，都建立在前一步之上。', _TC + 0.8, _DUR + 1, 300, 50), ('但可以先猜几步，再一起验收。', _TC + 2.0, _DUR + 1, 400, 50),
+                 # 三级：底部小字
+                 ('示意：生成单位是 token，不一定正好一个字', 17.9, 20.6, 1480, 34),
+                 ('示意：按「取最高分」对照；按概率采样时，用概率规则验收', _S5 + 8.2, _S5 + 12.7, 1480, 32),
+                 ('小模型也要算；草稿常猜错时，就省不下来', _EB + 3.0, _E0 + 9.6, 1480, 34)]
 TIMEMAP = None   # [(成片时间, 场景时间)]，由 __main__ 读入
 
 def chip(layer, cx, cy, text, sty, size=42, alpha=1.0):
@@ -104,7 +145,7 @@ def compose(shot, png, meta):
         if a > 0: chip(lay, 500, 330, text, 'g', size=50, alpha=a)
     for (text, t0, t1, y, sz) in TITLES.get(shot, []):
         a = fade(t, t0, t1, 0.4)
-        if a > 0: chip(lay, 500, y, text, 'g', size=sz, alpha=a)
+        if a > 0: chip(lay, 540, y, text, 'w' if y > 1400 else 'g', size=sz, alpha=a)
     ImageDraw.Draw(lay).text((70, 1840), '示意动画', font=f(NOTO, 26), fill=(90, 86, 80, 150))
     im = im.convert('RGBA'); im.alpha_composite(lay); return im.convert('RGB')
 
@@ -192,6 +233,37 @@ def events(shot):
         for a, b, ch in ((0.0, 10.4, [50, 57, 62, 66]), (10.0, 20.0, [47, 54, 59, 62]), (18.8, 29.3, [50, 57, 62, 66]), (28.4, 40.2, [45, 52, 57, 61]),
                          (40.0, 48.6, [43, 50, 55, 59]), (48.3, 53.9, [45, 52, 57, 60]), (53.6, 63.0, [41, 48, 53, 57]), (62.6, 72.0, [50, 57, 62, 66])):
             fa, fb = sc2f(a), sc2f(b); x = pad(fb - fa, ch); i = int(fa * SR); n = min(len(x), N - i); P[i:i + n] += x[:n]
+    elif shot == 'v03':
+        S = []
+        for k in range(6): S += [(4.4 + 0.35 + 0.59 * k, blip(hz(76 if k % 2 == 0 else 71), 0.1, 0.3))]   # 钩子：两个候选轮流往空位里探
+        S += [(4.45, thud(0.45)), (7.0, whoosh(1.1, True, 0.35)), (7.9, bell(hz(81), 1.2, 0.35)), (8.9, whoosh(1.0, False, 0.3))]
+        E0_, _ = events('int2')
+        S += [(t0 + 10.0, sig) for t0, sig in E0_ if 0.3 < t0 < 17.9]                          # 第二幕 + 分叉（和 V01 同一套）
+        S += [(22.25, blip(hz(62), 0.3, 0.25)), (22.4, bell(hz(86), 1.2, 0.3))]               # 「觉」躺下；揭晓
+        E1_, _ = events('full')
+        S += [(t0, sig) for t0, sig in E1_ if 28.5 <= t0 < 34.8]                               # 「去」进模型
+        for i, c0 in enumerate([34.9, 38.1, 40.5]): S += [(c0, whoosh(0.5, False, 0.25)), (c0 + 0.6, thud(0.45)), (c0 + 0.65, blip(hz(74 + 3 * i), 0.1, 0.3))]
+        for a in (35.55, 38.7): S += [(a, bell(hz(79), 0.9, 0.3)), (a + 0.4, whoosh(0.9, True, 0.25))]
+        for a in (37.45, 39.85): S += [(a + 0.1 * k, blip(hz(81 + 2 * k), 0.08, 0.25)) for k in range(3)]
+        S += [(41.3 + 0.35 * i, bell(hz(m), 1.4, 0.35)) for i, m in enumerate((74, 78, 81))]
+        S += [(43.8 + 0.25 * k, whoosh(0.8, False, 0.22)) for k in range(3)] + [(45.3 + 0.14 * k, blip(hz(74 + 2 * k), 0.08, 0.25)) for k in range(5)]
+        S += [(47.1, bell(hz(88), 1.6, 0.3)), (47.3, whoosh(1.4, False, 0.3)), (48.6, thud(0.4))]
+        S += [(_S5 + 0.26 * j, blip(hz(91 + j), 0.07, 0.3)) for j in range(4)] + [(_S5 + 0.26 * j + 0.7, thud(0.25)) for j in range(4)]
+        S += [(_S5 + 2.0 + 0.1 * k, blip(hz(83 + k), 0.06, 0.2)) for k in range(4)] + [(_S5 + 2.9, whoosh(1.4, True, 0.35))] + [(_S5 + 3.3 + 0.4 * g, thud(0.35)) for g in range(3)]
+        S += [(_S5 + 4.4, whoosh(0.6, True, 0.2))] + [(_S5 + 5.25, bell(hz(m), 1.8, 0.32)) for m in (72, 76, 79, 84)]   # 同一趟：4 个位置一个和弦
+        S += [(_S5 + 5.7, whoosh(1.2, False, 0.3)), (_S5 + 6.9, bell(hz(81), 1.2, 0.3)), (_S5 + 6.95, bell(hz(88), 1.2, 0.25))]
+        S += [(_S5 + 8.65, bell(hz(83), g=0.45)), (_S5 + 9.35, bell(hz(86), g=0.45)), (_S5 + 10.0, thud(0.8)), (_S5 + 10.1, blip(hz(55), 0.3, 0.3)), (_S5 + 10.35, blip(hz(50), 0.25, 0.25))]
+        S += [(_S5 + 10.6, whoosh(1.2, True, 0.3)), (_S5 + 11.7, whoosh(0.7, False, 0.3)), (_S5 + 12.4, thud(0.7)), (_S5 + 12.8, bell(hz(79), 2.0, 0.35)), (_S5 + 13.1, bell(hz(86), 2.0, 0.3))]
+        for k in range(3): a = _E0 + 0.4 + 1.0 * k; S += [(a + 0.2, thud(0.5)), (a + 0.3, bell(hz(74), 0.8, 0.3)), (a + 0.8, blip(hz(79 + 2 * k), 0.08, 0.3))]
+        S += [(_EB + 0.3 * j + 0.1, blip(hz(93), 0.05, 0.25)) for j in range(4)] + [(_EB + 1.8, thud(0.5)), (_EB + 1.9, bell(hz(74), 0.8, 0.3)), (_EB + 2.2, bell(hz(83), 1.2, 0.35)), (_EB + 2.5, blip(hz(55), 0.25, 0.25)), (_EB + 3.0, bell(hz(86), 1.6, 0.3))]
+        S += [(_TC + 0.1, whoosh(1.2, False, 0.3)), (_TC + 0.9, blip(hz(76), 0.1, 0.3)), (_TC + 1.05, blip(hz(71), 0.1, 0.3)), (_TC + 0.8, bell(hz(74), 2.6, 0.35)), (_TC + 2.0, bell(hz(81), 2.4, 0.3))]
+        sc2f = lambda x: v03_time.scene_to_film(x)
+        E = [(sc2f(t0), sig) for t0, sig in S if t0 >= 4.4]
+        N = int(v03_time.FILM_DUR * SR) + SR; P = np.zeros(N)
+        for a, b, ch in ((4.4, 10.6, [45, 52, 57, 60]), (10.4, 19.8, [47, 54, 59, 62]), (19.6, 28.6, [50, 57, 62, 66]), (28.4, 41.0, [45, 52, 57, 61]),
+                         (41.3, 47.2, [43, 50, 55, 59]), (47.1, _S5 + 5.0, [48, 55, 60, 64]), (_S5 + 5.25, _S5 + 12.6, [41, 48, 53, 57]),
+                         (_S5 + 12.8, _E0 + 0.2, [53, 60, 65, 69]), (_E0, _TC + 0.4, [50, 57, 62, 66]), (_TC + 0.2, _DUR + 0.5, [45, 52, 57, 64])):
+            fa, fb = sc2f(a), sc2f(b); x = pad(fb - fa, ch); i = int(fa * SR); n = min(len(x), N - i); P[i:i + n] += x[:n]
     elif shot == 'int2':
         E += [(0.4 + 0.25 * k + 0.3, blip(hz(71 + 3 * k), g=0.3)) for k in range(4)] + [(1.9, whoosh(1.0, True, 0.35))]
         E += [(3.0 + 0.12 * k, blip(hz(83 + k), 0.1, 0.25)) for k in range(3)] + [(3.55, bell(hz(79), 0.8, 0.3))] + [(3.9 + 0.1 * k, blip(hz(90 - k), 0.08, 0.25)) for k in range(3)]
@@ -257,7 +329,7 @@ if __name__ == '__main__':
         if not os.path.exists(o): compose(shot, pngs[i], metas[i]).save(o, quality=92)
     with Pool(4) as pool: pool.map(job, range(len(pngs)))
     dur = len(pngs) / 30.0
-    name = {'a': 'AnimationTest_A_Branch', 'b': 'AnimationTest_B_ModelFlow', 'c': 'AnimationTest_C_SpeculativeDecoding', 'int': 'EP01_IntegratedAnimation_Test01', 'int2': 'EP01_IntegratedAnimation_Test02', 'full': 'EP01_FullMotionDraft_v01', 'v02': 'EP01_FullMotionDraft_v02'}[shot]
+    name = {'a': 'AnimationTest_A_Branch', 'b': 'AnimationTest_B_ModelFlow', 'c': 'AnimationTest_C_SpeculativeDecoding', 'int': 'EP01_IntegratedAnimation_Test01', 'int2': 'EP01_IntegratedAnimation_Test02', 'full': 'EP01_FullMotionDraft_v01', 'v02': 'EP01_FullMotionDraft_v02', 'v03': 'EP01_AudienceFirst_v03'}[shot]
     wav = os.path.join(out, f'{shot}_sfx.wav'); audio(shot, dur, wav)
     mp4 = os.path.join(out, name + '.mp4')
     r = subprocess.run(['ffmpeg', '-nostdin', '-hide_banner', '-i', wav, '-af', 'loudnorm=I=-16:TP=-2:LRA=11:print_format=json', '-f', 'null', '-'], capture_output=True, text=True)

@@ -230,14 +230,16 @@ def flat_strip(pts, width, mat, thick=0.05):
 def run(shot):
     sc_ = bpy.context.scene
     tracked = shot['tracked']()            # {名字: 物体}：要记录轨迹的主角
-    nf = int(round(shot['DUR'] * FPS))
-    if AA.only:
-        frames = [int(round(float(x) * FPS)) for x in AA.only.split(',')]
+    nf = int(round(shot.get('FILM_DUR', shot['DUR']) * FPS))
+    tmap = shot.get('tmap')                # 成片时间 → 场景时间（V03 起）；没有就是同一个时间
+    if AA.only:                            # --only 写场景时间
+        frames = [('s', float(x)) for x in AA.only.split(',')] if tmap else [int(round(float(x) * FPS)) for x in AA.only.split(',')]
     else:
         frames = list(range(AA.f0, nf if AA.f1 < 0 else min(AA.f1, nf)))
     os.makedirs(AA.outdir, exist_ok=True)
     for fi in frames:
-        t = fi / FPS
+        if isinstance(fi, tuple): t = fi[1]; fi = int(round(t * 100))
+        else: t = tmap(fi / FPS) if tmap else fi / FPS
         if os.environ.get('KEPU_SKIP_DONE') and os.path.exists(os.path.join(AA.outdir, f'f{fi:05d}.json')): continue   # 断点续渲
         ANCH.clear(); shot['pose'](t)
         bpy.context.view_layer.update()
@@ -245,7 +247,7 @@ def run(shot):
         bpy.ops.render.render(write_still=True)
         def scr(v):
             p = world_to_camera_view(sc_, sc_.camera, Vector(v)); return [round(p.x, 4), round(1 - p.y, 4), round(p.z, 3)]
-        meta = {'t': round(t, 4), 'f': fi,
+        meta = {'t': round(t, 4), 'f': fi, 'ft': round(fi / FPS, 4),
                 'objs': {k: {'world': [round(c, 4) for c in o.matrix_world.translation], 'screen': scr(o.matrix_world.translation),
                              'visible': not getattr(o, '_hidden', False)} for k, o in tracked.items()},
                 'anch': {k: scr(v) for k, v in ANCH.items()},
