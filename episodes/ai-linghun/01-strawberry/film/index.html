@@ -197,7 +197,7 @@ const LAUNCH = a(1) + 0.45, STAG = 0.05, FLY = 0.8;
 const SCAN1 = [a(1) + 2.05, b(1) - 0.85];
 const redT = (k) => a(2) + 0.05 + k * 0.3, redOff = [a(4) + 0.1, a(4) + 0.5];
 const XR = [a(4) + 0.15, a(5) + 0.1];        // 可它当初为什么会错？ — the x-ray shows where the cuts will fall
-const READ0 = a(5) + 0.1, READ_DT = 0.17;
+const READ0 = a(5) + 0.1, READ_DT = 0.19;   // 0.17 → 0.19 (user 11-22: 12–24 s a little too fast)
 const FEED = [a(6) + 0.1, a(6) + 0.8];                    // the tray feeds the cubes into the tokenizer
 const CUT = a(6) + 1.1, FUSE = CUT + 0.45;   // on 「切」
 const exitT = (g) => CUT + 0.85 + g * 0.32, EXIT = 0.7;
@@ -891,7 +891,7 @@ function opening(t) { const al = 1 - ramp(t, LAUNCH - 0.15, LAUNCH + 0.25); if (
   const s = "AI [数不清]字母？", f = F(900, 92), w = tw(s.replace(/[\[\]]/g, ""), f) + 90;
   ctx.save(); ctx.globalAlpha = al; ctx.translate(540, 270); card(0, 0, w, 134); rich(s, 0, 2, f, INK, CORAL); ctx.restore(); }
 function captions(t) {
-  if (t >= END_CARD) return; let i = -1; for (let n = 0; n < L.length; n++) if (L[n].t0 <= t) i = n; if (i < 0 || t >= L[i].t1 + 0.5) return;
+  if (t >= END_CARD) return; let i = -1; for (let n = 0; n < L.length; n++) if (L[n].t0 <= t) i = n; if (i < 0 || t >= L[i].t1 + 0.5 + (L[i].hold || 0)) return;   // a held line stays up through its hold
   const cs = chunks(L[i].text), lens = cs.map((c) => c.replace(/[\[\]]/g, "").length), tot = lens.reduce((x, y) => x + y, 0); let acc = L[i].t0, idx = 0;
   for (let j = 0; j < cs.length; j++) { const d = (L[i].t1 - L[i].t0) * lens[j] / tot; if (t >= acc) idx = j; acc += d; }
   const st = L[i].t0 + (L[i].t1 - L[i].t0) * lens.slice(0, idx).reduce((x, y) => x + y, 0) / tot;

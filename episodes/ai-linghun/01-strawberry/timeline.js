@@ -7,7 +7,8 @@
   const CPS = 5.85;              // characters per second (Fish「科普」, 光互连 measured 5.85–6.2)
   const GAP = 0.22, STOP = 0.32; // pause after a clause / after a full stop
 
-  // narration, one entry per voice clip. seg = which scene it belongs to. [ ] marks the key word: the caption shows it in coral,
+  // narration, one entry per voice clip. hold = extra seconds after a line before the next one (the caption stays up).
+  // seg = which scene it belongs to. [ ] marks the key word: the caption shows it in coral,
   // at the moment the picture shows the same thing in coral (the voice reads the text without the brackets: use .plain).
   const LINES = [
     // A · hook (first frame: the chat with the wrong answer + the big question)
@@ -17,11 +18,11 @@
     { seg: "A", text: "如今很多 AI 已经能答对，" },
     { seg: "A", text: "可它当初为什么会错？" },
     // B · letters vs blocks
-    { seg: "B", text: "我们[一个字母一个字母]地看，" },
-    { seg: "B", text: "AI 却先把它切成一块一块的“[积木]”。" },
-    { seg: "B", text: "strawberry 在它眼里，可能就是 [str、aw、berry] 三块；" },
-    { seg: "B", text: "放进句子里，整个词甚至只是[一块]。" },
-    { seg: "B", text: "这种积木，行业里叫 [Token]。" },
+    { seg: "B", text: "我们[一个字母一个字母]地看，", hold: 0.3 },
+    { seg: "B", text: "AI 却先把它切成一块一块的“[积木]”。", hold: 0.6 },
+    { seg: "B", text: "strawberry 在它眼里，可能就是 [str、aw、berry] 三块；", hold: 1.1 },
+    { seg: "B", text: "放进句子里，整个词甚至只是[一块]。", hold: 0.9 },
+    { seg: "B", text: "这种积木，行业里叫 [Token]。", hold: 0.5 },
     // C · the chain-word player
     { seg: "C", text: "AI 说话也是[一块一块]往外接的，" },
     { seg: "C", text: "它本质上就是一个读遍了整座图书馆的“[接龙高手]”。" },
@@ -66,7 +67,7 @@
   for (const ln of LINES) {
     const d = est(ln.text);
     L.push({ ...ln, plain: ln.text.replace(/[\[\]]/g, ""), t0: +t.toFixed(2), t1: +(t + d).toFixed(2) });
-    t += d + (/[。？]$/.test(ln.text) ? STOP : GAP);
+    t += d + (/[。？]$/.test(ln.text) ? STOP : GAP) + (ln.hold || 0);   // hold: extra time after the line for the picture to finish (user 11-22: 12–24 s a little too fast)
   }
   const END_CARD = +(L[L.length - 1].t1 + 0.4).toFixed(2);
   const DUR = +(END_CARD + 3.2).toFixed(2);
