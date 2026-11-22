@@ -539,8 +539,10 @@ SD = 0;
       txt("每读一块积木", p.x, p.y - 74, { font: F(700, 34), alpha: cv * out }); txt("一句话 ≈ 20 块积木", p.x, p.y - 74, { font: F(700, 34), alpha: cv * inn });
       txt(`≈ ${n} 亿次`, p.x, p.y + 6, { font: FI(900, 76), color: CORAL, alpha: cv * out }); if (inn > 0) { ctx.save(); ctx.translate(p.x, p.y + 6); const s = back(ramp(t, T1 + 0.12, T1 + 0.45)); ctx.scale(s, s); txt("≈ 4 万亿次", 0, 0, { font: FI(900, 76), color: CORAL, alpha: cv * inn }); ctx.restore(); }
       txt("估算：每块 ≈ 2 × 参数量（千亿参数）", p.x, p.y + 82, { font: F(700, 28), color: "rgba(43,39,38,.8)", alpha: cv * out }); txt("估算：20 块 × 每块 2000 亿次", p.x, p.y + 82, { font: F(700, 28), color: "rgba(43,39,38,.8)", alpha: cv * inn }); }
-    const gl = vis(t, a(26) + 1.6, b(26) + 0.35, 0.3, 0.3); if (gl > 0) { const p = P3(G0.x, 0.3, G0.z + 2.55); label("GPU", p.x, p.y, { font: FI(900, 54), h: 88, bg: CORAL, color: "#fff", alpha: gl, scale: back(ramp(t, a(26) + 1.6, a(26) + 1.95)) });
-      const q = P3(G0.x, 0, G0.z + 2.6); label("示意：云端机房里的 GPU 芯片", 540, Math.min(q.y + 110, 1225), { font: F(700, 32), h: 58, alpha: gl }); }
+    const gl = vis(t, a(26) + 1.6, b(26) + 0.35, 0.3, 0.3); if (gl > 0) {   // the note sits right under the GPU pill and clear of the caption (top 1306)
+      const p = P3(G0.x, 0.3, G0.z + 2.55), q = P3(G0.x, 0, G0.z + 2.6), ny = Math.min(q.y + 110, 1255), py = Math.min(p.y, ny - 83);
+      label("GPU", p.x, py, { font: FI(900, 54), h: 88, bg: CORAL, color: "#fff", alpha: gl, scale: back(ramp(t, a(26) + 1.6, a(26) + 1.95)) });
+      label("示意：云端机房里的 GPU 芯片", 540, ny, { font: F(700, 32), h: 58, alpha: gl }); }
   });
   ACT_KEYS.push(
     [a(21) + 0.34, (ST.s5 + X0) / 2, 1.6, -5.0, 8.4, 0.08, 0.5],

@@ -47,3 +47,10 @@ python3 tools/frame_stats.py <图片或视频> [秒 ...] [--crop 宽:高:x:y]
 - 不用 HSV 饱和度：它在暗像素上会被放大，近黑的深蓝也会显得「很饱和」。
 - 测录屏时用 `--crop` 裁掉浏览器界面。
 - 同时输出平均亮度：「微观世界的样子」还有一个亮度门槛（平均亮度 ≥ 0.25，建议值，待用户定）。
+
+## runpod_chromium.py：在 RunPod 上用 GPU 渲 three.js 草稿
+- `python3 tools/runpod_chromium.py run --root <该集目录> --out <mp4> --yes`；`list` / `kill-all` 查看和兜底删机。
+- 租一张卡（默认先 RTX 4090，镜像 `mcr.microsoft.com/playwright:v1.63.0-noble`，和本机 Playwright 同版本），上传 `film/`、`timeline.js`、`assets/`、three；
+  `runpod_chromium_probe.mjs` 先试几种 Chromium 显卡参数（各渲 12 张），挑最快的渲整片，在 pod 上编码，只拉回 mp4，退出时删 pod。
+- 2026-11-22 实测：Vulkan 参数下 Chromium 用上了 4090，约 0.45 秒一帧（本机 CPU 3.2 秒），整片 96 秒约 27 分钟、约 $0.15。
+- API key 由网络代理注入，脚本里只有占位值；建机 / 删机走 GraphQL（`runpod_render_gql.py`）。Blender 终版仍用 `runpod_render_gql.py`。

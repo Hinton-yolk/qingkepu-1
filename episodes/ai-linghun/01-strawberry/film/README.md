@@ -32,3 +32,11 @@ RunPod：`python3 ../../../../tools/runpod_render_gql.py run blender/jobs_ab.jso
 - 逐秒接触表 `qa/full/sheet0–5.jpg`（不进仓库，`ffmpeg … fps=1 … tile=5x4` 重出）。
 - **审核：通过**（Sonnet）。必须在交付说明里写明：开头检查第 4 问为「否」（0–15 秒没有会动的机制演示，切积木在 18–22 秒，script.md 待定）；片尾卡大字「下期 #02」待定；色度未到 0.2。可选建议：小字放大约 20%；56–60 秒「13 笔 / 3 笔」被硬币半遮；99–100 秒「示意」标签出右边缘；部分段落重点偏上；strawberry 用 GPT-4 分词器、中文用 GPT-4o 分词器（GPT-4o 把 strawberry 切成 st / raw / berry），建议主动告知用户。
 - 监督：无遗漏（要求清单补 #21、#22）。观众（Codex）：见 `../观众反馈.md`。
+
+## 在 RunPod 上渲整片（2026-11-22 起，用户：「用runpod来渲吧」）
+- 在仓库根目录：
+  `python3 tools/runpod_chromium.py run --root episodes/ai-linghun/01-strawberry --out episodes/ai-linghun/01-strawberry/film/out/<名字>.mp4 --yes`
+- 它会先试几种 Chromium 显卡参数（结果和每种两张截图在 `out/runpod/`），挑最快的渲整片，在 pod 上编码，只拉回 mp4，然后删 pod。
+- 实测（RTX 4090）：约 0.45 秒一帧，整片约 27 分钟（含装环境），约 $0.15。瓶颈在一个浏览器里截图，不在显卡；以后要更快可以开几个浏览器分段渲。
+- 小修补：在本机 `node render.mjs --start=a --end=b --noencode` 只渲那几秒，覆盖进 `out/frames`（整片 mp4 先 `ffmpeg -i <片> -start_number 0 out/frames/%05d.png` 解成帧），再 `--encode`。
+
