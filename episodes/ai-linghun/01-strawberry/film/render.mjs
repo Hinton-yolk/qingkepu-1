@@ -4,6 +4,7 @@
 //   node render.mjs --stills=0,1,6.9 [--out=qa/stills]
 //   node render.mjs --sheet [--every=0.5] [--tag=r1]
 //   node render.mjs --strip=11.3,12.3 [--n=12]
+//   node render.mjs --cues                    sound cues -> ../music/cues.json
 //   node render.mjs --start=42 --end=48.2 --noencode   re-render a range in place;  node render.mjs --encode --out=…   encode only
 import { createRequire } from "node:module";
 import { execFileSync } from "node:child_process";
@@ -82,6 +83,13 @@ async function main() {
     fs.writeFileSync(path.join(dir, "anim.json"), JSON.stringify({ fps: FPS, f0, f1, W: 1080, H: 1920, frames }));
     console.log(`export: scene.glb ${(fs.statSync(path.join(dir, "scene.glb")).size / 1e6).toFixed(1)} MB, frames ${f0}–${f1}`);
     await browser.close(); srv.close(); return;
+  }
+  if (arg("cues")) {      // --cues : the page's sound cues (window.CUES) -> ../music/cues.json, for music/sfx.py
+    const srv = await serve(), port = srv.address().port;
+    const browser = await chromium.launch(launchOpts()); const page = await openPage(browser, port);
+    const c = await page.evaluate(() => window.CUES.slice().sort((p, q) => p.t - q.t));
+    fs.mkdirSync(path.join(ROOT, "music"), { recursive: true }); fs.writeFileSync(path.join(ROOT, "music/cues.json"), JSON.stringify({ dur: TL.DUR, end_card: TL.END_CARD, cues: c }, null, 1));
+    console.log(`cues: ${c.length} -> music/cues.json`); await browser.close(); srv.close(); return;
   }
   if (arg("stills")) {
     const out = path.join(HERE, arg("out", "qa/stills")); fs.mkdirSync(out, { recursive: true });
