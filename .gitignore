@@ -15,5 +15,5 @@ episodes/guanghulian/blender_test_scale/assets/chip_layout.png
 # per-episode QA stills and sheets
 episodes/weishenme/*/qa/
 qa/
-episodes/*/*/voice/samples/*.mp3
+episodes/*/*/voice/samples*/*.mp3
 episodes/*/*/film/blender/stills/
