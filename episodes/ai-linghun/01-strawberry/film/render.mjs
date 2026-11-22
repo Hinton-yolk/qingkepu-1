@@ -1,4 +1,4 @@
-// render.mjs — EP.01 film (three.js draft) (first ~31 s). Serves ../ over http (ES modules + importmap need http, not file://),
+// render.mjs — EP.01 film (three.js draft). Serves ../ over http (ES modules + importmap need http, not file://),
 // drives index.html's window.seek(t) in headless Chromium (WebGL via SwiftShader), frame by frame.
 //   node render.mjs                          all frames -> out/frames, then encode
 //   node render.mjs --stills=0,1,6.9 [--out=qa/stills]
@@ -48,8 +48,9 @@ async function shot(page, t, file) {
 }
 async function renderTimes(list, workers = WORKERS) {
   const srv = await serve(), port = srv.address().port;
-  const browser = await chromium.launch({ args: ["--disable-gpu-vsync", "--font-render-hinting=none", "--ignore-gpu-blocklist"] });
+  const browser = await chromium.launch(launchOpts());
   const pages = await Promise.all(Array.from({ length: Math.min(workers, list.length) }, () => openPage(browser, port)));
+  if (arg("gpuinfo")) console.log("GPU:", await pages[0].evaluate(() => { const g = document.createElement("canvas").getContext("webgl2"), x = g && g.getExtension("WEBGL_debug_renderer_info"); return g ? (x ? g.getParameter(x.UNMASKED_RENDERER_WEBGL) : g.getParameter(g.RENDERER)) : "no webgl2"; }));
   let next = 0, done = 0; const t0 = Date.now();
   await Promise.all(pages.map(async (p) => {
     while (next < list.length) {
@@ -60,6 +61,12 @@ async function renderTimes(list, workers = WORKERS) {
   }));
   await browser.close(); srv.close();
   return (Date.now() - t0) / 1000;
+}
+// on a GPU machine (tools/runpod_chromium.py) the WebGL backend comes from the environment: CHROME_ARGS (JSON array of flags), CHROME_CHANNEL
+function launchOpts() {
+  const o = { args: ["--disable-gpu-vsync", "--font-render-hinting=none", "--ignore-gpu-blocklist", ...JSON.parse(process.env.CHROME_ARGS || "[]")] };
+  if (process.env.CHROME_CHANNEL) o.channel = process.env.CHROME_CHANNEL;
+  return o;
 }
 const ff = (args) => execFileSync("ffmpeg", ["-v", "error", "-y", ...args], { stdio: "inherit" });
 
