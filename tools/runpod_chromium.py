@@ -2,11 +2,12 @@
 """在 RunPod 上用 GPU 渲 three.js 草稿（无头 Chromium + 该集的 render.mjs），渲完在 pod 上编码，只拉回 mp4。
 
   python3 tools/runpod_chromium.py run --root episodes/ai-linghun/01-strawberry \
-      --out episodes/ai-linghun/01-strawberry/film/out/ai01-strawberry-film-draft-v2.mp4 [--gpu "id1,id2"] [--max-hours 1.5] [--yes]
+      --out episodes/ai-linghun/01-strawberry/film/out/ai01-strawberry-film-draft-v2.mp4 [--gpu "id1,id2"] [--max-hours 1.5] [--skip-probe] [--yes]
   python3 tools/runpod_chromium.py list | kill-all
 
 流程：建一台 GPU pod（镜像 mcr.microsoft.com/playwright，带 Chromium 和 node）→ 上传 film/、timeline.js、assets/、three →
-  先试几种让 Chromium 用上显卡的参数（tools/runpod_chromium_probe.mjs，各渲 12 张），挑最快的 → 渲整片 → ffmpeg 编码 →
+  先试几种让 Chromium 用上显卡的参数（tools/runpod_chromium_probe.mjs，各渲 12 张），挑最快的（--skip-probe 直接用 Vulkan）→
+  按 CPU 核数开 1–4 个浏览器分段渲整片 → ffmpeg 编码 →
   拉回 mp4 和试渲截图（<out 所在目录>/runpod/）→ 删 pod。
 建机 / 删机走 GraphQL（同 tools/runpod_render_gql.py）；pod 内 HTTP 服务、看门狗沿用 tools/runpod_render.py。
 API key 由网络代理注入，这里不存；本脚本退出（包括出错、Ctrl-C）时删掉自己建的 pod，除非 --keep。
@@ -21,6 +22,7 @@ REPO = R.REPO
 PW = '1.63.0'                                   # 和本机 Playwright 同版本，镜像里的浏览器版本才对得上
 IMAGE = f'mcr.microsoft.com/playwright:v{PW}-noble'
 GPUS = 'NVIDIA GeForce RTX 4090,NVIDIA GeForce RTX 3090,NVIDIA RTX A5000,NVIDIA RTX A4000,NVIDIA L4,NVIDIA RTX 4000 Ada Generation'
+VULKAN = ["--use-angle=vulkan", "--enable-features=Vulkan", "--disable-vulkan-surface", "--enable-gpu"]
 INCLUDE = ['film/index.html', 'film/render.mjs', 'timeline.js', 'assets',
            'v4-3d/node_modules/three/package.json', 'v4-3d/node_modules/three/build', 'v4-3d/node_modules/three/examples/jsm']
 
@@ -38,12 +40,21 @@ export NODE_PATH=$(npm root -g)
 echo wait_bundle > /w/stage
 while [ ! -f /w/bundle.tgz ]; do sleep 2; done
 mkdir -p /w/scene && tar xzf /w/bundle.tgz -C /w/scene
-echo probe > /w/stage
-if node /w/scene/_probe.mjs /w/scene/film >> /w/render.log 2>&1; then
+ok=0
+if [ -n "$CHOSEN_ARGS" ]; then printf "export CHROME_ARGS='%s' CHROME_CHANNEL='' WORKERS=8\n" "$CHOSEN_ARGS" > /w/chosen.env; ok=1
+else echo probe > /w/stage; node /w/scene/_probe.mjs /w/scene/film >> /w/render.log 2>&1 && ok=1; fi
+if [ $ok = 1 ]; then
   . /w/chosen.env
   echo rendering > /w/stage
   cd /w/scene/film
-  if node render.mjs --workers=$WORKERS --out=out/film.mp4 >> /w/render.log 2>&1; then mv out/film.mp4 /w/out/film.mp4; else echo "render failed" >> /w/fails; fi
+  # several browsers side by side: one browser tops out around 0.45 s/frame (its screenshots), not the GPU
+  NF=$(node -e 'const T=require("../timeline.js"); console.log(Math.round(T.FPS * T.DUR))'); SH=$(( $(nproc) / 10 )); [ $SH -lt 1 ] && SH=1; [ $SH -gt 4 ] && SH=4
+  echo "shards: $SH x $WORKERS pages, $NF frames" >> /w/render.log; pids=""
+  for k in $(seq 0 $((SH - 1))); do f0=$((NF * k / SH)); f1=$((NF * (k + 1) / SH))
+    node render.mjs --workers=$WORKERS --start=$(node -e "console.log(($f0 - 0.5) / 30)") --end=$(node -e "console.log(($f1 - 0.4) / 30)") --noencode --resume >> /w/render.log 2>&1 & pids="$pids $!"; done
+  bad=0; for p in $pids; do wait $p || bad=1; done
+  if [ $bad = 0 ] && [ $(ls out/frames | wc -l) -ge $NF ] && node render.mjs --encode --out=out/film.mp4 >> /w/render.log 2>&1; then mv out/film.mp4 /w/out/film.mp4
+  else echo "render failed (bad=$bad, frames $(ls out/frames | wc -l)/$NF)" >> /w/fails; fi
 else echo "probe failed: no Chromium config worked" >> /w/fails; fi
 echo done > /w/stage
 sleep infinity
@@ -86,11 +97,12 @@ def main():
         return
     root = os.path.join(REPO, opt('--root')); out = os.path.join(REPO, opt('--out'))
     max_h = float(opt('--max-hours', 1.5)); gpus = opt('--gpu', GPUS).split(',')
+    chosen = json.dumps(VULKAN) if '--skip-probe' in a else ''     # the probe picked Vulkan on a 4090 (2026-11-22); skip it to save ~2 min
     data = bundle(root); print(f'场景包 {len(data) / 1e6:.1f} MB')
     if '--yes' not in a: raise SystemExit('要真的租卡，加 --yes')
     token = secrets.token_urlsafe(24)
     env = dict(TOKEN=token, SRV_PY_B64=base64.b64encode(R.SRV_PY.encode()).decode(), POD_SH_B64=base64.b64encode(POD_SH.encode()).decode(),
-               PW=PW, MAX_SEC=str(int(max_h * 3600)), NVIDIA_DRIVER_CAPABILITIES='all')
+               PW=PW, MAX_SEC=str(int(max_h * 3600)), NVIDIA_DRIVER_CAPABILITIES='all', CHOSEN_ARGS=chosen)
     pod = None
     try:
         for cloud in ('COMMUNITY', 'SECURE'):
