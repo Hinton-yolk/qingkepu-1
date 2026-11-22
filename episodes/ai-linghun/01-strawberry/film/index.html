@@ -860,7 +860,7 @@ function overlays(t) {
     card(0, 0, nw ? 300 : 290, 84, { r: 22 }); ctx.fillStyle = CREAMC + "0.93)"; ctx.beginPath(); ctx.moveTo(-18, 40); ctx.lineTo(0, 62); ctx.lineTo(18, 40); ctx.fill();
     if (nw) txt("如今：3 个 ✓", 0, 2, { font: F(900, 40), color: GREEN });
     else { txt("AI 曾答：2 个", 0, 2, { font: F(900, 40) });   // 用户 11-22：加上「曾」（如今很多 AI 已能答对），封面主图取自这一帧
-      const x = ramp(t, a(2) + 0.85, a(2) + 1.0); if (x > 0) { ctx.strokeStyle = CORAL; ctx.lineWidth = 8; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(-116, -28); ctx.lineTo(-116 + 232 * x, -28 + 56 * x); ctx.stroke(); const x2 = ramp(t, a(2) + 1.0, a(2) + 1.12); if (x2 > 0) { ctx.beginPath(); ctx.moveTo(116, -28); ctx.lineTo(116 - 232 * x2, -28 + 56 * x2); ctx.stroke(); } }
+      const x = ramp(t, a(2) + 0.85, a(2) + 1.0); if (x > 0) { ctx.strokeStyle = CORAL; ctx.lineWidth = 8; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(38, -26); ctx.lineTo(38 + 96 * x, -26 + 52 * x); ctx.stroke(); const x2 = ramp(t, a(2) + 1.0, a(2) + 1.12); if (x2 > 0) { ctx.beginPath(); ctx.moveTo(134, -26); ctx.lineTo(134 - 96 * x2, -26 + 52 * x2); ctx.stroke(); } }   // ✗ only over「2 个」:「AI 曾答」stays clean (审核：划掉整句会读成「没答过」)
     }
     ctx.restore(); }
   // 1 2 3 over the r's (kept below the answer pill)

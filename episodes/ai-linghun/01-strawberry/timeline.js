@@ -12,7 +12,7 @@
   // at the moment the picture shows the same thing in coral (the voice reads the text without the brackets: use .plain).
   const LINES = [
     // A · hook (first frame: the chat with the wrong answer + the big question)
-    { seg: "A", text: "AI 读单词，不看字母。", dur: 1.47 },   // 用户 11-22：改写（三轮观众都卡在「看不见」：它明明能打出 strawberry）；dur 锁在原句的 1.47 秒，后面的画面、配乐、音效都不动
+    { seg: "A", text: "AI 不按字母读。", dur: 1.4700854700854702 },   // 用户 11-22 要求改写原句「AI 根本“看不见”字母。」（三轮观众都卡在「它明明能打出 strawberry」）；措辞由主 agent 拟，待用户确认。dur = 原句的估算时长，后面的画面、配乐、音效逐帧不动
     { seg: "A", text: "问它 strawberry 里有几个 r，它曾经很自信地说：[两个]。" },
     { seg: "A", text: "正确答案是[三个]。" },
     { seg: "A", text: "如今很多 AI 已经能答对，" },
