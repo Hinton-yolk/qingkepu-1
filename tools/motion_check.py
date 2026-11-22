@@ -1,14 +1,16 @@
 """Motion check for a rendered film (studio rule, see CLAUDE.md in the kepu-studio repo).
-usage: python3 motion_check.py <film.mp4> <name> [--end=<seconds where the end card starts>]
+usage: python3 motion_check.py <film.mp4> <name> [--end=<seconds where the end card starts>] [--max-still=0.6] [--max-win=0.3]
 Per-frame mean abs difference on a 135x240 grey copy, resampled to 30 fps (so 60 fps films use the same thresholds). A frame counts as still when the difference is < 0.15.
-Pass for the body of the film (before the end card): still frames < 15 %, every 5 s window < 30 % still, longest still stretch <= 0.6 s."""
+Pass for the body of the film (before the end card): still frames < 15 %, every 5 s window < 30 % still, longest still stretch <= 0.6 s.
+A series may relax the last two with --max-still / --max-win when DECISIONS.md records it (e.g. 「AI 灵魂拷问」: --max-still=1.2 --max-win=0.45)."""
 import sys, subprocess, numpy as np
 try:
     import librosa  # optional: only used for the music tempo / beat line
 except ImportError:
     librosa = None
 f, name = sys.argv[1], sys.argv[2]
-END = next((float(a.split('=')[1]) for a in sys.argv[3:] if a.startswith('--end=')), None)
+opt = lambda k, d: next((float(a.split('=')[1]) for a in sys.argv[3:] if a.startswith(f'--{k}=')), d)
+END, MAX_STILL, MAX_WIN = opt('end', None), opt('max-still', 0.6), opt('max-win', 0.3)
 w, h = 135, 240
 raw = subprocess.run(['ffmpeg', '-loglevel', 'error', '-i', f, '-vf', f'fps=30,scale={w}:{h},format=gray', '-f', 'rawvideo', '-'], capture_output=True).stdout
 V = np.frombuffer(raw, np.uint8).reshape(-1, h, w).astype(np.float32)
@@ -35,6 +37,6 @@ body = d[:int(END * fps)] if END else d
 st = body < .15; wins = [st[i:i + 150].mean() for i in range(0, len(st), 150) if len(st[i:i + 150]) >= 60]
 longest, cur = 0, 0
 for s_ in st: cur = cur + 1 if s_ else 0; longest = max(longest, cur)
-worst = [(i * 5, round(w * 100)) for i, w in enumerate(wins) if w >= .3]
-ok = st.mean() < .15 and not worst and longest / fps <= .6
-print(f"   BODY{' (before ' + str(END) + 's)' if END else ''}: still {st.mean()*100:.0f}% (<15%), longest still {longest/fps:.2f}s (<=0.6s), windows >=30% still: {worst or 'none'} -> {'PASS' if ok else 'FAIL'}")
+worst = [(i * 5, round(w * 100)) for i, w in enumerate(wins) if w >= MAX_WIN]
+ok = st.mean() < .15 and not worst and longest / fps <= MAX_STILL
+print(f"   BODY{' (before ' + str(END) + 's)' if END else ''}: still {st.mean()*100:.0f}% (<15%), longest still {longest/fps:.2f}s (<={MAX_STILL:g}s), windows >={MAX_WIN*100:.0f}% still: {worst or 'none'} -> {'PASS' if ok else 'FAIL'}")
