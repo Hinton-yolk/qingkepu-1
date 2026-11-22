@@ -29,7 +29,7 @@ const QP = new URLSearchParams(location.search), OVERLAY = QP.has("overlay"), BG
 
 const { W, H, L } = window.TL;
 const a = (i) => L[i].t0, b = (i) => L[i].t1;
-const DUR = +(a(10) + 0.3).toFixed(2); window.DUR = DUR;
+const DUR = window.TL.DUR, END_CARD = window.TL.END_CARD; window.DUR = DUR;
 const cv = document.getElementById("c"), ctx = cv.getContext("2d");
 const USE_AO = !(window.NO_AO);
 
@@ -90,7 +90,7 @@ const M = {
 };
 const RB = (w, h, d, r = 0.06) => new RoundedBoxGeometry(w, h, d, 4, r);
 const put = (m, x, y, z, o = {}) => { m.position.set(x, y, z); if (o.ry) m.rotation.y = o.ry; m.castShadow = o.cast ?? true; m.receiveShadow = true; scene.add(m); return m; };
-{ const t = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), M.table); t.rotation.x = -Math.PI / 2; t.receiveShadow = true; scene.add(t); }
+{ const t = new THREE.Mesh(new THREE.PlaneGeometry(400, 120), M.table); t.position.x = 60; t.rotation.x = -Math.PI / 2; t.receiveShadow = true; scene.add(t); }
 function tex(s, wpx, hpx, font, col) { const c = Object.assign(document.createElement("canvas"), { width: wpx, height: hpx }), x = c.getContext("2d"); x.font = font; x.fillStyle = col; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(s, wpx / 2, hpx / 2 + hpx * 0.04); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; }
 function decal(t, w, h) { return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: t, transparent: true, roughness: 0.7, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })); }
 function device(w, d, o = {}) {
@@ -230,6 +230,393 @@ function drawScreen(t) {
 const _v = new THREE.Vector3();
 function screenWorld(px, py) { phone.updateMatrixWorld(true); return new THREE.Vector3(px / SPX - SCRW / 2, SCRH / 2 - py / SPX, 0.09).applyMatrix4(phone.userData.body.matrixWorld); }
 
+// ===================== ACTS 2–8 (31 s → end): stations along the table (+x), linked by one light pipe =====================
+// Each station builds its objects once; ACT_UPD[] set their state from t; ACT_OVL[] draw their labels; ACT_KEYS feed the camera.
+const ACT_UPD = [], ACT_OVL = [], ACT_KEYS = [];
+const ST = { s2: 14, s3: 28, s4: 41, s5: 56, s6: 72, s7: 92, s8: 106 };
+const R9 = mulberry(909);
+// a cream block with one label on its front (text scaled to fit)
+function tblock(s, w, o = {}) {
+  const h = o.h ?? CUBE, d = o.d ?? CUBE, m = new THREE.Mesh(RB(w, h, d, Math.min(0.07, w / 5)), (o.mat || M.cream).clone()); m.castShadow = m.receiveShadow = true; scene.add(m);
+  const font = o.font || (/[㐀-鿿？！]/.test(s) ? F(900, 190) : FI(800, 190)), cw = Math.max(256, Math.ceil(tw(s, font) + 60));
+  const dh = Math.min(h * (o.fill ?? 0.72), (w - 0.1) * 256 / cw), dd = decal(tex(s, cw, 256, font, "#FFFFFF"), dh * cw / 256, dh);
+  dd.material.color.set(o.ink || INK); dd.position.z = d / 2 + 0.003; m.add(dd); m.visible = false; return { m, d: dd, w, h };
+}
+// the light pipe that runs from station to station; pulse(u) puts a glowing bead at u along it
+function pipeLink(pts) {
+  const curve = new THREE.CatmullRomCurve3(pts.map((p) => new THREE.Vector3(...p)));
+  const outer = new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(60, pts.length * 40), 0.13, 14, false), new THREE.MeshPhysicalMaterial({ color: "#FFFFFF", transmission: 1, roughness: 0.08, thickness: 0.3, ior: 1.45, clearcoat: 1, name: "pipeglass" }));
+  outer.castShadow = true; scene.add(outer); scene.add(new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(60, pts.length * 40), 0.032, 8, false), pipeCore));
+  const bead = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 12), new THREE.MeshBasicMaterial({ color: "#FFE2B8", toneMapped: false })); const bl = new THREE.PointLight("#FFB060", 0, 2.6, 1.6); bead.add(bl); bead.visible = false; scene.add(bead);
+  return { curve, bead, pulse(u, on = 1) { bead.visible = on > 0 && u > 0 && u < 1; if (bead.visible) { curve.getPointAt(clamp(u), bead.position); bl.intensity = 3 * on; } } };
+}
+const glowMat = (c) => new THREE.MeshBasicMaterial({ color: c, toneMapped: false, transparent: true });
+function propsAround(x0, seed) { const r = mulberry(seed);
+  const sl = (x, z, w, d, n) => { for (let i = 0; i < n; i++) put(new THREE.Mesh(RB(w - i * 0.02, 0.1, d - i * 0.02, 0.03), i % 2 ? M.cream2 : M.cream), x, 0.05 + i * 0.1, z, { ry: (r() - 0.5) * 0.1 }); };
+  sl(x0 - 7.2, 2.2 + r(), 2.4, 2.0, 3); sl(x0 + 7.4, -5.4 - r(), 2.6, 2.2, 2 + Math.floor(r() * 3));
+  put(new THREE.Mesh(RB(0.7, 0.7, 0.7, 0.05), r() < 0.5 ? M.coral : M.cream), x0 + 6.8, 0.35, 2.6); put(new THREE.Mesh(RB(0.55, 0.55, 0.55, 0.05), M.cream2), x0 - 6.6, 0.28, -6.2);
+}
+// sun and shadows follow the camera's focus along the table
+ACT_UPD.push((t) => { sun.position.set(_q.x - 13, 6.2, _q.z - 9); sun.target.position.set(_q.x, 0, _q.z); sun.target.updateMatrixWorld(); });
+
+// ---------- S2 · the Token block feeds the model, which talks one block at a time; the library behind it ----------
+{
+  const X0 = ST.s2, model = device(3.2, 2.4, { bh: 0.62, panel: 1.0 }); model.position.set(X0 - 3.4, 0, -2.4); model.name = "model2";
+  const TOP = model.userData.top; put(new THREE.Mesh(RB(1.6, 0.03, 0.72, 0.015), M.rubber), X0 - 3.4, TOP + 0.005, -2.25, { cast: false });
+  const lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.08, 28), glowMat("#EE6A47")); lamp.position.set(X0 - 2.2, TOP + 0.04, -1.55); scene.add(lamp);
+  const rail = device(7.6, 1.0, { bh: 0.3 }); rail.position.set(X0 + 1.9, 0, -0.9); rail.name = "rail2";
+  const RY = rail.userData.top + CUBE / 2, CH = [["今", 1], ["天天", 2], ["气", 1], ["真", 1], ["好", 1]];
+  let cx = X0 - 1.55; const chain = CH.map(([s, n], k) => { const w = 0.68 * n + 0.04, b = tblock(s, w); b.x = cx + w / 2; cx += w + 0.08; b.k = k; return b; });
+  const cursor = new THREE.Mesh(RB(0.07, 0.5, 0.5, 0.02), glowMat("#EE6A47")); scene.add(cursor);
+  // the library: one long shelf of standing books
+  const shelf = device(17, 1.4, { bh: 0.16 }); shelf.position.set(X0 - 0.6, 0, -6.8);
+  { let x = X0 - 8.8; while (x < X0 + 7.6) { const w = 0.14 + R9() * 0.12, h = 0.8 + R9() * 0.6, r = R9(); const mat = r < 0.07 ? M.coral : r < 0.14 ? M.coal : r < 0.55 ? M.cream : M.cream2;
+      const bk = put(new THREE.Mesh(RB(w, h, 1.0, 0.03), mat), x + w / 2, shelf.userData.top + h / 2, -6.8, { ry: 0 }); if (R9() < 0.08) { bk.rotation.z = 0.18; bk.position.x += 0.08; } x += w + 0.02; } }
+  const feed = pipeLink([[X0 - 0.6, 0.3, -6.0], [X0 - 1.6, 0.12, -4.9], [X0 - 3.0, 0.12, -4.4], [X0 - 3.4, 0.45, -3.62]]);
+  propsAround(X0, 21);
+  const TF = [31.25, 32.1], tOut = (k) => 32.6 + k * 0.42;
+  const SLOT = new THREE.Vector3(X0 - 3.4, TOP + 0.3, -2.25);
+  ACT_UPD.push((t) => {
+    // the Token block leaves the pad and drops into the model's slot (the camera follows it)
+    if (t > TF[0]) { const u = ramp(t, TF[0], TF[1]), q = ease(u), H0 = new THREE.Vector3(0, BLOCK_Y + 0.75, BLOCK_Z + 0.5);
+      const p = H0.clone().lerp(SLOT, q); p.y += 2.6 * Math.sin(Math.PI * u) - 0.9 * ease(ramp(t, TF[1], TF[1] + 0.3));
+      merged.m.position.copy(p); merged.m.rotation.set(0.12 * (1 - q), 0.35 * Math.sin(Math.PI * u), 0); merged.m.scale.set(1 - 0.35 * q, 1, 1); merged.m.visible = t < TF[1] + 0.3;
+      merged.ds.forEach((d) => { d.material.opacity = 1; }); }
+    lamp.material.color.set("#EE6A47").multiplyScalar(1 + 1.8 * Math.max(bump(t, TF[1], 0.5), ...chain.map((c) => bump(t, tOut(c.k) - 0.1, 0.3))));
+    let next = X0 - 1.55, lastIn = -1;
+    chain.forEach((c) => { const p = ramp(t, tOut(c.k), tOut(c.k) + 0.38); c.m.visible = t > tOut(c.k) && t < 37.9; if (!c.m.visible) return;
+      const h = hop(t, tOut(c.k) + 0.38, 0.25, 0.18); c.m.position.set(lerp(X0 - 2.3, c.x, ease(p)), RY + h.y - (CUBE / 2) * h.sq, -0.9); c.m.scale.set(1 + 0.5 * h.sq, 1 - h.sq, 1 + 0.5 * h.sq);
+      if (p >= 1) { next = c.x + c.w / 2 + 0.12; lastIn = c.k; } });
+    cursor.visible = t > tOut(0) - 0.2 && t < 37.9; cursor.position.set(next + 0.06, RY, -0.9); cursor.material.opacity = (Math.floor(t * 2.6) % 2 ? 0.25 : 1);
+    const lib = vis(t, 34.0, 37.4, 0.2, 0.2); feed.pulse(((t - 34.0) * 0.8) % 1, lib);
+  });
+  ACT_OVL.push((t) => {
+    const r = P3(X0 + 1.9, 0, 0.0); label("积木不按词语切 · GPT-4o 实测", 540, Math.min(r.y + 70, 1225), { font: F(700, 32), h: 58, alpha: vis(t, a(10) + 1.1, a(11) + 0.6) });
+    const k = ramp(t, a(11) + 2.3, a(11) + 2.6); if (k > 0) { const p = P3(X0 - 3.4, TOP + 1.6, -2.4); label("接龙高手", p.x, p.y - 30, { font: F(900, 42), h: 76, bg: INK, color: "#F6F0E6", alpha: k * (1 - ramp(t, 37.3, 37.6)), scale: back(ramp(t, a(11) + 2.3, a(11) + 2.65)) }); }
+    const m = vis(t, 32.0, 33.6, 0.25, 0.3); if (m > 0) { const p = P3(X0 - 3.4, TOP + 1.25, -2.4); label("AI", p.x, p.y, { font: FI(800, 36), h: 60, alpha: m }); }
+  });
+  ACT_KEYS.push(
+    [31.25, 0, BLOCK_Y + 0.9, BLOCK_Z + 0.4, 8.0, 0.02, 0.32],
+    [31.75, X0 * 0.55, 1.6, -0.8, 8.5, 0.1, 0.42],
+    [32.25, X0 - 3.4, TOP, -2.3, 6.0, 0.16, 0.48],
+    [33.2, X0 - 0.4, RY, -1.3, 7.2, 0.14, 0.45],
+    [34.4, X0 + 0.6, RY, -1.2, 7.8, 0.1, 0.45],
+    [35.8, X0 - 1.2, 0.8, -3.6, 10.2, 0.08, 0.58],
+    [37.3, X0 - 0.8, 0.8, -3.5, 9.8, 0.06, 0.58],
+  );
+}
+
+// ---------- S3 · heard a name on the phone, never saw it written ----------
+{
+  const X0 = ST.s3, cradle = device(3.1, 1.6, { bh: 0.34 }); cradle.position.set(X0 - 2.4, 0, -1.4); cradle.name = "cradle";
+  const hs = new THREE.Group(); scene.add(hs);
+  { const grip = new THREE.Mesh(RB(2.4, 0.3, 0.42, 0.14), M.coal); hs.add(grip);
+    for (const sx of [-1, 1]) { const cup = new THREE.Mesh(RB(0.72, 0.46, 0.66, 0.2), M.coal); cup.position.set(sx * 1.05, -0.12, 0); hs.add(cup); }
+    hs.traverse((m) => { if (m.isMesh) m.castShadow = true; }); }
+  const CR = cradle.userData.top;
+  const link = pipeLink([[ST.s2 + 5.8, 0.25, -0.9], [ST.s2 + 8.5, 0.12, -0.2], [X0 - 6.5, 0.12, -0.6], [X0 - 4.0, 0.25, -1.4]]);
+  // sound rings from the earpiece
+  const rings = [0, 1, 2].map(() => { const m = new THREE.Mesh(new THREE.TorusGeometry(1, 0.025, 8, 64), glowMat("#FFE2B8")); scene.add(m); return m; });
+  // pinyin on frosted glass tiles
+  const PY = ["lǐ", "sī", "ruì"].map((s, k) => { const g = new THREE.Mesh(RB(0.95, 0.66, 0.1, 0.05), M.glass); g.castShadow = true; scene.add(g);
+    const d = decal(tex(s, 256, 200, FI(800, 130), "#FFFFFF"), 0.62, 0.48); d.material.color.set(INK); d.position.z = 0.056; g.add(d); g.visible = false; return g; });
+  // the name card, behind frosted glass
+  const stand = device(2.8, 1.2, { bh: 0.22 }); stand.position.set(X0 + 2.4, 0, -2.4);
+  const cardM = new THREE.Mesh(RB(2.3, 1.2, 0.06, 0.03), M.cream); cardM.castShadow = true; scene.add(cardM);
+  { const d = decal(tex("李思睿", 512, 220, F(900, 170), "#FFFFFF"), 1.9, 0.82); d.material.color.set(INK); d.position.z = 0.032; cardM.add(d); }
+  const frost = new THREE.Mesh(RB(2.7, 1.75, 0.07, 0.03), M.glass); frost.position.set(X0 + 2.4, stand.userData.top + 0.875, -2.0); frost.castShadow = true; scene.add(frost);
+  propsAround(X0, 31);
+  const PICK = [a(12) + 0.1, a(12) + 0.8];
+  const ear = new THREE.Vector3();
+  ACT_UPD.push((t) => {
+    link.pulse(ramp(t, 37.2, 37.95), 1);
+    const p = ease(ramp(t, PICK[0], PICK[1])), bob = 0.04 * Math.sin(t * 2.2) * p;
+    hs.position.set(X0 - 2.4 + 0.3 * p, CR + 0.27 + 1.3 * p + bob, -1.4 + 0.2 * p); hs.rotation.set(0.25 * p, -0.2 * p, 0.42 * p);
+    hs.updateMatrixWorld(true); ear.set(1.05, -0.12, 0.33).applyMatrix4(hs.matrixWorld);
+    const talk = vis(t, a(12) + 0.6, a(14) + 0.4, 0.3, 0.3);
+    rings.forEach((r, k) => { const ph = (t * 0.9 + k / 3) % 1; r.visible = talk > 0; r.position.copy(ear); r.lookAt(cam.position); r.scale.setScalar(0.25 + 1.3 * ph); r.material.opacity = talk * (1 - ph) * 0.8; });
+    PY.forEach((g, k) => { const t0 = a(12) + 1.7 + k * 0.28, u = ramp(t, t0, t0 + 0.6); g.visible = t > t0 && t < 47.4; if (!g.visible) return;
+      const dst = new THREE.Vector3(X0 - 2.2 + k * 1.05, CR + 2.45 + 0.05 * Math.sin(t * 2 + k), -1.2); g.position.copy(ear.clone().lerp(dst, ease(u))); g.position.y += 0.6 * Math.sin(Math.PI * u);
+      g.rotation.set(0, -0.1 + 0.25 * (1 - u), 0); g.scale.setScalar(0.4 + 0.6 * eo(u)); });
+    const c = ease(ramp(t, a(13) + 0.5, a(13) + 1.1)); cardM.position.set(X0 + 2.4, stand.userData.top - 1.4 + (1.4 + 0.62) * c, -2.22); cardM.visible = c > 0;
+  });
+  ACT_OVL.push((t) => {
+    const q = ramp(t, a(13), a(13) + 0.3); if (q > 0) { const p = P3(X0 - 1.1, CR + 3.45, -1.2), s = "我的名字一共几笔？", f = F(900, 40), w = tw(s, f) + 56;
+      ctx.save(); ctx.globalAlpha = q * (1 - ramp(t, a(15) - 0.6, a(15) - 0.3)); ctx.translate(p.x, p.y); ctx.scale(back(ramp(t, a(13), a(13) + 0.35)), back(ramp(t, a(13), a(13) + 0.35)));
+      card(0, 0, w, 84, { r: 26 }); ctx.fillStyle = CREAMC + "0.93)"; ctx.beginPath(); ctx.moveTo(-w / 2 + 50, 40); ctx.lineTo(-w / 2 + 30, 76); ctx.lineTo(-w / 2 + 92, 40); ctx.fill(); txt(s, 0, 2, { font: f }); ctx.restore(); }
+    const nm = vis(t, a(13) + 1.1, a(15) - 0.3, 0.3, 0.3); if (nm > 0) { const p = P3(X0 + 2.4, stand.userData.top + 2.05, -2.0); label("写出来长什么样？", p.x, p.y, { font: F(700, 32), h: 56, alpha: nm }); }
+    const sv = ramp(t, a(14) + 1.1, a(14) + 1.4); if (sv > 0) { const p = P3(X0, 0, 0.6); label("听过 ≠ 看过", 540, Math.min(p.y + 40, 1225), { font: F(900, 44), h: 80, bg: INK, color: "#F6F0E6", alpha: sv * (1 - ramp(t, 47.0, 47.3)), scale: back(ramp(t, a(14) + 1.1, a(14) + 1.45)) }); }
+  });
+  ACT_KEYS.push(
+    [37.95, X0 - 3.8, 0.6, -1.3, 6.2, 0.14, 0.4],
+    [a(12) + 1.0, X0 - 2.0, CR + 1.4, -1.3, 5.6, 0.12, 0.3],
+    [a(12) + 2.6, X0 - 0.6, CR + 1.7, -1.3, 6.6, 0.1, 0.3],
+    [a(13) + 0.8, X0 + 0.1, CR + 1.3, -1.6, 8.8, 0.06, 0.3],
+    [a(14) + 1.6, X0, CR + 1.2, -1.6, 9.0, 0.02, 0.32],
+  );
+}
+
+// ---------- S4 · Chinese: a common word is one block, a rare character breaks into byte pieces ----------
+{
+  const X0 = ST.s4, tk = device(3.2, 1.9, { bh: 0.42, panel: 0.8, front: true }); tk.position.set(X0, 0, -2.4); tk.name = "tok4";
+  const inR = device(3.8, 1.0, { bh: 0.42 }); inR.position.set(X0 - 3.5, 0, -2.75);
+  const DY = tk.userData.top + CUBE / 2, DZ = -2.75;
+  const padA = device(2.3, 1.4, { bh: 0.34, alu: false }); padA.position.set(X0 - 1.3, 0, 0.2);
+  const padB = device(2.6, 1.4, { bh: 0.34, alu: false }); padB.position.set(X0 + 1.7, 0, 0.2);
+  const PY4 = padA.userData.top + CUBE / 2;
+  const nihao = tblock("你好", 1.36), long = tblock("龘", 0.82), b1 = tblock("E9 BE", 1.06, { fill: 0.45 }), b2 = tblock("98", 0.72, { fill: 0.45 });
+  const blade = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.9), glowMat("#FFE6C4")); blade.position.set(X0, DY + 0.1, DZ + 0.36); scene.add(blade);
+  const fl = new THREE.PointLight("#FFC890", 0, 3, 1.5); fl.position.set(X0, DY + 0.4, DZ + 0.7); scene.add(fl);
+  const link = pipeLink([[ST.s3 - 0.9, 0.25, -1.4], [ST.s3 + 1.5, 0.12, -0.4], [X0 - 7.0, 0.12, -1.6], [X0 - 5.4, 0.3, -2.75]]);
+  propsAround(X0, 41);
+  const A0 = a(15), B0 = a(16);
+  const path = (t, t0, x0, z0, x1, z1, y1) => { const u = ramp(t, t0, t0 + 0.65), e = ease(u); return [lerp(x0, x1, e), lerp(DY, y1, e) + 1.5 * Math.sin(Math.PI * u), lerp(z0, z1, e)]; };
+  ACT_UPD.push((t) => {
+    link.pulse(ramp(t, 46.6, 47.3), 1);
+    // 你好: drop on the rail, slide in, come out whole
+    nihao.m.visible = t > A0 - 0.2 && t < 53.2;
+    if (nihao.m.visible) { const d = ease(ramp(t, A0 - 0.2, A0 + 0.1)), s = ease(ramp(t, A0 + 0.4, A0 + 1.0));
+      let p = [lerp(X0 - 4.2, X0, s), DY + 0.8 * (1 - d), DZ]; if (t > A0 + 1.35) { const q = path(t, A0 + 1.35, X0, DZ, X0 - 1.3, 0.45, PY4); p = q; }
+      nihao.m.position.set(...p); }
+    // 龘: in, cut by a blade of light, out as two byte pieces
+    long.m.visible = t > A0 + 2.1 && t < B0 + 0.62;
+    if (long.m.visible) { const d = ease(ramp(t, A0 + 2.1, A0 + 2.4)), s = ease(ramp(t, B0 - 0.35, B0 + 0.2)); long.m.position.set(lerp(X0 - 4.0, X0, s), DY + 0.8 * (1 - d), DZ); }
+    blade.material.opacity = bump(t, B0 + 0.3, 0.3); fl.intensity = 4 * bump(t, A0 + 1.05, 0.3) + 4 * bump(t, B0 + 0.28, 0.35);
+    for (const [bk, k] of [[b1, 0], [b2, 1]]) { bk.m.visible = t > B0 + 0.6 && t < 53.2; if (!bk.m.visible) continue;
+      const sx = X0 + (k ? 0.45 : -0.45); bk.m.position.set(...path(t, B0 + 0.62 + k * 0.22, sx, DZ, X0 + 1.7 + (k ? 0.62 : -0.5), 0.45, PY4)); }
+  });
+  ACT_OVL.push((t) => {
+    const r = P3(X0, 0, 1.0), y = Math.min(r.y + 70, 1225);
+    label("常见词「你好」：1 块 · GPT-4o 实测", 540, y, { font: F(700, 32), h: 58, alpha: vis(t, A0 + 1.9, B0 + 0.4) });
+    label("「龘」按编码字节切成 2 块，不是按偏旁（示意）", 540, y, { font: F(700, 32), h: 58, alpha: vis(t, B0 + 1.0, 53.0) });
+  });
+  ACT_KEYS.push(
+    [47.3, X0 - 3.2, DY, -2.4, 6.4, 0.14, 0.45],
+    [A0 + 0.9, X0 - 0.8, DY, -1.8, 6.6, 0.12, 0.48],
+    [A0 + 2.0, X0 - 0.6, 0.7, -1.2, 7.4, 0.1, 0.5],
+    [B0 + 0.2, X0 - 0.3, DY, -1.8, 6.8, 0.08, 0.48],
+    [B0 + 1.6, X0 + 0.6, 0.7, -0.8, 7.6, 0.06, 0.5],
+  );
+}
+
+// ---------- S5 · why not letter by letter: two columns march into a reader; each read drops a coin on the bill ----------
+// Same slot size for every piece, so the queue lengths compare directly: 15 letters vs 3 blocks (I / like / strawberry).
+{
+  const X0 = ST.s5, ZR = -8.6, PA = 0.6, SZ = 0.5, XA = X0 - 0.95, XB = X0 + 1.05;
+  const RD = device(4.6, 1.7, { bh: 0.72, panel: 0.9, front: true }); RD.position.set(X0 + 0.05, 0, ZR); RD.name = "reader";
+  const rA = device(0.9, 10.2, { bh: 0.2 }), rB = device(1.8, 10.2, { bh: 0.2 }); rA.position.set(XA, 0, ZR + 5.3); rB.position.set(XB, 0, ZR + 5.3);
+  const QY = rA.userData.top, Z0 = ZR + 0.95 + 0.3;
+  function topBlock(s, w) { const m = new THREE.Mesh(RB(w, SZ, SZ, 0.06), M.cream.clone()); m.castShadow = m.receiveShadow = true; scene.add(m); m.visible = false;
+    const font = FI(800, 190), cw = Math.max(256, Math.ceil(tw(s, font) + 60)), dh = Math.min(SZ * 0.72, (w - 0.1) * 256 / cw), d = decal(tex(s, cw, 256, font, "#FFFFFF"), dh * cw / 256, dh);
+    d.material.color.set(INK); d.rotation.x = -Math.PI / 2; d.position.y = SZ / 2 + 0.003; m.add(d); return { m }; }
+  const qa = [..."Ilikestrawberry"].map((ch, i) => Object.assign(topBlock(ch, SZ), { rest: Z0 + i * PA }));
+  const qb = ["I", "like", "strawberry"].map((s, i) => Object.assign(topBlock(s, 1.5), { rest: Z0 + i * PA }));
+  const coin = new THREE.CylinderGeometry(0.3, 0.3, 0.07, 32), SXA = X0 - 2.3, SXB = X0 + 2.45, SZC = ZR + 1.5;
+  const stA = Array.from({ length: 15 }, () => { const m = new THREE.Mesh(coin, M.coral); m.castShadow = true; scene.add(m); return m; });
+  const stB = Array.from({ length: 3 }, () => { const m = new THREE.Mesh(coin, M.coral); m.castShadow = true; scene.add(m); return m; });
+  const link = pipeLink([[ST.s4 + 3.0, 0.25, 0.2], [ST.s4 + 5.5, 0.12, 1.2], [X0 - 4.6, 0.12, -2.2], [X0 - 3.4, 0.12, ZR + 1.0], [X0 - 2.2, 0.4, ZR]]);
+  propsAround(X0, 51);
+  const R0 = a(18) + 0.1, PER = 0.2, tA = (j) => R0 + j * PER, tB = tA;
+  const consumed = (t, n) => { let s = 0; for (let j = 0; j < n; j++) s += ease(ramp(t, tA(j), tA(j) + 0.16)); return s; };
+  ACT_UPD.push((t) => {
+    link.pulse(ramp(t, 52.4, 53.1), 1);
+    const ca = consumed(t, 15), cb = consumed(t, 3);
+    qa.forEach((b, i) => { const drop = ramp(t, a(17) + 0.1 + i * 0.05, a(17) + 0.4 + i * 0.05); b.m.visible = drop > 0 && ca < i + 0.98 && t < 63.6; if (!b.m.visible) return;
+      b.m.position.set(XA, QY + SZ / 2 + 0.9 * (1 - eo(drop)), b.rest - PA * ca); });
+    qb.forEach((b, i) => { const drop = ramp(t, a(17) + 1.0 + i * 0.1, a(17) + 1.3 + i * 0.1); b.m.visible = drop > 0 && cb < i + 0.98 && t < 63.6; if (!b.m.visible) return;
+      b.m.position.set(XB, QY + SZ / 2 + 0.9 * (1 - eo(drop)), b.rest - PA * cb); });
+    stA.forEach((m, i) => { const p = ramp(t, tA(i) + 0.1, tA(i) + 0.3); m.visible = p > 0 && t < 63.8; m.position.set(SXA, 0.035 + i * 0.075 + 0.6 * (1 - eo(p)), SZC); });
+    stB.forEach((m, i) => { const p = ramp(t, tB(i) + 0.1, tB(i) + 0.3); m.visible = p > 0 && t < 63.8; m.position.set(SXB, 0.035 + i * 0.075 + 0.6 * (1 - eo(p)), SZC); });
+  });
+  ACT_OVL.push((t) => {
+    const la = vis(t, a(17) + 0.5, a(20) + 0.3, 0.3, 0.3);
+    if (la > 0) { const p1 = P3(XA, QY, Z0 + 15 * PA + 0.1), p2 = P3(XB, QY, Z0 + 3 * PA + 0.1);
+      label("按字母读 · 15 块", p1.x - 40, p1.y + 50, { font: F(700, 32), h: 56, alpha: la }); label("按积木读 · 3 块", p2.x + 30, p2.y + 50, { font: F(700, 32), h: 56, alpha: la }); }
+    const ok = ramp(t, tB(2) + 0.3, tB(2) + 0.6) * (1 - ramp(t, a(20), a(20) + 0.3)); if (ok > 0) { const p = P3(XB, QY + 0.4, ZR + 1.6); label("读完 ✓", p.x + 40, p.y, { font: F(900, 34), h: 58, color: GREEN, alpha: ok }); }
+    const nA = Math.round(consumed(t, 15)), nB = Math.round(consumed(t, 3)), sa = ramp(t, R0 + 0.3, R0 + 0.6) * (1 - ramp(t, 63.3, 63.6));
+    if (sa > 0) { const pA = P3(SXA, 0.035 + nA * 0.075 + 0.25, SZC), pB = P3(SXB, 0.035 + nB * 0.075 + 0.25, SZC);
+      txt(`${nA} 笔`, pA.x, pA.y - 30, { font: FI(900, 40), color: CORAL, alpha: sa }); txt(`${nB} 笔`, pB.x, pB.y - 30, { font: FI(900, 40), color: CORAL, alpha: sa }); }
+    const five = ramp(t, tA(14) + 0.35, tA(14) + 0.65); if (five > 0) { const p = P3(X0 + 0.05, 1.9, ZR + 1.4);
+      label("长约 5 倍", p.x, p.y - 30, { font: F(900, 40), h: 74, bg: CORAL, color: "#fff", alpha: five * (1 - ramp(t, 63.3, 63.6)), scale: back(ramp(t, tA(14) + 0.35, tA(14) + 0.7)) }); }
+    const r = P3(X0, 0, ZR + 3.0); label("每读一块，记一笔账（示意）", 540, Math.min(r.y + 40, 1225), { font: F(700, 32), h: 58, alpha: vis(t, a(20) + 0.5, 63.4) });
+  });
+  ACT_KEYS.push(
+    [53.1, X0 - 1.6, 0.6, ZR + 1.6, 6.6, 0.16, 0.6],
+    [a(17) + 1.2, X0 + 0.05, 0.4, ZR + 4.6, 6.6, 0.06, 0.98],
+    [a(18) + 0.4, X0 + 0.05, 0.4, ZR + 4.0, 6.4, 0.04, 0.98],
+    [tA(14), X0 + 0.05, 0.4, ZR + 2.0, 7.6, 0.02, 0.85],
+    [a(20) + 0.4, X0 + 0.05, 0.6, ZR + 1.5, 7.8, 0.0, 0.62],
+    [63.25, X0 + 0.05, 0.6, ZR + 1.5, 7.6, 0.0, 0.58],
+  );
+}
+
+// ---------- S6 · one block → a long tape of numbers → the GPU, its workers, the bill ----------
+{
+  const X0 = ST.s6, conv = device(2.4, 2.0, { bh: 0.62, panel: 0.9 }); conv.position.set(X0 - 4.8, 0, -2.0); conv.name = "converter";
+  const CT = conv.userData.top; put(new THREE.Mesh(RB(1.4, 0.03, 0.7, 0.015), M.rubber), X0 - 4.8, CT + 0.005, -1.9, { cast: false });
+  const blk = tblock("strawberry", 2.0, { h: 0.5, d: 0.5, fill: 0.6 });
+  // the tape: a long strip on the table; it unrolls by revealing more of its texture
+  const TL0 = X0 - 3.6, TLEN = 7.4;
+  const tapeTex = (() => { const c = Object.assign(document.createElement("canvas"), { width: 4096, height: 192 }), x = c.getContext("2d"); x.fillStyle = "#F6F1E6"; x.fillRect(0, 0, 4096, 192);
+    x.fillStyle = "#EE6A47"; x.fillRect(0, 0, 4096, 10); x.font = FI(700, 76); x.textBaseline = "middle"; x.fillStyle = INK; const R = mulberry(64);
+    for (let i = 0, px = 40; px < 3900; i++) { const v = (R() * 3 - 1.5); const s = (v < 0 ? "−" : "") + Math.abs(v).toFixed(2); x.fillText(s, px, 104); px += x.measureText(s).width + 70; x.fillStyle = "rgba(43,39,38,.12)"; x.fillRect(px - 38, 30, 3, 140); x.fillStyle = INK; }
+    x.fillText("……", 3940, 104); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; })();
+  const tgeo = new THREE.PlaneGeometry(TLEN, 0.62); tgeo.translate(TLEN / 2, 0, 0);
+  const tape = new THREE.Mesh(tgeo, new THREE.MeshStandardMaterial({ map: tapeTex, roughness: 0.8, name: "tape", side: THREE.DoubleSide })); tape.position.set(TL0, 0.2 + 0.31, -0.9); tape.castShadow = tape.receiveShadow = true; scene.add(tape);
+  { const tr = device(TLEN + 0.3, 0.32, { bh: 0.16 }); tr.position.set(TL0 + TLEN / 2, 0, -0.9); }
+  // the GPU package (schematic): substrate, interposer, one big die, six HBM stacks, a few capacitors
+  const G0 = new THREE.Vector3(X0 + 6.4, 0, -1.6), gpu = new THREE.Group(); gpu.position.copy(G0); scene.add(gpu); gpu.name = "gpu";
+  const sub = new THREE.Mesh(RB(5.4, 0.18, 5.0, 0.05), M.coal); sub.position.y = 0.09; gpu.add(sub);
+  const inter = new THREE.Mesh(RB(4.3, 0.05, 3.3, 0.02), M.alu); inter.position.y = 0.205; gpu.add(inter);
+  const dieMat = new THREE.MeshPhysicalMaterial({ color: "#1C1D22", roughness: 0.18, metalness: 0.3, clearcoat: 1, clearcoatRoughness: 0.08, name: "die" });
+  const die = new THREE.Mesh(RB(2.3, 0.08, 2.3, 0.02), dieMat); die.position.y = 0.27; gpu.add(die); const DIE_Y = 0.31;
+  for (const sx of [-1, 1]) for (const zz of [-1.05, 0, 1.05]) for (let l = 0; l < 4; l++) { const h = new THREE.Mesh(RB(0.62, 0.065, 0.9, 0.02), l % 2 ? M.alu : M.cream2); h.position.set(sx * 1.72, 0.26 + l * 0.068, zz); gpu.add(h); }
+  for (let k = 0; k < 14; k++) { const c = new THREE.Mesh(RB(0.12, 0.06, 0.2, 0.01), M.coral); c.position.set(-2.4 + k * 0.37, 0.21, 2.25); gpu.add(c); }
+  gpu.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+  // workers on the die: body, head, cap, hammer (instanced, 10 × 10)
+  const NW = 10, PITCH = 0.2, WK = [];
+  const iBody = new THREE.InstancedMesh(RB(0.07, 0.08, 0.06, 0.02), M.cream, NW * NW), iHead = new THREE.InstancedMesh(new THREE.SphereGeometry(0.03, 12, 8), M.cream, NW * NW),
+    iCap = new THREE.InstancedMesh(new THREE.SphereGeometry(0.033, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), M.coral, NW * NW), iHam = new THREE.InstancedMesh(RB(0.016, 0.07, 0.016, 0.005), M.alu, NW * NW),
+    iSpark = new THREE.InstancedMesh(new THREE.SphereGeometry(0.018, 8, 6), glowMat("#FFC27A"), NW * NW);
+  for (const im of [iBody, iHead, iCap, iHam]) { im.castShadow = true; scene.add(im); } scene.add(iSpark);
+  const _m = new THREE.Matrix4(), _o = new THREE.Object3D();
+  const counterDev = device(3.0, 1.0, { bh: 0.28, panel: 1.6 }); counterDev.position.set(G0.x + 0.2, 0, G0.z - 3.8); counterDev.name = "counter";
+  const minis = Array.from({ length: 20 }, (_, i) => { const b = new THREE.Mesh(RB(0.26, 0.26, 0.26, 0.04), M.cream); b.castShadow = true; scene.add(b); b.visible = false; return b; });
+  const hbmPulse = Array.from({ length: 6 }, () => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 8), glowMat("#FFE2B8")); scene.add(m); m.visible = false; return m; });
+  const link = pipeLink([[ST.s5 + 2.4, 0.4, -8.6], [ST.s5 + 5.0, 0.12, -7.6], [X0 - 7.5, 0.12, -3.6], [X0 - 6.0, 0.35, -2.2]]);
+  propsAround(X0 + 2, 61);
+  const IN = [63.35, 64.5], DROP = 64.9, UNR = [65.4, 69.2];
+  ACT_UPD.push((t) => {
+    // the strawberry block travels from the reader to the converter (camera follows), drops in
+    blk.m.visible = t > IN[0] && t < DROP + 0.35;
+    if (blk.m.visible) { const u = ramp(t, IN[0], IN[1]), q = ease(u), A0 = new THREE.Vector3(ST.s5 + 0.05, 1.2, -8.6), B0 = new THREE.Vector3(X0 - 4.8, CT + 0.6, -1.9);
+      const p = A0.clone().lerp(B0, q); p.y += 2.2 * Math.sin(Math.PI * u) - 0.8 * ease(ramp(t, DROP, DROP + 0.35)); blk.m.position.copy(p); blk.m.rotation.set(0, 0.3 * Math.sin(Math.PI * u), 0); }
+    link.pulse(ramp(t, IN[0], IN[1]), 0.6);
+    const ur = ease(ramp(t, UNR[0], UNR[1])); tape.visible = ur > 0.001; tape.scale.x = Math.max(ur, 0.001); tapeTex.repeat.x = Math.max(ur, 0.001);
+    // workers: a wave of hammering across the die; dim while the counter talks
+    const on = ramp(t, a(23) - 0.2, a(23) + 0.4), act = on * (1 - 0.5 * vis(t, a(24) + 0.2, b(25) + 0.2, 0.3, 0.3));
+    for (let r = 0, n = 0; r < NW; r++) for (let c = 0; c < NW; c++, n++) {
+      const x = G0.x + (c - (NW - 1) / 2) * PITCH, z = G0.z + (r - (NW - 1) / 2) * PITCH, y = DIE_Y, ph = (t * 1.8 - (r + c) * 0.08) % 1, sw = Math.sin(ph * Math.PI * 2) * act;
+      const s = on > 0 ? 1 : 0.0001;
+      _o.position.set(x, y + 0.04, z); _o.rotation.set(0, 0, 0); _o.scale.setScalar(s); _o.updateMatrix(); iBody.setMatrixAt(n, _o.matrix);
+      _o.position.set(x, y + 0.11, z); _o.updateMatrix(); iHead.setMatrixAt(n, _o.matrix); _o.position.set(x, y + 0.115, z); _o.updateMatrix(); iCap.setMatrixAt(n, _o.matrix);
+      _o.position.set(x + 0.05, y + 0.07, z); _o.rotation.set(0, 0, -0.6 + 0.9 * sw); _o.updateMatrix(); iHam.setMatrixAt(n, _o.matrix);
+      const sp = Math.max(0, -Math.sin(ph * Math.PI * 2)) * act; _o.position.set(x + 0.07, y + 0.01, z); _o.rotation.set(0, 0, 0); _o.scale.setScalar(on > 0 ? 0.3 + 1.2 * sp : 0.0001); _o.updateMatrix(); iSpark.setMatrixAt(n, _o.matrix); }
+    for (const im of [iBody, iHead, iCap, iHam, iSpark]) im.instanceMatrix.needsUpdate = true;
+    minis.forEach((m, i) => { const p = ramp(t, a(25) + 0.3 + i * 0.05, a(25) + 0.6 + i * 0.05); m.visible = p > 0 && t < b(25) + 0.6; if (!m.visible) return;
+      m.position.set(G0.x - 2.9 + i * 0.3 - 0.3 * 0, 0.13 + 0.8 * (1 - eo(p)), G0.z + 2.95); });
+    const fl = vis(t, a(26) + 0.3, 87.8, 0.3, 0.3);
+    hbmPulse.forEach((m, k) => { const u = ((t * 0.9 + k / 6) % 1), sx = k < 3 ? -1 : 1, zz = [-1.05, 0, 1.05][k % 3]; m.visible = fl > 0; m.position.set(G0.x + sx * lerp(1.6, 1.05, u), DIE_Y + 0.05, G0.z + zz * (1 - u) * 0.9); m.scale.setScalar(fl); });
+  });
+  ACT_OVL.push((t) => {
+    const tp = vis(t, a(22) + 2.8, 70.9, 0.3, 0.3); if (tp > 0) { const p = P3(TL0 + TLEN * 0.5, 0.5, -0.9); label("几千个数字，排成一行", 540, p.y - 120, { font: F(900, 40), h: 74, alpha: tp, scale: back(ramp(t, a(22) + 2.8, a(22) + 3.15)) });
+      txt("数值为示意", 540, p.y + 120, { font: F(700, 30), color: "rgba(43,39,38,.8)", alpha: tp }); }
+    const g = ramp(t, a(23) + 2.6, a(23) + 2.9) * (1 - ramp(t, a(24) + 0.1, a(24) + 0.4)); if (g > 0) { const p = P3(G0.x, DIE_Y + 0.9, G0.z - 0.6); label("只做两件事：乘法 × 和加法 +", 540, Math.max(p.y - 40, 330), { font: F(900, 38), h: 72, bg: INK, color: "#F6F0E6", alpha: g, scale: back(ramp(t, a(23) + 2.6, a(23) + 2.95)) }); }
+    const wn = vis(t, a(23) + 0.6, b(23) + 0.3, 0.3, 0.3); if (wn > 0) { const p = P3(G0.x, 0, G0.z + 1.6); label("示意：1 个小工人 ≈ 1 个乘加单元", 540, Math.min(p.y + 60, 1225), { font: F(700, 32), h: 58, alpha: wn }); }
+    // × and + popping over random workers
+    const xo = vis(t, a(23) + 0.4, b(23) + 0.2, 0.3, 0.3); if (xo > 0) for (let k = 0; k < 10; k++) { const r = mulberry(k * 13 + 7), c = Math.floor(r() * NW), rr = Math.floor(r() * NW), ph = (t * 1.3 + r()) % 1;
+      const p = P3(G0.x + (c - 4.5) * PITCH, DIE_Y + 0.25 + 0.15 * ph, G0.z + (rr - 4.5) * PITCH); txt(k % 2 ? "×" : "+", p.x, p.y, { font: FI(900, 46), color: CORAL, alpha: xo * Math.sin(Math.PI * ph) }); }
+    // the counter
+    const cv = vis(t, a(24) + 0.2, b(25) + 0.5, 0.3, 0.3); if (cv > 0) { const pn = counterDev.userData.panel, p = P3(counterDev.position.x, pn.y, counterDev.position.z + pn.z + 0.05);
+      const T1 = a(25) + 1.0, out = 1 - ramp(t, T1, T1 + 0.12), inn = ramp(t, T1 + 0.12, T1 + 0.3), n = Math.round(2000 * ease(ramp(t, a(24) + 0.35, a(24) + 3.7)));
+      card(p.x, p.y, 560, 250, { r: 26, alpha: cv * 0.95 });
+      txt("每读一块积木", p.x, p.y - 74, { font: F(700, 34), alpha: cv * out }); txt("一句话 ≈ 20 块积木", p.x, p.y - 74, { font: F(700, 34), alpha: cv * inn });
+      txt(`≈ ${n} 亿次`, p.x, p.y + 6, { font: FI(900, 76), color: CORAL, alpha: cv * out }); if (inn > 0) { ctx.save(); ctx.translate(p.x, p.y + 6); const s = back(ramp(t, T1 + 0.12, T1 + 0.45)); ctx.scale(s, s); txt("≈ 4 万亿次", 0, 0, { font: FI(900, 76), color: CORAL, alpha: cv * inn }); ctx.restore(); }
+      txt("估算：每块 ≈ 2 × 参数量（千亿参数）", p.x, p.y + 82, { font: F(700, 28), color: "rgba(43,39,38,.8)", alpha: cv * out }); txt("估算：20 块 × 每块 2000 亿次", p.x, p.y + 82, { font: F(700, 28), color: "rgba(43,39,38,.8)", alpha: cv * inn }); }
+    const gl = vis(t, a(26) + 1.4, 87.9, 0.3, 0.3); if (gl > 0) { const p = P3(G0.x, 0.5, G0.z - 2.7); label("GPU", p.x, p.y - 40, { font: FI(900, 54), h: 88, bg: INK, color: "#F6F0E6", alpha: gl, scale: back(ramp(t, a(26) + 1.4, a(26) + 1.75)) });
+      const q = P3(G0.x, 0, G0.z + 2.6); label("示意：云端机房里的 GPU 芯片", 540, Math.min(q.y + 60, 1225), { font: F(700, 32), h: 58, alpha: gl }); }
+  });
+  ACT_KEYS.push(
+    [63.9, (ST.s5 + X0) / 2, 1.6, -5.0, 8.4, 0.08, 0.5],
+    [64.6, X0 - 4.8, CT, -1.9, 5.4, 0.14, 0.48],
+    [UNR[0] + 0.5, TL0 + 1.4, 0.5, -1.0, 4.6, 0.1, 0.32],
+    [UNR[0] + 2.4, TL0 + 4.0, 0.5, -1.0, 4.8, 0.08, 0.32],
+    [UNR[1], TL0 + TLEN * 0.5, 0.5, -1.0, 8.4, 0.06, 0.4],
+    [a(23) + 0.3, G0.x, DIE_Y, G0.z, 4.2, 0.08, 0.7],
+    [a(23) + 1.6, G0.x, DIE_Y, G0.z, 2.6, 0.12, 0.62],
+    [b(23), G0.x, DIE_Y, G0.z, 2.4, 0.16, 0.58],
+    [a(24) + 0.6, G0.x, 0.6, G0.z - 1.6, 6.4, 0.08, 0.5],
+    [b(25) + 0.2, G0.x - 0.4, 0.6, G0.z - 1.2, 6.8, 0.04, 0.5],
+    [a(26) + 1.2, G0.x, 0.4, G0.z - 0.6, 7.4, 0.02, 0.62],
+    [87.6, G0.x + 0.2, 0.4, G0.z - 0.6, 7.2, -0.04, 0.6],
+  );
+}
+
+// ---------- S7 · what we see vs what the AI sees ----------
+{
+  const X0 = ST.s7, us = device(10 * P + 0.5, 1.5, { bh: 0.34, alu: false }), ai = device(10 * P + 0.5, 1.6, { bh: 0.34, alu: false });
+  us.position.set(X0, 0, -3.0); ai.position.set(X0, 0, -0.4); us.name = "padUs"; ai.name = "padAI";
+  const UY = us.userData.top + CUBE / 2;
+  const L7 = [...WORD].map((ch, i) => tblock(ch, CUBE, { fill: 0.75 }));
+  const B7 = makeBlock(10, WORD); B7.m.visible = false; B7.ds.forEach((d) => { d.material.opacity = 0.22; });
+  const link = pipeLink([[ST.s6 + 9.1, 0.3, -1.6], [ST.s6 + 11.5, 0.12, -0.6], [X0 - 6.5, 0.12, -1.4], [X0 - 3.9, 0.25, -3.0]]);
+  propsAround(X0, 71);
+  ACT_UPD.push((t) => {
+    link.pulse(ramp(t, 87.5, 88.3), 1);
+    L7.forEach((b, i) => { const p = ramp(t, 88.2 + i * 0.05, 88.5 + i * 0.05); b.m.visible = p > 0 && t < 98.3; b.m.position.set(X0 + X(i), UY + 0.8 * (1 - eo(p)), -3.0 + 0.1); });
+    const p = ramp(t, 88.9, 89.3); B7.m.visible = p > 0 && t < 98.3; B7.m.position.set(X0, UY + 0.9 * (1 - eo(p)), -0.4 + 0.25);
+  });
+  ACT_OVL.push((t) => {
+    const k = vis(t, 88.6, 98.2, 0.3, 0.3); if (k <= 0) return;
+    const pu = P3(X0, UY + 0.55, -3.0), pa = P3(X0, 0, 0.55);
+    label("我们看到：一个一个字母", pu.x, pu.y - 30, { font: F(900, 34), h: 60, alpha: k });
+    label("AI 看到：一整块积木（编号 #73700）", pa.x, pa.y + 40, { font: F(900, 34), h: 60, alpha: k * ramp(t, 89.2, 89.5) });
+    const hl = vis(t, a(27) + 2.2, 98.0, 0.3, 0.3), pulse = 0.65 + 0.35 * Math.sin(t * 6);
+    if (hl > 0) { const c1 = P3(X0 + X(0), UY, -2.9), r1 = Math.abs(P3(X0 + X(0) + 0.42, UY, -2.9).x - c1.x);
+      ctx.save(); ctx.globalAlpha = hl * pulse; ctx.strokeStyle = CORAL; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(c1.x, c1.y, r1, 0, 7); ctx.stroke();
+      const c2 = P3(X0, UY, -0.15), w2 = Math.abs(P3(X0 + 3.6, UY, -0.15).x - c2.x); ctx.beginPath(); ctx.ellipse(c2.x, c2.y, w2, w2 * 0.3, 0, 0, 7); ctx.stroke(); ctx.restore(); }
+  });
+  ACT_KEYS.push(
+    [88.3, X0 - 2.0, 0.6, -1.8, 8.4, 0.12, 0.55],
+    [a(27) + 1.4, X0, 0.6, -1.7, 8.0, 0.06, 0.58],
+    [a(28), X0, 0.6, -1.7, 8.4, 0.02, 0.62],
+    [b(29), X0, 0.6, -1.7, 9.4, -0.04, 0.7],
+  );
+}
+
+// ---------- S8 · it guesses block by block — what if it guesses wrong, with full confidence? ----------
+{
+  const X0 = ST.s8, model = device(3.2, 2.4, { bh: 0.62, panel: 1.0 }); model.position.set(X0 - 3.6, 0, -2.4); model.name = "model8";
+  const TOP = model.userData.top, lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.08, 28), glowMat("#EE6A47")); lamp.position.set(X0 - 2.4, TOP + 0.04, -1.55); scene.add(lamp);
+  const rail = device(8.0, 1.0, { bh: 0.3 }); rail.position.set(X0 + 1.9, 0, -0.9);
+  const RY = rail.userData.top + CUBE / 2, OUT = ["当然", "知道", "！", "这段", "情节", "出自"];
+  let cx = X0 - 1.75; const blocks8 = OUT.map((s, k) => { const n = s.length, w = 0.55 * n + 0.08, b = tblock(s, w); b.x = cx + w / 2; cx += w + 0.06; b.k = k; return b; });
+  const qm = tblock("？", 0.66, { mat: M.coral, ink: "#FFFFFF" }); qm.x = cx + 0.33;
+  const link = pipeLink([[ST.s7 + 3.9, 0.25, -0.4], [ST.s7 + 6.5, 0.12, 0.4], [X0 - 7.2, 0.12, -1.0], [X0 - 5.2, 0.35, -2.4]]);
+  propsAround(X0, 81);
+  const tO = (k) => a(30) + 0.35 + k * 0.33, tQ = a(31) + 0.25;
+  ACT_UPD.push((t) => {
+    link.pulse(ramp(t, 97.9, 98.5), 1);
+    lamp.material.color.set("#EE6A47").multiplyScalar(1 + 1.6 * Math.max(...blocks8.map((c) => bump(t, tO(c.k) - 0.1, 0.25)), bump(t, tQ - 0.1, 0.3)));
+    [...blocks8, Object.assign(qm, { k: 99 })].forEach((c) => { const t0 = c === qm ? tQ : tO(c.k), p = ramp(t, t0, t0 + 0.36); c.m.visible = t > t0; if (!c.m.visible) return;
+      const h = hop(t, t0 + 0.36, 0.25, 0.16), shake = c === qm ? 0.12 * Math.sin(t * 26) * vis(t, a(31) + 1.0, 107.2, 0.1, 0.3) : 0;
+      c.m.position.set(lerp(X0 - 2.4, c.x, ease(p)), RY + h.y - (CUBE / 2) * h.sq, -0.9); c.m.rotation.set(0, 0, shake); });
+  });
+  ACT_OVL.push((t) => {
+    const r = P3(X0 + 1.9, 0, 0.0); label("示意", r.x + 300, Math.min(r.y + 40, 1225), { font: F(700, 30), h: 52, alpha: vis(t, a(30) + 0.6, 107.2) });
+    const c = ramp(t, a(31) + 0.6, a(31) + 0.9); if (c > 0) { const p = P3(qm.x, RY + 1.4, -0.9); label("自信 100%", p.x, p.y, { font: F(900, 40), h: 74, bg: CORAL, color: "#fff", rot: -0.06, alpha: c * (1 - ramp(t, 107.0, 107.3)), scale: back(ramp(t, a(31) + 0.6, a(31) + 0.95)) }); }
+  });
+  ACT_KEYS.push(
+    [98.5, X0 - 3.4, TOP, -2.2, 6.4, 0.14, 0.45],
+    [a(30) + 1.6, X0 - 0.4, RY, -1.3, 8.0, 0.1, 0.45],
+    [a(31) + 0.8, X0 + 2.6, RY, -1.2, 8.0, 0.06, 0.45],
+    [b(31) + 0.2, X0 + 3.4, RY, -1.0, 7.0, 0.04, 0.42],
+    [END_CARD, X0 + 0.6, 0.6, -1.6, 10.5, 0.0, 0.85],
+    [DUR + 0.5, X0 + 0.6, 0.6, -1.6, 11.5, 0.0, 0.95],
+  );
+}
+// end card (2D): series name, this episode, next episode
+function endCard(t) {
+  const al = ramp(t, END_CARD, END_CARD + 0.5); if (al <= 0) return;
+  ctx.save(); ctx.globalAlpha = al * 0.55; ctx.fillStyle = "#2B2726"; ctx.fillRect(0, 0, W, H); ctx.restore();
+  const s = back(ramp(t, END_CARD + 0.15, END_CARD + 0.55));
+  ctx.save(); ctx.globalAlpha = al; card(540, 860, 860, 560, { r: 36, a: 0.95 }); ctx.translate(540, 780); ctx.scale(s, s); txt("AI 灵魂拷问", 0, 0, { font: F(900, 112) }); ctx.restore();
+  txt("#01  AI 看不见字母  ✓", 540, 910, { font: F(700, 44), alpha: ramp(t, END_CARD + 0.6, END_CARD + 0.9) });
+  txt("下期 #02", 540, 1010, { font: F(900, 38), color: CORAL, alpha: ramp(t, END_CARD + 0.9, END_CARD + 1.2) });
+  txt("AI 为什么一本正经地胡说八道？", 540, 1072, { font: F(900, 46), alpha: ramp(t, END_CARD + 1.0, END_CARD + 1.3) });
+}
+// ===================== end of ACTS =====================
+
 // ---------- camera: follows the subject of each beat ----------
 // Each key: [t, focus x, y, z, width, azimuth, elevation]. width = the stretch of scene (world units, at the focus) that fills
 // ~90% of the frame width. Values run through a monotone cubic, so the camera keeps moving without overshoot; depth of field
@@ -259,8 +646,9 @@ const FK = [
   [a(8) + 0.4, 0, BLOCK_Y + 0.6, PADZ - 0.6, 9.6, 0.08, 0.5],
   [M_EXIT + EXIT, 0, BLOCK_Y, PADZ, 9.0, 0.06, 0.45],
   [TOK + 0.8, 0, BLOCK_Y + 0.8, BLOCK_Z + 0.5, 8.4, 0.02, 0.32],
-  [DUR + 0.5, 0, BLOCK_Y + 0.85, BLOCK_Z + 0.5, 8.0, -0.06, 0.3],
+  [30.9, 0, BLOCK_Y + 0.85, BLOCK_Z + 0.5, 8.0, -0.06, 0.3],
 ];
+FK.push(...ACT_KEYS); FK.sort((p, q) => p[0] - q[0]);
 // monotone cubic (Fritsch–Carlson) through the keys, per component
 const FKT = FK.map((k) => k[0]);
 const FKS = [1, 2, 3, 4, 5, 6].map((c) => { const v = FK.map((k) => k[c]), n = v.length, d = [], m = [];
@@ -355,6 +743,7 @@ function update3D(t) {
   const PT = [exitT(0), exitT(1), exitT(2)], P2 = M_EXIT;
   pulses.forEach((pm, g) => { let u = ramp(t, PT[g] - 0.3, PT[g] + 0.6); if (g === 1 && t > P2 - 0.4) u = ramp(t, P2 - 0.3, P2 + 0.6); pm.visible = u > 0 && u < 1; if (!pm.visible) return; pipe.getPointAt(u, pm.position); pm.userData.l.intensity = 3; });
   pipeCore.color.set("#FFC27A").multiplyScalar(1 + 0.6 * Math.max(...[0, 1, 2].map((g) => bump(t, exitT(g) - 0.3, 0.9)), bump(t, M_EXIT - 0.3, 0.9)));
+  for (const f of ACT_UPD) f(t);
 }
 
 // ---------- render ----------
@@ -372,6 +761,7 @@ function grade(t) {
 
 // ---------- 2D overlays ----------
 function overlays(t) {
+  for (const f of ACT_OVL) f(t);
   const trayFront = (x, dy = 0) => P3(x, TRAY_Y - CUBE / 2, TRAY_Z + 0.55);
   // "AI：2 个", crossed in L2, droops in L3
   const st = vis(t, b(1) - 0.75, a(4) + 0.35, 0.2, 0.3);
@@ -427,7 +817,7 @@ function overlays(t) {
       ctx.save(); ctx.globalAlpha = sa; ctx.translate(x + ws[j] / 2, p.y); ctx.scale(pj, pj); txt(s, 0, 1, { font: f, color: hi ? "#fff" : INK }); ctx.restore(); x += ws[j] + 8; }); }
   label("这句切成 8 块，“ strawberry”（带空格）是 1 块 · 实测", 540, Math.min(padsFront.y + 80, 1225), { font: F(700, 32), h: 58, alpha: vis(t, a(8) + 0.4, a(9) + 0.3) });
   // Token (L9)
-  const tk = ramp(t, a(9) + 1.1, a(9) + 1.4);
+  const tk = ramp(t, a(9) + 1.1, a(9) + 1.4) * (1 - ramp(t, 31.15, 31.4));
   if (tk > 0) { const p = P3(0, BLOCK_Y - CUBE / 2 + 0.75, BLOCK_Z + 0.85), y = Math.min(p.y + 120, 1225);
     ctx.save(); ctx.globalAlpha = tk; ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(540, p.y + 10); ctx.lineTo(540, y - 38); ctx.stroke(); ctx.restore();
     label("Token", 540, y, { font: FI(800, 48), h: 82, bg: INK, color: "#F6F0E6", scale: back(ramp(t, a(9) + 1.1, a(9) + 1.45)), alpha: tk }); }
@@ -470,7 +860,7 @@ function opening(t) { const al = 1 - ramp(t, LAUNCH - 0.15, LAUNCH + 0.25); if (
   const s = "AI [数不清]字母？", f = F(900, 92), w = tw(s.replace(/[\[\]]/g, ""), f) + 90;
   ctx.save(); ctx.globalAlpha = al; ctx.translate(540, 270); card(0, 0, w, 134); rich(s, 0, 2, f, INK, CORAL); ctx.restore(); }
 function captions(t) {
-  let i = -1; for (let n = 0; n < 10; n++) if (L[n].t0 <= t) i = n; if (i < 0 || t >= L[i].t1 + 0.5) return;   // the sample ends with line 9
+  if (t >= END_CARD) return; let i = -1; for (let n = 0; n < L.length; n++) if (L[n].t0 <= t) i = n; if (i < 0 || t >= L[i].t1 + 0.5) return;
   const cs = chunks(L[i].text), lens = cs.map((c) => c.length), tot = lens.reduce((x, y) => x + y, 0); let acc = L[i].t0, idx = 0;
   for (let j = 0; j < cs.length; j++) { const d = (L[i].t1 - L[i].t0) * lens[j] / tot; if (t >= acc) idx = j; acc += d; }
   const st = L[i].t0 + (L[i].t1 - L[i].t0) * lens.slice(0, idx).reduce((x, y) => x + y, 0) / tot;
@@ -497,12 +887,12 @@ const bgImg = new Image();
 window.seek = async function (t) {
   update3D(t);
   ctx.reset();
-  if (OVERLAY) { overlays(t); opening(t); captions(t); return; }                      // transparent: labels + captions only
+  if (OVERLAY) { overlays(t); opening(t); captions(t); endCard(t); return; }                      // transparent: labels + captions only
   if (BG) {                                                               // a frame rendered elsewhere (Blender) under the same grade + labels
     const f = Math.round(t * window.TL.FPS); bgImg.src = `/film/blender/out/${BG}/${String(f).padStart(5, "0")}.png`; await bgImg.decode(); ctx.drawImage(bgImg, 0, 0, W, H);
   } else { if (bokeh) bokeh.uniforms.focus.value = focusDist; if (comp) comp.render(); else R.render(scene, cam); ctx.drawImage(glc, 0, 0); }
   grade(t);
-  overlays(t); opening(t); captions(t);
+  overlays(t); opening(t); captions(t); endCard(t);
 };
 if (!BG) await window.seek(0); window.ready = true;   // in Blender-background mode there is no frame 0 to load
 </script>

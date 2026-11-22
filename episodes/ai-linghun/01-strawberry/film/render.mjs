@@ -15,7 +15,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url)), ROOT = path.dirname(H
 const { chromium } = createRequire(import.meta.url)("playwright");
 const arg = (k, d) => { const a = process.argv.find((x) => x === `--${k}` || x.startsWith(`--${k}=`)); if (!a) return d; return a.includes("=") ? a.split("=").slice(1).join("=") : true; };
 const TL = createRequire(import.meta.url)("../timeline.js");
-const FPS = TL.FPS, DUR = parseFloat(arg("end", String(+(TL.L[10].t0 + 0.3).toFixed(2)))), T0 = parseFloat(arg("start", "0")), NF = Math.round(FPS * DUR);
+const FPS = TL.FPS, DUR = parseFloat(arg("end", String(TL.DUR))), T0 = parseFloat(arg("start", "0")), NF = Math.round(FPS * DUR);
 const QS = arg("overlay") ? "?overlay=1" : arg("bg") ? `?bg=${arg("bg")}` : "";
 const WORKERS = parseInt(arg("workers", "4"));
 
