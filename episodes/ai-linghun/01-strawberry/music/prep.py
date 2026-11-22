@@ -3,7 +3,7 @@
   1. 拍点对齐：测出拍点相位，整体平移，让拍点落在 0.6 秒（100 BPM）的格子上；
   2. 揭晓前停半拍：76.5–76.8 秒静音（前后 25 ms 淡入淡出）；
   3. 分段增益：讲解段让给字幕（-2 dB），揭晓段抬起（+1.5 dB），下期预告收回（-1.5 dB），片尾卡淡出到 99.3 秒；
-  4. 整体响度到 -14 LUFS：增益 + 限幅器（-1 dBFS），之后加音效再统一量一次。
+  4. 整体响度到 -14 LUFS：增益 + 限幅器（样本峰值 -1.6 dBFS，真峰值约 -1 dBTP），之后加音效再统一量一次。
 用法：python3 prep.py <输入.wav> <输出前缀> [--dur 99.29]   → <前缀>.wav + <前缀>.mp3
 """
 import subprocess, sys
@@ -16,12 +16,12 @@ PAUSE = (76.5, 76.8)
 
 
 def loud(y, sr, target, pre):
-    """gain to the target loudness, then a look-ahead limiter at -1 dBFS (ffmpeg alimiter); twice, since the limiter takes a little off"""
+    """gain to the target loudness, then a look-ahead limiter at -1.6 dBFS sample peak (≈ -1 dBTP true peak; ffmpeg alimiter); twice, since the limiter takes a little off"""
     meter = pyln.Meter(sr); tmp = pre + '.tmp.wav'
     for _ in range(3):
         y = y * 10 ** ((target - meter.integrated_loudness(y.T)) / 20)
         sf.write(tmp, y.T, sr, subtype='FLOAT')
-        subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', tmp, '-af', 'alimiter=limit=0.891:attack=3:release=80:level=0', '-c:a', 'pcm_f32le', pre + '.lim.wav'], check=True)
+        subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', tmp, '-af', 'alimiter=limit=0.83:attack=3:release=80:level=0', '-c:a', 'pcm_f32le', pre + '.lim.wav'], check=True)
         y = sf.read(pre + '.lim.wav', always_2d=True)[0].T
         if abs(meter.integrated_loudness(y.T) - target) < 0.3: break
     import os; os.remove(tmp); os.rename(pre + '.lim.wav', pre + '.wav')

@@ -121,7 +121,7 @@ async function main() {
   const args = ["-framerate", String(FPS), "-i", path.join(frames, "%05d.png")];
   if (fs.existsSync(audio)) args.push("-i", audio);
   args.push("-c:v", "libx264", "-preset", "slow", "-crf", "16", "-pix_fmt", "yuv420p", "-profile:v", "high", "-r", String(FPS), "-movflags", "+faststart");
-  if (fs.existsSync(audio)) args.push("-c:a", "aac", "-b:a", "256k", "-ar", "48000", "-shortest");
+  if (fs.existsSync(audio)) args.push("-c:a", "aac", "-aac_coder", "fast", "-b:a", "256k", "-ar", "48000", "-shortest");   // fast: the default twoloop coder overshot to +1.5 dBTP on the ACE-Step music
   args.push(out);
   ff(args);
   console.log("encoded ->", out, `(${DUR} s)`);
