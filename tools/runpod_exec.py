@@ -2,7 +2,7 @@
 """租一台 RunPod GPU 机器当「远程工作台」：传 bash 脚本上去后台跑、看日志、拉回文件，用完删掉。
 本云端容器连不上 huggingface.co 等站点、也没有显卡时用它（例如在 pod 上装 ACE-Step 生成音乐）。
 
-  python3 tools/runpod_exec.py up [--gpu "id1,id2"] [--image IMG] [--disk 80] [--max-hours 2] --yes
+  python3 tools/runpod_exec.py up [--gpu "id1,id2"] [--image IMG] [--disk 80] [--max-hours 2] [--cloud SECURE] --yes
   python3 tools/runpod_exec.py run <任务名> <本地脚本.sh>      在 pod 上后台跑（工作目录 /w，日志 /w/out/logs/<任务名>.log）
   python3 tools/runpod_exec.py wait <任务名> [--timeout 3600]  等它跑完，打印日志尾和退出码
   python3 tools/runpod_exec.py status                         各任务状态 + /w/out 文件列表
@@ -103,7 +103,7 @@ def main():
                     ports='8000/http', minVcpuCount=8, minMemoryInGb=32,
                     dockerArgs="bash -c 'echo $POD_SH_B64 | base64 -d > /pod.sh && bash /pod.sh'", env=[dict(key=k, value=v) for k, v in env.items()])
         pod = None
-        for cloud in ('COMMUNITY', 'SECURE'):
+        for cloud in opt('--cloud', 'COMMUNITY,SECURE').split(','):   # --cloud SECURE: community hosts can be slow to install (apt 9 min, uv stuck on 2026-11-22)
             for gpu in opt('--gpu', GPUS).split(','):
                 try: pod = G.gql(MUT, dict(i=dict(base, cloudType=cloud, gpuTypeId=gpu)))['podFindAndDeployOnDemand']
                 except RuntimeError as e: print(f'{cloud} {gpu}: {str(e)[:160]}'); continue
