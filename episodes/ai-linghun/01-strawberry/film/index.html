@@ -26,6 +26,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { BokehPass } from "three/addons/postprocessing/BokehPass.js";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 const QP = new URLSearchParams(location.search), OVERLAY = QP.has("overlay"), BG = QP.get("bg");
+if (OVERLAY) { document.documentElement.style.background = "transparent"; document.body.style.background = "transparent"; }   // labels + captions as a transparent layer (Blender final)
 
 const { W, H, L } = window.TL;
 const a = (i) => L[i].t0, b = (i) => L[i].t1;
@@ -952,7 +953,7 @@ function captions(t) {
 
 // ---------- frame ----------
 // ---------- export for Blender: the scene once (GLB) + per frame transforms / camera / lights ----------
-window.exportGLB = async function (t) { update3D(t); const buf = await new GLTFExporter().parseAsync(scene, { binary: true, onlyVisible: false });
+window.exportGLB = async function (t, onlyVisible = false) { update3D(t); const buf = await new GLTFExporter().parseAsync(scene, { binary: true, onlyVisible });   // onlyVisible: a still (what is on screen at t)
   const u8 = new Uint8Array(buf); let bin = ""; for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(bin); };
 const DYN = () => [...cubes.map((c) => c.m), ...blocks.map((b) => b.m), merged.m, ...pads, mergedPad, ...pulses, ...blades, scanM, scanH];
 const PIPE0 = new THREE.Color("#FFC27A");

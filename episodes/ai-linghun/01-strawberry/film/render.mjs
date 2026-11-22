@@ -5,6 +5,7 @@
 //   node render.mjs --sheet [--every=0.5] [--tag=r1]
 //   node render.mjs --strip=11.3,12.3 [--n=12]
 //   node render.mjs --cues                    sound cues -> ../music/cues.json
+//   node render.mjs --export-stills=0.6,6.7   Blender test stills: blender/stills/<frame>/{scene.glb,anim.json}
 //   node render.mjs --start=42 --end=48.2 --noencode   re-render a range in place;  node render.mjs --encode --out=…   encode only
 import { createRequire } from "node:module";
 import { execFileSync } from "node:child_process";
@@ -45,7 +46,7 @@ async function openPage(browser, port) {
 async function shot(page, t, file) {
   await page.evaluate((tt) => window.seek(tt), t);
   if (page._errs.length) throw new Error(`error at t=${t}: ` + page._errs.join("\n"));
-  await page.locator("#c").screenshot({ path: file, type: "png" });
+  await page.locator("#c").screenshot({ path: file, type: "png", omitBackground: !!arg("overlay") });   // --overlay: labels + captions on transparent
 }
 async function renderTimes(list, workers = WORKERS) {
   const srv = await serve(), port = srv.address().port;
@@ -73,6 +74,18 @@ const ff = (args) => execFileSync("ffmpeg", ["-v", "error", "-y", ...args], { st
 
 async function main() {
   fs.mkdirSync(path.join(HERE, "qa"), { recursive: true });
+  if (arg("export-stills")) {   // --export-stills=0.6,6.7,… : blender/stills/<frame>/scene.glb (only what is visible at t, colours as at t) + anim.json (that frame)
+    const srv = await serve(), port = srv.address().port;
+    const browser = await chromium.launch(launchOpts()); const page = await openPage(browser, port);
+    for (const t of String(arg("export-stills")).split(",").map(Number)) {
+      const f = Math.round(t * FPS), dir = path.join(HERE, "blender/stills", String(f).padStart(5, "0")); fs.mkdirSync(dir, { recursive: true });
+      const b64 = await page.evaluate(([tt]) => window.exportGLB(tt, true), [f / FPS]); fs.writeFileSync(path.join(dir, "scene.glb"), Buffer.from(b64, "base64"));
+      const fr = await page.evaluate((tt) => window.exportFrame(tt), f / FPS);
+      fs.writeFileSync(path.join(dir, "anim.json"), JSON.stringify({ fps: FPS, f0: f, f1: f, W: 1080, H: 1920, frames: [fr] }));
+      console.log(`still ${f} (${(f / FPS).toFixed(2)} s): scene.glb ${(fs.statSync(path.join(dir, "scene.glb")).size / 1e6).toFixed(1)} MB`);
+    }
+    await browser.close(); srv.close(); return;
+  }
   if (arg("export")) {     // --export --start=18.4 --end=22.4 : blender/scene.glb (state at --start) + blender/anim.json (every frame)
     const srv = await serve(), port = srv.address().port;
     const browser = await chromium.launch({ args: ["--ignore-gpu-blocklist"] }); const page = await openPage(browser, port);

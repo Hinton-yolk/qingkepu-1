@@ -19,7 +19,8 @@ ENGINE = argv[4] if len(argv) > 4 else "cycles"
 DEVICE = argv[5] if len(argv) > 5 else "gpu"
 SCALE = float(argv[6]) if len(argv) > 6 else 1.0
 
-A = json.load(open(os.path.join(HERE, "anim.json")))
+DATA = argv[7] if len(argv) > 7 else HERE           # a still's folder (render.mjs --export-stills) or the whole-film export next to this script
+A = json.load(open(os.path.join(DATA, "anim.json")))
 FR = {A["f0"] + i: fr for i, fr in enumerate(A["frames"])}
 C = Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))
 CI = C.inverted()
@@ -32,7 +33,7 @@ def v3(x, y, z): return Vector((x, -z, y))           # a three.js point in Blend
 
 # ---------- scene ----------
 bpy.ops.wm.read_factory_settings(use_empty=True)
-bpy.ops.import_scene.gltf(filepath=os.path.join(HERE, "scene.glb"))
+bpy.ops.import_scene.gltf(filepath=os.path.join(DATA, "scene.glb"))
 scn = bpy.context.scene
 for o in list(bpy.data.objects):
     if o.type in ("LIGHT", "CAMERA"): bpy.data.objects.remove(o, do_unlink=True)
@@ -42,9 +43,17 @@ def base(name): return name.split(".")[0]
 def fresh(mat):
     mat.use_nodes = True; nt = mat.node_tree; nt.nodes.clear()
     out = nt.nodes.new("ShaderNodeOutputMaterial"); return nt, out
+def imported_color(mat):
+    """the colour three.js had on this material at export time (glTF base colour factor), or None"""
+    if not (mat.use_nodes and mat.node_tree): return None
+    for nd in mat.node_tree.nodes:
+        if nd.type == "BSDF_PRINCIPLED" and not nd.inputs["Base Color"].is_linked: return tuple(nd.inputs["Base Color"].default_value)
+    return None
+KEEP_COLOR = os.environ.get("KEPU_KEEP_COLOR", "1") == "1"
 def principled(mat, col, rough, **kw):
+    ic = imported_color(mat) if KEEP_COLOR else None
     nt, out = fresh(mat); b = nt.nodes.new("ShaderNodeBsdfPrincipled"); nt.links.new(b.outputs[0], out.inputs[0])
-    b.inputs["Base Color"].default_value = lin(col); b.inputs["Roughness"].default_value = rough
+    b.inputs["Base Color"].default_value = ic if ic and mat.get("keep_color", True) else lin(col); b.inputs["Roughness"].default_value = rough
     for k, v in kw.items():
         if k in b.inputs: b.inputs[k].default_value = v
     return b
@@ -67,14 +76,19 @@ for mat in bpy.data.materials:
     elif n == "alu": principled(mat, "#C9CBCE", 0.3, Metallic=1.0, Anisotropic=0.7)
     elif n == "coral": principled(mat, "#EE6A47", 0.42, **{"Coat Weight": 0.15})
     elif n == "glass": principled(mat, "#F4F1EA", 0.3, **{"Transmission Weight": 1.0, "IOR": 1.5})
-    elif n == "pipeglass": principled(mat, "#FFFFFF", 0.04, **{"Transmission Weight": 1.0, "IOR": 1.45})
+    elif n == "pipeglass": principled(mat, "#F6E1BC", 0.12, **{"Transmission Weight": 0.8, "IOR": 1.45}); mat["keep_color"] = False   # stills v2: warm, like three.js (was clear -> read white)
     elif n == "rubber": principled(mat, "#1C1A19", 0.42)
     elif n == "screw": principled(mat, "#8E9196", 0.35, Metallic=1.0)
-    elif n == "pipecore": MAT[n] = emission(mat, "#FFC27A", 6.0)[0]
+    elif n == "pipecore": MAT[n] = emission(mat, "#FFB45A", 3.0)[0]
     elif n.startswith("pulse_"): MAT[n] = emission(mat, "#FFE2B8", 25.0)[0]
     elif n.startswith("blade_"): MAT[n] = emission(mat, "#FFE6C4", 30.0, with_alpha=True)
     elif n in ("scan", "scanH"): MAT[n] = emission(mat, "#FFE3BC", 10.0, with_alpha=True)
-    # decal_*, screen, disp_*: keep the imported (textured) setups
+    elif n == "screen":     # the phone screen is unlit in three.js (MeshBasic): show its texture as emission, not as a lit grey surface
+        tex = next((nd for nd in mat.node_tree.nodes if nd.type == "TEX_IMAGE"), None) if mat.use_nodes else None
+        if tex and tex.image:
+            img = tex.image; nt, out = fresh(mat); ti = nt.nodes.new("ShaderNodeTexImage"); ti.image = img; e = nt.nodes.new("ShaderNodeEmission")
+            e.inputs["Strength"].default_value = 1.0; nt.links.new(ti.outputs["Color"], e.inputs["Color"]); nt.links.new(e.outputs[0], out.inputs[0])
+    # decal_*, disp_*: keep the imported (textured) setups
 
 # ---------- lights / world ----------
 def add_light(name, kind, energy, col, loc, **kw):
@@ -88,7 +102,7 @@ box.rotation_euler = (v3(0, 0, -1) - box.location).to_track_quat("-Z", "Y").to_e
 cutL = add_light("cutL", "POINT", 0.0, "#FFC890", v3(-0.6, 0.49 + 0.28 + 0.4, -3.1 + 0.6), shadow_soft_size=0.15)
 w = bpy.data.worlds.new("world"); scn.world = w; w.use_nodes = True; nt = w.node_tree; nt.nodes.clear()
 wo = nt.nodes.new("ShaderNodeOutputWorld"); lp = nt.nodes.new("ShaderNodeLightPath"); bgc = nt.nodes.new("ShaderNodeBackground"); bga = nt.nodes.new("ShaderNodeBackground"); mx = nt.nodes.new("ShaderNodeMixShader")
-bgc.inputs["Color"].default_value = lin("#5E4F3E"); bga.inputs["Color"].default_value = lin("#E9DCC8"); bga.inputs["Strength"].default_value = 0.35
+bgc.inputs["Color"].default_value = lin("#5E4F3E"); bga.inputs["Color"].default_value = lin("#F2E6D2"); bga.inputs["Strength"].default_value = 1.0   # stills v2: brighter room for reflections (alu read near-black at 0.35)
 nt.links.new(lp.outputs["Is Camera Ray"], mx.inputs[0]); nt.links.new(bga.outputs[0], mx.inputs[1]); nt.links.new(bgc.outputs[0], mx.inputs[2]); nt.links.new(mx.outputs[0], wo.inputs[0])
 
 # ---------- camera ----------
