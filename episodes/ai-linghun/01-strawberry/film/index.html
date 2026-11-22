@@ -26,7 +26,8 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { BokehPass } from "three/addons/postprocessing/BokehPass.js";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 const QP = new URLSearchParams(location.search), OVERLAY = QP.has("overlay"), BG = QP.get("bg");
-const NOCAP = QP.has("nocap");   // cover art: picture + labels, no captions / headline / end card
+const NOCAP = QP.has("nocap");
+const CS = QP.get("cs") || "A";   // caption style (user 11-22: big captions and small labels must not share a background). A: dark captions, cream labels; B: cream captions, dark labels   // cover art: picture + labels, no captions / headline / end card
 if (OVERLAY) { document.documentElement.style.background = "transparent"; document.body.style.background = "transparent"; }   // labels + captions as a transparent layer (Blender final)
 
 const { W, H, L } = window.TL;
@@ -69,6 +70,7 @@ const INK = "#2B2726", CORAL = "#E25C38", CREAMC = "rgba(246,240,230,", GREEN = 
 function card(cx, cy, w, h, o = {}) { ctx.save(); ctx.globalAlpha *= o.alpha ?? 1; ctx.translate(cx, cy); ctx.scale(o.scale ?? 1, o.scale ?? 1); ctx.rotate(o.rot || 0);
   ctx.shadowColor = "rgba(60,40,20,.25)"; ctx.shadowBlur = 22; ctx.shadowOffsetY = 7; ctx.fillStyle = o.bg || CREAMC + (o.a ?? 0.93) + ")"; rr(-w / 2, -h / 2, w, h, o.r ?? 18); ctx.fill(); ctx.restore(); }
 function label(s, cx, cy, o = {}) { const f = o.font || F(700, 34), w = tw(s, f) + (o.pad ?? 44), h = o.h || 60; if ((o.alpha ?? 1) <= 0) return;
+  if (CS === "B" && !o.bg) o = { ...o, bg: "rgba(43,39,38,.84)", color: o.color || "#F6F0E6" };
   card(cx, cy, w, h, { ...o, r: o.r ?? h / 2 }); ctx.save(); ctx.globalAlpha *= o.alpha ?? 1; ctx.translate(cx, cy); ctx.scale(o.scale ?? 1, o.scale ?? 1); ctx.rotate(o.rot || 0); txt(s, 0, 2, { font: f, color: o.color || INK }); ctx.restore(); }
 
 // ---------- renderer / scene ----------
@@ -949,7 +951,7 @@ function captions(t) {
   const st = L[i].t0 + (L[i].t1 - L[i].t0) * lens.slice(0, idx).reduce((x, y) => x + y, 0) / tot;
   const rows = wrap2(cs[idx].replace(/[，；：。]$/, "")).map((r) => r.replace(/[，；：。]$/, "")), al = st <= 0.05 ? 1 : ramp(t, st, st + 0.1);
   const font = F(700, 52), w = Math.max(...rows.map((r) => tw(r.replace(/[\[\]]/g, ""), font))), top = rows.length > 1 ? 1262 : 1306, hgt = rows.length > 1 ? 150 : 84;
-  ctx.save(); ctx.globalAlpha = al; card(CAPX, top + hgt / 2, w + 56, hgt, { r: 22 }); rows.forEach((r, n) => rich(r, CAPX, top + 44 + n * 66, font, INK, CORAL));   // [key word] in coral, matching the coral thing in the picture ctx.restore();
+  ctx.save(); ctx.globalAlpha = al; const dk = CS === "A"; card(CAPX, top + hgt / 2, w + 56, hgt, { r: 22, bg: dk ? "rgba(34,30,28,.88)" : undefined }); rows.forEach((r, n) => rich(r, CAPX, top + 44 + n * 66, font, dk ? "#F8F2E8" : INK, dk ? "#FF8A63" : CORAL));   // [key word] in coral, matching the coral thing in the picture ctx.restore();
 }
 
 // ---------- frame ----------
