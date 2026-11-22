@@ -418,6 +418,7 @@ ACT_UPD.push((t) => { sun.position.set(_q.x - 13, 6.2, _q.z - 9); sun.target.pos
   const link = pipeLink([[ST.s4 + 3.0, 0.25, 0.2], [ST.s4 + 5.5, 0.12, 1.2], [X0 - 4.6, 0.12, -2.2], [X0 - 3.4, 0.12, ZR + 1.0], [X0 - 2.2, 0.4, ZR]]);
   propsAround(X0, 51);
   const R0 = a(18) + 0.1, PER = 0.2, tA = (j) => R0 + j * PER, tB = tA;
+  const TALLY = 60.4;   // 「每多读一块积木，就要多算一大笔账」: run up each bill once
   const consumed = (t, n) => { let s = 0; for (let j = 0; j < n; j++) s += ease(ramp(t, tA(j), tA(j) + 0.16)); return s; };
   ACT_UPD.push((t) => {
     link.pulse(ramp(t, 52.4, 53.1), 1);
@@ -426,8 +427,8 @@ ACT_UPD.push((t) => { sun.position.set(_q.x - 13, 6.2, _q.z - 9); sun.target.pos
       b.m.position.set(XA, QY + SZ / 2 + 0.9 * (1 - eo(drop)), b.rest - PA * ca); });
     qb.forEach((b, i) => { const drop = ramp(t, a(17) + 1.0 + i * 0.1, a(17) + 1.3 + i * 0.1); b.m.visible = drop > 0 && cb < i + 0.98 && t < 63.6; if (!b.m.visible) return;
       b.m.position.set(XB, QY + SZ / 2 + 0.9 * (1 - eo(drop)), b.rest - PA * cb); });
-    stA.forEach((m, i) => { const p = ramp(t, tA(i) + 0.1, tA(i) + 0.3); m.visible = p > 0 && t < 63.8; m.position.set(SXA, 0.035 + i * 0.075 + 0.6 * (1 - eo(p)), SZC); });
-    stB.forEach((m, i) => { const p = ramp(t, tB(i) + 0.1, tB(i) + 0.3); m.visible = p > 0 && t < 63.8; m.position.set(SXB, 0.035 + i * 0.075 + 0.6 * (1 - eo(p)), SZC); });
+    stA.forEach((m, i) => { const p = ramp(t, tA(i) + 0.1, tA(i) + 0.3); m.visible = p > 0 && t < 63.8; m.position.set(SXA, 0.035 + i * 0.075 + 0.6 * (1 - eo(p)) + 0.16 * bump(t, TALLY + i * 0.14, 0.24), SZC); });
+    stB.forEach((m, i) => { const p = ramp(t, tB(i) + 0.1, tB(i) + 0.3); m.visible = p > 0 && t < 63.8; m.position.set(SXB, 0.035 + i * 0.075 + 0.6 * (1 - eo(p)) + 0.16 * bump(t, TALLY + i * 0.14, 0.24), SZC); });
   });
   ACT_OVL.push((t) => {
     const la = vis(t, a(17) + 0.5, a(20) + 0.3, 0.3, 0.3);
@@ -448,7 +449,7 @@ ACT_UPD.push((t) => { sun.position.set(_q.x - 13, 6.2, _q.z - 9); sun.target.pos
     [a(18) + 0.4, X0 + 0.05, 0.4, ZR + 4.0, 6.4, 0.04, 0.98],
     [tA(14), X0 + 0.05, 0.4, ZR + 2.0, 7.6, 0.02, 0.85],
     [a(20) + 0.4, X0 + 0.05, 0.6, ZR + 1.5, 7.8, 0.0, 0.62],
-    [63.25, X0 + 0.05, 0.6, ZR + 1.5, 7.6, 0.0, 0.58],
+    [63.25, X0 - 0.4, 0.5, ZR + 1.5, 6.8, 0.14, 0.56],   // ease toward the long bill while it is tallied
   );
 }
 
@@ -552,10 +553,12 @@ ACT_UPD.push((t) => { sun.position.set(_q.x - 13, 6.2, _q.z - 9); sun.target.pos
   const L7 = [...WORD].map((ch, i) => tblock(ch, CUBE, { fill: 0.75 }));
   const B7 = makeBlock(10, WORD); B7.m.visible = false; B7.ds.forEach((d) => { d.material.opacity = 0.22; });
   const link = pipeLink([[ST.s6 + 9.1, 0.3, -1.6], [ST.s6 + 11.5, 0.12, -0.6], [X0 - 6.5, 0.12, -1.4], [X0 - 3.9, 0.25, -3.0]]);
+  const SC0 = a(27) + 2.2, SCP = 0.32, scan7 = (t) => { if (t < SC0 || t > 98.0) return null; const s = (t - SC0) / SCP; return { i: Math.floor(s) % 10, u: s - Math.floor(s) }; };
   propsAround(X0, 71);
   ACT_UPD.push((t) => {
     link.pulse(ramp(t, 87.5, 88.3), 1);
-    L7.forEach((b, i) => { const p = ramp(t, 88.2 + i * 0.05, 88.5 + i * 0.05); b.m.visible = p > 0 && t < 98.3; b.m.position.set(X0 + X(i), UY + 0.8 * (1 - eo(p)), -3.0 + 0.1); });
+    const sc = scan7(t);
+    L7.forEach((b, i) => { const p = ramp(t, 88.2 + i * 0.05, 88.5 + i * 0.05); b.m.visible = p > 0 && t < 98.3; const hp = sc && sc.i === i ? 0.16 * Math.sin(Math.PI * sc.u) : 0; b.m.position.set(X0 + X(i), UY + 0.8 * (1 - eo(p)) + hp, -3.0 + 0.1); });
     const p = ramp(t, 88.9, 89.3); B7.m.visible = p > 0 && t < 98.3; B7.m.position.set(X0, UY + 0.9 * (1 - eo(p)), -0.4 + 0.25);
   });
   ACT_OVL.push((t) => {
@@ -564,15 +567,17 @@ ACT_UPD.push((t) => { sun.position.set(_q.x - 13, 6.2, _q.z - 9); sun.target.pos
     label("我们看到：一个一个字母", pu.x, pu.y - 30, { font: F(900, 34), h: 60, alpha: k });
     label("AI 看到：一整块积木（编号 #73700）", pa.x, pa.y + 40, { font: F(900, 34), h: 60, alpha: k * ramp(t, 89.2, 89.5) });
     const hl = vis(t, a(27) + 2.2, 98.0, 0.3, 0.3), pulse = 0.65 + 0.35 * Math.sin(t * 6);
-    if (hl > 0) { const c1 = P3(X0 + X(0), UY, -2.9), r1 = Math.abs(P3(X0 + X(0) + 0.42, UY, -2.9).x - c1.x);
+    if (hl > 0) { const sc = scan7(t), xi = sc ? X(sc.i) + (sc.u > 0.7 && sc.i < 9 ? (X(sc.i + 1) - X(sc.i)) * ease((sc.u - 0.7) / 0.3) : 0) : X(0);
+      const c1 = P3(X0 + xi, UY, -2.9), r1 = Math.abs(P3(X0 + xi + 0.42, UY, -2.9).x - c1.x);
       ctx.save(); ctx.globalAlpha = hl * pulse; ctx.strokeStyle = CORAL; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(c1.x, c1.y, r1, 0, 7); ctx.stroke();
       const c2 = P3(X0, UY, -0.15), w2 = Math.abs(P3(X0 + 3.6, UY, -0.15).x - c2.x); ctx.beginPath(); ctx.ellipse(c2.x, c2.y, w2, w2 * 0.3, 0, 0, 7); ctx.stroke(); ctx.restore(); }
   });
   ACT_KEYS.push(
     [88.3, X0 - 2.0, 0.6, -1.8, 8.4, 0.12, 0.55],
     [a(27) + 1.4, X0, 0.6, -1.7, 8.0, 0.06, 0.58],
-    [a(28), X0, 0.6, -1.7, 8.4, 0.02, 0.62],
-    [b(29), X0, 0.6, -1.7, 9.4, -0.04, 0.7],
+    [a(28), X0 + 0.3, 0.6, -1.7, 7.6, -0.06, 0.6],     // one slow orbit through the beat
+    [95.0, X0 + 0.1, 0.6, -1.7, 8.2, -0.13, 0.65],
+    [b(29), X0, 0.6, -1.7, 9.4, -0.18, 0.7],
   );
 }
 
@@ -602,8 +607,8 @@ ACT_UPD.push((t) => { sun.position.set(_q.x - 13, 6.2, _q.z - 9); sun.target.pos
     [98.5, X0 - 3.4, TOP, -2.2, 6.4, 0.14, 0.45],
     [a(30) + 1.6, X0 + 0.8, RY, -1.2, 6.0, 0.1, 0.42],      // follow the front of the chain as blocks come out
     [a(31) + 0.8, X0 + 3.6, RY, -1.0, 5.2, 0.06, 0.4],      // the coral 「？」 lands; keep it and its tag inside the frame
-    [b(31) + 0.2, X0 + 4.2, RY, -0.9, 4.2, 0.04, 0.38],     // push in on the confident wrong guess
-    [106.6, X0 + 4.0, RY, -0.9, 4.6, 0.02, 0.4],
+    [b(31) + 0.2, X0 + 4.2, RY, -0.9, 4.4, 0.03, 0.38],     // push in on the confident wrong guess …
+    [106.9, X0 + 4.7, RY, -0.9, 3.3, -0.07, 0.36],          // … and keep moving through 下期聊
     [END_CARD, X0 + 0.6, 0.6, -1.6, 10.5, 0.0, 0.85],
     [DUR + 0.5, X0 + 0.6, 0.6, -1.6, 11.5, 0.0, 0.95],
   );
@@ -629,7 +634,7 @@ const OFFY = 150; cam.setViewOffset(W, H, 0, OFFY, W, H);   // the subject sits 
 const TANHF = Math.tan(THREE.MathUtils.degToRad(FOV) / 2) * W / H;
 const PHS = screenWorld(300, scrC.height / 2);
 const FK = [
-  [0, PHS.x, PHS.y + 0.5, PHS.z, 3.4, 0.24, 0.1],
+  [0, PHS.x, PHS.y + 0.5, PHS.z, 3.0, 0.3, 0.1],
   [LAUNCH, PHS.x, PHS.y + 0.4, PHS.z, 3.5, 0.22, 0.14],
   [a(1) + 1.75, 0, TRAY_Y, TRAY_Z, 8.0, 0.24, 0.56],
   [a(2), 0, TRAY_Y + 0.1, TRAY_Z, 7.8, 0.2, 0.56],
