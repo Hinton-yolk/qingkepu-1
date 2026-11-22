@@ -1,0 +1,106 @@
+{
+ "jobs": [
+  {
+   "name": "A_marimba",
+   "caption": "warm playful lo-fi chillhop instrumental for a science explainer video, soft marimba melody, mellow Rhodes electric piano chords, round plucked upright bass, light brushed drums and shaker, gentle curious mood, clean warm mix, steady relaxed groove, unobtrusive background music, no vocals",
+   "key": "F major",
+   "bpm": 100,
+   "duration": 100,
+   "seeds": [
+    11,
+    22
+   ],
+   "model": "acestep-v15-xl-turbo",
+   "stages": [
+    {
+     "start": 0.0,
+     "end": 9.6,
+     "caption": "warm playful lo-fi chillhop instrumental for a science explainer video, soft marimba melody, mellow Rhodes electric piano chords, round plucked upright bass, light brushed drums and shaker, gentle curious mood, clean warm mix, steady relaxed groove, unobtrusive background music, no vocals, sparse intro: melody instrument alone with light plucks, no drums, curious questioning mood"
+    },
+    {
+     "start": 76.8,
+     "end": 86.4,
+     "caption": "warm playful lo-fi chillhop instrumental for a science explainer video, soft marimba melody, mellow Rhodes electric piano chords, round plucked upright bass, light brushed drums and shaker, gentle curious mood, clean warm mix, steady relaxed groove, unobtrusive background music, no vocals, fuller and warmer section: add a soft string pad and a bright bell counter-melody, uplifting satisfying moment of understanding"
+    },
+    {
+     "start": 86.4,
+     "end": 96.0,
+     "caption": "warm playful lo-fi chillhop instrumental for a science explainer video, soft marimba melody, mellow Rhodes electric piano chords, round plucked upright bass, light brushed drums and shaker, gentle curious mood, clean warm mix, steady relaxed groove, unobtrusive background music, no vocals, lighter suspenseful section: drums drop out, playful questioning motif, a little mysterious"
+    },
+    {
+     "start": 96.0,
+     "end": 100.0,
+     "caption": "warm playful lo-fi chillhop instrumental for a science explainer video, soft marimba melody, mellow Rhodes electric piano chords, round plucked upright bass, light brushed drums and shaker, gentle curious mood, clean warm mix, steady relaxed groove, unobtrusive background music, no vocals, gentle final resolving chord ringing out, ending"
+    }
+   ]
+  },
+  {
+   "name": "B_pizzicato",
+   "caption": "light curious playful orchestral instrumental, pizzicato strings, glockenspiel and celesta melody, staccato clarinet, soft woodblock and shaker percussion, whimsical science documentary background music, bright but gentle, steady pulse, no vocals",
+   "key": "C major",
+   "bpm": 100,
+   "duration": 100,
+   "seeds": [
+    11,
+    22
+   ],
+   "model": "acestep-v15-xl-turbo",
+   "stages": [
+    {
+     "start": 0.0,
+     "end": 9.6,
+     "caption": "light curious playful orchestral instrumental, pizzicato strings, glockenspiel and celesta melody, staccato clarinet, soft woodblock and shaker percussion, whimsical science documentary background music, bright but gentle, steady pulse, no vocals, sparse intro: melody instrument alone with light plucks, no drums, curious questioning mood"
+    },
+    {
+     "start": 76.8,
+     "end": 86.4,
+     "caption": "light curious playful orchestral instrumental, pizzicato strings, glockenspiel and celesta melody, staccato clarinet, soft woodblock and shaker percussion, whimsical science documentary background music, bright but gentle, steady pulse, no vocals, fuller and warmer section: add a soft string pad and a bright bell counter-melody, uplifting satisfying moment of understanding"
+    },
+    {
+     "start": 86.4,
+     "end": 96.0,
+     "caption": "light curious playful orchestral instrumental, pizzicato strings, glockenspiel and celesta melody, staccato clarinet, soft woodblock and shaker percussion, whimsical science documentary background music, bright but gentle, steady pulse, no vocals, lighter suspenseful section: drums drop out, playful questioning motif, a little mysterious"
+    },
+    {
+     "start": 96.0,
+     "end": 100.0,
+     "caption": "light curious playful orchestral instrumental, pizzicato strings, glockenspiel and celesta melody, staccato clarinet, soft woodblock and shaker percussion, whimsical science documentary background music, bright but gentle, steady pulse, no vocals, gentle final resolving chord ringing out, ending"
+    }
+   ]
+  },
+  {
+   "name": "C_electronic",
+   "caption": "minimal clean electronic instrumental, soft plucked synth arpeggios, warm analog pad, round sub bass, light crisp percussion with soft kick and closed hi-hat, modern tech explainer background music, calm curious optimistic, steady groove, no vocals, not aggressive",
+   "key": "D major",
+   "bpm": 100,
+   "duration": 100,
+   "seeds": [
+    11,
+    22
+   ],
+   "model": "acestep-v15-xl-turbo",
+   "stages": [
+    {
+     "start": 0.0,
+     "end": 9.6,
+     "caption": "minimal clean electronic instrumental, soft plucked synth arpeggios, warm analog pad, round sub bass, light crisp percussion with soft kick and closed hi-hat, modern tech explainer background music, calm curious optimistic, steady groove, no vocals, not aggressive, sparse intro: melody instrument alone with light plucks, no drums, curious questioning mood"
+    },
+    {
+     "start": 76.8,
+     "end": 86.4,
+     "caption": "minimal clean electronic instrumental, soft plucked synth arpeggios, warm analog pad, round sub bass, light crisp percussion with soft kick and closed hi-hat, modern tech explainer background music, calm curious optimistic, steady groove, no vocals, not aggressive, fuller and warmer section: add a soft string pad and a bright bell counter-melody, uplifting satisfying moment of understanding"
+    },
+    {
+     "start": 86.4,
+     "end": 96.0,
+     "caption": "minimal clean electronic instrumental, soft plucked synth arpeggios, warm analog pad, round sub bass, light crisp percussion with soft kick and closed hi-hat, modern tech explainer background music, calm curious optimistic, steady groove, no vocals, not aggressive, lighter suspenseful section: drums drop out, playful questioning motif, a little mysterious"
+    },
+    {
+     "start": 96.0,
+     "end": 100.0,
+     "caption": "minimal clean electronic instrumental, soft plucked synth arpeggios, warm analog pad, round sub bass, light crisp percussion with soft kick and closed hi-hat, modern tech explainer background music, calm curious optimistic, steady groove, no vocals, not aggressive, gentle final resolving chord ringing out, ending"
+    }
+   ]
+  }
+ ]
+}
