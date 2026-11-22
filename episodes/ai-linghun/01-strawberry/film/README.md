@@ -69,7 +69,8 @@ RunPod：`python3 ../../../../tools/runpod_render_gql.py run blender/jobs_ab.jso
 
 ## Blender 混合版（2026-11-22，用户：「关键部分交给blender，其他就保持three」）
 - three.js 整片 v5（字幕深色底、标注一律米白，RunPod 4 路，约 $0.12；v4 约 $0.09）+ 四段 Blender（帧 0–239、414–497、2100–2279、2457–2531，共 579 帧，7 台卡约 $1.4；三个 r 的两段补渲 $0.21）。
-- 流程：`node render.mjs --export-seg=0,8,screen`（其余段不带 screen）→ `python3 blender/hyb_jobs.py` → 每段 `python3 tools/runpod_render_gql.py run film/blender/hyb/<段>/jobs.json --pods N --yes`（仓库根目录）→ 帧到 `blender/out/hyb/` → 影调对齐 `python3 tools/hyb_tone.py fit …`（两轮，第二轮带 `--prev`）+ `apply blender/tone.json film/blender/out/hyb`（Blender 的 AgX 比 three.js 灰；原始帧在 `blender/out/hyb_orig`） → 删掉 `out/hyb_comp` → `NODE_PATH=$(npm root -g) sh tools/hybrid.sh film/out/ai01-strawberry-v5-picture.mp4 music/out/mix_v4.wav film/out/ai01-strawberry.mp4 0:239 414:497 2100:2279 2457:2531`（集目录）。
+- 流程：`node render.mjs --export-seg=0,8,screen`（其余段不带 screen）→ `python3 blender/hyb_jobs.py` → 每段 `python3 tools/runpod_render_gql.py run film/blender/hyb/<段>/jobs.json --pods N --yes`（仓库根目录）→ 帧到 `blender/out/hyb/` → 影调对齐（集目录下）`python3 tools/hyb_tone.py fit …`（两轮，第二轮带 `--prev`）+ `python3 tools/hyb_tone.py apply film/blender/tone.json film/blender/out/hyb`（Blender 的 AgX 比 three.js 灰；原始帧在 `film/blender/out/hyb_orig`） → 删掉 `out/hyb_comp` → `NODE_PATH=$(npm root -g) sh tools/hybrid.sh film/out/ai01-strawberry-v5-picture.mp4 music/out/mix_v4.wav film/out/ai01-strawberry.mp4 0:239 414:497 2100:2279 2457:2531`（集目录）。
 - 0–8 秒段最慢（手机特写、景深、逐帧屏幕贴图）：每帧 13–30 秒；其余段约 7 秒。
 - 成片 `out/ai01-strawberry.mp4`：2979 帧、99.3 秒、-14.0 LUFS、真峰值 -1.3 dBFS；动效 PASS（静止 2%，最长 0.70 秒）。全屏版 `../tools/xhs.sh`。
+- 节点 ③：审核复核「通过」（三个 r 白字、标注米白、影调对齐后接口无跳变）；监督清单 #40–#44；观众两轮见 `../观众反馈.md` 最后一节。
 
