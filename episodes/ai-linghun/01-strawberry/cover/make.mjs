@@ -1,5 +1,5 @@
 // make.mjs — EP.01 covers: 抖音 1080×1920 and 小红书 1080×1440, laid out as HTML over film frames and screenshotted.
-//   (from film/) node render.mjs --stills=6.8 --nocap --out=qa/cover_src ; then (from cover/) NODE_PATH=$(npm root -g) node make.mjs
+//   (from film/) node render.mjs --stills=6.8 --bg=hyb --qs=nocap=1 --out=qa/cover_src   (Blender frame 204 under the same grade, no captions); then (from cover/) NODE_PATH=$(npm root -g) node make.mjs
 import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";

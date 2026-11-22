@@ -132,12 +132,22 @@ if "static" in A:   # hybrid segment (render.mjs --export-seg): every mesh has a
             iu = tex.image_user; iu.frame_start = A["f0"]; iu.frame_offset = A["f0"] - 1; iu.frame_duration = len(files); iu.use_auto_refresh = True
             print("screen sequence:", len(files), "frames", flush=True)
 UNIQ = {}
-def own_principled(o):
-    """this object's own copy of its material (colours are keyed per object), and its Principled node"""
+def own_color(o):
+    """this object's own copy of its material, and the socket that sets its colour: the Principled Base Color, or, for the
+    letter decals (texture × colour into Base Color), the colour input of that Multiply node (keying Base Color did nothing there)"""
     if o.name not in UNIQ:
-        if not o.material_slots or o.material_slots[0].material is None: UNIQ[o.name] = None; return None
-        m = o.material_slots[0].material.copy(); o.material_slots[0].link = "OBJECT"; o.material_slots[0].material = m
-        UNIQ[o.name] = next((nd for nd in m.node_tree.nodes if nd.type == "BSDF_PRINCIPLED"), None) if m.use_nodes else None
+        sock = None
+        if o.material_slots and o.material_slots[0].material is not None:
+            m = o.material_slots[0].material.copy(); o.material_slots[0].link = "OBJECT"; o.material_slots[0].material = m
+            b = next((nd for nd in m.node_tree.nodes if nd.type == "BSDF_PRINCIPLED"), None) if m.use_nodes else None
+            if b is not None:
+                bc = b.inputs["Base Color"]
+                if not bc.is_linked: sock = bc
+                else:
+                    src = bc.links[0].from_node
+                    if src.type == "MIX" and getattr(src, "blend_type", "") == "MULTIPLY":
+                        sock = next((i for i in src.inputs if i.enabled and i.name == "B" and i.type == "RGBA" and not i.is_linked), None)
+        UNIQ[o.name] = sock
     return UNIQ[o.name]
 objs = {n: bpy.data.objects.get(n) for n in f0["nodes"]}
 missing = [n for n, o in objs.items() if o is None]
@@ -170,8 +180,8 @@ for fnum in range(FS, FE + 1):
         if e_mx: e_mx[1].inputs[0].default_value = float(sv) * (0.95 if nm == "scan" else 0.5); e_mx[1].inputs[0].keyframe_insert("default_value", frame=fnum)
     cutL.data.energy = 40.0 * fr["cutL"]; cutL.data.keyframe_insert("energy", frame=fnum)
     for n, rgb in fr.get("mats", {}).items():      # hybrid: colours that change (letters turning coral, …)
-        o = bpy.data.objects.get(n); b = own_principled(o) if o is not None else None
-        if b: b.inputs["Base Color"].default_value = (*rgb, 1.0); b.inputs["Base Color"].keyframe_insert("default_value", frame=fnum)
+        o = bpy.data.objects.get(n); sk = own_color(o) if o is not None else None
+        if sk: sk.default_value = (*rgb, 1.0); sk.keyframe_insert("default_value", frame=fnum)
 # linear between per-frame keys (no overshoot for motion blur); visibility steps
 for ad in [o.animation_data for o in bpy.data.objects if o.animation_data] + [m.node_tree.animation_data for m in bpy.data.materials if m.node_tree and m.node_tree.animation_data] + [cd.animation_data, cutL.data.animation_data]:
     if not ad or not ad.action: continue
