@@ -1,0 +1,116 @@
+{
+ "scene_dir": "episodes/ai-linghun/01-strawberry/film/blender",
+ "script": "build.py",
+ "out_dir": "episodes/ai-linghun/01-strawberry/film/blender/out/ab",
+ "sec_per_unit": 6,
+ "tasks": [
+  {
+   "args": [
+    "{out}",
+    "552",
+    "566",
+    "128",
+    "cycles",
+    "gpu",
+    "1.0"
+   ],
+   "units": 15
+  },
+  {
+   "args": [
+    "{out}",
+    "567",
+    "581",
+    "128",
+    "cycles",
+    "gpu",
+    "1.0"
+   ],
+   "units": 15
+  },
+  {
+   "args": [
+    "{out}",
+    "582",
+    "596",
+    "128",
+    "cycles",
+    "gpu",
+    "1.0"
+   ],
+   "units": 15
+  },
+  {
+   "args": [
+    "{out}",
+    "597",
+    "611",
+    "128",
+    "cycles",
+    "gpu",
+    "1.0"
+   ],
+   "units": 15
+  },
+  {
+   "args": [
+    "{out}",
+    "612",
+    "626",
+    "128",
+    "cycles",
+    "gpu",
+    "1.0"
+   ],
+   "units": 15
+  },
+  {
+   "args": [
+    "{out}",
+    "627",
+    "641",
+    "128",
+    "cycles",
+    "gpu",
+    "1.0"
+   ],
+   "units": 15
+  },
+  {
+   "args": [
+    "{out}",
+    "642",
+    "656",
+    "128",
+    "cycles",
+    "gpu",
+    "1.0"
+   ],
+   "units": 15
+  },
+  {
+   "args": [
+    "{out}",
+    "657",
+    "671",
+    "128",
+    "cycles",
+    "gpu",
+    "1.0"
+   ],
+   "units": 15
+  },
+  {
+   "args": [
+    "{out}",
+    "672",
+    "672",
+    "128",
+    "cycles",
+    "gpu",
+    "1.0"
+   ],
+   "units": 1
+  }
+ ]
+}
