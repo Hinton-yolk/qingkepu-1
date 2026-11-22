@@ -19,7 +19,7 @@ spec = importlib.util.spec_from_file_location('runpod_render_gql', os.path.join(
 G = importlib.util.module_from_spec(spec); spec.loader.exec_module(G)
 R = G.R
 STATE = os.path.join(R.REPO, 'out', 'runpod_exec.json')
-IMAGE = 'pytorch/pytorch:2.9.1-cuda12.8-cudnn9-devel'
+IMAGE = 'python:3.11-slim-bookworm'   # small and quick to pull; ACE-Step's uv env brings its own torch + CUDA libs (the 10 GB pytorch image took 10+ min on one host)
 GPUS = 'NVIDIA GeForce RTX 4090,NVIDIA GeForce RTX 3090,NVIDIA RTX A5000,NVIDIA L40S,NVIDIA RTX 6000 Ada Generation'
 
 SRV = r'''

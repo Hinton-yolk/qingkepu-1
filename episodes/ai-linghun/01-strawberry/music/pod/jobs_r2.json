@@ -1,0 +1,106 @@
+{
+ "jobs": [
+  {
+   "name": "A1_same_recipe",
+   "caption": "warm playful lo-fi chillhop instrumental for a science explainer video, soft marimba melody, mellow Rhodes electric piano chords, round plucked upright bass, light brushed drums and shaker, gentle curious mood, clean warm mix, steady relaxed groove, unobtrusive background music, no vocals",
+   "key": "F major",
+   "bpm": 100,
+   "duration": 100,
+   "seeds": [
+    33,
+    44
+   ],
+   "model": "acestep-v15-xl-turbo",
+   "stages": [
+    {
+     "start": 0.0,
+     "end": 9.6,
+     "caption": "warm playful lo-fi chillhop instrumental for a science explainer video, soft marimba melody, mellow Rhodes electric piano chords, round plucked upright bass, light brushed drums and shaker, gentle curious mood, clean warm mix, steady relaxed groove, unobtrusive background music, no vocals, sparse intro: melody instrument alone with light plucks, no drums, curious questioning mood"
+    },
+    {
+     "start": 76.8,
+     "end": 86.4,
+     "caption": "warm playful lo-fi chillhop instrumental for a science explainer video, soft marimba melody, mellow Rhodes electric piano chords, round plucked upright bass, light brushed drums and shaker, gentle curious mood, clean warm mix, steady relaxed groove, unobtrusive background music, no vocals, noticeably fuller and louder section: add a soft string pad and a bright bell counter-melody, uplifting satisfying moment of understanding"
+    },
+    {
+     "start": 86.4,
+     "end": 96.0,
+     "caption": "warm playful lo-fi chillhop instrumental for a science explainer video, soft marimba melody, mellow Rhodes electric piano chords, round plucked upright bass, light brushed drums and shaker, gentle curious mood, clean warm mix, steady relaxed groove, unobtrusive background music, no vocals, lighter suspenseful section: drums drop out, playful questioning motif, a little mysterious"
+    },
+    {
+     "start": 96.0,
+     "end": 100.0,
+     "caption": "warm playful lo-fi chillhop instrumental for a science explainer video, soft marimba melody, mellow Rhodes electric piano chords, round plucked upright bass, light brushed drums and shaker, gentle curious mood, clean warm mix, steady relaxed groove, unobtrusive background music, no vocals, warm final resolving chord ringing out to the end, no silence"
+    }
+   ]
+  },
+  {
+   "name": "A2_acoustic",
+   "caption": "warm acoustic instrumental for a science explainer video, fingerpicked nylon-string guitar, soft marimba accents, mellow Rhodes pads in the background, upright bass, light brushed snare and shaker, cozy afternoon wooden-table feeling, gentle curious mood, steady relaxed groove, unobtrusive background music, no vocals",
+   "key": "D major",
+   "bpm": 100,
+   "duration": 100,
+   "seeds": [
+    33,
+    44
+   ],
+   "model": "acestep-v15-xl-turbo",
+   "stages": [
+    {
+     "start": 0.0,
+     "end": 9.6,
+     "caption": "warm acoustic instrumental for a science explainer video, fingerpicked nylon-string guitar, soft marimba accents, mellow Rhodes pads in the background, upright bass, light brushed snare and shaker, cozy afternoon wooden-table feeling, gentle curious mood, steady relaxed groove, unobtrusive background music, no vocals, sparse intro: melody instrument alone with light plucks, no drums, curious questioning mood"
+    },
+    {
+     "start": 76.8,
+     "end": 86.4,
+     "caption": "warm acoustic instrumental for a science explainer video, fingerpicked nylon-string guitar, soft marimba accents, mellow Rhodes pads in the background, upright bass, light brushed snare and shaker, cozy afternoon wooden-table feeling, gentle curious mood, steady relaxed groove, unobtrusive background music, no vocals, noticeably fuller and louder section: add a soft string pad and a bright bell counter-melody, uplifting satisfying moment of understanding"
+    },
+    {
+     "start": 86.4,
+     "end": 96.0,
+     "caption": "warm acoustic instrumental for a science explainer video, fingerpicked nylon-string guitar, soft marimba accents, mellow Rhodes pads in the background, upright bass, light brushed snare and shaker, cozy afternoon wooden-table feeling, gentle curious mood, steady relaxed groove, unobtrusive background music, no vocals, lighter suspenseful section: drums drop out, playful questioning motif, a little mysterious"
+    },
+    {
+     "start": 96.0,
+     "end": 100.0,
+     "caption": "warm acoustic instrumental for a science explainer video, fingerpicked nylon-string guitar, soft marimba accents, mellow Rhodes pads in the background, upright bass, light brushed snare and shaker, cozy afternoon wooden-table feeling, gentle curious mood, steady relaxed groove, unobtrusive background music, no vocals, warm final resolving chord ringing out to the end, no silence"
+    }
+   ]
+  },
+  {
+   "name": "A3_jazzy",
+   "caption": "warm jazzy lo-fi instrumental for a science explainer video, Rhodes electric piano playing soft seventh chords, walking upright bass, brushed jazz drums, marimba and vibraphone accents, gentle curious playful mood, clean warm mix, steady relaxed swing-free groove, unobtrusive background music, no vocals",
+   "key": "B-flat major",
+   "bpm": 100,
+   "duration": 100,
+   "seeds": [
+    33,
+    44
+   ],
+   "model": "acestep-v15-xl-turbo",
+   "stages": [
+    {
+     "start": 0.0,
+     "end": 9.6,
+     "caption": "warm jazzy lo-fi instrumental for a science explainer video, Rhodes electric piano playing soft seventh chords, walking upright bass, brushed jazz drums, marimba and vibraphone accents, gentle curious playful mood, clean warm mix, steady relaxed swing-free groove, unobtrusive background music, no vocals, sparse intro: melody instrument alone with light plucks, no drums, curious questioning mood"
+    },
+    {
+     "start": 76.8,
+     "end": 86.4,
+     "caption": "warm jazzy lo-fi instrumental for a science explainer video, Rhodes electric piano playing soft seventh chords, walking upright bass, brushed jazz drums, marimba and vibraphone accents, gentle curious playful mood, clean warm mix, steady relaxed swing-free groove, unobtrusive background music, no vocals, noticeably fuller and louder section: add a soft string pad and a bright bell counter-melody, uplifting satisfying moment of understanding"
+    },
+    {
+     "start": 86.4,
+     "end": 96.0,
+     "caption": "warm jazzy lo-fi instrumental for a science explainer video, Rhodes electric piano playing soft seventh chords, walking upright bass, brushed jazz drums, marimba and vibraphone accents, gentle curious playful mood, clean warm mix, steady relaxed swing-free groove, unobtrusive background music, no vocals, lighter suspenseful section: drums drop out, playful questioning motif, a little mysterious"
+    },
+    {
+     "start": 96.0,
+     "end": 100.0,
+     "caption": "warm jazzy lo-fi instrumental for a science explainer video, Rhodes electric piano playing soft seventh chords, walking upright bass, brushed jazz drums, marimba and vibraphone accents, gentle curious playful mood, clean warm mix, steady relaxed swing-free groove, unobtrusive background music, no vocals, warm final resolving chord ringing out to the end, no silence"
+    }
+   ]
+  }
+ ]
+}
