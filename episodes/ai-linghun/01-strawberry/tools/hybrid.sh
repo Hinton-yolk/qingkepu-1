@@ -6,7 +6,7 @@
 # （在集目录 episodes/ai-linghun/01-strawberry 下运行；需要 NODE_PATH 指向全局 node_modules 里的 playwright）
 set -e
 SRC="$1"; WAV="$2"; OUT="$3"; shift 3
-FR=film/out/frames_hyb; rm -rf "$FR" film/out/hyb_comp; mkdir -p "$FR"
+FR=film/out/frames_hyb; rm -rf "$FR"; mkdir -p "$FR" film/out/hyb_comp   # hyb_comp keeps composited frames (--resume); delete it by hand if the Blender frames change
 ffmpeg -v error -y -i "$SRC" -start_number 0 "$FR/%05d.png"
 TOTAL=$(ls "$FR" | wc -l)
 for seg in "$@"; do
