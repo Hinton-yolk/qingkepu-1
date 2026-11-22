@@ -75,7 +75,7 @@ for mat in bpy.data.materials:
     elif n == "coal": principled(mat, "#2B2726", 0.45, **{"Coat Weight": 0.25, "Coat Roughness": 0.3})
     elif n == "alu": principled(mat, "#C9CBCE", 0.3, Metallic=1.0, Anisotropic=0.7)
     elif n == "coral": principled(mat, "#EE6A47", 0.42, **{"Coat Weight": 0.15})
-    elif n == "glass": principled(mat, "#F4F1EA", 0.3, **{"Transmission Weight": 1.0, "IOR": 1.5})
+    elif n == "glass": principled(mat, "#F4F1EA", 0.08, **{"Transmission Weight": 1.0, "IOR": 1.45})   # hybrid: 0.3 blurred the letters behind it (A/B and 11-22 tests)
     elif n == "pipeglass": principled(mat, "#F6E1BC", 0.12, **{"Transmission Weight": 0.8, "IOR": 1.45}); mat["keep_color"] = False   # stills v2: warm, like three.js (was clear -> read white)
     elif n == "rubber": principled(mat, "#1C1A19", 0.42)
     elif n == "screw": principled(mat, "#8E9196", 0.35, Metallic=1.0)
@@ -113,6 +113,32 @@ cd.shift_y = -f0["offy"] / A["H"]                     # three.js setViewOffset(0
 cd.dof.use_dof = True; cd.dof.aperture_fstop = 2.2
 
 # ---------- keys ----------
+if "static" in A:   # hybrid segment (render.mjs --export-seg): every mesh has a unique name; unparent so world matrices can be keyed directly
+    bpy.context.view_layer.update()
+    for o in list(bpy.data.objects):
+        if o.parent is not None:
+            mw = o.matrix_world.copy(); o.parent = None; o.matrix_world = mw
+    for n, v in A["static"].items():
+        o = bpy.data.objects.get(n)
+        if o is not None: o.hide_render = not v
+    miss = [n for n in A["static"] if bpy.data.objects.get(n) is None]
+    print("segment: static", len(A["static"]), "moving", len(f0["nodes"]), "missing", len(miss), miss[:8], flush=True)
+    sdir = os.path.join(DATA, "screen")          # the phone screen, frame by frame (its canvas changes: letters leave, it dims)
+    if os.path.isdir(sdir):
+        files = sorted(f for f in os.listdir(sdir) if f.endswith(".png")); sm = bpy.data.materials.get("screen")
+        tex = next((nd for nd in sm.node_tree.nodes if nd.type == "TEX_IMAGE"), None) if sm and sm.use_nodes else None
+        if tex and files:
+            img = bpy.data.images.load(os.path.join(sdir, files[0])); img.source = "SEQUENCE"; tex.image = img
+            iu = tex.image_user; iu.frame_start = A["f0"]; iu.frame_offset = A["f0"] - 1; iu.frame_duration = len(files); iu.use_auto_refresh = True
+            print("screen sequence:", len(files), "frames", flush=True)
+UNIQ = {}
+def own_principled(o):
+    """this object's own copy of its material (colours are keyed per object), and its Principled node"""
+    if o.name not in UNIQ:
+        if not o.material_slots or o.material_slots[0].material is None: UNIQ[o.name] = None; return None
+        m = o.material_slots[0].material.copy(); o.material_slots[0].link = "OBJECT"; o.material_slots[0].material = m
+        UNIQ[o.name] = next((nd for nd in m.node_tree.nodes if nd.type == "BSDF_PRINCIPLED"), None) if m.use_nodes else None
+    return UNIQ[o.name]
 objs = {n: bpy.data.objects.get(n) for n in f0["nodes"]}
 missing = [n for n, o in objs.items() if o is None]
 if missing: print("missing objects:", missing)
@@ -140,8 +166,12 @@ for fnum in range(FS, FE + 1):
         if b: b.inputs["Emission Strength"].default_value = 2.5 * fl; b.inputs["Emission Strength"].keyframe_insert("default_value", frame=fnum)
     for nm in ("scan", "scanH"):
         e_mx = MAT.get(nm)
-        if e_mx: e_mx[1].inputs[0].default_value = float(fr["nodes"][nm][0]) * (0.95 if nm == "scan" else 0.5); e_mx[1].inputs[0].keyframe_insert("default_value", frame=fnum)
+        sv = fr["nodes"][nm][0] if nm in fr["nodes"] else A.get("static", {}).get(nm, 0)
+        if e_mx: e_mx[1].inputs[0].default_value = float(sv) * (0.95 if nm == "scan" else 0.5); e_mx[1].inputs[0].keyframe_insert("default_value", frame=fnum)
     cutL.data.energy = 40.0 * fr["cutL"]; cutL.data.keyframe_insert("energy", frame=fnum)
+    for n, rgb in fr.get("mats", {}).items():      # hybrid: colours that change (letters turning coral, …)
+        o = bpy.data.objects.get(n); b = own_principled(o) if o is not None else None
+        if b: b.inputs["Base Color"].default_value = (*rgb, 1.0); b.inputs["Base Color"].keyframe_insert("default_value", frame=fnum)
 # linear between per-frame keys (no overshoot for motion blur); visibility steps
 for ad in [o.animation_data for o in bpy.data.objects if o.animation_data] + [m.node_tree.animation_data for m in bpy.data.materials if m.node_tree and m.node_tree.animation_data] + [cd.animation_data, cutL.data.animation_data]:
     if not ad or not ad.action: continue

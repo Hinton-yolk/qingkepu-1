@@ -968,6 +968,36 @@ window.exportFrame = function (t) { update3D(t); const nodes = {};
     cubeCol: cubes.map((c) => c.m.material.color.getHexString(THREE.SRGBColorSpace)), cubeEm: cubes.map((c) => +c.m.material.emissiveIntensity.toFixed(3)),
     letters: { blocks: blocks.map((b) => +b.ds[0].material.opacity.toFixed(3)), merged: +merged.ds[0].material.opacity.toFixed(3) },
     disp: [...disp.map((d) => d.material.opacity), dispM.material.opacity].map((v) => +v.toFixed(3)), sun: sun.intensity, hemi: hemi.intensity, aiv: +aiv(t).toFixed(3) }; };
+// ---------- whole-segment export for the Blender hybrid (render.mjs --export-seg; user 11-22: key shots in Blender, the rest three.js) ----------
+// Every object gets a unique, stable name; the instanced GPU workers are split into plain meshes for the export.
+let _named = false;
+function nameAll() { if (_named) return; _named = true; const seen = new Set();
+  scene.traverse((o) => { let n = o.name || (o.isMesh ? "m" : "g") + o.id; if (seen.has(n)) n = n + "_" + o.id; o.name = n; seen.add(n); }); }
+const INST = () => { const a = []; scene.traverse((o) => { if (o.isInstancedMesh) a.push(o); }); return a; };
+const effVis = (o) => { for (let p = o; p; p = p.parent) if (!p.visible) return false; return true; };
+const _mi = new THREE.Matrix4(), _mw = new THREE.Matrix4();
+const r5 = (v) => +v.toFixed(5);
+window.exportSegGLB = async function (t) { nameAll(); update3D(t); scene.updateMatrixWorld(true);
+  const tmp = new THREE.Group(); tmp.name = "inst_split"; const ims = INST(), held = [];
+  for (const im of ims) {
+    for (let k = 0; k < im.count; k++) { im.getMatrixAt(k, _mi); const m = new THREE.Mesh(im.geometry, im.material); m.name = `${im.name}_i${k}`;
+      m.matrixAutoUpdate = false; m.matrix.multiplyMatrices(im.matrixWorld, _mi); m.castShadow = im.castShadow; m.visible = effVis(im); tmp.add(m); }
+    held.push([im, im.parent]); im.parent.remove(im); }
+  scene.add(tmp);
+  const buf = await new GLTFExporter().parseAsync(scene, { binary: true, onlyVisible: false });
+  scene.remove(tmp); for (const [im, p] of held) p.add(im);
+  const u8 = new Uint8Array(buf); let bin = ""; for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(bin); };
+window.exportFrameAll = function (t, withScreen) { nameAll(); const fr = window.exportFrame(t); scene.updateMatrixWorld(true);   // exportFrame: camera + the S1 channels
+  const all = {}, mats = {};
+  scene.traverse((o) => { if (!o.isMesh || o.isInstancedMesh) return;
+    all[o.name] = [effVis(o) ? 1 : 0, ...o.matrixWorld.elements.map(r5)];
+    const m = o.material; if (m && !Array.isArray(m) && m.color) mats[o.name] = [m.color.r, m.color.g, m.color.b].map((v) => +v.toFixed(4)); });
+  for (const im of INST()) { const v = effVis(im) ? 1 : 0;
+    for (let k = 0; k < im.count; k++) { im.getMatrixAt(k, _mi); _mw.multiplyMatrices(im.matrixWorld, _mi); all[`${im.name}_i${k}`] = [v, ..._mw.elements.map(r5)]; } }
+  fr.all = all; fr.mats = mats;
+  if (withScreen) { const c = Object.assign(document.createElement("canvas"), { width: scrC.width, height: scrC.height }), x = c.getContext("2d");   // flipped: the GLB stores the screen texture bottom-up
+    x.translate(0, c.height); x.scale(1, -1); x.drawImage(scrC, 0, 0); fr.screen = c.toDataURL("image/png"); }
+  return fr; };
 const bgImg = new Image();
 window.seek = async function (t) {
   update3D(t);

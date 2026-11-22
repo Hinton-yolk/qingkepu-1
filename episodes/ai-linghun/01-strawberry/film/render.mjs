@@ -6,6 +6,7 @@
 //   node render.mjs --strip=11.3,12.3 [--n=12]
 //   node render.mjs --cues                    sound cues -> ../music/cues.json
 //   node render.mjs --export-stills=0.6,6.7   Blender test stills: blender/stills/<frame>/{scene.glb,anim.json}
+//   node render.mjs --export-seg=0,8,screen  Blender hybrid segment: blender/seg/<f0>_<f1>/ (every moving object, per frame)
 //   node render.mjs --start=42 --end=48.2 --noencode   re-render a range in place;  node render.mjs --encode --out=…   encode only
 import { createRequire } from "node:module";
 import { execFileSync } from "node:child_process";
@@ -75,6 +76,27 @@ const ff = (args) => execFileSync("ffmpeg", ["-v", "error", "-y", ...args], { st
 
 async function main() {
   fs.mkdirSync(path.join(HERE, "qa"), { recursive: true });
+  if (arg("export-seg")) {   // --export-seg=a,b[,screen] : frames [a·30, b·30) for the Blender hybrid -> blender/seg/<f0>_<f1>/{scene.glb, anim.json, screen/}
+    const [ta, tb, scr] = String(arg("export-seg")).split(","), fa = Math.round(+ta * FPS), fb = Math.round(+tb * FPS);
+    const dir = path.join(HERE, "blender/seg", `${String(fa).padStart(5, "0")}_${String(fb).padStart(5, "0")}`); fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true });
+    const srv = await serve(), port = srv.address().port;
+    const browser = await chromium.launch(launchOpts()); const page = await openPage(browser, port);
+    const b64 = await page.evaluate((t) => window.exportSegGLB(t), fa / FPS); fs.writeFileSync(path.join(dir, "scene.glb"), Buffer.from(b64, "base64"));
+    const frames = [];
+    for (let f = fa; f < fb; f++) {
+      const fr = await page.evaluate(([t, ws]) => window.exportFrameAll(t, ws), [f / FPS, scr === "screen"]);
+      if (fr.screen) { fs.mkdirSync(path.join(dir, "screen"), { recursive: true }); fs.writeFileSync(path.join(dir, "screen", `screen_${String(f).padStart(5, "0")}.png`), Buffer.from(fr.screen.split(",")[1], "base64")); delete fr.screen; }
+      frames.push(fr);
+    }
+    const J = (v) => JSON.stringify(v), f0 = frames[0];
+    const dyn = Object.keys(f0.all).filter((n) => frames.some((fr) => J(fr.all[n]) !== J(f0.all[n])));
+    const dynM = Object.keys(f0.mats).filter((n) => frames.some((fr) => J(fr.mats[n]) !== J(f0.mats[n])));
+    const stat = Object.fromEntries(Object.entries(f0.all).map(([n, v]) => [n, v[0]]));
+    for (const fr of frames) { fr.nodes = Object.fromEntries(dyn.map((n) => [n, fr.all[n]])); fr.mats = Object.fromEntries(dynM.map((n) => [n, fr.mats[n]])); delete fr.all; }
+    fs.writeFileSync(path.join(dir, "anim.json"), JSON.stringify({ fps: FPS, f0: fa, f1: fb - 1, W: 1080, H: 1920, static: stat, frames }));
+    console.log(`segment ${fa}–${fb - 1}: ${Object.keys(stat).length} meshes, ${dyn.length} moving, ${dynM.length} recoloured; scene.glb ${(fs.statSync(path.join(dir, "scene.glb")).size / 1e6).toFixed(1)} MB, anim.json ${(fs.statSync(path.join(dir, "anim.json")).size / 1e6).toFixed(1)} MB`);
+    await browser.close(); srv.close(); return;
+  }
   if (arg("export-stills")) {   // --export-stills=0.6,6.7,… : blender/stills/<frame>/scene.glb (only what is visible at t, colours as at t) + anim.json (that frame)
     const srv = await serve(), port = srv.address().port;
     const browser = await chromium.launch(launchOpts()); const page = await openPage(browser, port);
