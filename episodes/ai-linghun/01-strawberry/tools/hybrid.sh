@@ -14,7 +14,7 @@ for seg in "$@"; do
   (cd film && node render.mjs --bg=hyb --frames=out/hyb_comp --start=$(node -e "console.log(($a - 0.5) / 30)") --end=$(node -e "console.log(($b + 0.6) / 30)") --noencode --resume --workers=4 | tail -1)
   n=$(ls film/out/hyb_comp | wc -l); echo "segment $a–$b composited ($n frames so far)"
 done
-cp film/out/hyb_comp/*.png "$FR"/
+python3 tools/hyb_blend.py "$FR" film/out/hyb_comp "$@"   # 12-frame cross-fades at each seam (a hard cut showed the material change)
 DUR=$(node -e "console.log($TOTAL / 30)")   # pad the audio to the last frame (-shortest dropped one frame before)
 ffmpeg -v error -y -framerate 30 -start_number 0 -i "$FR/%05d.png" -i "$WAV" -map 0:v -map 1:a -c:v libx264 -preset slow -crf 16 -pix_fmt yuv420p -profile:v high -r 30 \
   -af apad -t "$DUR" -c:a aac -aac_coder fast -b:a 256k -ar 48000 -movflags +faststart "$OUT"

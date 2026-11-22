@@ -66,3 +66,10 @@ RunPod：`python3 ../../../../tools/runpod_render_gql.py run blender/jobs_ab.jso
 - 用户反馈两条，都**还没做完**：① 音效太小，被音乐盖住；② 小字（标注）和大字幕的背景颜色要区分，不然信息密度显得太大。
 - ① 试做：`../music/fx_boost.py` 用同一份 cues.json 重新合成音效轨，在成片音轨里找到对齐（滞后 143 个样本，约 3 ms，AAC 编码延迟）和混音增益（k ≈ 1.04），再叠加 +6 dB 后回到 -14 LUFS（`../music/out/mix_fx6.wav`，未混进成片、未交付）。逐类核对重新合成的音效和成片里的是否一致：音调类吻合（chime 0.85、coin 0.76、flip 0.97、zip 0.78），噪声和短促类偏低（tick 0.27、thud 0.31、whoosh 0.07、count 0.11），可能是被音乐盖住、也可能和原混音不完全相同。直接叠加有发虚 / 双声的风险，要先试听；更稳的做法是在 RunPod 上用同一种子重新生成 A1 配乐，按原流程（prep.py + sfx.py --fx-db）重混。
 - ② 未开始：字幕和标注的画法在 `index.html` 的 `captions()`（奶油色卡片）和 `card()` / `label()`（大多也是奶油色，「AI 的视角」是深色）。改了要整片重渲：本机 CPU 约 2.5 秒一帧（整片约 2 小时），或 RunPod（本会话的 Default 环境没有 RunPod key）。
+
+## Blender 混合版（2026-11-22，用户：「关键部分交给blender，其他就保持three」）
+- three.js 整片 v4（字幕深色底，RunPod 3090，$0.09）+ 四段 Blender（帧 0–239、414–497、2100–2279、2457–2531，共 579 帧，7 台卡约 $1.4）。
+- 流程：`node render.mjs --export-seg=0,8,screen`（其余段不带 screen）→ `python3 blender/hyb_jobs.py` → 每段 `python3 tools/runpod_render_gql.py run film/blender/hyb/<段>/jobs.json --pods N --yes`（仓库根目录）→ 帧到 `blender/out/hyb/` → `sh ../tools/hybrid.sh <v4.mp4> ../music/out/mix_v4.wav out/ai01-strawberry.mp4 0:239 414:497 2100:2279 2457:2531`（集目录）。
+- 0–8 秒段最慢（手机特写、景深、逐帧屏幕贴图）：每帧 13–30 秒；其余段约 7 秒。
+- 成片 `out/ai01-strawberry.mp4`：2979 帧、99.3 秒、-14.0 LUFS、真峰值 -1.3 dBFS；动效 PASS（静止 2%，最长 0.70 秒）。全屏版 `../tools/xhs.sh`。
+
