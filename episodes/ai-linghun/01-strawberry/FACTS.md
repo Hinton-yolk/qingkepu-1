@@ -17,18 +17,18 @@
 | 7 | 「这种积木，行业里叫 Token」 | Token 是分词器切出的最小单位，模型输入输出都以 Token 为单位 | 〔摘〕tiktoken README |
 | 8 | 积木 = Token | 类比。Token 不一定对应完整的字或词，可以是半个词、一个字节碎片；画面小字「积木不按词语切」（「今天天气真好」里的「天天」） | 〔类比〕 |
 | 8a | 「AI 说话也是一块一块往外接的」 | 自回归语言模型每次预测下一个 Token，再把它接到输入后面继续预测。Brown et al. 2020，Language Models are Few-Shot Learners，arXiv:2005.14165，摘要：「GPT-3, an autoregressive language model with 175 billion parameters」 | 〔摘〕 |
-| 8b | 「读遍了整座图书馆的接龙高手」 | 类比。训练数据量的量级：Llama 3 预训练语料约 15 万亿个 Token（arXiv:2407.21783 第 1 节「about 15T multilingual tokens」；405B 版本用了 15.6T，**发布前对照原文核实所在小节**） | 〔类比〕 |
+| 8b | 「读遍了整座图书馆的接龙高手」 | 类比。训练数据量的量级：Llama 3 预训练语料约 15 万亿个 Token（arXiv:2407.21783 第 1 节「about 15T multilingual tokens」，在第 1 节 Introduction；405B 版本用了 15.6T，见正文另一处。2026-11-22 审核复核） | 〔类比〕 |
 | 8c | 电话里听名字、问笔画 | 类比，说的是「模型认得这块积木，却看不到它由哪几个字母组成」。不成立的地方：模型能在训练中间接学到很多积木的拼写（见 #18），所以并非完全不知道；人听名字问笔画是真的不知道 | 〔类比〕 |
 | 8d | 「因为太慢、太贵」 | 英文平均每个 Token 约 4 个字节（tiktoken README：「each token corresponds to about 4 bytes」），按字母读，序列会长好几倍；每多一块就多一次完整的前向计算（#10） | 〔摘〕 |
 
 ## 计算
 | # | 片中说法 | 依据 | 等级 |
 |---|---|---|---|
-| 9 | 每块积木会被换成「几千个数字」 | 每个 Token 先变成一个向量，长度等于模型的隐藏维度。例：Llama 3 8B 为 4096、70B 为 8192、405B 为 16384（Llama 3 论文 arXiv:2407.21783，表 3）；GPT-3 175B 为 12288（arXiv:2005.14165，表 2.1）。千亿参数级的模型一般在 8k–12k。「几千个」偏保守（最大的模型过万），但不算错，且字幕已定稿；用户看过草稿后未提异议，保留「几千个」。画面上滚动的数是随机的，已标「数值为示意」 | 〔摘〕 |
+| 9 | 每块积木会被换成「几千个数字」 | 每个 Token 先变成一个向量，长度等于模型的隐藏维度。例：Llama 3 8B 为 4096、70B 为 8192、405B 为 16384（Llama 3 论文 arXiv:2407.21783，表 3）；GPT-3 175B 为 12288（arXiv:2005.14165，表 2.1）。千亿参数级的模型一般在 8k–12k。「几千个」偏保守（最大的模型过万），但不算错，且字幕已定稿；保留「几千个」；措辞 2026-11-22 交付时请用户确认。画面上滚动的数是随机的，已标「数值为示意」 | 〔摘〕 |
 | 10 | 每读一块积木，大约要算「2 × 参数量」次 | 前向计算每个 Token 约 2N 次浮点运算（N = 参数量，一次乘一次加）。Kaplan et al. 2020，Scaling Laws for Neural Language Models，arXiv:2001.08361，2.1 节。假设：稠密模型；不计注意力里随上下文长度增长的那部分；MoE 模型每次只激活一部分参数，运算会少 | 〔摘〕 |
 | 11 | 千亿参数的大模型，每块约 2000 亿次 | 2 × 1000 亿 = 2000 亿 | 〔估〕 |
 | 12 | 一句话约 20 块，背后是几万亿次（画面写「≈ 4 万亿次」） | 假设一句话 20 个 Token：20 × 2000 亿 = 4 万亿。只算「读进这句话」，不算回答（回答的每个 Token 还要再各算一次） | 〔估〕 |
-| 13 | 芯片里「几十万个小工人」（底稿是「成千上万个」；改为「几十万个」后用户看过草稿未提异议） | 小工人 ≈ 张量核（Tensor Core）里的乘加单元，画面已标「示意：1 个小工人 ≈ 1 个乘加单元」。按 NVIDIA H100 白皮书，H100 SXM5 稠密 FP16 / BF16 张量算力 989.4 TFLOPS；989.4 万亿 ÷ 2（一次乘加 = 2 次运算）÷ 1.83 GHz ≈ 27 万次乘加 / 时钟（= 132 个 SM × 每 SM 每时钟 2048 次）。只数 Tensor Core（528 个）配不上「成千上万」；CUDA 核心（16,896 个）数量对得上，但大模型的矩阵乘加主要不在 CUDA 核心上做。2026-11-22 复核：989.4 TFLOPS（稠密 FP16）多方一致（[NVIDIA 开发者论坛](https://forums.developer.nvidia.com/t/how-to-calculate-the-tensor-core-fp16-performance-of-h100/244727/2)、[Glenn Lockwood H100 笔记](https://glennklockwood.com/garden/processors/H100)）；1.83 GHz 没有找到官方单独写明的数（TechPowerUp 列的最高加速是 1980 MHz），只是与 989.4 TFLOPS 自洽的反推值。「约 27 万次乘加 / 时钟」本身不靠时钟：132 SM × 每 SM 每时钟 2048 次稠密 FP16 乘加（论坛对白皮书的解读）= 270,336，所以「几十万个小工人」成立。措辞「几十万个」用户看过 v2 / v3 草稿后未提异议（「其他暂时没问题」），按已接受处理 | 〔摘〕〔估〕 |
+| 13 | 芯片里「几十万个小工人」（底稿是「成千上万个」，改为「几十万个」；措辞 2026-11-22 交付时请用户确认） | 小工人 ≈ 张量核（Tensor Core）里的乘加单元，画面已标「示意：1 个小工人 ≈ 1 个乘加单元」。按 NVIDIA H100 白皮书，H100 SXM5 稠密 FP16 / BF16 张量算力 989.4 TFLOPS；989.4 万亿 ÷ 2（一次乘加 = 2 次运算）÷ 1.83 GHz ≈ 27 万次乘加 / 时钟（= 132 个 SM × 每 SM 每时钟 2048 次）。只数 Tensor Core（528 个）配不上「成千上万」；CUDA 核心（16,896 个）数量对得上，但大模型的矩阵乘加主要不在 CUDA 核心上做。2026-11-22 复核：989.4 TFLOPS（稠密 FP16）见 NVIDIA H100 Tensor Core GPU Architecture 白皮书（GTC22）规格表，另见（[NVIDIA 开发者论坛](https://forums.developer.nvidia.com/t/how-to-calculate-the-tensor-core-fp16-performance-of-h100/244727/2)、[Glenn Lockwood H100 笔记](https://glennklockwood.com/garden/processors/H100)）；1.83 GHz 没有找到官方单独写明的数（TechPowerUp 列的最高加速是 1980 MHz），只是与 989.4 TFLOPS 自洽的反推值。「约 27 万次乘加 / 时钟」本身不靠时钟：A100 白皮书写每个 Tensor Core 每时钟 256 次 FP16 乘加，每 SM 4 个 = 1024；H100 白皮书写同频下每 SM 是 A100 的 2 倍 = 2048；132 SM × 2048 = 270,336，所以「几十万个小工人」成立。措辞「几十万个」交付时请用户确认 | 〔摘〕〔估〕 |
 | 14 | 小工人「只做两件事：乘法和加法」 | 类比。大模型推理的主体是矩阵乘加（乘加融合 FMA），GPU 也做其他运算（激活函数、归一化等），片中不展开 | 〔类比〕 |
 | 15 | 「这些小工人住的地方，就是 GPU」；GPU 封装画面 | 示意图，整段标「示意：云端机房里的 GPU 芯片」。画法参照 H100 这一类数据中心 GPU：俯视的基板 + 中介层 + 一块大 die + 两侧共 6 颗 HBM 堆叠（H100 SXM5 有 6 个 HBM 位置，其中 5 个启用），不画四边引脚。不是某款真实 GPU 的版图。HBM 和 die 之间的光点表示数据进出，示意 | 〔类比〕 |
 | 15a | ~~深度计「对话 → 模型 → 芯片」~~ | **已删除**（用户 2026-11-21：进度条不要了） | — |
@@ -36,16 +36,16 @@
 ## 现象
 | # | 片中说法 | 依据 | 等级 |
 |---|---|---|---|
-| 16 | AI 曾经很自信地答「2 个」 | 2024 年广为流传的测试（多款聊天机器人答 2）。来源：[Inc.（2024-08）How Many R’s in ‘Strawberry’? This AI Doesn’t Know](https://www.inc.com/kit-eaton/how-many-rs-in-strawberry-this-ai-cant-tell-you.html)：作者测试时 ChatGPT 坚持只有 2 个 r；[OpenAI 社区论坛（2024-06）](https://community.openai.com/t/incorrect-count-of-r-characters-in-the-word-strawberry/829618) 用户报告同样的错。截图由用户发布前自行补存（可选）；片中手机对话是示意（已标「示意：早期 AI 的常见错答」），不指认具体产品 | 〔摘〕 |
-| 17 | 如今多数 AI 已能答对 | 2026-11-22 实测：OpenAI 模型（通过 Codex，模型 gpt-6.2-sol）中、英文各问一次，都答 3；Claude（本会话）答 3。背景：2024-09 起 o1 等推理模型被报道基本能答对但不稳定（[Futurism](https://futurism.com/openai-strawberry-o1-mistakes)），2025-12 仍有报道称 GPT-5.2 偶尔答 2（[Dataconomy](https://dataconomy.com/2025/12/15/gpt-5-2-still-counts-two-rs-in-strawberry)）。所以台词用「很多 AI 已经能答对」而不是「都能」。国内产品（豆包、DeepSeek、Kimi 等）的截图由用户发布前手动补存（可选，不用自动化登录） | 〔实测〕〔摘〕 |
-| 18 | 「AI 根本“看不见”字母」（底稿原句的引号已恢复） | 模型的输入是 Token 编号。tiktoken README（「What is BPE anyway?」一节）：「Language models don't see text like you and I, instead they see a sequence of numbers (known as tokens).」引号表示是口语化的说法：字母信息能在训练中被间接学到（Kaushal & Mahowald 2022，What do tokens know about their characters and how do they know it?，NAACL），这也是现在很多新 AI 能答对的原因之一；有的模型还会先把单词逐个字母拆开再数。后半句出处：[Marco-o1（arXiv:2411.14405）](https://arxiv.org/abs/2411.14405) 图 1 用的就是「strawberry 里有几个 r」这个例子来展示推理模型逐步推理；逐字母拆开再数的过程见该模型的公开讨论（[Hugging Face 讨论区](https://huggingface.co/ATH-MaaS/Marco-o1/discussions/16)，用户转述，作旁证）。这一句只在 FACTS 里，片中没有 | 〔摘〕 |
+| 16 | AI 曾经很自信地答「2 个」 | 2024 年广为流传的测试（多款聊天机器人答 2）。来源：[Inc.（2024-08）How Many R’s in ‘Strawberry’? This AI Doesn’t Know](https://www.inc.com/kit-eaton/how-many-rs-in-strawberry-this-ai-cant-tell-you.html)：作者测试时 ChatGPT 坚持只有 2 个 r；[OpenAI 社区论坛（2024-06）](https://community.openai.com/t/incorrect-count-of-r-characters-in-the-word-strawberry/829618) 用户报告同样的错；TechCrunch（2024-08-27）「Why AI can’t spell ‘strawberry’」报道多款模型（含 GPT-4o、Claude）答 2，支撑「多款」（审核用搜索核到，原文未打开）。截图由用户发布前自行补存（可选）；片中手机对话是示意（已标「示意：早期 AI 的常见错答」），不指认具体产品 | 〔摘〕 |
+| 17 | 如今很多 AI 已经能答对 | 2026-11-22 实测：OpenAI 模型（通过 Codex 新会话，模型 gpt-6.2-sol，推理强度 none）中、英文各问一次，都答 3；提问原文和回答见 `facts/strawberry-test-2026-11-22.md`。背景：2024-09 起 o1 等推理模型被报道基本能答对但不稳定（[Futurism](https://futurism.com/openai-strawberry-o1-mistakes)），2025-12 仍有报道称 GPT-5.2 偶尔答 2（[Dataconomy](https://dataconomy.com/2025/12/15/gpt-5-2-still-counts-two-rs-in-strawberry)）。所以台词用「很多 AI 已经能答对」而不是「都能」。国内产品（豆包、DeepSeek、Kimi 等）的截图由用户发布前手动补存（可选，不用自动化登录） | 〔测〕〔摘〕 |
+| 18 | 「AI 根本“看不见”字母」（底稿原句的引号已恢复） | 模型的输入是 Token 编号。tiktoken README（「What is BPE anyway?」一节）：「Language models don't see text like you and I, instead they see a sequence of numbers (known as tokens).」引号表示是口语化的说法：字母信息能在训练中被间接学到（Kaushal & Mahowald 2022，What do tokens know about their characters and how do they know it?，NAACL），这也是现在很多新 AI 能答对的原因之一；有的模型还会先把单词逐个字母拆开再数。后半句出处：[Marco-o1（arXiv:2411.14405）](https://arxiv.org/abs/2411.14405) 图 1 用的就是「strawberry 里有几个 r」这个例子来展示推理模型逐步推理；模型官方页：[AIDC-AI/Marco-o1](https://huggingface.co/AIDC-AI/Marco-o1)。这一句只在 FACTS 里，片中没有 | 〔摘〕 |
 
 ## v4 3D 样片（前 31 秒）新加的画面
 | # | 画面 | 依据 / 说明 | 等级 |
 |---|---|---|---|
 | 19 | 两把刀落下，把 strawberry 切成 str / aw / berry，标「分词器（示意）」 | 切分位置同 #1（`cl100k_base` 实测）。刀是示意：真实的分词器（BPE）是按词表里的合并规则把字节组合成 Token，不是一刀一刀切 | 〔类比〕〔测〕 |
 | 20 | 积木翻到背面露出 #496 #675 #15717；合成一块后是 #73700；进出「AI 的视角」框 | 编号同 #1、#2。「积木背面是编号」是示意：模型的输入是 Token 编号（tiktoken README：「they see a sequence of numbers (known as tokens)」，见 #18），编号再被换成向量（#9） | 〔类比〕〔摘〕 |
-| 21 | 「如今很多 AI 已经能答对」（v3 句）：打叉的「AI：2 个」气泡原地翻面成「如今：3 个 ✓」（草稿 v2 起只有这一个气泡；v1 是弹出三个「AI：3 个 ✓」） | 示意，不指认具体产品；事实见 #17（2026-11-22 已实测） | 〔实测〕 |
+| 21 | 「如今很多 AI 已经能答对」（v3 句）：打叉的「AI：2 个」气泡原地翻面成「如今：3 个 ✓」（草稿 v2 起只有这一个气泡；v1 是弹出三个「AI：3 个 ✓」） | 示意，不指认具体产品；事实见 #17（2026-11-22 已实测） | 〔测〕 |
 | 22 | X 光扫过字母（草稿 v2 起，约 9.5–10.5 秒）：字母下面亮起红色切口线，切口在 str｜aw｜berry 之间（不写字；v1 是字母方块变透明、露出三块彩色积木） | 示意：预告后面「切成积木」；切口位置同 #1 | 〔类比〕 |
 | 23 | v5：分词器是一台带磨砂玻璃的机器，方块在玻璃后面被两道光刃切开；三块落到三个底座上，玻璃屏和编号标签显示 #496 #675 #15717；放进句子后，分词器重新切一次，直接吐出一整块（#73700）；画面上的句子显示成 8 块（How / many / r / 's / are / in / strawberry / ?） | 切分位置和编号同 #1、#2；8 块的切法同 #2（`cl100k_base` 实测）。机器、光刃、玻璃屏、底座都是示意（画面标「分词器（示意）」「AI 的视角（示意）」「编号：GPT-4 分词器实测」「这句切成 8 块，“ strawberry”（带空格）是 1 块 · 实测」）。句子里的 " strawberry" 是分词器直接切出的 1 块，画面上用「重新切一次」表现，不画成三块拼起来（审核 v5 第一轮意见） | 〔类比〕〔测〕 |
 
@@ -58,7 +58,7 @@
 | 27 | 「你好」进小分词器还是一块；「龘」被切成两块，分别标 E9 BE / 98，标「按编码字节切成 2 块，不是按偏旁（示意）」 | 同 #4、#5（`o200k_base`：你好 = 1 块；龘 = UTF-8 字节 E9 BE \| 98 两块）。画面用的是 GPT-4o 的切法 | 〔测〕 |
 | 28 | 两列排队进读取器：15 个字母 vs 3 块（I / like / strawberry），每格大小相同，长度正好 5 倍；每读一块掉一枚珊瑚色硬币，「15 笔 / 3 笔」，「每读一块，记一笔账（示意）」 | 15 和 3 同 #6；硬币是类比「每多一块就多算一次」（#8d、#10），不是真实费用 | 〔测〕〔类比〕 |
 | 29 | strawberry 积木进转换器，吐出一条立着的纸带，印着一串数字，标「几千个数字，排成一行」「数值为示意」 | 同 #9（向量长度几千到上万，数值随机示意） | 〔摘〕〔类比〕 |
-| 30 | GPU 封装：基板、中介层、一块大芯片、两侧共 6 颗 HBM 堆叠、边缘小电容；芯片表面 10×10 个小工人敲出 × 和 +；计数屏 0 → ≈ 2000 亿次，再到「一句话 ≈ 20 块」「≈ 4 万亿次」；「GPU」「示意：云端机房里的 GPU 芯片」 | 同 #10–#15。画面上 100 个小工人只是示意（实际按 #13 约 27 万次乘加 / 时钟）；「几十万个」的措辞见 #13（已接受） | 〔摘〕〔估〕〔类比〕 |
+| 30 | GPU 封装：基板、中介层、一块大芯片、两侧共 6 颗 HBM 堆叠、边缘小电容；芯片表面 10×10 个小工人敲出 × 和 +；计数屏 0 → ≈ 2000 亿次，再到「一句话 ≈ 20 块」「≈ 4 万亿次」；「GPU」「示意：云端机房里的 GPU 芯片」 | 同 #10–#15。画面上 100 个小工人只是示意（实际按 #13 约 27 万次乘加 / 时钟）；「几十万个」的措辞见 #13（交付时请用户确认） | 〔摘〕〔估〕〔类比〕 |
 | 31 | 「我们看到：一个一个字母」（10 个字母方块，圈出 s）vs「AI 看到：一整块积木（编号 #73700）」（圈出整块） | 编号同 #2 | 〔测〕〔类比〕 |
 | 32 | AI 机器吐出「当然 / 知道 / ！/ 这段 / 情节 / 出自」，最后一块是抖动的珊瑚色「？」，「自信 100%」，标「示意」 | 示意下期主题（幻觉），不指认任何产品；「自信 100%」是比喻，不是模型输出的真实概率 | 〔类比〕 |
 
