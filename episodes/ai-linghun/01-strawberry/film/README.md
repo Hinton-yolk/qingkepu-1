@@ -48,3 +48,11 @@ RunPod：`python3 ../../../../tools/runpod_render_gql.py run blender/jobs_ab.jso
 - 实测（RTX 4090）：约 0.45 秒一帧，整片约 27 分钟（含装环境），约 $0.15。瓶颈在一个浏览器里截图，不在显卡；以后要更快可以开几个浏览器分段渲。
 - 小修补：在本机 `node render.mjs --start=a --end=b --noencode` 只渲那几秒，覆盖进 `out/frames`（整片 mp4 先 `ffmpeg -i <片> -start_number 0 out/frames/%05d.png` 解成帧），再 `--encode`。
 
+
+## 成片交付（2026-11-22，节点 ③）
+- 上一个会话做完交付包后结束，mp4 和 A1 配乐 wav 不在仓库里，随容器丢失。用户从 Google Drive 传回 `ai01-strawberry-film-draft-v3-sound.mp4`，复制为 `out/ai01-strawberry.mp4`（不进仓库）。
+- 核对（`../tools/verify_upload.sh`）：1080×1920、30 fps、2979 帧、99.300 秒、AAC 48 kHz 立体声、-14.0 LUFS（LRA 4.0，真峰值 -1.0 dBFS）；动效按本系列门槛 PASS（静止 2%，最长静止 0.70 秒，约 42 秒处，超过通用门槛 0.6 秒，已告知用户）。用当前源码在本机重渲 10 帧（`qa/ref/`）和成片逐像素比，平均差 1.28–2.09 级，70 秒计数器读数一致：确认是当前版本。
+- 小红书全屏版 `out/ai01-strawberry-xhs.mp4`（1080×2340，`../tools/xhs.sh`）：上下各补 210 px，字幕约在全屏 63–69% 高度（见 `DECISIONS.md` 11-22 同名条）。
+- **审核**：第 1 轮（上一会话）后的修改，本会话复核第 1 次「不通过」（观众处理没记全、DECISIONS 写了「视频视为确认」），改后第 2 次复核：**通过**（含成片 mp4 和全屏版；交付前改 `publish.md` 全屏版说明、向用户说明 0.70 秒，均已做）。
+- 监督：上一会话的「交付核对」（`../../要求清单.md`），本会话按审核意见更新了过期的几条。
+- 观众（Codex）：节点 ③ 已看，见 `../观众反馈.md`；主 agent 处理逐条记录，结构和文案改动交用户定。
