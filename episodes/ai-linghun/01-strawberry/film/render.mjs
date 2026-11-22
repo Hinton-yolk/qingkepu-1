@@ -19,7 +19,7 @@ const { chromium } = createRequire(import.meta.url)("playwright");
 const arg = (k, d) => { const a = process.argv.find((x) => x === `--${k}` || x.startsWith(`--${k}=`)); if (!a) return d; return a.includes("=") ? a.split("=").slice(1).join("=") : true; };
 const TL = createRequire(import.meta.url)("../timeline.js");
 const FPS = TL.FPS, DUR = parseFloat(arg("end", String(TL.DUR))), T0 = parseFloat(arg("start", "0")), NF = Math.round(FPS * DUR);
-const QS = arg("overlay") ? "?overlay=1" : arg("bg") ? `?bg=${arg("bg")}` : "";
+const QS = arg("overlay") ? "?overlay=1" : arg("bg") ? `?bg=${arg("bg")}` : arg("nocap") ? "?nocap=1" : "";   // --nocap: cover art (no captions)
 const WORKERS = parseInt(arg("workers", "4"));
 
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".woff": "font/woff", ".png": "image/png", ".json": "application/json" };

@@ -26,6 +26,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { BokehPass } from "three/addons/postprocessing/BokehPass.js";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 const QP = new URLSearchParams(location.search), OVERLAY = QP.has("overlay"), BG = QP.get("bg");
+const NOCAP = QP.has("nocap");   // cover art: picture + labels, no captions / headline / end card
 if (OVERLAY) { document.documentElement.style.background = "transparent"; document.body.style.background = "transparent"; }   // labels + captions as a transparent layer (Blender final)
 
 const { W, H, L } = window.TL;
@@ -974,6 +975,7 @@ window.seek = async function (t) {
     const f = Math.round(t * window.TL.FPS); bgImg.src = `/film/blender/out/${BG}/${String(f).padStart(5, "0")}.png`; await bgImg.decode(); ctx.drawImage(bgImg, 0, 0, W, H);
   } else { if (bokeh) bokeh.uniforms.focus.value = focusDist; if (comp) comp.render(); else R.render(scene, cam); ctx.drawImage(glc, 0, 0); }
   grade(t);
+  if (NOCAP) { overlays(t); return; }
   overlays(t); opening(t); captions(t); endCard(t);
 };
 if (!BG) await window.seek(0); window.ready = true;   // in Blender-background mode there is no frame 0 to load
