@@ -96,6 +96,8 @@ def main():
         i = int(round(c['t'] * SR)); n = min(len(x), N - i)
         if n > 0: fx[0, i:i + n] += x[:n] * L * 1.414; fx[1, i:i + n] += x[:n] * R * 1.414
     fx *= 10 ** (fx_db / 20)
+    from prep import PAUSE                     # the half-beat stop before the reveal is silent for the effects too (review: a chime tail leaked in)
+    t = np.arange(N) / SR; fx *= np.clip(np.maximum((PAUSE[0] - t) / 0.025, (t - PAUSE[1]) / 0.025), 0, 1)
     if '--stems' in a: sf.write(out.replace('.wav', '_fx.wav'), np.clip(fx, -1, 1).T, SR, subtype='PCM_24')
     mix = m + fx
     pre = out[:-4]; y = loud(mix, SR, -14.0, pre)

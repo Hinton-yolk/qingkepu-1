@@ -252,7 +252,7 @@ const cue = (k, t, o = {}) => CUES.push({ k, t: +(t + SD).toFixed(3), ...o });
   cue("whoosh", LAUNCH - 0.05, { d: 0.55, g: 0.4 });                            // letters fly out
   for (let i = 0; i < 10; i++) cue("pop", LAUNCH + i * STAG + FLY, { f: 380 + i * 22, g: 0.25 });
   cue("blip", b(1) - 0.75, { m: 72, g: 0.4 });                                  // "AI：2 个"
-  [69, 72, 77].forEach((m, k) => cue("chime", redT(k), { m }));                 // 1 2 3 (the motif comes back at the end)
+  [69, 72, 77].forEach((m, k) => cue("chime", redT(k) + 0.3, { m }));           // 1 2 3, on the landing (review: +0.3 s); the motif comes back at the end
   cue("boop", a(2) + 0.85);                                                     // crossed out
   cue("flip", a(3) + 0.05); cue("chime", a(3) + 0.3, { m: 81, g: 0.5 });        // flips to "如今：3 个 ✓"
   cue("scan", XR[0], { d: XR[1] - XR[0] });                                     // x-ray
@@ -385,7 +385,7 @@ SD = a(10) - aO(10);
     const nm = vis(t, aO(13) + 1.1, aO(15) - 0.3, 0.3, 0.3); if (nm > 0) { const p = P3(X0 + 2.4, stand.userData.top + 2.05, -2.0); label("写出来长什么样？", p.x, p.y, { font: F(700, 32), h: 56, alpha: nm }); }
     const sv = ramp(t, aO(14) + 1.1, aO(14) + 1.4); if (sv > 0) { const p = P3(X0, 0, 0.6); label("听过 ≠ 看过", 540, Math.min(p.y + 40, 1225), { font: F(900, 44), h: 80, bg: INK, color: "#F6F0E6", alpha: sv * (1 - ramp(t, 46.45, 46.7)), scale: back(ramp(t, aO(14) + 1.1, aO(14) + 1.45)) }); }
   });
-  cue("click", PICK[0], { g: 0.55 });
+  cue("click", PICK[0] + 0.2, { g: 0.55 });   // the handset is in frame at +0.2 s
   for (let k = 0; k < 3; k++) cue("blip", aO(12) + 1.7 + k * 0.28, { m: [72, 74, 77][k], g: 0.28 });   // lǐ sī ruì
   cue("pop", aO(13), { f: 500, g: 0.4 }); cue("whoosh", aO(13) + 0.5, { d: 0.6, g: 0.22 });
   cue("thud", aO(14) + 1.1, { g: 0.45, f: 160 });                               // 听过 ≠ 看过
@@ -586,7 +586,7 @@ SD = 0;
       label("示意：云端机房里的 GPU 芯片", 540, ny, { font: F(700, 32), h: 58, alpha: gl }); }
   });
   cue("whoosh", IN[0], { d: IN[1] - IN[0], g: 0.28 }); cue("thud", IN[1], { g: 0.55 });
-  cue("zip", UNR[0], { d: UNR[1] - UNR[0] });                                   // a long tape of numbers
+  cue("zip", UNR[0] + 0.2, { d: UNR[1] - UNR[0] - 0.2 });                       // a long tape of numbers (the slot opens at +0.2 s)
   cue("count", a(23) + 0.4, { d: b(23) - a(23) - 0.2, rate: 7, g: 0.18 });       // workers at work
   cue("count", a(24) + 0.3, { d: b(24) - a(24) - 0.4, rate: 16, g: 0.3, up: 1 }); // the counter runs to 2000 亿
   cue("pop", a(25) + 1.42, { f: 700, g: 0.5 }); cue("chime", a(25) + 1.45, { m: 84, g: 0.4 });   // ≈ 4 万亿次
@@ -644,7 +644,7 @@ SD = a(27) - aO(27);
       const c2 = P3(X0, UY, -0.15), w2 = Math.abs(P3(X0 + 3.6, UY, -0.15).x - c2.x); ctx.beginPath(); ctx.ellipse(c2.x, c2.y, w2, w2 * 0.3, 0, 0, 7); ctx.stroke(); ctx.restore(); }
   });
   for (let k = 0; k < 10; k++) cue("tick", SC0 + k * SCP, { f: 3000, g: 0.35 });   // the ring reads letter by letter
-  [69, 72, 77].forEach((m, rk) => cue("chime", SCE + 0.15 + rk * 0.12, { m, g: 0.9 }));   // 1 2 3, the opening motif again
+  [69, 72, 77].forEach((m, rk) => cue("chime", SCE + 0.4 + rk * 0.12, { m, g: 0.9 }));    // 1 2 3, the opening motif again, as each r lights
   onKeys(
     [88.3, X0 - 2.0, 0.6, -1.8, 8.4, 0.12, 0.55],
     [aO(27) + 1.4, X0, 0.6, -1.7, 8.0, 0.06, 0.58],
