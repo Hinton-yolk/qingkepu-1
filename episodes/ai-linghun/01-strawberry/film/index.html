@@ -71,6 +71,7 @@ function card(cx, cy, w, h, o = {}) { ctx.save(); ctx.globalAlpha *= o.alpha ?? 
   ctx.shadowColor = "rgba(60,40,20,.25)"; ctx.shadowBlur = 22; ctx.shadowOffsetY = 7; ctx.fillStyle = o.bg || CREAMC + (o.a ?? 0.93) + ")"; rr(-w / 2, -h / 2, w, h, o.r ?? 18); ctx.fill(); ctx.restore(); }
 function label(s, cx, cy, o = {}) { const f = o.font || F(700, 34), w = tw(s, f) + (o.pad ?? 44), h = o.h || 60; if ((o.alpha ?? 1) <= 0) return;
   if (CS === "B" && !o.bg) o = { ...o, bg: "rgba(43,39,38,.84)", color: o.color || "#F6F0E6" };
+  else if (CS === "A" && typeof o.bg === "string" && (o.bg === INK || o.bg.startsWith("rgba(43,39,38"))) o = { ...o, bg: undefined, color: INK };   // style A: captions are the only dark cards (review / audience 11-22: 「Token」「听过 ≠ 看过」 read as captions)
   card(cx, cy, w, h, { ...o, r: o.r ?? h / 2 }); ctx.save(); ctx.globalAlpha *= o.alpha ?? 1; ctx.translate(cx, cy); ctx.scale(o.scale ?? 1, o.scale ?? 1); ctx.rotate(o.rot || 0); txt(s, 0, 2, { font: f, color: o.color || INK }); ctx.restore(); }
 
 // ---------- renderer / scene ----------
