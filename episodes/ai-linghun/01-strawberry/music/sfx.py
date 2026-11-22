@@ -3,7 +3,8 @@
 音效全部用代码合成，时间点来自 cues.json（film/render.mjs --cues 从画面代码里导出，改时间轴后重导即可），
 音高放在 F 大调里（A1 配乐是 F 大调）。音乐用 prep.py 对齐过的 wav。整片响度 -14 LUFS，限幅到约 -1 dBTP。
 
-  python3 sfx.py <对齐后的音乐.wav> <输出.wav> [--cues cues.json] [--fx-db 0] [--stems]
+  python3 sfx.py <对齐后的音乐.wav> <输出.wav> [--cues cues.json] [--fx-db 0] [--music-db 0] [--stems]
+本集终版（用户 2026-11-22「音乐有点大，盖住音效了」）：--music-db -6
 """
 import json, os, sys
 import numpy as np, soundfile as sf
@@ -79,7 +80,7 @@ def s_count(d=2.0, rate=10, up=0, **_):
 
 SOUNDS = dict(pop=s_pop, tick=s_tick, chime=s_chime, blip=s_blip, boop=s_boop, flip=s_flip, scan=s_scan, whoosh=s_whoosh,
               chop=s_chop, thud=s_thud, clack=s_clack, click=s_click, coin=s_coin, zip=s_zip, count=s_count)
-LEVEL = dict(pop=0.30, tick=0.22, chime=0.26, blip=0.26, boop=0.18, flip=0.18, scan=0.30, whoosh=0.32, chop=0.42, thud=0.36,
+LEVEL = dict(pop=0.30, tick=0.22, chime=0.26, blip=0.26, boop=0.12, flip=0.18, scan=0.30, whoosh=0.32, chop=0.36, thud=0.36,
              clack=0.21, click=0.25, coin=0.16, zip=0.14, count=0.36)     # base peak per kind (× the cue's g); tuned so each sits
 # about -9 to +6 dB (peak) against the music's local RMS: transients audible, beds (whoosh / scan / count) faint but there
 
@@ -88,6 +89,7 @@ def main():
     a = sys.argv[1:]; music, out = a[0], a[1]
     cues = json.load(open(a[a.index('--cues') + 1] if '--cues' in a else os.path.join(HERE, 'cues.json')))
     fx_db = float(a[a.index('--fx-db') + 1]) if '--fx-db' in a else 0.0
+    music_db = float(a[a.index('--music-db') + 1]) if '--music-db' in a else 0.0   # user 11-22: the music covered the effects -> run it with --music-db -6
     m, sr = sf.read(music, always_2d=True); assert sr == SR, sr; m = m.T
     N = m.shape[1]; fx = np.zeros((2, N)); prng = np.random.default_rng(3)
     for c in cues['cues']:
@@ -99,7 +101,7 @@ def main():
     from prep import PAUSE                     # the half-beat stop before the reveal is silent for the effects too (review: a chime tail leaked in)
     t = np.arange(N) / SR; fx *= np.clip(np.maximum((PAUSE[0] - t) / 0.025, (t - PAUSE[1]) / 0.025), 0, 1)
     if '--stems' in a: sf.write(out.replace('.wav', '_fx.wav'), np.clip(fx, -1, 1).T, SR, subtype='PCM_24')
-    mix = m + fx
+    mix = m * 10 ** (music_db / 20) + fx
     pre = out[:-4]; y = loud(mix, SR, -14.0, pre)
     print(f'{len(cues["cues"])} cues; fx peak {20 * np.log10(np.max(np.abs(fx)) + 1e-12):.1f} dBFS (before loudness); -> {out}')
 
