@@ -17,3 +17,4 @@ episodes/weishenme/*/qa/
 qa/
 episodes/*/*/voice/samples*/*.mp3
 episodes/*/*/film/blender/stills/
+episodes/*/*/cover/cover-*.html
