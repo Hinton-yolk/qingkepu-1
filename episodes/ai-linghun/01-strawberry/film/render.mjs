@@ -4,6 +4,7 @@
 //   node render.mjs --stills=0,1,6.9 [--out=qa/stills]
 //   node render.mjs --sheet [--every=0.5] [--tag=r1]
 //   node render.mjs --strip=11.3,12.3 [--n=12]
+//   node render.mjs --start=42 --end=48.2 --noencode   re-render a range in place;  node render.mjs --encode --out=…   encode only
 import { createRequire } from "node:module";
 import { execFileSync } from "node:child_process";
 import http from "node:http";
@@ -105,7 +106,8 @@ async function main() {
     // --resume: keep frames already rendered (a frame file is written whole by the screenshot, so a present file is complete)
     const list = Array.from({ length: NF }, (_, i) => ({ t: i / FPS, file: path.join(frames, String(i).padStart(5, "0") + ".png") })).filter((f) => f.t >= T0 - 1e-9).filter((f) => !arg("resume") || !fs.existsSync(f.file) || fs.statSync(f.file).size < 1000);
     const sec = await renderTimes(list);
-    console.log(`rendered ${NF} frames in ${sec.toFixed(1)} s`);
+    console.log(`rendered ${list.length} frames in ${sec.toFixed(1)} s`);
+    if (arg("noencode")) return;   // patch a range of out/frames, encode later with --encode
   }
   const audio = path.join(HERE, arg("audio", "audio/mix.wav"));
   const out = path.join(HERE, arg("out", "out/ai01-strawberry-film.mp4"));
