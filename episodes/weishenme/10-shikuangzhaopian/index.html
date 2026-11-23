@@ -317,6 +317,166 @@ function card(cx, cy, w, h, ages, o = {}) {
   ctx.restore();
 }
 
+// a night sky fixed to the world (the screen moves over it): the firework, a few stars, the city line; landscape and
+// upright alike (the sky stays upright when the phone turns)
+function worldSky(cx, cy, sc, ages, t) {
+  const L = 420 * sc, hz = cy + 151 * sc;
+  const g = ctx.createLinearGradient(0, cy - L, 0, hz); g.addColorStop(0, "#080B15"); g.addColorStop(1, "#1A1E31");
+  ctx.fillStyle = g; ctx.fillRect(cx - L, cy - L, 2 * L, hz - (cy - L));
+  for (const [u, v, ph] of SKYSTARS) { ctx.fillStyle = `rgba(230,232,240,${0.18 + 0.12 * Math.sin(ph + t * 1.3)})`; ctx.fillRect(cx - 316 * sc + u * 632 * sc, cy - 151 * sc + v * 302 * sc, 2, 2); }
+  for (const a of ages) firework(cx - 25 * sc, cy - 30 * sc, 142 * sc, a, { lw: 0.028, boost: 1.25 });
+  ctx.fillStyle = "#05060B";
+  for (const [u, bw, bh] of CITY) ctx.fillRect(cx - L + u * 2 * L, hz - bh * 302 * sc, bw * 2 * L + 1, bh * 302 * sc + 1);
+  ctx.fillRect(cx - L, hz, 2 * L, L);
+}
+// ================================================================ the phone at any angle (0 = landscape, π/2 = upright)
+// local units = the landscape phone's; turning clockwise by 90° brings its left end (the camera) to the top
+const PORT = { shut: [0, 250], live: { x: -138, y: -296, w: 92, h: 40 } };   // the upright UI (screen-aligned, phone units)
+const LENS_OFF = { main: [-26, 26], second: [28, 26], flash: [-26, -28], mic: [28, -28] };   // round CAMM, in local units
+function rotP(P, l) { const c = Math.cos(P.ang), s = Math.sin(P.ang); return [P.cx + P.sc * (l[0] * c - l[1] * s), P.cy + P.sc * (l[0] * s + l[1] * c)]; }
+function lensDisc(x, y, r) {                                   // a camera lens: a metal ring, dark glass, a coated sheen, a glint
+  let g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.2, x, y, r);
+  g.addColorStop(0, "#B9C0CB"); g.addColorStop(0.55, "#7D8592"); g.addColorStop(1, "#3D424C");
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+  ctx.fillStyle = "#07090D"; ctx.beginPath(); ctx.arc(x, y, r * 0.74, 0, TAU); ctx.fill();
+  g = ctx.createRadialGradient(x, y, r * 0.1, x, y, r * 0.72);
+  g.addColorStop(0, "rgba(40,30,90,0.0)"); g.addColorStop(0.55, "rgba(92,78,190,0.38)"); g.addColorStop(0.8, "rgba(40,120,150,0.30)"); g.addColorStop(1, "rgba(10,12,18,0)");
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 0.74, 0, TAU); ctx.fill();
+  ctx.fillStyle = "#020305"; ctx.beginPath(); ctx.arc(x, y, r * 0.26, 0, TAU); ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.75)"; ctx.lineWidth = r * 0.09; ctx.lineCap = "round"; ctx.beginPath(); ctx.arc(x, y, r * 0.55, -2.5, -1.75); ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.beginPath(); ctx.arc(x + r * 0.22, y - r * 0.3, r * 0.06, 0, TAU); ctx.fill();
+}
+function cameraModule(a) {                                     // the rear camera, seen through the body (local units)
+  if (a <= 0.01) return;
+  const [mx, my] = CAMM;
+  ctx.save(); ctx.globalAlpha *= a;
+  rr(mx - 62, my - 62, 124, 124, 30);
+  const g = ctx.createLinearGradient(mx - 62, my - 62, mx + 62, my + 62); g.addColorStop(0, "#454B57"); g.addColorStop(0.5, "#2B2F37"); g.addColorStop(1, "#1C1F25");
+  ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = "rgba(235,240,248,0.6)"; ctx.lineWidth = 2; ctx.stroke();
+  rr(mx - 58, my - 58, 116, 116, 27); ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 3; ctx.stroke();
+  lensDisc(mx + LENS_OFF.main[0], my + LENS_OFF.main[1], 24);
+  lensDisc(mx + LENS_OFF.second[0], my + LENS_OFF.second[1], 22);
+  const f = LENS_OFF.flash, fg = ctx.createRadialGradient(mx + f[0], my + f[1], 1, mx + f[0], my + f[1], 11);
+  fg.addColorStop(0, "#FFF8E6"); fg.addColorStop(1, "#C9B98F"); ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(mx + f[0], my + f[1], 11, 0, TAU); ctx.fill();
+  ctx.fillStyle = "#0C0E12"; ctx.beginPath(); ctx.arc(mx + LENS_OFF.mic[0], my + LENS_OFF.mic[1], 4, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+function livePill(x, y, w, h, a = 1) {
+  ctx.save(); ctx.globalAlpha *= a;
+  rr(x, y, w, h, h / 2); ctx.fillStyle = "rgba(10,12,16,0.55)"; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 2.5; ctx.stroke();
+  ctx.font = `700 ${Math.round(h * 0.6)}px ${UI}`; ctx.fillStyle = "#FFFFFF"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(COPY.live, x + w / 2 + h * 0.18, y + h / 2 + 1);
+  ctx.beginPath(); ctx.arc(x + h * 0.42, y + h / 2, h * 0.14, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+function shutterBtn(x, y, r, a = 1) { ctx.save(); ctx.globalAlpha *= a; ctx.strokeStyle = "rgba(255,255,255,0.92)"; ctx.lineWidth = r * 0.2; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.beginPath(); ctx.arc(x, y, r * 0.74, 0, TAU); ctx.fill(); ctx.restore(); }
+// P = { cx, cy, sc, ang }; o: xray 0..1, ages, uiL / uiP (landscape / upright UI), modA, a, scrA. Returns screen points.
+function phoneAny(t, P, o = {}) {
+  const a = o.a ?? 1, xr = o.xray ?? 0;
+  const out = { shutter: [P.cx + PORT.shut[0] * P.sc, P.cy + PORT.shut[1] * P.sc], lens: rotP(P, [CAMM[0] + LENS_OFF.main[0], CAMM[1] + LENS_OFF.main[1]]),
+    live: { x: P.cx + PORT.live.x * P.sc, y: P.cy + PORT.live.y * P.sc, w: PORT.live.w * P.sc, h: PORT.live.h * P.sc } };
+  if (a <= 0.01) return out;
+  ID(); ctx.save(); ctx.globalAlpha = a; ctx.translate(P.cx, P.cy); ctx.rotate(P.ang); ctx.scale(P.sc, P.sc);
+  ctx.globalAlpha = a * (1 - xr); ctx.fillStyle = C.bodyL; rr(-170, -PH.h / 2 - 6, 90, 8, 3); ctx.fill(); rr(60, -PH.h / 2 - 6, 54, 8, 3); ctx.fill(); ctx.globalAlpha = a;
+  rr(-PH.w / 2, -PH.h / 2, PH.w, PH.h, PH.r); ctx.fillStyle = mixHex(C.body, "#1B1E25", xr); ctx.fill();
+  ctx.lineWidth = lerp(4, 3, xr) / P.sc; ctx.strokeStyle = xr > 0.01 ? `rgba(214,220,230,${lerp(0.35, 0.8, xr)})` : C.bodyL; ctx.stroke();
+  // the screen: the world's sky, upright whatever the phone does
+  ctx.save(); rr(SCR.x, SCR.y, SCR.w, SCR.h, SCR.r); ctx.clip();
+  ctx.fillStyle = C.glass; ctx.fillRect(SCR.x, SCR.y, SCR.w, SCR.h);
+  const sa = o.scrA ?? 1;
+  if (sa > 0.01) { ctx.save(); ID(); ctx.globalAlpha = a * sa; worldSky(P.cx, P.cy, P.sc, o.ages ?? [], t); ctx.restore(); }
+  // the landscape UI (fading as the phone turns)
+  const uiL = o.uiL ?? 0;
+  if (uiL > 0.01) { shutterBtn(SHUT[0], SHUT[1], 34, uiL); livePill(LIVEP.x, LIVEP.y, LIVEP.w, LIVEP.h, uiL); }
+  ctx.restore();
+  // the camera module through the body
+  cameraModule((o.modA ?? 0) * xr);
+  ctx.restore();
+  // the upright UI (screen-aligned)
+  const uiP = o.uiP ?? 0;
+  if (uiP > 0.01 && sa > 0.01) {
+    ID(); ctx.save(); ctx.globalAlpha = a * sa; ctx.translate(P.cx, P.cy); ctx.scale(P.sc, P.sc);
+    shutterBtn(PORT.shut[0], PORT.shut[1], 34, uiP); livePill(PORT.live.x, PORT.live.y, PORT.live.w, PORT.live.h, uiP);
+    ctx.restore();
+    if (o.liveBox > 0) { const L_ = out.live; obox(L_.x - 7, L_.y - 7, L_.w + 14, L_.h + 14, o.liveBox, o.liveBoxA ?? 1, L_.h / 2 + 6, 4); }
+  }
+  return out;
+}
+
+// ================================================================ the camera, magnified: the lenses, the filter, the image sensor
+const LOUPE = { x: 905, y: 720, r: 155 };
+const DIE_Y = 47;                                              // the die's top face in loupe units
+function lensEl(y, w, th, t1, t2) {                            // one glass element (a section): top bulge t1 up, bottom bulge t2 down
+  ctx.beginPath(); ctx.moveTo(-w / 2, y); ctx.quadraticCurveTo(0, y - 2 * t1, w / 2, y); ctx.lineTo(w / 2, y + th); ctx.quadraticCurveTo(0, y + th + 2 * t2, -w / 2, y + th); ctx.closePath();
+  const g = ctx.createLinearGradient(-w / 2, 0, w / 2, 0); g.addColorStop(0, "rgba(190,215,245,0.14)"); g.addColorStop(0.45, "rgba(215,232,255,0.34)"); g.addColorStop(1, "rgba(180,205,240,0.12)");
+  ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = "rgba(225,238,255,0.75)"; ctx.lineWidth = 1.6; ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,0.55)"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-w * 0.34, y - t1 * 1.2 + 2); ctx.quadraticCurveTo(-w * 0.18, y - t1 * 1.75 + 2, -w * 0.02, y - t1 * 1.9 + 2); ctx.stroke();
+}
+function gullWing(y, w, th) {                                  // the last element: an aspheric "gull wing", as in phone lenses
+  ctx.beginPath(); ctx.moveTo(-w / 2, y - 6); ctx.bezierCurveTo(-w * 0.3, y - 22, -w * 0.12, y + 8, 0, y + 6); ctx.bezierCurveTo(w * 0.12, y + 8, w * 0.3, y - 22, w / 2, y - 6);
+  ctx.lineTo(w / 2, y - 6 + th); ctx.bezierCurveTo(w * 0.3, y - 22 + th + 4, w * 0.12, y + 8 + th, 0, y + 6 + th); ctx.bezierCurveTo(-w * 0.12, y + 8 + th, -w * 0.3, y - 22 + th + 4, -w / 2, y - 6 + th); ctx.closePath();
+  const g = ctx.createLinearGradient(-w / 2, 0, w / 2, 0); g.addColorStop(0, "rgba(190,215,245,0.14)"); g.addColorStop(0.5, "rgba(215,232,255,0.32)"); g.addColorStop(1, "rgba(180,205,240,0.12)");
+  ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = "rgba(225,238,255,0.75)"; ctx.lineWidth = 1.6; ctx.stroke();
+}
+function sensorDie(x, y, w, h, t) {                            // the die's face: a dark, faintly iridescent surface with a slow sheen
+  rr(x, y, w, h, Math.min(3, h * 0.3));
+  const g = ctx.createLinearGradient(x, y, x + w, y + h); g.addColorStop(0, "#3E2F6A"); g.addColorStop(0.35, "#25507A"); g.addColorStop(0.65, "#25665C"); g.addColorStop(1, "#4A3478");
+  ctx.fillStyle = g; ctx.fill();
+  ctx.save(); ctx.clip(); const u = ((t * 0.35) % 1.6) - 0.3, sx = x + u * w;
+  const s = ctx.createLinearGradient(sx - w * 0.25, 0, sx + w * 0.25, 0); s.addColorStop(0, "rgba(255,255,255,0)"); s.addColorStop(0.5, "rgba(255,255,255,0.22)"); s.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = s; ctx.fillRect(x, y, w, h); ctx.restore();
+  ctx.strokeStyle = "rgba(255,255,255,0.28)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + 2, y + 0.5); ctx.lineTo(x + w - 2, y + 0.5); ctx.stroke();
+}
+function drawLoupe(t, k, a, from) {
+  if (k <= 0.01 || a <= 0.01) return;
+  const cx = lerp(from[0], LOUPE.x, k), cy = lerp(from[1], LOUPE.y, k), r = LOUPE.r * k;
+  ID(); ctx.save(); ctx.globalAlpha = a;
+  // the leader from the lens to the loupe, with an orange anchor on the lens
+  const dx = cx - from[0], dy = cy - from[1], d = Math.hypot(dx, dy) || 1;
+  ctx.strokeStyle = rgba(C.paper, 0.75); ctx.lineWidth = 3; line(from[0], from[1], cx - dx / d * r, cy - dy / d * r);
+  ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(from[0], from[1], 7, 0, TAU); ctx.fill();
+  ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.clip(); ctx.translate(cx, cy); ctx.scale(k, k);
+  const R = LOUPE.r;
+  let g = ctx.createRadialGradient(0, -30, 20, 0, 0, R); g.addColorStop(0, "#1E222B"); g.addColorStop(1, "#0B0C10"); ctx.fillStyle = g; ctx.fillRect(-R, -R, 2 * R, 2 * R);
+  // the barrel
+  for (const sx of [-1, 1]) { rr(sx > 0 ? 100 : -118, -160, 18, 236, 4); const bg = ctx.createLinearGradient(sx > 0 ? 100 : -118, 0, sx > 0 ? 118 : -100, 0); bg.addColorStop(0, "#2B2F37"); bg.addColorStop(0.5, "#3D424C"); bg.addColorStop(1, "#24272E"); ctx.fillStyle = bg; ctx.fill(); }
+  // the light from the sky: coloured rays converging on the sensor, photons running down them
+  const FX = [-70, -35, 0, 35, 70];
+  FX.forEach((x0, i) => {
+    const col = FW_COL[i % 3], P = (u) => [lerp(x0, 0, Math.pow(u, 1.25)), lerp(-170, DIE_Y, u)];
+    ctx.strokeStyle = `rgba(${col},0.32)`; ctx.lineWidth = 2; ctx.beginPath(); for (let j = 0; j <= 12; j++) { const p = P(j / 12); j ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); } ctx.stroke();
+    for (let m = 0; m < 2; m++) { const u = (t * 0.9 + i * 0.21 + m * 0.5) % 1, p = P(u); const pg = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], 7); pg.addColorStop(0, `rgba(${col},0.95)`); pg.addColorStop(1, `rgba(${col},0)`); ctx.fillStyle = pg; ctx.fillRect(p[0] - 7, p[1] - 7, 14, 14); }
+  });
+  // the glass elements, the IR filter
+  lensEl(-128, 150, 10, 13, 6); lensEl(-92, 166, 8, -7, 10); lensEl(-58, 180, 8, -9, -5); gullWing(-20, 196, 9);
+  rr(-96, 16, 192, 7, 2); ctx.fillStyle = "rgba(110,215,225,0.26)"; ctx.fill(); ctx.strokeStyle = "rgba(170,240,245,0.6)"; ctx.lineWidth = 1.2; ctx.stroke();
+  // the image sensor: a package, the die, a few gold bond wires; the light lands on it
+  rr(-94, DIE_Y + 8, 188, 26, 4); const pg2 = ctx.createLinearGradient(0, DIE_Y + 8, 0, DIE_Y + 34); pg2.addColorStop(0, "#30343D"); pg2.addColorStop(1, "#1E2127"); ctx.fillStyle = pg2; ctx.fill(); ctx.strokeStyle = "#454A55"; ctx.lineWidth = 1; ctx.stroke();
+  sensorDie(-62, DIE_Y, 124, 9, t);
+  ctx.strokeStyle = "#C9A24A"; ctx.lineWidth = 1.2;
+  for (const sx of [-1, 1]) for (let j = 0; j < 3; j++) { const x0 = sx * (58 - j * 5), x1 = sx * (80 + j * 4); ctx.beginPath(); ctx.moveTo(x0, DIE_Y + 2); ctx.quadraticCurveTo((x0 + x1) / 2, DIE_Y - 8 - j * 2, x1, DIE_Y + 10); ctx.stroke(); }
+  g = ctx.createRadialGradient(0, DIE_Y, 0, 0, DIE_Y, 22); g.addColorStop(0, `rgba(255,240,210,${0.55 + 0.2 * Math.sin(t * 7)})`); g.addColorStop(1, "rgba(255,240,210,0)"); ctx.fillStyle = g; ctx.fillRect(-22, DIE_Y - 22, 44, 44);
+  ctx.restore();
+  ctx.strokeStyle = C.paper; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.stroke();
+  ctx.restore();
+  return [cx, cy + DIE_Y * k];
+}
+// the image sensor seen from above (the centre of the ring): a package with gold pads, the die, bond wires, a slow sheen
+function sensorIcon(x, y, s, a, t) {
+  if (a <= 0.01) return;
+  ID(); ctx.save(); ctx.globalAlpha = a; ctx.translate(x, y);
+  ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 18; ctx.shadowOffsetY = 6;
+  rr(-s / 2, -s / 2, s, s, s * 0.07); const g = ctx.createLinearGradient(-s / 2, -s / 2, s / 2, s / 2); g.addColorStop(0, "#353943"); g.addColorStop(1, "#1A1D23"); ctx.fillStyle = g; ctx.fill();
+  ctx.shadowColor = "transparent"; ctx.strokeStyle = "rgba(230,235,245,0.45)"; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = "#B8934A";
+  for (let i = 0; i < 6; i++) { const u = -s * 0.36 + i * s * 0.144; ctx.fillRect(u - 2.5, -s / 2 + 5, 5, 7); ctx.fillRect(u - 2.5, s / 2 - 12, 5, 7); ctx.fillRect(-s / 2 + 5, u - 2.5, 7, 5); ctx.fillRect(s / 2 - 12, u - 2.5, 7, 5); }
+  const dw = s * 0.6, dh = s * 0.48;
+  ctx.strokeStyle = "rgba(201,162,74,0.85)"; ctx.lineWidth = 1;
+  for (let i = 0; i < 6; i++) { const u = -s * 0.36 + i * s * 0.144; line(u, -dh / 2, u, -s / 2 + 12); line(u, dh / 2, u, s / 2 - 12); }
+  sensorDie(-dw / 2, -dh / 2, dw, dh, t);
+  rr(-dw / 2 + dw * 0.1, -dh / 2 + dh * 0.12, dw * 0.8, dh * 0.76, 2); ctx.strokeStyle = "rgba(255,255,255,0.16)"; ctx.lineWidth = 1; ctx.stroke();
+  ctx.restore();
+}
+
 // ================================================================ OUTSIDE (light): two hands hold the phone sideways
 const PH = { w: 660, h: 330, r: 54 };
 const SCR = { x: -PH.w / 2 + 14, y: -PH.h / 2 + 14, w: PH.w - 28, h: PH.h - 28, r: PH.r - 14 };
@@ -343,14 +503,16 @@ function phoneOut(t, K, s, o = {}) {
     const ok = s.mode === "photo" && s.openK != null ? s.openK : 1;
     ctx.save();
     if (ok < 1) { setK(K); const x = lerp(THUMB.x, SCR.x, ok), y = lerp(THUMB.y, SCR.y, ok), w = lerp(THUMB.w, SCR.w, ok), h = lerp(THUMB.h, SCR.h, ok); rr(x, y, w, h, lerp(8, SCR.r, ok)); ctx.clip(); }
-    ID(); const p0 = toS(K, [SCR.x, SCR.y]); skyBox(p0[0], p0[1], SCR.w * K.A, SCR.h * K.A, s.ages, { t }); ctx.restore(); setK(K);
+    ID(); const c0 = toS(K, [0, 0]); worldSky(c0[0], c0[1], K.A, s.ages, t); ctx.restore(); setK(K);
     if (s.mode === "vf") {
       // the shutter (under the right thumb) and the last photo
       ctx.strokeStyle = "rgba(255,255,255,0.92)"; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(SHUT[0], SHUT[1], 34, 0, TAU); ctx.stroke();
-      ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.beginPath(); ctx.arc(SHUT[0], SHUT[1], 25, 0, TAU); ctx.fill();
-      if (s.thumbAges) { ID(); const q = toS(K, [THUMB.x + THUMB.w / 2, THUMB.y + THUMB.h / 2]); card(q[0], q[1], THUMB.w * K.A, THUMB.h * K.A, s.thumbAges, { a: s.thumbA ?? 1 }); setK(K); }
+      ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.beginPath(); ctx.arc(SHUT[0], SHUT[1], 25 * (1 - 0.3 * (s.press ?? 0)), 0, TAU); ctx.fill();
+      if (s.ripple > 0) { const k = E.p2out(s.ripple); ctx.strokeStyle = `rgba(255,255,255,${0.9 * (1 - k)})`; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(SHUT[0], SHUT[1], 38 + 70 * k, 0, TAU); ctx.stroke(); }
+      if (s.thumbAges) { ID(); const q = toS(K, [THUMB.x + THUMB.w / 2, THUMB.y + THUMB.h / 2]); card(q[0], q[1], THUMB.w * K.A, THUMB.h * K.A, s.thumbAges, { a: s.thumbA ?? 1, sc: 1 + 0.35 * Math.sin(Math.PI * (s.thumbA ?? 1)) }); setK(K); }
     }
     // the 实况 pill (always on)
+    if (s.liveGlow > 0) { ctx.save(); ctx.shadowColor = "rgba(255,255,255,0.9)"; ctx.shadowBlur = 24 * s.liveGlow; rr(LIVEP.x, LIVEP.y, LIVEP.w, LIVEP.h, 22); ctx.fillStyle = `rgba(255,255,255,${0.35 * s.liveGlow})`; ctx.fill(); ctx.restore(); }
     rr(LIVEP.x, LIVEP.y, LIVEP.w, LIVEP.h, 22); ctx.fillStyle = "rgba(10,12,16,0.55)"; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 2.5; ctx.stroke();
     ctx.font = `700 26px ${UI}`; ctx.fillStyle = "#FFFFFF"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(COPY.live, LIVEP.x + LIVEP.w / 2 + 8, LIVEP.y + LIVEP.h / 2 + 1);
     ctx.beginPath(); ctx.arc(LIVEP.x + 18, LIVEP.y + LIVEP.h / 2, 6, 0, TAU); ctx.fillStyle = "#FFFFFF"; ctx.fill();
@@ -387,20 +549,20 @@ function drawEdit(t, K, s) {
 function handsOut(t, K, a = 1, tapT = null) {
   if (a <= 0.01) return;
   const c = toS(K, [0, 0]), sc = K.A, ex = 230 * sc;
-  const pp = tapT == null ? 0 : Math.sin(Math.PI * prog(t, tapT - 0.1, tapT + 0.14));
+  const pp = tapT == null ? 0 : Math.sin(Math.PI * prog(t, tapT - 0.12, tapT + 0.16));
   drawHand([c[0] - ex, c[1] + 8 * sc / PS], 1.15 * sc, -1, a);
-  drawHand([c[0] + ex - 5 * pp, c[1] + 8 * sc / PS + 6 * pp], 1.15 * sc, 1, a);
+  drawHand([c[0] + ex - 10 * pp, c[1] + 8 * sc / PS + 10 * pp], 1.15 * sc, 1, a);
 }
 // the photo playback: the clip runs from 0.5 s before the burst
 const PLAY = (t, t0) => [-0.5 + (t - t0)];
 // the opening and the closing shots share one timeline: burst at b, the shutter at b + 1
 function screenOut(t, b, tapT, playT) {
   const s = { mode: "vf", ages: [t - b], flash: 0, fly: 0, thumbAges: null };
-  if (t >= tapT) { s.flash = Math.max(0, 1 - (t - tapT) / 0.16) * 0.85; s.thumbAges = [1.0]; s.thumbA = E.p2out(prog(t, tapT + 0.45, tapT + 0.6)); s.fly = prog(t, tapT + 0.1, tapT + 0.5); s.flyAges = [1.0]; }
+  if (t >= tapT) { s.flash = Math.max(0, 1 - (t - tapT) / 0.16) * 0.85; s.thumbAges = [1.0]; s.thumbA = E.p2out(prog(t, tapT + 0.45, tapT + 0.6)); s.fly = prog(t, tapT + 0.1, tapT + 0.5); s.flyAges = [1.0]; s.ripple = t < tapT + 0.5 ? prog(t, tapT, tapT + 0.5) : 0; s.press = Math.sin(Math.PI * prog(t, tapT - 0.05, tapT + 0.2)); }
   if (playT != null && t >= playT) {
     const op = E.p3out(prog(t, playT, playT + 0.3)), age = -0.5 + (t - playT), back = E.p2io(prog(age, 2.0, 2.35));
     s.mode = "photo"; s.ages = back > 0.5 ? [1.0] : [age]; s.flash = 0; s.fly = 0;
-    s.openK = op;
+    s.openK = op; s.liveGlow = 1 - prog(t, playT, playT + 0.9);
     if (Math.abs(playT - T.fin) < 1e-6) s.flash = Math.max(0, 1 - (t - playT) / 0.2) * 0.8;   // the closing line: the screen 咔
   }
   return s;
@@ -436,76 +598,39 @@ function strikeX(t) {                                       // ✕ on 开始录 
 }
 
 // ================================================================ INSIDE (dark): the screen, the lens + chip, the pile, the ring
-// 9.5–16: the screen big in the middle, the lens + chip below it (frames go up into the screen); 16–: the screen steps
-// back to the top left (dimmed), the ring forms round the chip; 20.75–: the screen lights up again, the ring sinks a little
-const L1 = { scr: { cx: 540, cy: 800, w: 600, h: 300 }, lens: { x: 455, y: 1150, r: 56 }, chip: { x: 545, y: 1150, s: 80 } };
-const L2 = { scr: { cx: 200, cy: 625, w: 260, h: 130 } };
+// 9.5–16: the phone stands upright in the middle (x-ray), its camera at the top; a loupe shows the lenses and the sensor;
+// 16–: the phone steps back (dim), the ring forms round the sensor; 20.75–: the phone, small, at the top left (the press)
+const PHI = { cx: 540, cy: 1000, sc: 1.3, ang: Math.PI / 2 };
+const PMINI = { cx: 100, cy: 650, sc: 0.33, ang: Math.PI / 2 };
 const RC1 = { x: 540, y: 1005, r: 360, cw: 150, ch: 85 }, RC2 = { x: 540, y: 1165, r: 240, cw: 104, ch: 58 };   // with the drift, all ≤ y 1450
 function pullK(t) { return E.p3io(prog(t, T.pull, T.pullEnd)); }
 function backK(t) { return E.p3io(prog(t, T.ringForm, T.ringForm + 0.6)); }
-function scrBox(t) { const k = backK(t), a = L1.scr, b = L2.scr; return { cx: lerp(a.cx, b.cx, k), cy: lerp(a.cy, b.cy, k), w: lerp(a.w, b.w, k), h: lerp(a.h, b.h, k) }; }
-function chipAt(t) { const G = ringGeo(t), k = E.p3io(prog(t, T.ringForm, T.ringFormEnd)); return { x: lerp(L1.chip.x, G.x, k), y: lerp(L1.chip.y, G.y, k), sc: lerp(1, 0.8, pullK(t)) }; }
 function ringGeo(t) { const k = pullK(t); return { x: lerp(RC1.x, RC2.x, k), y: lerp(RC1.y, RC2.y, k), r: lerp(RC1.r, RC2.r, k), cw: lerp(RC1.cw, RC2.cw, k), ch: lerp(RC1.ch, RC2.ch, k) }; }
-// the viewfinder panel (inside): the sky live at sky time τ; on (black → sky) at T.vfOn
-function drawPanel(t, box, o = {}) {
-  const { cx, cy, w, h } = box, x = cx - w / 2, y = cy - h / 2;
-  ID(); ctx.save(); ctx.globalAlpha = o.a ?? 1;
-  rr(x - 10, y - 10, w + 20, h + 20, 22); ctx.fillStyle = "#2A2E36"; ctx.fill(); ctx.strokeStyle = "#454A55"; ctx.lineWidth = 3; ctx.stroke();
-  ctx.save(); rr(x, y, w, h, 14); ctx.clip();
-  ctx.fillStyle = C.glass; ctx.fillRect(x, y, w, h);
-  const on = o.on ?? 1;
-  if (on > 0) { ctx.globalAlpha *= on; const sx = 7 * Math.sin(0.9 * t) * (w / 600), sy = 5 * Math.cos(0.7 * t) * (w / 600); skyBox(x - 12 + sx, y - 10 + sy, w + 24, h + 20, agesIn(TL.tau(t)), { t }); }   // a hand-held viewfinder sways a little
-  ctx.restore();
-  // UI: 实况 (top left) and the shutter (right)
-  const s = h / 240;
-  if (on > 0) {
-    ctx.globalAlpha = (o.a ?? 1) * on;
-    const lx = x + 14 * s, ly = y + 12 * s, lw_ = 92 * s, lh = 40 * s;
-    rr(lx, ly, lw_, lh, lh / 2); ctx.fillStyle = "rgba(10,12,16,0.55)"; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 2; ctx.stroke();
-    ctx.font = `700 ${Math.round(24 * s)}px ${UI}`; ctx.fillStyle = "#FFF"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(COPY.live, lx + lw_ / 2 + 7 * s, ly + lh / 2 + 1);
-    ctx.beginPath(); ctx.arc(lx + 16 * s, ly + lh / 2, 5 * s, 0, TAU); ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,0.92)"; ctx.lineWidth = 5 * s; ctx.beginPath(); ctx.arc(x + w - 42 * s, cy, 26 * s, 0, TAU); ctx.stroke();
-    ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.beginPath(); ctx.arc(x + w - 42 * s, cy, 19 * s, 0, TAU); ctx.fill();
-    if (o.liveBox > 0) obox(lx - 8, ly - 8, lw_ + 16, lh + 16, o.liveBox, o.liveBoxA ?? 1, lh / 2 + 6, 5);
-  }
-  ctx.restore();
-  return { shutter: [x + w - 42 * s, cy], live: [x + 14 * s + 46 * s, y + 32 * s] };
-}
-function drawLensChip(t, a, hl, at = null) {
-  if (a <= 0.01) return;
-  const c = at ?? { x: L1.chip.x, y: L1.chip.y, sc: 1 };
-  ID(); ctx.save(); ctx.globalAlpha = a; ctx.translate(c.x, c.y); ctx.scale(c.sc, c.sc); ctx.translate(-L1.chip.x, -L1.chip.y);
-  const { lens, chip } = L1;
-  // the light from the sky comes in from the left through the lens onto the chip (fades once the ring is round it)
-  const beam = 1 - E.p2io(prog(t, T.ringForm, T.ringForm + 0.5));
-  if (beam > 0.01) {
-    const g0 = ctx.createLinearGradient(lens.x - 260, 0, lens.x, 0); g0.addColorStop(0, "rgba(243,208,74,0)"); g0.addColorStop(1, `rgba(243,208,74,${0.18 * beam})`);
-    ctx.fillStyle = g0; ctx.beginPath(); ctx.moveTo(lens.x - 260, lens.y - 70); ctx.lineTo(lens.x, lens.y - lens.r * 0.8); ctx.lineTo(chip.x - chip.s / 2, lens.y - 22); ctx.lineTo(chip.x - chip.s / 2, lens.y + 22); ctx.lineTo(lens.x, lens.y + lens.r * 0.8); ctx.lineTo(lens.x - 260, lens.y + 70); ctx.closePath(); ctx.fill();
-  }
-  ctx.beginPath(); ctx.ellipse(lens.x, lens.y, lens.r * 0.42, lens.r, 0, 0, TAU);
-  const g = ctx.createLinearGradient(lens.x - 24, 0, lens.x + 24, 0); g.addColorStop(0, "#5E7088"); g.addColorStop(0.5, "#9FB3C8"); g.addColorStop(1, "#4A5A70");
-  ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = "#C9D3DE"; ctx.lineWidth = 2.5; ctx.stroke();
-  const s = chip.s, x = chip.x - s / 2, y = chip.y - s / 2;
-  rr(x - 10, y - 10, s + 20, s + 20, 8); ctx.fillStyle = "#2B3038"; ctx.fill();
-  rr(x, y, s, s, 6); const g2 = ctx.createLinearGradient(x, y, x + s, y + s); g2.addColorStop(0, "#4A5160"); g2.addColorStop(0.5, "#6B7486"); g2.addColorStop(1, "#3C4250"); ctx.fillStyle = g2; ctx.fill();
-  const lit = hl ?? 0; if (lit > 0) { ctx.fillStyle = `rgba(243,208,74,${0.22 * lit * (0.75 + 0.25 * Math.sin(t * 6))})`; ctx.fill(); }
-  ctx.restore();
-}
+function phoneInP(t) { const k = pullK(t); return { cx: lerp(PHI.cx, PMINI.cx, k), cy: lerp(PHI.cy, PMINI.cy, k), sc: lerp(PHI.sc, PMINI.sc, k), ang: Math.PI / 2 }; }
+function loupeK(t) { return t < T.chipOn ? 0 : E.p3out(prog(t, T.chipOn + 0.15, T.chipOn + 0.7)); }
+function loupeA(t) { return 1 - E.p2io(prog(t, T.ringForm, T.ringForm + 0.45)); }
+const DIE_AT = [LOUPE.x, LOUPE.y + DIE_Y];
+function chipAt(t) { const G = ringGeo(t), k = E.p3io(prog(t, T.ringForm, T.ringFormEnd)); return { x: lerp(DIE_AT[0], G.x, k), y: lerp(DIE_AT[1], G.y, k), sc: lerp(0.5, 1, k) * lerp(1, 0.8, pullK(t)) }; }
 // the frames the chip sends out: one every ¼ s (sky time), flying to the viewfinder; during the pile also down onto it
 const FLOW_RATE = 4;
+// from the sensor (in the loupe) to the screen
+const FLOW = { a: [LOUPE.x - 118, LOUPE.y + 112], c: [770, 985], b: [655, 1010] };
+function flowPt(u) { const { a, b, c } = FLOW; return [(1 - u) * (1 - u) * a[0] + 2 * (1 - u) * u * c[0] + u * u * b[0], (1 - u) * (1 - u) * a[1] + 2 * (1 - u) * u * c[1] + u * u * b[1]]; }
 function flowCards(t) {
   if (t < T.flow || t > T.ringForm + 0.4) return;
-  const a = 1 - prog(t, T.ringForm, T.ringForm + 0.4), from = [L1.chip.x, L1.chip.y - L1.chip.s / 2 - 14], to = [L1.chip.x, L1.scr.cy + L1.scr.h / 2 + 12];
-  ID(); ctx.save(); ctx.globalAlpha = a * E.p3out(prog(t, T.flow, T.flow + 0.3)); ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.lineCap = "round"; line(from[0] + 70, from[1], to[0] + 70, to[1] + 16);
-  ctx.fillStyle = C.acc; ctx.beginPath(); ctx.moveTo(to[0] + 70, to[1] + 2); ctx.lineTo(to[0] + 58, to[1] + 22); ctx.lineTo(to[0] + 82, to[1] + 22); ctx.closePath(); ctx.fill(); ctx.restore();
-  const n0 = Math.ceil((T.flow - 0.45) * FLOW_RATE), n1 = Math.floor(t * FLOW_RATE);
+  const a = 1 - prog(t, T.ringForm, T.ringForm + 0.4);
+  ID(); ctx.save(); ctx.globalAlpha = a * E.p3out(prog(t, T.flow, T.flow + 0.3)); ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.lineCap = "round";
+  ctx.beginPath(); for (let j = 0; j <= 20; j++) { const p = flowPt((j / 20) * 0.93); j ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); } ctx.stroke();
+  const p1 = flowPt(0.9), p2 = flowPt(1.0); ctx.translate(p2[0], p2[1]); ctx.rotate(Math.atan2(p2[1] - p1[1], p2[0] - p1[0]));
+  ctx.fillStyle = C.acc; ctx.beginPath(); ctx.moveTo(4, 0); ctx.lineTo(-20, -13); ctx.lineTo(-20, 13); ctx.closePath(); ctx.fill(); ctx.restore();
+  const n0 = Math.ceil((T.flow - 0.55) * FLOW_RATE), n1 = Math.floor(t * FLOW_RATE);
   for (let n = n0; n <= n1; n++) {
-    const tb = n / FLOW_RATE, u = (t - tb) / 0.45; if (u < 0 || u > 1) continue;
-    const k = E.p2io(u); card(from[0], lerp(from[1], to[1], k), 64, 36, agesIn(TL.tau(tb)), { a: a * (1 - E.p3in(prog(u, 0.75, 1))), t: tb });
+    const tb = n / FLOW_RATE, u = (t - tb) / 0.55; if (u < 0 || u > 1) continue;
+    const q = flowPt(E.p2io(u)); card(q[0], q[1], 84, 47, agesIn(TL.tau(tb)), { a: a * (1 - E.p3in(prog(u, 0.75, 1))), t: tb });
   }
 }
 // the pile: from T.pile, every frame also drops a copy beside the path; it grows towards the top
-const PILE = { x: 880, base: 1420, dy: 11, rate: 18, max: 40 };
+const PILE = { x: 905, base: 1420, dy: 11, rate: 18, max: 40 };
 function pileCount(t) { return Math.min(PILE.max, Math.floor(Math.max(0, t - T.pile) * PILE.rate)); }
 function pileCardTau(i) { return T.pile + i / PILE.rate; }
 function pileXY(i) { const r = hash(i * 3.1 + 1); return [PILE.x + (r - 0.5) * 14, PILE.base - PILE.dy * i - RC1.ch / 2]; }
@@ -527,9 +652,11 @@ function drawPile(t) {
   }
 }
 // the ring: slot s sits at angle −90° + (f − s)·30° (clockwise); the head (where frames are written) is at the top
+const TRACK = { s: 4, n: 4, t: 19.0 };   // slot 4 holds a bright burst (from the pile); it is overwritten at t = 19.0 (f = 4)
 function slotPos(t, s, G, f) { const th = (-90 + (f - s) * 30) * RAD; return [G.x + Math.cos(th) * G.r, G.y + Math.sin(th) * G.r]; }
 function slotN(f, s) { const fl = Math.floor(f + 1e-6); return fl - (((fl - s) % 12) + 12) % 12; }
-const nTau = (n) => TL.RING.t0 + n * TL.RING.dt;
+const PILE_N0 = 36;   // pileCount(T.ringForm): the pile's top 12 become slots 0–11 (write indices −12…−1)
+const nTau = (n) => (n >= 0 ? TL.RING.t0 + n * TL.RING.dt : T.pile + (PILE_N0 + n) / PILE.rate);
 function drawRing(t, o = {}) {
   if (t < T.ringFormEnd - 1e-6) return;
   const G = ringGeo(t), f = TL.ringF(t), a = o.a ?? 1;
@@ -540,6 +667,13 @@ function drawRing(t, o = {}) {
     const n = slotN(f, s), e = f - n, p = slotPos(t, s, G, f);
     const hl = o.hlSet && o.hlSet.has(n) ? o.hlA ?? 1 : 0;
     card(p[0], p[1], G.cw, G.ch, agesIn(nTau(n)), { a, t: nTau(n), hl: hl > 0.01, hlw: 5 });
+    const trk = s === TRACK.s;
+    if (trk && t >= T.a6 && n < TRACK.n && t < TRACK.t) card(p[0], p[1], G.cw, G.ch, agesIn(nTau(n)), { a, t: nTau(n), hl: true, hlw: 7 });   // the one we follow
+    if (trk && n === TRACK.n && t >= TRACK.t && t < TRACK.t + 0.8) {          // it reaches the head: pushed out, it greys and goes
+      const k = prog(t, TRACK.t, TRACK.t + 0.8), th = (-90 + (f - s) * 30) * RAD, out = 110 * E.p2out(k);
+      card(p[0] + Math.cos(th) * out, p[1] + Math.sin(th) * out, G.cw, G.ch, agesIn(nTau(n - 12)), { a: a * (1 - E.p2in(k)), sc: 1 - 0.15 * k, grey: 0.75 * k, t: nTau(n - 12), hl: k < 0.85, hlw: 7 });
+      continue;
+    }
     if (e < 0.5 && t >= T.write0) {                                        // the old frame greys and crumbles away
       const k = e / 0.5;
       card(p[0], p[1] - 4 * k, G.cw, G.ch, agesIn(nTau(n - 12)), { a: a * (1 - k), sc: 1 - 0.25 * k, grey: 0.6, t: nTau(n - 12) });
@@ -558,7 +692,7 @@ function drawRing(t, o = {}) {
   }
 }
 // the press: the strip of kept frames (6 before, the sharp one, 6 after)
-const ST = { y: 790, cw: 120, ch: 68, dx: 128 };
+const ST = { y: 800, cw: 120, ch: 68, dx: 128 };
 const stripX = (side, j) => (side < 0 ? 540 - 176 - (2 - j) * ST.dx : 540 + 176 + j * ST.dx);
 function drawStrip(t) {
   if (t < T.a7 || t >= T.q10 + 0.6) return;
@@ -592,26 +726,24 @@ function drawStrip(t) {
 function drawInside(t) {
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = C.dark; ctx.fillRect(0, 0, W, H);   // the ground ignores the drift (no edges)
   const dimAll = E.p2io(prog(t, T.collapse, T.collapse + 0.4)) * (1 - prog(t, T.q10, T.q10 + 0.3));
-  const vfOn = t < T.vfOn ? 0 : E.p2io(prog(t, T.vfOn, T.vfOn + 0.3));
-  const focus = t >= T.vfOn && t < T.chipOn;                               // 9.5–11.25: only the screen is lit
-  const box = scrBox(t), stepBack = backK(t) * (1 - pullK(t));
+  const P = phoneInP(t), pk = pullK(t), stepBack = backK(t) * (1 - pk);
+  const focus = t < T.chipOn;                                              // 9.5–11.25: the screen lit, the camera dim
   const lb = t >= T.liveBox && t < T.liveBox + 1.6 ? E.p3out(prog(t, T.liveBox, T.liveBox + 0.25)) : 0;
-  const pnl = drawPanel(t, box, { on: vfOn, a: (1 - stepBack) * (1 - 0.7 * dimAll), liveBox: lb, liveBoxA: 1 - prog(t, T.liveBox + 1.3, T.liveBox + 1.6) });
-  const c = t >= T.ringForm ? chipAt(t) : null;
-  drawLensChip(t, (focus ? 0.3 : 1) * (1 - 0.7 * dimAll), t >= T.chipOn ? E.p3out(prog(t, T.chipOn, T.chipOn + 0.3)) * (1 - prog(t, T.ringForm, T.ringForm + 0.4)) : 0, c);
-  if (t >= T.chipOn && t < T.ringForm + 0.3) {
-    const ch = L1.chip, kk = E.p3out(prog(t, T.chipOn, T.chipOn + 0.3)), ka = 1 - prog(t, T.ringForm, T.ringForm + 0.3);
-    obox(ch.x - ch.s / 2 - 22, ch.y - ch.s / 2 - 22, ch.s + 44, ch.s + 44, kk, ka, 12, 5);
-  }
+  const info = phoneAny(t, P, { xray: 1 - pk, ages: agesIn(TL.tau(t)), uiP: 1, modA: focus ? 0.35 : 1, a: (1 - stepBack) * (1 - 0.7 * dimAll), liveBox: lb, liveBoxA: 1 - prog(t, T.liveBox + 1.3, T.liveBox + 1.6) });
+  // the main lens lit (an orange ring), the loupe opening out of it
+  const la = loupeA(t);
+  if (t >= T.chipOn && la > 0.01) oring(info.lens[0], info.lens[1], 24 * P.sc + 12, E.p3out(prog(t, T.chipOn, T.chipOn + 0.3)), la, 5);
+  drawLoupe(t, loupeK(t), la, info.lens);
   flowCards(t);
   drawPile(t);
+  if (t >= T.ringForm) { const c = chipAt(t); sensorIcon(c.x, c.y, 118 * c.sc, E.p2io(prog(t, T.ringForm, T.ringForm + 0.3)) * (1 - 0.7 * dimAll), t); }
   const hlSet = t >= T.a7 && t < T.collapse ? new Set(TL.BEFORE) : null;
   drawRing(t, { a: 1 - 0.8 * dimAll, hlSet, hlA: 1 });
   drawStrip(t);
   // the tap and its pulse to the ring's head
   if (t >= T.tap - 0.05 && t < T.tap + 0.9) {
-    const sp = pnl.shutter, G = ringGeo(t), hd = [G.x, G.y - G.r - G.ch / 2 - 30], u = E.p2io(prog(t, T.tap + 0.05, T.tap + 0.55));
-    ID(); ctx.save(); const rk = prog(t, T.tap, T.tap + 0.4); ctx.globalAlpha = 1 - rk; ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(sp[0], sp[1], 18 + 40 * rk, 0, TAU); ctx.stroke(); ctx.restore();
+    const sp = info.shutter, G = ringGeo(t), hd = [G.x, G.y - G.r - G.ch / 2 - 30], u = E.p2io(prog(t, T.tap + 0.05, T.tap + 0.55));
+    ID(); ctx.save(); const rk = prog(t, T.tap, T.tap + 0.4); ctx.globalAlpha = 1 - rk; ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(sp[0], sp[1], 14 + 40 * rk, 0, TAU); ctx.stroke(); ctx.restore();
     if (u > 0 && u < 1) { ID(); ctx.save(); ctx.globalAlpha = 1 - E.p3in(prog(t, T.tap + 0.55, T.tap + 0.85)); ctx.strokeStyle = rgba(C.acc, 0.6); ctx.lineWidth = 3; ctx.setLineDash([8, 10]); line(sp[0], sp[1], hd[0], hd[1]); ctx.setLineDash([]);
       const q = [lerp(sp[0], hd[0], u), lerp(sp[1], hd[1], u)]; ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(q[0], q[1], 12, 0, TAU); ctx.fill(); ctx.restore(); }
   }
@@ -619,56 +751,47 @@ function drawInside(t) {
 // the labels of the inside world (small text, ≤ 2 at a time)
 function insideLabels(t) {
   const G = ringGeo(t);
-  label(COPY.chip, L1.chip.x, L1.chip.y + 118, 44, C.paper, t, T.chipOn + 0.1, T.q5, { align: "center" });
-  label(COPY.fps, L1.chip.x + 110, 1062, 44, C.paper, t, T.flow + 0.2, T.q5);
-  label(COPY.ring, G.x, G.y + 140, 44, C.paper, t, T.ringFormEnd - 0.2, T.a6, { align: "center" });
-  label(COPY.term, G.x, G.y + 140, 44, C.paper, t, T.a6 + 0.1, T.q7, { align: "center" });
-  label(COPY.slow, G.x, G.y + 112, 44, C.paper, t, T.tap + 0.3, T.collapse, { align: "center" });
+  if (t >= T.chipOn + 0.5 && t < T.q5) leader(LOUPE.x, LOUPE.y + LOUPE.r + 10, LOUPE.x, DIE_AT[1] + 14, C.paper, E.p3out(prog(t, T.chipOn + 0.5, T.chipOn + 0.8)), 2.5);
+  label(COPY.chip, LOUPE.x, LOUPE.y + LOUPE.r + 62, 44, C.paper, t, T.chipOn + 0.5, T.q5, { align: "center" });
+  label(COPY.fps, 770, 1108, 44, C.paper, t, T.flow + 0.2, T.q5);
+  label(COPY.ring, G.x, G.y + 118, 44, C.paper, t, T.ringFormEnd - 0.2, T.a6, { align: "center" });
+  label(COPY.term, G.x, G.y + 118, 44, C.paper, t, T.a6 + 0.1, T.q7, { align: "center" });
+  label(COPY.slow, G.x, G.y + 104, 44, C.paper, t, T.tap + 0.3, T.collapse, { align: "center" });
   if (t >= T.ringForm && t < T.ringFormEnd + 0.6) oring(G.x, G.y, G.r + G.ch * 0.5 + 10, E.p3out(prog(t, T.ringForm + 0.2, T.ringFormEnd)), 1 - prog(t, T.ringFormEnd + 0.3, T.ringFormEnd + 0.6), 5);
   label(COPY.pre, (stripX(-1, 0) + stripX(-1, 2)) / 2, ST.y + 86, 44, C.paper, t, T.copyB, T.collapse, { align: "center" });
   label(COPY.post, (stripX(1, 0) + stripX(1, 2)) / 2, ST.y + 86, 44, C.paper, t, T.copyA, T.collapse, { align: "center" });
   if (t >= T.collapseEnd && t < T.q10) pill(COPY.names, 540, 1140, 44, t, T.collapseEnd + 0.1, T.q10, { align: "center" });
 }
 
-// ================================================================ the dive: the phone opens up into the inside view
-const DIVE_C = () => [0, 0];
-function diveCam(t) { return outK(t, 1 + 0.22 * E.p2io(prog(t, T.dive, T.darkB))); }
-function darkR(t) { return 2500 * E.sine(prog(t, T.darkA - 0.1, T.darkB + 0.3)); }
-function morphK(t) { return E.p3io(prog(t, T.lay, T.diveEnd - 0.1)); }
-function drawDive(t) {
-  const K = diveCam(t), R = darkR(t), cm = toS(K, CAMM), mk = morphK(t);
-  // light ground and the phone with hands (fading), then the dark opening from the camera module
-  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = C.ground; ctx.fillRect(0, 0, W, H);
-  const xr = E.p2io(prog(t, T.xray, T.xray + 0.6));
-  const scrFade = 1 - E.p2io(prog(t, T.dive + 0.3, T.lay));
-  if (R < 2400) {
-    phoneOut(t, K, { mode: "photo", ages: [1.0] }, { bodyA: 1 - 0.65 * xr, scrA: scrFade });
-    handsOut(t, K, 1 - E.p2io(prog(t, T.dive, T.dive + 0.5)));
-    if (xr > 0) { drawModuleXray(K, xr); }
-  }
-  if (t >= T.darkB + 0.3) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = C.dark; ctx.fillRect(0, 0, W, H); }   // fully dark: no edges under the drift
-  else if (R > 0) {
-    ctx.save(); ID(); const g = ctx.createRadialGradient(cm[0], cm[1], Math.max(0, R - 60), cm[0], cm[1], R);
-    g.addColorStop(0, rgba(C.dark, 1)); g.addColorStop(1, rgba(C.dark, 0)); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore();
-  }
-  // the parts move to the inside layout: the screen to the right, the lens + chip to the left
-  if (t >= T.darkA) {
-    const a = E.p2io(prog(t, T.darkA, T.darkA + 0.5));
-    const sc0 = toS(K, [SCR.x + SCR.w / 2, SCR.y + SCR.h / 2]), b = L1.scr;
-    const box = { cx: lerp(sc0[0], b.cx, mk), cy: lerp(sc0[1], b.cy, mk), w: lerp(SCR.w * K.A, b.w, mk), h: lerp(SCR.h * K.A, b.h, mk) };
-    drawPanel(t, box, { on: 0, a: a * E.p2io(prog(t, T.lay - 0.4, T.lay + 0.3)) });
-    // lens + chip grow out of the module
-    ID(); ctx.save(); ctx.globalAlpha = a;
-    ctx.restore();
-    drawLensChip(t, a, 0, { x: lerp(cm[0], L1.chip.x, mk), y: lerp(cm[1], L1.chip.y, mk), sc: lerp(0.35 * K.A, 1, mk) });
-  }
+// ================================================================ the dive (one take): the hands let go, the phone turns upright and comes
+// to the middle while the camera pushes in; the body turns x-ray (the camera module shows at the top); the dark spreads out
+// from the phone and fills the frame. The screen keeps showing the sky (the firework stays in view). User 11-23:
+// 「8s的进入要一镜到底的感觉；进去的时候手机最好立起来，这样看着最自然」
+function diveP(t) {
+  const K0 = outK(t), c0 = toS(K0, [0, 0]);
+  const u = E.p3io(prog(t, T.dive, T.dive + 1.0)), z = E.p2io(prog(t, T.dive, T.diveEnd));
+  return { cx: lerp(c0[0], PHI.cx, u), cy: lerp(c0[1], PHI.cy, u), sc: lerp(K0.A, PHI.sc, z), ang: u * Math.PI / 2 };
 }
-function drawModuleXray(K, a) {
-  setK(K); ctx.save(); ctx.globalAlpha = a;
-  rr(CAMM[0] - 58, CAMM[1] - 40, 116, 80, 20); ctx.strokeStyle = "rgba(200,205,214,0.9)"; ctx.lineWidth = 3 / K.A; ctx.setLineDash([8 / K.A, 6 / K.A]); ctx.stroke(); ctx.setLineDash([]);
-  ctx.beginPath(); ctx.arc(CAMM[0] - 20, CAMM[1], 22, 0, TAU); ctx.fillStyle = "#3C4658"; ctx.fill(); ctx.strokeStyle = "#AEB8C6"; ctx.lineWidth = 3 / K.A; ctx.stroke();
-  rr(CAMM[0] + 14, CAMM[1] - 16, 32, 32, 5); ctx.fillStyle = "#5A6272"; ctx.fill();
-  ctx.restore();
+const DARK_END = 8.7;
+function darkE(t) { return 1500 * E.sine(prog(t, 7.4, DARK_END)); }
+function phoneHalf(P) { const ac = Math.abs(Math.cos(P.ang)), as = Math.abs(Math.sin(P.ang)); return [(330 * ac + 165 * as) * P.sc, (165 * ac + 330 * as) * P.sc]; }
+function handsRelease(t, K, k) {                                  // the hands let go and move out sideways
+  const c = toS(K, [0, 0]), sc = K.A, ex = 230 * sc, dx = 320 * k;
+  drawHand([c[0] - ex - dx, c[1] + 8 * sc / PS], 1.15 * sc, -1, 1 - k);
+  drawHand([c[0] + ex + dx, c[1] + 8 * sc / PS], 1.15 * sc, 1, 1 - k);
+}
+function drawDive(t) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = C.ground; ctx.fillRect(0, 0, W, H);
+  const P = diveP(t), xr = E.p2io(prog(t, 7.3, 8.2)), e = darkE(t);
+  if (t >= DARK_END) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = C.dark; ctx.fillRect(0, 0, W, H); }
+  else if (e > 0) {
+    const [hw, hh] = phoneHalf(P);
+    ID(); ctx.save(); ctx.shadowColor = C.dark; ctx.shadowBlur = 90; ctx.fillStyle = C.dark;
+    rr(P.cx - hw - e, P.cy - hh - e, 2 * (hw + e), 2 * (hh + e), 54 * P.sc + e); ctx.fill(); ctx.restore();
+  }
+  phoneAny(t, P, { xray: xr, ages: agesIn(TL.tau(t)), uiL: 1 - prog(t, T.dive, T.dive + 0.35), uiP: prog(t, T.dive + 0.85, T.dive + 1.25), modA: 1 });
+  const rel = E.p2io(prog(t, T.dive, T.dive + 0.6));
+  if (rel < 1) handsRelease(t, outK(t), rel);
 }
 
 // ================================================================ the closing shot: a window into the phone shows the ring
@@ -678,20 +801,27 @@ function drawXrayRing(t, K, a) {
   ID(); ctx.save(); ctx.globalAlpha = a;
   ctx.beginPath(); ctx.arc(c[0], c[1], R, 0, TAU); ctx.fillStyle = C.dark; ctx.fill(); ctx.strokeStyle = C.paper; ctx.lineWidth = 5; ctx.stroke(); ctx.clip();
   // 8 slots of ½ s, the head at the top; once the shutter is pressed the three that hold the burst are kept (orange)
-  const t0 = T.q10 - 4, f = (t - t0) * 2, G = { x: c[0], y: c[1], r: R * 0.64 };
+  const t0 = T.q10 - 4, f = (t - t0) * 2, G = { x: c[0], y: c[1], r: R * 0.64 }; let popAt = null;
   for (let s = 0; s < 8; s++) {
     const fl = Math.floor(f + 1e-6), n = fl - (((fl - s) % 8) + 8) % 8, th = (-90 + (f - s) * 45) * RAD, p = [G.x + Math.cos(th) * G.r, G.y + Math.sin(th) * G.r];
     const tw = t0 + n / 2, age = tw - TL.BURST_OUT[1];
     const kept = t >= T.tapC && tw >= T.tapC - 1.5 && tw < T.tapC;
     card(p[0], p[1], 68, 39, [age], { t: tw, hl: kept, hlw: 5 });
+    if (kept && Math.abs(tw - (T.tapC - 0.75)) < 0.01) popAt = { p, age, tw };
   }
   ctx.restore();
+  // the burst frame we kept pops out of the window: the same burst you saw in the opening
+  if (popAt && t >= T.tapC + 0.25) {
+    const k = E.p3out(prog(t, T.tapC + 0.25, T.tapC + 0.75)), to = [c[0] + R + 150, c[1] - 60];
+    ID(); ctx.save(); ctx.globalAlpha = a; card(lerp(popAt.p[0], to[0], k), lerp(popAt.p[1], to[1], k), lerp(68, 230, k), lerp(39, 130, k), [popAt.age], { t: popAt.tw, crisp: 1 }); ctx.restore();
+  }
 }
 
 // ================================================================ light/dark: the caption band follows the picture
 function darkAt(t) {
   if (t < T.darkA) return 0;
-  if (t < T.diveEnd) { const R = darkR(t); return E.smooth(prog(R, 600, 1200)); }   // as the dark reaches the captions
+  if (t < DARK_END) { const e = darkE(t); if (e <= 0) return 0; const P = diveP(t), top = P.cy - phoneHalf(P)[1] - e; return E.smooth(prog(560 - top, 40, 620)); }   // as the dark reaches the captions
+  if (t < T.diveEnd) return 1;
   if (t < T.iris) return 1;
   return 0;
 }
@@ -754,7 +884,8 @@ function drawOutside(t, o = {}) {
   ID(); ctx.fillStyle = o.ground ?? groundCol(t); ctx.fillRect(0, 0, W, H);
   const closing = t >= T.iris;
   const tipK = closing ? E.p2io(prog(t, T.tipIn, T.tipInEnd)) : 0;
-  const K = outK(t, (1 + 0.12 * tipK) * (1 + 0.07 * prog(t, T.tipInEnd, T.end)), [540, lerp(890, 830, tipK)]);
+  const pb = closing ? 0 : E.p2io(prog(t, T.open0, T.open0 + 0.6)) * (1 - E.p2io(prog(t, T.q2, T.q2 + 0.5)));   // the photo plays: push a little towards it
+  const K = outK(t, (1 + 0.12 * tipK) * (1 + 0.07 * prog(t, T.tipInEnd, T.end)) * (1 + 0.06 * pb), [540, lerp(890, 830, tipK) - 22 * pb]);
   let s;
   if (!closing) s = screenOut(t, TL.BURST_OUT[0], T.tap0, T.open0);
   else if (t < T.tip) s = screenOut(t, TL.BURST_OUT[1], T.tapC, T.fin);

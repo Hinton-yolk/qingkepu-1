@@ -210,9 +210,9 @@ softImpact(T.a2, 0.6); for (let i = 0; i < 6; i++) tick(T.stripL + i * 0.12, 0.3
 // 3 the dive
 riser(T.q3 + 0.25, T.diveEnd - T.q3 - 0.25, 0.7); glide(T.xray, 0.5, 70, 79, 0.4, 0.1); glide(T.lay, 1.2, 72, 87, 0.45, -0.1);
 // 4 the viewfinder on; its burst; the chip; the pile; the ring
-glide(T.vfOn, 0.3, 75, 82, 0.35, 0.2); boom(10.0, 0.4);
+glide(T.vfOn, 0.3, 75, 82, 0.35, 0.2); boom(7.5, 0.3); boom(10.0, 0.4);
 blip(T.chipOn, 84, 0.5, -0.3); blip(T.chipOn + 0.08, 87, 0.4, -0.3);
-boom(12.25, 0.3); boom(14.5, 0.3); boom(16.5, 0.25); riser(T.pile, T.pileEnd - T.pile, 0.45);
+boom(12.75, 0.3); boom(15.5, 0.3); riser(T.pile, T.pileEnd - T.pile, 0.45);
 glide(T.ringForm, 0.9, 82, 75, 0.4, 0); bloom(T.ringFormEnd, [75, 80, 84], 0.45); boom(18.0, 0.28);
 creak(T.a6 + 0.25, 0.5);
 // 5 the press: the shutter; each copy a rising tick; 实况 boxed; the sharp photo
