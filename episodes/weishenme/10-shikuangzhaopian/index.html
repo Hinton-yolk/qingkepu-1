@@ -633,7 +633,7 @@ function insideLabels(t) {
 // ================================================================ the dive: the phone opens up into the inside view
 const DIVE_C = () => [0, 0];
 function diveCam(t) { return outK(t, 1 + 0.22 * E.p2io(prog(t, T.dive, T.darkB))); }
-function darkR(t) { return 2500 * E.p2io(prog(t, T.darkA, T.darkB)); }
+function darkR(t) { return 2500 * E.sine(prog(t, T.darkA - 0.1, T.darkB + 0.3)); }
 function morphK(t) { return E.p3io(prog(t, T.lay, T.diveEnd - 0.1)); }
 function drawDive(t) {
   const K = diveCam(t), R = darkR(t), cm = toS(K, CAMM), mk = morphK(t);
@@ -646,7 +646,7 @@ function drawDive(t) {
     handsOut(t, K, 1 - E.p2io(prog(t, T.dive, T.dive + 0.5)));
     if (xr > 0) { drawModuleXray(K, xr); }
   }
-  if (t >= T.darkB) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = C.dark; ctx.fillRect(0, 0, W, H); }   // fully dark: no edges under the drift
+  if (t >= T.darkB + 0.3) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = C.dark; ctx.fillRect(0, 0, W, H); }   // fully dark: no edges under the drift
   else if (R > 0) {
     ctx.save(); ID(); const g = ctx.createRadialGradient(cm[0], cm[1], Math.max(0, R - 60), cm[0], cm[1], R);
     g.addColorStop(0, rgba(C.dark, 1)); g.addColorStop(1, rgba(C.dark, 0)); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore();
@@ -691,7 +691,7 @@ function drawXrayRing(t, K, a) {
 // ================================================================ light/dark: the caption band follows the picture
 function darkAt(t) {
   if (t < T.darkA) return 0;
-  if (t < T.diveEnd) { const R = darkR(t); return E.smooth(prog(R, 1250, 1550)); }
+  if (t < T.diveEnd) { const R = darkR(t); return E.smooth(prog(R, 600, 1200)); }   // as the dark reaches the captions
   if (t < T.iris) return 1;
   return 0;
 }
@@ -788,7 +788,8 @@ function overlay(t) {
     ctx.save(); let P = new Path2D(); P.rect(0, 0, W, H); P.arc(IRC[0], IRC[1], R, 0, TAU); ID(); ctx.clip(P, "evenodd"); scrimOf(1); textBand(t, 1); ctx.restore();
     ctx.save(); P = new Path2D(); P.arc(IRC[0], IRC[1], R, 0, TAU); ID(); ctx.clip(P); scrimOf(0); textBand(t, 0); ctx.restore();
     fl = -1;
-  } else scrimOf(fl, t >= T.end ? 1 - prog(t, T.end, T.end + 0.3) : 1, groundRGB(t));
+  } else if (fl > 0 && fl < 1) scrimOf(fl, Math.abs(2 * fl - 1));   // the dive: the light scrim fades as the dark opens, then the dark one comes in (no one-frame jump)
+  else scrimOf(fl, t >= T.end ? 1 - prog(t, T.end, T.end + 0.3) : 1, groundRGB(t));
   if (fl >= 0) textBand(t, fl);
   strikeX(t);
   if (t >= T.diveEnd && t < T.iris) { BASE = insideBase(t); insideLabels(t); BASE = [1, 0, 0]; }
