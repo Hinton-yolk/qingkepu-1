@@ -19,4 +19,5 @@ episodes/*/*/voice/samples*/*.mp3
 episodes/*/*/film/blender/stills/
 episodes/*/*/cover/cover-*.html
 episodes/*/*/film/blender/seg/
+episodes/*/*/film/blender/seg_v5/
 episodes/*/*/film/blender/hyb/
