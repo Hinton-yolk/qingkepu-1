@@ -1,4 +1,4 @@
-# EP.10 实况照片 · FACTS（逐句脚本 v2，2026-11-23；节点 ① 审核后更新）
+# EP.10 实况照片 · FACTS（逐句脚本 v2.1，2026-11-23；节点 ① 审核通过）
 
 来源等级：〔厂〕厂商资料；〔研〕厂商研究团队 / 论文；〔媒〕科技媒体；〔论〕论坛、用户实测；〔估〕自己的估算（写明假设）；〔待〕还没找到可靠来源。
 核对状态：**原文** = 主 agent 或审核读到了原页面；**摘要** = 只读到搜索摘要。11-23 用户放行 support.apple.com、research.google 后，主 agent 读了 #1、#4、#7、#9、#11 的原文。
@@ -12,7 +12,7 @@
 | 5 | （v2 已从片中删掉，备选才用）不开实况，不少手机也从这一圈里拿，所以快门不慢 | HDR+ with Bracketing 原文：「With ZSL, the frames displayed in the viewfinder before the shutter press are the frames we use for HDR+ burst merging」。Android CameraX ZSL（原文，审核读）：实验性，开发者手动开启，环形缓冲区只存最近 3 帧，闪光开或自动、录像、扩展模式下不可用。iPhone：WWDC23 session 10105、AVCapturePhotoOutput.isZeroShutterLagEnabled（摘要）。夜里不成立：#4（Pixel 夜景按下才拍）、#11（iPhone 夜景关掉实况） | 〔研〕Google Research「HDR+ with Bracketing on Pixel Phones」(2021) https://research.google/blog/hdr-with-bracketing-on-pixel-phones/ ；〔厂〕https://developer.android.com/media/camera/camerax/take-photo/zsl | Google 原文；苹果摘要 |
 | 6 | 小字「叫法、时长各家不同」 | 三星「动态照片」（Motion photo）：快门前录几秒，可选「快门前后 / 仅快门前」；OPPO（ColorOS 15）、小米、荣耀官方用「实况照片」（审核查到 IT之家等）；小米相册分类叫「动态照片」；时长各家说法不一。「安卓多叫动态照片」不成立，v2 已删 | 〔厂〕Samsung 支持「Capture group shots with Motion photos」；〔媒〕IT之家（审核转述） | 摘要 |
 | 7 | 小提示：点编辑，换一帧当封面 | 苹果中文原文：「你可以选择不同的封面照片」「松开手指，然后轻点“设为封面照片”」；中文使用手册：「设定封面照片：……轻点“设为封面照片”」。英文：「…then tap Make Key Photo.」 | 〔厂〕https://support.apple.com/zh-cn/104966 ；中文使用手册 https://support.apple.com/zh-cn/guide/iphone/iphd8dbb3291/ios （审核读原文） | 原文 |
-| 8 | 小字：换出来的那帧可能没原图清楚 | 另选的主照片取自视频里的一帧；论坛和读者实测多说分辨率变低（例：iPhone X 4032×3024 → 3662×2744），也有一条反例；没有苹果官方说法 → 用「可能」 | 〔论〕Apple 社区 https://discussions.apple.com/thread/250580900 ；MacRumors 论坛 | 摘要 |
+| 8 | 小字：换出来的那帧可能没原图清楚 | 另选的封面照片取自视频里的一帧；论坛和读者实测多说分辨率变低（例：iPhone X 4032×3024 → 3662×2744），也有一条反例；没有苹果官方说法 → 用「可能」 | 〔论〕Apple 社区 https://discussions.apple.com/thread/250580900 ；MacRumors 论坛 | 摘要 |
 | 9 | 叠在一起，烟花拖成光丝（长曝光） | 原文：「Tap the Live Photo button near the top of the screen. Choose Loop, Bounce, or Long Exposure.」中文使用手册：「长曝光：通过模糊动作来模拟类似数码单反相机的长曝光效果」；英文：「Simulates a DSLR-like long exposure effect by blurring motion」。苹果没写算法；「把实况里的多帧混在一起」只有 TechCrunch、Pocket-lint 2017 年的报道（摘要）。道理上只能用实况里的视频帧（静态照片里没有运动）→ 片中「叠在一起」加注「示意」+「以 iPhone 为例」 | 〔厂〕Apple 支持（同 #1）；中文使用手册（同 #7）；〔媒〕TechCrunch、Pocket-lint 2017 | 效果描述原文；算法示意 |
 | 10 | 小字「一秒很多张」 | Google：取景至少每秒 15 帧（暗处曝光最长 66 ms 时）；常见取景约每秒 30 帧，各机型、模式不同 → 不写具体数 | 〔研〕#4 原文 | 原文（Pixel） |
 | 11 | （发布正文）夜景模式下实况不工作 | 原文：「When your iPhone is in Night mode, Live Photos and the flash aren't active. You can turn these features on manually. Keep in mind that turning on Live Photos or the flash deactivates Night mode.」 | 〔厂〕Apple 支持「Use Night mode on your iPhone」https://support.apple.com/en-us/102519 | 原文 |
