@@ -27,7 +27,6 @@ import { BokehPass } from "three/addons/postprocessing/BokehPass.js";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 const QP = new URLSearchParams(location.search), OVERLAY = QP.has("overlay"), BG = QP.get("bg");
 const NOCAP = QP.has("nocap");
-const OP = QP.get("op") || "";   // opening variant under review (user 11-23: three coral r's + the struck「2 个」from the first frame)
 const CS = QP.get("cs") || "A";   // caption style (user 11-22: big captions and small labels must not share a background). A: dark captions, cream labels; B: cream captions, dark labels   // cover art: picture + labels, no captions / headline / end card
 if (OVERLAY) { document.documentElement.style.background = "transparent"; document.body.style.background = "transparent"; }   // labels + captions as a transparent layer (Blender final)
 
@@ -199,8 +198,12 @@ scanM.name = "scan"; scanM.material.name = "scan"; scanH.name = "scanH"; scanH.m
 
 
 // ---------- timing ----------
-const LAUNCH = a(1) + 0.45, STAG = 0.05, FLY = 0.8;
-const SCAN1 = [a(1) + 2.05, b(1) - 0.85];
+const LAUNCH = a(1) + 0.45, STAG = 0.05, FLY = 0.8;   // LAUNCH now only times the headline's exit (the letters no longer fly out of the phone)
+// 用户 11-23 选「方案一：积木开场」：第一帧就是封面那一幕——字母已在托盘上，三个 r 是珊瑚色、标 1 2 3，「AI 曾答：2 个」在 0.5 秒内被划掉；
+// 接着镜头滑到手机看原题和那句「2 个。」，讲到「正确答案是三个」时回到托盘，三个 r 再跳一次。
+const OPEN_R = (k) => -0.2 + k * 0.12;   // the opening count: r k pops at this time
+const STRIKE0 = 0.3;                      // 「2 个」 is crossed out here
+const SCAN1 = [-2, -1];                   // the L1 scan bar is gone (the camera is on the phone then)
 const redT = (k) => a(2) + 0.05 + k * 0.3, redOff = [a(4) + 0.1, a(4) + 0.5];
 const XR = [a(4) + 0.15, a(5) + 0.1];        // 可它当初为什么会错？ — the x-ray shows where the cuts will fall
 const READ0 = a(5) + 0.1, READ_DT = 0.19;   // 0.17 → 0.19 (user 11-22: 12–24 s a little too fast)
@@ -229,13 +232,11 @@ function drawScreen(t) {
   x.fillStyle = "rgba(0,0,0,.07)"; x.fillRect(8, 170, w - 16, 3);
   const q = qLayout(); x.fillStyle = "#3A3532"; rr(q.x, q.y, q.w, q.h, 30, x); x.fill();
   x.font = QF; x.textAlign = "center"; const gh = 0.4 * ramp(t, LAUNCH + 1.0, LAUNCH + 1.5);
-  [...WORD].forEach((ch, i) => { if (t < LAUNCH + i * STAG) { x.fillStyle = OP === "2" && RIDX.includes(i) ? "#FF8A63" : "#fff"; x.fillText(ch, q.xs[i], q.ty + 2); } else if (gh > 0) { x.fillStyle = `rgba(255,255,255,${gh})`; x.fillText(ch, q.xs[i], q.ty + 2); } }); x.fillStyle = "#fff";
+  [...WORD].forEach((ch, i) => { if (true) { x.fillStyle = "#fff"; x.fillText(ch, q.xs[i], q.ty + 2); } else if (gh > 0) { x.fillStyle = `rgba(255,255,255,${gh})`; x.fillText(ch, q.xs[i], q.ty + 2); } }); x.fillStyle = "#fff";
   x.textAlign = "left"; x.fillText(Q1, q.x0 + tw(WORD, QF, x), q.ty + 2);
   const pop = back(ramp(t, -0.12, 0.3)), ay = q.y + 210;
   x.fillStyle = CORAL; x.beginPath(); x.arc(64, ay, 28, 0, 7); x.fill(); x.font = FI(800, 24); x.fillStyle = "#fff"; x.textAlign = "center"; x.fillText("AI", 64, ay + 1);
-  x.save(); x.translate(110, ay); x.scale(pop, pop); x.fillStyle = "#ECE5D8"; rr(0, -50, 200, 100, 32, x); x.fill(); x.font = F(900, 50); x.fillStyle = INK; x.fillText("2 个。", 100, 3);
-  if (OP === "2") { const k = ramp(t, 0.25, 0.6); if (k > 0) { x.strokeStyle = CORAL; x.lineWidth = 9; x.lineCap = "round"; x.beginPath(); x.moveTo(40, -30); x.lineTo(40 + 130 * k, -30 + 60 * k); x.stroke(); } }
-  x.restore();
+  x.save(); x.translate(110, ay); x.scale(pop, pop); x.fillStyle = "#ECE5D8"; rr(0, -50, 200, 100, 32, x); x.fill(); x.font = F(900, 50); x.fillStyle = INK; x.fillText("2 个。", 100, 3); x.restore();
   for (let i = 0; i < 3; i++) { x.fillStyle = `rgba(43,39,38,${0.15 + 0.25 * Math.max(0, Math.sin(t * 6 - i))})`; x.beginPath(); x.arc(126 + i * 24, ay + 112, 7, 0, 7); x.fill(); }
   x.font = F(700, 36); x.fillStyle = "rgba(43,39,38,.82)"; x.textAlign = "center"; x.fillText("示意：早期 AI 的常见错答", w / 2, ay + 220);
   const off = ramp(t, b(1) - 0.4, b(1) + 0.3); if (off > 0) { x.fillStyle = `rgba(22,20,19,${0.92 * off})`; x.fillRect(0, 0, w, h); }
@@ -256,12 +257,12 @@ const onKeys = (...ks) => { const d = SD; ACT_KEYS.push(...ks.map((k) => [k[0] +
 const CUES = []; window.CUES = CUES;
 const cue = (k, t, o = {}) => CUES.push({ k, t: +(t + SD).toFixed(3), ...o });
 { // S1 · the wrong answer, the letters, the cut, the blocks, the numbers, Token
-  cue("blip", 0.05, { m: 77, g: 0.45 });                                        // the answer pops up on the phone
-  cue("whoosh", LAUNCH - 0.05, { d: 0.55, g: 0.4 });                            // letters fly out
-  for (let i = 0; i < 10; i++) cue("pop", LAUNCH + i * STAG + FLY, { f: 380 + i * 22, g: 0.25 });
-  cue("blip", b(1) - 0.75, { m: 72, g: 0.4 });                                  // "AI：2 个"
+  [69, 72, 77].forEach((m, k) => { if (OPEN_R(k) + 0.2 > 0) cue("chime", OPEN_R(k) + 0.2, { m, g: 0.8 }); });   // the opening count (方案一); the first pop is before t = 0
+  cue("chime", 0.02, { m: 69, g: 0.8 });
+  cue("whoosh", 1.85, { d: 0.9, g: 0.22 });                                     // over to the phone
+  cue("whoosh", 4.9, { d: 0.8, g: 0.2 });                                       // back to the tray
   [69, 72, 77].forEach((m, k) => cue("chime", redT(k) + 0.3, { m }));           // 1 2 3, on the landing (review: +0.3 s); the motif comes back at the end
-  cue("boop", a(2) + 0.85);                                                     // crossed out
+  cue("boop", STRIKE0 + 0.05);                                                  // 「2 个」 crossed out, first half second
   cue("flip", a(3) + 0.05); cue("chime", a(3) + 0.3, { m: 81, g: 0.5 });        // flips to "如今：3 个 ✓"
   cue("scan", XR[0], { d: XR[1] - XR[0] });                                     // x-ray
   for (let k = 0; k < 10; k++) cue("tick", READ0 + k * READ_DT, { g: 0.45 });   // the eye reads letter by letter
@@ -722,9 +723,10 @@ const OFFY = 40; cam.setViewOffset(W, H, 0, OFFY, W, H);    // draft v2: the sub
 const TANHF = Math.tan(THREE.MathUtils.degToRad(FOV) / 2) * W / H;
 const PHS = screenWorld(300, scrC.height / 2);
 const FK = [
-  [0, PHS.x, PHS.y + 0.5, PHS.z, 3.0, 0.3, 0.1],
-  [LAUNCH, PHS.x, PHS.y + 0.4, PHS.z, 3.5, 0.22, 0.14],
-  [a(1) + 1.75, 0, TRAY_Y, TRAY_Z, 7.8, 0.22, 0.52],              // letters have landed on the tray
+  [0, -0.15, TRAY_Y + 0.3, TRAY_Z, 7.35, 0.11, 0.5],               // 方案一 (11-23): the cover framing — coral r's 1 2 3, 「2 个」 crossed
+  [1.6, -0.3, TRAY_Y + 0.3, TRAY_Z, 7.0, 0.13, 0.48],                // a slow push while 「AI 不按字母读」
+  [3.0, PHS.x, PHS.y + 0.45, PHS.z, 3.3, 0.26, 0.12],               // 问它 strawberry 里有几个 r: the question on the phone (the old opening's framing)
+  [4.5, PHS.x, PHS.y + 0.45, PHS.z, 3.1, 0.24, 0.12],               // 它曾经很自信地说：两个 (the phone's answer)
   [a(2), 0, TRAY_Y + 0.2, TRAY_Z, 7.4, 0.16, 0.52],                 // 正确答案是三个: the r's count 1 2 3
   [a(3) + 0.2, -0.2, TRAY_Y + 0.35, TRAY_Z, 7.2, 0.08, 0.5],        // the answer above the word flips
   [XR[0] + 0.6, 0, TRAY_Y, TRAY_Z, 7.4, 0.0, 0.5],                  // 可它当初为什么会错？ the x-ray marks the cuts
@@ -788,20 +790,20 @@ function update3D(t) {
   // cubes
   const fused = t >= FUSE;
   cubes.forEach(({ m, d, i }) => {
-    const t0 = LAUNCH + i * STAG; m.visible = t >= t0 && !fused; if (!m.visible) return;
+    const t0 = -FLY - 1; m.visible = !fused; if (!m.visible) return;   // on the tray from the first frame
     const g = GROUP(i);
     let x = X(i), y = TRAY_Y, z = TRAY_Z, rx = 0, rz = 0, s = 1, sq = 0;
     const p = ramp(t, t0, t0 + FLY);
     if (p < 1) { const S = cubeStart(i), q = 1 - (1 - p) * (1 - p); x = lerp(S.x, x, q); y = lerp(S.y, y, q) + 1.8 * Math.sin(Math.PI * p); z = lerp(S.z, z, q); rx = -2 * Math.PI * (1 - q); rz = 0.3 * Math.sin(Math.PI * p) * (i % 2 ? 1 : -1); s = lerp(0.18, 1, eo(p)); }
     else { const u = t - (t0 + FLY); y += 0.3 * Math.abs(Math.sin(u * 10)) * Math.exp(-u * 6.5); sq += 0.18 * Math.exp(-u * 12) * Math.cos(u * 22); }
-    const rk = RIDX.indexOf(i); if (rk >= 0) { const h = hop(t, redT(rk), 0.4, 0.75); y += h.y; sq += h.sq; }
+    const rk = RIDX.indexOf(i); if (rk >= 0) { const h0 = hop(t, OPEN_R(rk), 0.4, 0.35), h = hop(t, redT(rk), 0.4, 0.75); y += h0.y + h.y; sq += h0.sq + h.sq; }
     if (i === rd) y += 0.18 * Math.sin(Math.PI * ramp((t - READ0) % READ_DT, 0, READ_DT));
     // feed into the tokenizer: slide forward (a little wave), up onto the deck
     const f = ease(ramp(t, FEED[0] + (9 - i) * 0.025, FEED[1] + (9 - i) * 0.025));
     z = lerp(z, DECK_Z, f); y = lerp(y, DECK_Y, f) + 0.12 * Math.sin(Math.PI * f);
     x += [-0.14, 0, 0.14][g] * sep(t);
     m.position.set(x, y - (CUBE / 2) * sq, z); m.rotation.set(rx, 0, rz); m.scale.set(s * (1 + 0.5 * sq), s * (1 - sq), s * (1 + 0.5 * sq));
-    const red = rk >= 0 ? ramp(t, redT(rk) + 0.05, redT(rk) + 0.25) * (1 - ramp(t, redOff[0], redOff[1])) : 0;
+    const red = rk >= 0 ? (1 - ramp(t, redOff[0], redOff[1])) : 0;   // coral from the first frame
     tA.set("#EEE6D8").lerp(tB.set("#EE6A47"), red); m.material.color.copy(tA);
     d.material.color.copy(tA.set(INK).lerp(tB.set("#FFFFFF"), red));
     let em = 0; if (sOn !== null && f === 0) em = 0.25 * clamp(1 - Math.abs(x - sOn) / 0.8); if (i === rd) em = 0.22;
@@ -862,18 +864,18 @@ function overlays(t) {
   for (const f of ACT_OVL) f(t);
   const trayFront = (x, dy = 0) => P3(x, TRAY_Y - CUBE / 2, TRAY_Z + 0.55);
   // the AI's answer above the word: "AI：2 个" (L1) → crossed when the r's are counted (L2) → flips to "如今：3 个 ✓" (L3)
-  const st = vis(t, b(1) - 0.75, a(4) + 0.45, 0.2, 0.3);
-  if (st > 0) { const p = P3(-0.7, TRAY_Y + 1.6, TRAY_Z), s = back(ramp(t, b(1) - 0.75, b(1) - 0.4)), fl = ramp(t, a(3) + 0.05, a(3) + 0.4), sx = Math.max(Math.abs(Math.cos(Math.PI * fl)), 0.02), nw = fl >= 0.5;
+  const st = vis(t, -1, a(4) + 0.45, 0.2, 0.3);   // up from the first frame
+  if (st > 0) { const p = P3(-0.7, TRAY_Y + 1.6, TRAY_Z), s = 1, fl = ramp(t, a(3) + 0.05, a(3) + 0.4), sx = Math.max(Math.abs(Math.cos(Math.PI * fl)), 0.02), nw = fl >= 0.5;
     ctx.save(); ctx.globalAlpha = st; ctx.translate(p.x, p.y); ctx.scale(s * sx, s);
     card(0, 0, nw ? 300 : 290, 84, { r: 22 }); ctx.fillStyle = CREAMC + "0.93)"; ctx.beginPath(); ctx.moveTo(-18, 40); ctx.lineTo(0, 62); ctx.lineTo(18, 40); ctx.fill();
     if (nw) txt("如今：3 个 ✓", 0, 2, { font: F(900, 40), color: GREEN });
     else { txt("AI 曾答：2 个", 0, 2, { font: F(900, 40) });   // 用户 11-22：加上「曾」（如今很多 AI 已能答对），封面主图取自这一帧
-      const x = ramp(t, a(2) + 0.85, a(2) + 1.0); if (x > 0) { ctx.strokeStyle = CORAL; ctx.lineWidth = 8; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(38, -26); ctx.lineTo(38 + 96 * x, -26 + 52 * x); ctx.stroke(); const x2 = ramp(t, a(2) + 1.0, a(2) + 1.12); if (x2 > 0) { ctx.beginPath(); ctx.moveTo(134, -26); ctx.lineTo(134 - 96 * x2, -26 + 52 * x2); ctx.stroke(); } }   // ✗ only over「2 个」:「AI 曾答」stays clean (审核：划掉整句会读成「没答过」)
+      const x = ramp(t, STRIKE0, STRIKE0 + 0.15); if (x > 0) { ctx.strokeStyle = CORAL; ctx.lineWidth = 8; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(38, -26); ctx.lineTo(38 + 96 * x, -26 + 52 * x); ctx.stroke(); const x2 = ramp(t, STRIKE0 + 0.15, STRIKE0 + 0.27); if (x2 > 0) { ctx.beginPath(); ctx.moveTo(134, -26); ctx.lineTo(134 - 96 * x2, -26 + 52 * x2); ctx.stroke(); } }   // ✗ only over「2 个」:「AI 曾答」stays clean (审核：划掉整句会读成「没答过」)
     }
     ctx.restore(); }
   // 1 2 3 over the r's (kept below the answer pill)
-  RIDX.forEach((i, kk) => { const al = ramp(t, redT(kk), redT(kk) + 0.12) * (1 - ramp(t, redOff[0], redOff[1] + 0.1)); if (al <= 0) return;
-    const h = hop(t, redT(kk), 0.4, 0.75), p = P3(X(i), TRAY_Y + 0.75 + h.y, TRAY_Z), s = back(ramp(t, redT(kk), redT(kk) + 0.3));
+  RIDX.forEach((i, kk) => { const o0 = OPEN_R(kk), al = ramp(t, o0, o0 + 0.12) * (1 - ramp(t, redOff[0], redOff[1] + 0.1)); if (al <= 0) return;
+    const h0 = hop(t, o0, 0.4, 0.35), h = hop(t, redT(kk), 0.4, 0.75), p = P3(X(i), TRAY_Y + 0.75 + h0.y + h.y, TRAY_Z), s = back(ramp(t, o0, o0 + 0.3)) * (1 + 0.25 * bump(t, redT(kk), 0.35));
     ctx.save(); ctx.globalAlpha = al; ctx.translate(p.x, p.y); ctx.scale(s, s); txt(String(kk + 1), 0, 0, { font: FI(900, 50), color: CORAL }); ctx.restore(); });
   const below = () => Math.min(trayFront(0).y + 110, 1225);
   // x-ray (可它当初为什么会错？): brackets appear under the three groups behind the scan line

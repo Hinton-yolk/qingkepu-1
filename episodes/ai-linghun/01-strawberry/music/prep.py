@@ -2,17 +2,21 @@
 """把 ACE-Step 生成的整首音乐对齐到片子的时间轴（music/brief.md）：
   1. 拍点对齐：测出拍点相位，整体平移，让拍点落在 0.6 秒（100 BPM）的格子上；
   2. 揭晓前停半拍：76.5–76.8 秒静音（前后 25 ms 淡入淡出）；
-  3. 分段增益：讲解段让给字幕（-2 dB），揭晓段抬起（+1.5 dB），下期预告收回（-1.5 dB），片尾卡淡出到 99.3 秒；
+  3. 分段增益：讲解段让给字幕（-2 dB），揭晓段抬起（+1.5 dB），下期预告收回（-1.5 dB），片尾卡淡出到片尾（v6：92.0 秒）；
   4. 整体响度到 -14 LUFS：增益 + 限幅器（样本峰值 -1.6 dBFS，真峰值约 -1 dBTP），之后加音效再统一量一次。
-用法：python3 prep.py <输入.wav> <输出前缀> [--dur 99.29]   → <前缀>.wav + <前缀>.mp3
+用法：python3 prep.py <输入.wav> <输出前缀> [--dur 92.0]   → <前缀>.wav + <前缀>.mp3
+v6（用户 11-23 删掉 S7 后两句、片尾提前）：对齐后在小节线上剪掉 81.6–86.4 秒（两小节，和画面提前的 4.8 秒一样），
+接口 60 ms 等功率交叉淡化；剪点按色度 / 音色相似度在 77.4–82.2 秒的拍点里挑（81.6 在小节线上、得分第二）。v5 及以前：不剪，dur 99.29，分段见注释。
 """
 import subprocess, sys
 import numpy as np, soundfile as sf, librosa, pyloudnorm as pyln
 
 BEAT = 0.6
 # (起, 止, 增益 dB)：段落之间 0.3 秒线性过渡
-SECTIONS = [(0.0, 9.6, 0.0), (9.6, 76.5, -2.0), (76.8, 86.4, 1.5), (86.4, 96.0, -1.5), (96.0, 120.0, -1.5)]
+# v5: [(0.0, 9.6, 0.0), (9.6, 76.5, -2.0), (76.8, 86.4, 1.5), (86.4, 96.0, -1.5), (96.0, 120.0, -1.5)], no cut, dur 99.29
+SECTIONS = [(0.0, 9.6, 0.0), (9.6, 76.5, -2.0), (76.8, 82.2, 1.5), (82.2, 88.8, -1.5), (88.8, 120.0, -1.5)]   # times after the cut; 88.8 = end card
 PAUSE = (76.5, 76.8)
+CUT = (81.6, 86.4)   # aligned-music seconds removed (v6); None for no cut
 
 
 def loud(y, sr, target, pre):
@@ -31,13 +35,17 @@ def loud(y, sr, target, pre):
 
 def main():
     src, pre = sys.argv[1], sys.argv[2]
-    dur = float(sys.argv[sys.argv.index('--dur') + 1]) if '--dur' in sys.argv else 99.29
+    dur = float(sys.argv[sys.argv.index('--dur') + 1]) if '--dur' in sys.argv else 92.0
     y, sr = sf.read(src, always_2d=True); y = y.T.astype(np.float64)
     m = librosa.resample(y.mean(0), orig_sr=sr, target_sr=22050)
     _, beats = librosa.beat.beat_track(y=m, sr=22050, start_bpm=100, units='time')
     ph = np.median(((np.asarray(beats) + BEAT / 2) % BEAT) - BEAT / 2)      # beats sit at k*0.6 + ph
     shift = -ph                                                              # the nearer way (|shift| <= 0.3 s): delay, or trim the start
-    n = int(round(shift * sr)); y = (np.pad(y, ((0, 0), (n, 0))) if n >= 0 else y[:, -n:])[:, :int(dur * sr)]
+    n = int(round(shift * sr)); y = (np.pad(y, ((0, 0), (n, 0))) if n >= 0 else y[:, -n:])
+    if CUT:                                                                  # drop two bars on the bar line, 60 ms equal-power cross-fade
+        a, b, k = int(CUT[0] * sr), int(CUT[1] * sr), int(0.03 * sr); w = np.sin(np.linspace(0, np.pi / 2, 2 * k))
+        y = np.concatenate([y[:, :a - k], y[:, a - k:a + k] * w[::-1] + y[:, b - k:b + k] * w, y[:, b + k:]], axis=1)
+    y = y[:, :int(dur * sr)]
     if y.shape[1] < int(dur * sr): y = np.pad(y, ((0, 0), (0, int(dur * sr) - y.shape[1])))
     t = np.arange(y.shape[1]) / sr
     g = np.zeros_like(t)

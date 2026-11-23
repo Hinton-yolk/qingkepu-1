@@ -74,3 +74,10 @@ RunPod：`python3 ../../../../tools/runpod_render_gql.py run blender/jobs_ab.jso
 - 成片 `out/ai01-strawberry.mp4`：2979 帧、99.3 秒、-14.0 LUFS、真峰值 -1.3 dBFS；动效 PASS（静止 2%，最长 0.70 秒）。全屏版 `../tools/xhs.sh`。
 - 节点 ③：审核复核「通过」（三个 r 白字、标注米白、影调对齐后接口无跳变）；监督清单 #40–#44；观众两轮见 `../观众反馈.md` 最后一节。
 
+## v6（2026-11-23，用户：删两句、片尾提前、开场改成积木）
+- 时间轴：`timeline.js` 删第 28–29 句，第 27 句后 hold 1.16 秒（后面整体提前 4.8 秒 = 两小节）；`END_CARD` 改为「最后一句开始 + 1 秒」取整到 0.6 秒拍点（88.8 秒），整片 92.0 秒。
+- 画面（`index.html`）：S7 用 `E7`（本站结束的 v1 时间）收尾，圈每个字母 0.22 秒；S8 以自己的第一句对齐（`SD = a(28) - aO(30)`），`E8` = 片尾卡的 v1 时间；片尾卡集名「#01 AI 不按字母读 ✓」、字 0.9 秒内出齐；58 秒标注上移；23–25 秒一句放大。
+- 开场方案一：`OPEN_R`（三个 r 在 -0.2 / -0.08 / 0.04 秒弹出）、`STRIKE0`（0.3 秒划掉「2 个」）；字母从第一帧就在托盘上（不再从手机飞出，`SCAN1` 取消）；镜头 0–1.6 秒封面构图慢推，3.0–4.5 秒手机，5.8 秒回托盘。
+- 配乐：`music/prep.py` 的 `CUT = (81.6, 86.4)`、新 `SECTIONS`、`--dur 92.0` → `music/out/A1_v6.wav`；`music/sfx.py out/A1_v6.wav out/mix_v6.wav --music-db -6`。
+- Blender：`blender/seg/00000_00240`（重导，带屏幕）和 `blender/seg/02391_02469`（结尾三个 r 的新时间）；旧的 A、D 段导出挪到 `blender/seg_v5/`。`python3 blender/hyb_jobs.py --only 00000_00240,02391_02469`。部分 pod 报 `OPTIX_ERROR_INTERNAL_COMPILER_ERROR`（驱动问题），失败任务用 `jobs_retry.json`（`KEPU_GPU=CUDA`）重渲。
+
