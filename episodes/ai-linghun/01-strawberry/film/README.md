@@ -81,3 +81,4 @@ RunPod：`python3 ../../../../tools/runpod_render_gql.py run blender/jobs_ab.jso
 - 配乐：`music/prep.py` 的 `CUT = (81.6, 86.4)`、新 `SECTIONS`、`--dur 92.0` → `music/out/A1_v6.wav`；`music/sfx.py out/A1_v6.wav out/mix_v6.wav --music-db -6`。
 - Blender：`blender/seg/00000_00240`（重导，带屏幕）和 `blender/seg/02391_02469`（结尾三个 r 的新时间）；旧的 A、D 段导出挪到 `blender/seg_v5/`。`python3 blender/hyb_jobs.py --only 00000_00240,02391_02469`。部分 pod 报 `OPTIX_ERROR_INTERNAL_COMPILER_ERROR`（驱动问题），失败任务用 `jobs_retry.json`（`KEPU_GPU=CUDA`）重渲。
 - 结果：成片 `out/ai01-strawberry.mp4`（= `ai01-strawberry-v6.mp4`）1080×1920、2760 帧、92.0 秒；-14.0 LUFS、真峰值 -1.4 dBFS；动效 `motion_check --end=88.8 --max-still=1.2 --max-win=0.45` PASS（静止 2%，最长 0.70 秒 @42 s）。全屏版 `../tools/xhs.sh`。审核第一轮不通过：配乐剪点后第一拍晚约 50 ms（`CUT` 后端改 86.445，重混后只换音轨）、publish.md 音乐电平写法；封面主图改 0.45 秒。观众见 `../观众反馈.md`「v6」。
+- 节点 ③：审核复核「通过」（ad09b85：剪点接缝主拍间隔 0.304–0.307 秒、无咔哒声；封面「2」缩小后可认）；监督清单 #45–#48；观众（Codex）v6 反馈见 `../观众反馈.md`。
