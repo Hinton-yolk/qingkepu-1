@@ -1,5 +1,5 @@
 // make.mjs — EP.01 covers: 抖音 1080×1920 and 小红书 1080×1440, laid out as HTML over film frames and screenshotted.
-//   (from film/) node render.mjs --stills=6.8 --bg=hyb --qs=nocap=1 --out=qa/cover_src   (Blender frame 204 under the same grade, no captions); then (from cover/) NODE_PATH=$(npm root -g) node make.mjs
+//   (from film/) node render.mjs --stills=0.45 --bg=hyb --qs=nocap=1 --out=qa/cover_src   (Blender frame 14 under the same grade, no captions); then (from cover/) NODE_PATH=$(npm root -g) node make.mjs
 import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
@@ -8,7 +8,7 @@ const { chromium } = createRequire(import.meta.url)("playwright");
 const HERE = path.dirname(fileURLToPath(import.meta.url)), EP = path.dirname(HERE);
 const SRC = path.join(EP, "film/qa/cover_src"), FONTS = path.join(EP, "assets/fonts");
 const url = (p) => "file://" + p;
-const HERO = url(path.join(SRC, "t6.80.png"));   // 6.8 s: one stroke through "AI：2 个" (at 7.0 the full ✗ hides the 2)   // the card below is drawn in HTML (audience: the #496… numbers read as part numbers)
+const HERO = url(path.join(SRC, "t0.45.png"));   // v6 (积木开场): 0.45 s = the opening count done, one stroke through「2 个」(the second stroke starts right after and hides the 2; 审核 11-23: at 6.8 s v6 already shows the full ✗)   // the card below is drawn in HTML (audience: the #496… numbers read as part numbers)
 
 // one layout, two canvases. heroY: where the film frame's top sits; the strawberry row is at about y = 960 of the 1920-px frame
 const COVERS = [   // the strawberry row lands at about y = 960 + heroY; the card below shows how the AI cuts the word (str / aw / berry, GPT-4 tokenizer)

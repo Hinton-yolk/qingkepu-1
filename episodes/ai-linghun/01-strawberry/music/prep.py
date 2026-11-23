@@ -5,7 +5,7 @@
   3. 分段增益：讲解段让给字幕（-2 dB），揭晓段抬起（+1.5 dB），下期预告收回（-1.5 dB），片尾卡淡出到片尾（v6：92.0 秒）；
   4. 整体响度到 -14 LUFS：增益 + 限幅器（样本峰值 -1.6 dBFS，真峰值约 -1 dBTP），之后加音效再统一量一次。
 用法：python3 prep.py <输入.wav> <输出前缀> [--dur 92.0]   → <前缀>.wav + <前缀>.mp3
-v6（用户 11-23 删掉 S7 后两句、片尾提前）：对齐后在小节线上剪掉 81.6–86.4 秒（两小节，和画面提前的 4.8 秒一样），
+v6（用户 11-23 删掉 S7 后两句、片尾提前）：对齐后在小节线上剪掉 81.6–86.445 秒（两小节，和画面提前的 4.8 秒一样；后端多 45 ms，因为 A1 实际约 99 BPM、拍子到这里已漂了约 50 ms），
 接口 60 ms 等功率交叉淡化；剪点按色度 / 音色相似度在 77.4–82.2 秒的拍点里挑（81.6 在小节线上、得分第二）。v5 及以前：不剪，dur 99.29，分段见注释。
 """
 import subprocess, sys
@@ -16,7 +16,7 @@ BEAT = 0.6
 # v5: [(0.0, 9.6, 0.0), (9.6, 76.5, -2.0), (76.8, 86.4, 1.5), (86.4, 96.0, -1.5), (96.0, 120.0, -1.5)], no cut, dur 99.29
 SECTIONS = [(0.0, 9.6, 0.0), (9.6, 76.5, -2.0), (76.8, 82.2, 1.5), (82.2, 88.8, -1.5), (88.8, 120.0, -1.5)]   # times after the cut; 88.8 = end card
 PAUSE = (76.5, 76.8)
-CUT = (81.6, 86.4)   # aligned-music seconds removed (v6); None for no cut
+CUT = (81.6, 86.445)   # aligned-music seconds removed (v6); None for no cut. The end is 45 ms past the 100-BPM grid: A1 really runs at ~99 BPM, so by 86.4 the beat has drifted (审核 11-23: with 86.4 the first beat after the join came ~50 ms late); 0.045 = best onset-envelope match of the bars on both sides
 
 
 def loud(y, sr, target, pre):
