@@ -55,14 +55,15 @@
     if (t < SLOW.b) return SLOW.a + (t - SLOW.a) * SLOW.k;
     return SLOW.a + (SLOW.b - SLOW.a) * SLOW.k + (t - SLOW.b);
   }
-  // the ring: 12 slots, one written every ¼ s of sky time from T.write0 (write index n = 0 at τ = 17.0)
-  const RING = { n: 12, dt: 0.25, t0: 17.0 };
+  // the ring: 12 slots, one written every ½ s of sky time from T.write0 (write index n = 0 at τ = 17.0); 示意 (a camera keeps
+  // many more, smaller steps): ½ s per slot so the 1.5 s before / after are three big frames: the dot, the burst, the spread
+  const RING = { n: 12, dt: 0.5, t0: 17.0 };
   const ringF = (t) => (t < T.write0 ? 0 : (tau(t) - RING.t0) / RING.dt);
-  const PRESS_N = 16;                      // τ = 21.0: the write index at the press
-  const BEFORE = [10, 11, 12, 13, 14, 15]; // τ 19.5 … 20.75
-  const AFTER = [16, 17, 18, 19, 20, 21];  // τ 21.0 … 22.25
-  const COPYB_T = BEFORE.map((_, i) => T.copyB + i * 0.25);
-  const COPYA_T = AFTER.map((_, i) => T.copyA + i * 0.25);
+  const PRESS_N = 8;                       // τ = 21.0: the write index at the press
+  const BEFORE = [5, 6, 7];                // τ 19.5, 20.0, 20.5 (ages −0.5, 0, 0.5: the dot, the burst, the spread)
+  const AFTER = [8, 9, 10];                // τ 21.0, 21.5, 22.0 (written at t 21.0, 23.0, 25.0: 4× slow)
+  const COPYB_T = BEFORE.map((_, i) => T.copyB + i * 0.5);
+  const COPYA_T = AFTER.map((_, i) => T.copyA + i * 0.5);
 
   const COPY = {
     h1: ["烟花快散了才按，", "怎么还拍到它[炸开]？"],
@@ -85,7 +86,7 @@
     tip2: ["点编辑，", "换一帧当[封面]"],
     // small text (terms and notes only as small text)
     press: "按下", rec: "开始录", before: "按之前", chip: "感光芯片", fps: "一秒很多张", ring: "这一圈 · 示意", term: "学名：环形缓冲区",
-    pre: "前 1.5 秒", post: "后 1.5 秒", names: "叫法、时长各家不同", tipTag: "小提示", iphone: "以 iPhone 为例 · 可能没原图清楚", live: "实况",
+    pre: "前 1.5 秒", post: "后 1.5 秒", slow: "慢放 · 示意", names: "叫法、时长各家不同", tipTag: "小提示", iphone: "以 iPhone 为例 · 可能没原图清楚", live: "实况",
     end: ["你每天都在用，", "但你不知道", "它[怎么工作]"], epNum: "EP.10", epName: "实况照片",
   };
   const S16 = BEAT / 4;

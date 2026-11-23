@@ -278,7 +278,7 @@ function firework(cx, cy, R, a, o = {}) {
   ctx.lineCap = "round";
   for (let i = 0; i < STARS.length; i += N === 18 ? 2 : 1) {
     const s = STARS[i], col = FW_COL[s.c];
-    const fl = a > 0.55 ? 0.72 + 0.28 * Math.sin(31 * a + s.ph) : 1, al = br * fl;
+    const fl = a > 0.55 ? 0.72 + 0.28 * Math.sin(31 * a + s.ph) : 1, al = Math.min(1, br * fl * (o.boost ?? 1));
     if (al <= 0.01) continue;
     const p1 = pos(s, a), p0 = pos(s, Math.max(0, a - 0.13));
     const g = ctx.createLinearGradient(p0[0], p0[1], p1[0], p1[1]); g.addColorStop(0, `rgba(${col},0)`); g.addColorStop(1, `rgba(${col},${0.9 * al})`);
@@ -291,11 +291,11 @@ const CITY = (() => { const r = mulberry32(77); const B = []; let x = 0; while (
 const SKYSTARS = (() => { const r = mulberry32(5); return Array.from({ length: 9 }, () => [r(), r() * 0.55, r() * TAU]); })();
 // a night sky with the firework(s) at the given ages, in the box x, y, w, h (screen px; the caller clips)
 function skyBox(x, y, w, h, ages, o = {}) {
-  const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, "#090C17"); g.addColorStop(1, "#1A1E31");
+  const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, o.small ? "#141A30" : "#090C17"); g.addColorStop(1, o.small ? "#262C48" : "#1A1E31");
   ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
   if (!o.small) for (const [u, v, ph] of SKYSTARS) { ctx.fillStyle = `rgba(230,232,240,${0.18 + 0.12 * Math.sin(ph + (o.t ?? 0) * 1.3)})`; ctx.fillRect(x + u * w, y + v * h, 2, 2); }
-  const R = h * (o.small ? 0.5 : 0.4), cx = x + w * (o.small ? 0.5 : 0.44), cy = y + h * (o.small ? 0.42 : 0.36);
-  for (const a of ages) firework(cx, cy, R, a, { few: o.small, lw: o.small ? 0.055 : 0.02 });
+  const R = h * (o.small ? 0.5 : o.crisp ? 0.48 : 0.47), cx = x + w * (o.small ? 0.5 : 0.46), cy = y + h * (o.small ? 0.42 : 0.4);
+  for (const a of ages) firework(cx, cy, R, a, { few: o.small, lw: o.small ? 0.055 : o.crisp ? 0.04 : 0.028, boost: o.crisp ? 1.8 : o.small ? 1.3 : 1.25 });
   ctx.fillStyle = "#05060B";
   for (const [u, bw, bh] of CITY) ctx.fillRect(x + u * w, y + h * (1 - bh), bw * w + 1, h * bh + 1);
   if (o.dim) { ctx.fillStyle = `rgba(5,6,10,${o.dim})`; ctx.fillRect(x, y, w, h); }
@@ -309,11 +309,11 @@ function card(cx, cy, w, h, ages, o = {}) {
   ctx.translate(cx, cy); if (o.sc) ctx.scale(o.sc, o.sc);
   rr(-w / 2, -h / 2, w, h, Math.min(8, h * 0.14)); ctx.save(); ctx.clip();
   if (o.soft) ctx.filter = `blur(${o.soft.toFixed(2)}px)`;
-  skyBox(-w / 2, -h / 2, w, h, ages, { small: w < 200, t: o.t });
+  skyBox(-w / 2, -h / 2, w, h, ages, { small: w < 200 && !o.crisp, t: o.t, crisp: o.crisp });
   ctx.filter = "none";
   if (o.grey) { ctx.fillStyle = `rgba(150,152,158,${o.grey})`; ctx.fillRect(-w / 2, -h / 2, w, h); }
   ctx.restore();
-  rr(-w / 2, -h / 2, w, h, Math.min(8, h * 0.14)); ctx.strokeStyle = o.hl ? C.acc : "rgba(214,218,228,0.55)"; ctx.lineWidth = o.hl ? (o.hlw ?? 5) : 2; ctx.stroke();
+  rr(-w / 2, -h / 2, w, h, Math.min(8, h * 0.14)); ctx.strokeStyle = o.hl ? C.acc : o.crisp ? "#FFFFFF" : "rgba(214,218,228,0.55)"; ctx.lineWidth = o.hl ? (o.hlw ?? 5) : o.crisp ? 4 : 2; ctx.stroke();
   ctx.restore();
 }
 
@@ -340,7 +340,10 @@ function phoneOut(t, K, s, o = {}) {
   const scrA = o.scrA ?? 1;
   ctx.globalAlpha = scrA;
   if (s.mode === "vf" || s.mode === "photo") {
-    ID(); const p0 = toS(K, [SCR.x, SCR.y]); ctx.save(); skyBox(p0[0], p0[1], SCR.w * K.A, SCR.h * K.A, s.ages, { t }); ctx.restore(); setK(K);
+    const ok = s.mode === "photo" && s.openK != null ? s.openK : 1;
+    ctx.save();
+    if (ok < 1) { setK(K); const x = lerp(THUMB.x, SCR.x, ok), y = lerp(THUMB.y, SCR.y, ok), w = lerp(THUMB.w, SCR.w, ok), h = lerp(THUMB.h, SCR.h, ok); rr(x, y, w, h, lerp(8, SCR.r, ok)); ctx.clip(); }
+    ID(); const p0 = toS(K, [SCR.x, SCR.y]); skyBox(p0[0], p0[1], SCR.w * K.A, SCR.h * K.A, s.ages, { t }); ctx.restore(); setK(K);
     if (s.mode === "vf") {
       // the shutter (under the right thumb) and the last photo
       ctx.strokeStyle = "rgba(255,255,255,0.92)"; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(SHUT[0], SHUT[1], 34, 0, TAU); ctx.stroke();
@@ -367,12 +370,12 @@ function drawEdit(t, K, s) {
   ID(); const p0 = toS(K, [SCR.x, SCR.y]), W_ = SCR.w * K.A, H_ = SCR.h * K.A;
   ctx.fillStyle = "#0B0C0F"; ctx.fillRect(p0[0], p0[1], W_, H_);
   const sel = editSel(t), sw = E.p2io(prog(t, T.slideEnd, T.slideEnd + 0.3));
-  const big = { x: p0[0] + W_ * 0.22, y: p0[1] + H_ * 0.05, w: W_ * 0.56, h: H_ * 0.62 };
+  const big = { x: p0[0] + W_ * 0.25, y: p0[1] + H_ * 0.04, w: W_ * 0.5, h: H_ * 0.52 };
   ctx.save(); rr(big.x, big.y, big.w, big.h, 8); ctx.clip();
   skyBox(big.x, big.y, big.w, big.h, [EDIT_AGES[6]], { t: 0 });
   if (sw > 0) { ctx.globalAlpha = sw; skyBox(big.x, big.y, big.w, big.h, [EDIT_AGES[2]], { t: 0 }); ctx.globalAlpha = 1; }
   ctx.restore();
-  const n = 8, cw = W_ * 0.068, ch = H_ * 0.15, gap = W_ * 0.007, x0 = p0[0] + W_ / 2 - (n * cw + (n - 1) * gap) / 2, y0 = p0[1] + H_ * 0.76;
+  const n = 8, cw = W_ * 0.064, ch = H_ * 0.15, gap = W_ * 0.007, x0 = p0[0] + W_ / 2 - (n * cw + (n - 1) * gap) / 2, y0 = p0[1] + H_ * 0.66;
   for (let i = 0; i < n; i++) card(x0 + i * (cw + gap) + cw / 2, y0 + ch / 2, cw, ch, [EDIT_AGES[i]], {});
   const sx = x0 + sel * (cw + gap) + cw / 2;
   ID(); ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 5; rr(sx - cw / 2 - 5, y0 - 5, cw + 10, ch + 10, 8); ctx.stroke();
@@ -395,9 +398,10 @@ function screenOut(t, b, tapT, playT) {
   const s = { mode: "vf", ages: [t - b], flash: 0, fly: 0, thumbAges: null };
   if (t >= tapT) { s.flash = Math.max(0, 1 - (t - tapT) / 0.16) * 0.85; s.thumbAges = [1.0]; s.thumbA = E.p2out(prog(t, tapT + 0.45, tapT + 0.6)); s.fly = prog(t, tapT + 0.1, tapT + 0.5); s.flyAges = [1.0]; }
   if (playT != null && t >= playT) {
-    const op = E.p3out(prog(t, playT, playT + 0.25)), age = -0.5 + (t - playT), back = E.p2io(prog(age, 2.0, 2.35));
+    const op = E.p3out(prog(t, playT, playT + 0.3)), age = -0.5 + (t - playT), back = E.p2io(prog(age, 2.0, 2.35));
     s.mode = "photo"; s.ages = back > 0.5 ? [1.0] : [age]; s.flash = 0; s.fly = 0;
     s.openK = op;
+    if (Math.abs(playT - T.fin) < 1e-6) s.flash = Math.max(0, 1 - (t - playT) / 0.2) * 0.8;   // the closing line: the screen 咔
   }
   return s;
 }
@@ -435,12 +439,12 @@ function strikeX(t) {                                       // ✕ on 开始录 
 // 9.5–16: the screen big in the middle, the lens + chip below it (frames go up into the screen); 16–: the screen steps
 // back to the top left (dimmed), the ring forms round the chip; 20.75–: the screen lights up again, the ring sinks a little
 const L1 = { scr: { cx: 540, cy: 800, w: 600, h: 300 }, lens: { x: 455, y: 1150, r: 56 }, chip: { x: 545, y: 1150, s: 80 } };
-const L2 = { scr: { cx: 240, cy: 660, w: 300, h: 150 } };
-const RC1 = { x: 545, y: 1150, r: 225, cw: 104, ch: 60 }, RC2 = { x: 545, y: 1200, r: 200, cw: 84, ch: 48 };   // with the drift, all ≤ y 1450
+const L2 = { scr: { cx: 200, cy: 625, w: 260, h: 130 } };
+const RC1 = { x: 540, y: 1005, r: 360, cw: 150, ch: 85 }, RC2 = { x: 540, y: 1165, r: 240, cw: 104, ch: 58 };   // with the drift, all ≤ y 1450
 function pullK(t) { return E.p3io(prog(t, T.pull, T.pullEnd)); }
 function backK(t) { return E.p3io(prog(t, T.ringForm, T.ringForm + 0.6)); }
 function scrBox(t) { const k = backK(t), a = L1.scr, b = L2.scr; return { cx: lerp(a.cx, b.cx, k), cy: lerp(a.cy, b.cy, k), w: lerp(a.w, b.w, k), h: lerp(a.h, b.h, k) }; }
-function chipAt(t) { const G = ringGeo(t), k = pullK(t); return { x: G.x, y: G.y, sc: lerp(1, 0.8, k) }; }
+function chipAt(t) { const G = ringGeo(t), k = E.p3io(prog(t, T.ringForm, T.ringFormEnd)); return { x: lerp(L1.chip.x, G.x, k), y: lerp(L1.chip.y, G.y, k), sc: lerp(1, 0.8, pullK(t)) }; }
 function ringGeo(t) { const k = pullK(t); return { x: lerp(RC1.x, RC2.x, k), y: lerp(RC1.y, RC2.y, k), r: lerp(RC1.r, RC2.r, k), cw: lerp(RC1.cw, RC2.cw, k), ch: lerp(RC1.ch, RC2.ch, k) }; }
 // the viewfinder panel (inside): the sky live at sky time τ; on (black → sky) at T.vfOn
 function drawPanel(t, box, o = {}) {
@@ -554,8 +558,8 @@ function drawRing(t, o = {}) {
   }
 }
 // the press: the strip of kept frames (6 before, the sharp one, 6 after)
-const ST = { y: 900, cw: 62, ch: 35, dx: 68 };
-const stripX = (side, j) => (side < 0 ? 540 - 116 - (5 - j) * ST.dx : 540 + 116 + j * ST.dx);
+const ST = { y: 790, cw: 120, ch: 68, dx: 128 };
+const stripX = (side, j) => (side < 0 ? 540 - 176 - (2 - j) * ST.dx : 540 + 176 + j * ST.dx);
 function drawStrip(t) {
   if (t < T.a7 || t >= T.q10 + 0.6) return;
   const G = ringGeo(t), f = TL.ringF(t), col = E.p3io(prog(t, T.collapse, T.collapseEnd));
@@ -563,19 +567,19 @@ function drawStrip(t) {
   const PC = { x: 540, y: 900, w: 600, h: 338 };
   // the press line
   const pk = E.p3out(prog(t, T.a7, T.a7 + 0.3)) * (1 - col);
-  if (pk > 0.01) { ID(); ctx.save(); ctx.globalAlpha = pk; ctx.strokeStyle = C.acc; ctx.lineWidth = 4; ctx.setLineDash([10, 9]); line(540, ST.y - 46, 540, ST.y + 46); ctx.restore(); }
+  if (pk > 0.01) { ID(); ctx.save(); ctx.globalAlpha = pk; ctx.strokeStyle = C.acc; ctx.lineWidth = 4; ctx.setLineDash([10, 9]); line(540, ST.y - 70, 540, ST.y + 70); ctx.restore(); }
   const put_ = (side, j, n, tc) => {
     const u = E.p3io(prog(t, tc, tc + 0.4)); if (t < tc) return;
     const s = ((n % 12) + 12) % 12, sp = slotPos(t, s, G, f), x1 = stripX(side, j);
     let x = lerp(sp[0], x1, u), y = lerp(sp[1], ST.y, u), w = lerp(G.cw, ST.cw, u), h = lerp(G.ch, ST.ch, u), sc = 1 - 0.08 * soft;
     if (col > 0) { x = lerp(x, PC.x, col); y = lerp(y, PC.y, col); }
-    card(x, y, w * sc, h * sc, agesIn(nTau(n)), { soft: 0.9 * soft, a: 1 - E.p3in(prog(col, 0.6, 1)), t: nTau(n), hl: u < 1 && u > 0 });
+    card(x, y, w * sc, h * sc, agesIn(nTau(n)), { soft: 3.2 * soft, grey: 0.28 * soft, a: 1 - E.p3in(prog(col, 0.6, 1)), t: nTau(n), hl: u < 1 && u > 0 });
   };
   TL.BEFORE.forEach((n, j) => put_(-1, j, n, TL.COPYB_T[j]));
   TL.AFTER.forEach((n, j) => put_(1, j, n, TL.COPYA_T[j]));
   // the sharp photo at the press
   const kk = E.p3out(prog(t, T.key, T.key + 0.3));
-  if (kk > 0 && col < 1) { const w = 150, h = 86; card(lerp(540, PC.x, col), lerp(ST.y - 40 * (1 - kk), PC.y, col), lerp(w, PC.w, col), lerp(h, PC.h, col), agesIn(nTau(TL.PRESS_N)), { a: kk, t: 0 }); }
+  if (kk > 0 && col < 1) { const w = 240, h = 135; card(lerp(540, PC.x, col), lerp(ST.y - 40 * (1 - kk), PC.y, col), lerp(w, PC.w, col), lerp(h, PC.h, col), agesIn(nTau(TL.PRESS_N)), { a: kk, t: 0, crisp: 1 }); }   // the sharp one: crisp, brighter lines
   if (col >= 1 - 1e-6 || t >= T.collapseEnd) {
     const age = -0.5 + (t - T.collapseEnd) * 1.0;
     card(PC.x, PC.y, PC.w, PC.h, [age < 1.45 ? age : 1.0], { t });
@@ -592,7 +596,7 @@ function drawInside(t) {
   const focus = t >= T.vfOn && t < T.chipOn;                               // 9.5–11.25: only the screen is lit
   const box = scrBox(t), stepBack = backK(t) * (1 - pullK(t));
   const lb = t >= T.liveBox && t < T.liveBox + 1.6 ? E.p3out(prog(t, T.liveBox, T.liveBox + 0.25)) : 0;
-  const pnl = drawPanel(t, box, { on: vfOn, a: (1 - 0.65 * stepBack) * (1 - 0.7 * dimAll), liveBox: lb, liveBoxA: 1 - prog(t, T.liveBox + 1.3, T.liveBox + 1.6) });
+  const pnl = drawPanel(t, box, { on: vfOn, a: (1 - stepBack) * (1 - 0.7 * dimAll), liveBox: lb, liveBoxA: 1 - prog(t, T.liveBox + 1.3, T.liveBox + 1.6) });
   const c = t >= T.ringForm ? chipAt(t) : null;
   drawLensChip(t, (focus ? 0.3 : 1) * (1 - 0.7 * dimAll), t >= T.chipOn ? E.p3out(prog(t, T.chipOn, T.chipOn + 0.3)) * (1 - prog(t, T.ringForm, T.ringForm + 0.4)) : 0, c);
   if (t >= T.chipOn && t < T.ringForm + 0.3) {
@@ -617,18 +621,19 @@ function insideLabels(t) {
   const G = ringGeo(t);
   label(COPY.chip, L1.chip.x, L1.chip.y + 118, 44, C.paper, t, T.chipOn + 0.1, T.q5, { align: "center" });
   label(COPY.fps, L1.chip.x + 110, 1062, 44, C.paper, t, T.flow + 0.2, T.q5);
-  label(COPY.ring, 770, 800, 44, C.paper, t, T.ringForm + 0.2, T.a6, { align: "center" });
-  label(COPY.term, 770, 800, 44, C.paper, t, T.a6 + 0.1, T.q7, { align: "center" });
+  label(COPY.ring, G.x, G.y + 140, 44, C.paper, t, T.ringFormEnd - 0.2, T.a6, { align: "center" });
+  label(COPY.term, G.x, G.y + 140, 44, C.paper, t, T.a6 + 0.1, T.q7, { align: "center" });
+  label(COPY.slow, G.x, G.y + 112, 44, C.paper, t, T.tap + 0.3, T.collapse, { align: "center" });
   if (t >= T.ringForm && t < T.ringFormEnd + 0.6) oring(G.x, G.y, G.r + G.ch * 0.5 + 10, E.p3out(prog(t, T.ringForm + 0.2, T.ringFormEnd)), 1 - prog(t, T.ringFormEnd + 0.3, T.ringFormEnd + 0.6), 5);
-  label(COPY.pre, (stripX(-1, 0) + stripX(-1, 5)) / 2, ST.y - 50, 44, C.paper, t, T.copyB, T.collapse, { align: "center" });
-  label(COPY.post, (stripX(1, 0) + stripX(1, 5)) / 2, ST.y - 50, 44, C.paper, t, T.copyA, T.collapse, { align: "center" });
+  label(COPY.pre, (stripX(-1, 0) + stripX(-1, 2)) / 2, ST.y + 86, 44, C.paper, t, T.copyB, T.collapse, { align: "center" });
+  label(COPY.post, (stripX(1, 0) + stripX(1, 2)) / 2, ST.y + 86, 44, C.paper, t, T.copyA, T.collapse, { align: "center" });
   if (t >= T.collapseEnd && t < T.q10) pill(COPY.names, 540, 1140, 44, t, T.collapseEnd + 0.1, T.q10, { align: "center" });
 }
 
 // ================================================================ the dive: the phone opens up into the inside view
 const DIVE_C = () => [0, 0];
 function diveCam(t) { return outK(t, 1 + 0.22 * E.p2io(prog(t, T.dive, T.darkB))); }
-function darkR(t) { return 2500 * E.p2in(prog(t, T.darkA, T.darkB)); }
+function darkR(t) { return 2500 * E.p2io(prog(t, T.darkA, T.darkB)); }
 function morphK(t) { return E.p3io(prog(t, T.lay, T.diveEnd - 0.1)); }
 function drawDive(t) {
   const K = diveCam(t), R = darkR(t), cm = toS(K, CAMM), mk = morphK(t);
@@ -669,16 +674,16 @@ function drawModuleXray(K, a) {
 // ================================================================ the closing shot: a window into the phone shows the ring
 function drawXrayRing(t, K, a) {
   if (a <= 0.01) return;
-  const c = toS(K, [-150, 10]), R = 118 * K.A / PS;
+  const c = toS(K, [-140, 0]), R = 150 * K.A;
   ID(); ctx.save(); ctx.globalAlpha = a;
-  ctx.beginPath(); ctx.arc(c[0], c[1], R, 0, TAU); ctx.fillStyle = C.dark; ctx.fill(); ctx.strokeStyle = C.paper; ctx.lineWidth = 4; ctx.stroke(); ctx.clip();
-  // 4 slots / s, the head at the top; the slots that hold the burst are kept (orange) once the shutter is pressed
-  const f = (t - (T.q10 - 3)) * 4, G = { x: c[0], y: c[1], r: R * 0.62 };
-  for (let s = 0; s < 12; s++) {
-    const n = slotN(f, s), th = (-90 + (f - s) * 30) * RAD, p = [G.x + Math.cos(th) * G.r, G.y + Math.sin(th) * G.r];
-    const tw = (T.q10 - 3) + n / 4, age = tw - TL.BURST_OUT[1];
+  ctx.beginPath(); ctx.arc(c[0], c[1], R, 0, TAU); ctx.fillStyle = C.dark; ctx.fill(); ctx.strokeStyle = C.paper; ctx.lineWidth = 5; ctx.stroke(); ctx.clip();
+  // 8 slots of ½ s, the head at the top; once the shutter is pressed the three that hold the burst are kept (orange)
+  const t0 = T.q10 - 4, f = (t - t0) * 2, G = { x: c[0], y: c[1], r: R * 0.64 };
+  for (let s = 0; s < 8; s++) {
+    const fl = Math.floor(f + 1e-6), n = fl - (((fl - s) % 8) + 8) % 8, th = (-90 + (f - s) * 45) * RAD, p = [G.x + Math.cos(th) * G.r, G.y + Math.sin(th) * G.r];
+    const tw = t0 + n / 2, age = tw - TL.BURST_OUT[1];
     const kept = t >= T.tapC && tw >= T.tapC - 1.5 && tw < T.tapC;
-    card(p[0], p[1], 44, 26, [age], { t: tw, hl: kept, hlw: 3 });
+    card(p[0], p[1], 68, 39, [age], { t: tw, hl: kept, hlw: 5 });
   }
   ctx.restore();
 }
