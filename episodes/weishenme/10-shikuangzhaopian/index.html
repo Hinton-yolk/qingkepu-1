@@ -1,0 +1,808 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1080">
+<title>EP.10 实况照片</title>
+<style>
+  @font-face { font-family: "Smiley"; src: url("assets/fonts/smiley.woff2") format("woff2"); }
+  @font-face { font-family: "NotoSC"; font-weight: 700; src: url("assets/fonts/noto-sc-bold.woff2") format("woff2"); }
+  @font-face { font-family: "NotoSC"; font-weight: 400; src: url("assets/fonts/noto-sc-regular.woff2") format("woff2"); }
+  html, body { margin: 0; background: #ECEBE6; }
+  #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="44.75" data-width="1080" data-height="1920">
+  <canvas id="c" width="1080" height="1920"></canvas>
+</div>
+<script src="timeline.js"></script>
+<script src="assets/people/model.js"></script>
+<script>
+"use strict";
+// ============================================================================================
+// EP.10 实况照片 — a pure function of time. window.seek(t) paints frame t.
+// Worlds:
+//   OUTSIDE (light, 0–6.75 and 31.25–41): two hands hold a phone sideways (the hands from EP.08's photo); its screen is
+//     the camera: a night sky with one firework. Local units = px at zoom 1, origin at the phone's centre.
+//   DIVE (6.75–9.5): one take: the body turns x-ray, dark opens from the camera module, the screen and the lens + chip
+//     move apart into the inside layout.
+//   INSIDE (dark, 9.5–31.25): the viewfinder panel, the lens + the chip, the pile, the ring of 12 frames, the strip.
+//     Sky time τ (timeline.js tau()) runs 4× slow from the tap (示意).
+// No timers, no rAF, no state between frames (the context is reset every frame); seeded noise only.
+// ============================================================================================
+const { T, COPY, W, H, DUR, FPS, S16 } = TL;
+const cv = document.getElementById("c");
+const MAIN = cv.getContext("2d");
+const OFF = document.createElement("canvas"); OFF.width = W; OFF.height = H;
+const OFFX = OFF.getContext("2d");
+let ctx = MAIN;
+
+const C = {
+  ground: "#ECEBE6", ink: "#141414", acc: "#FF4A1C", paper: "#F1F0EC", dark: "#17191C",
+  skin: "#EBCBA5", skinD: "#D6AD84", skinL: "#F4DEC3", nail: "#F3DCCB",
+  body: "#25282E", bodyL: "#3A3E46", glass: "#0D0E11", plug: "#DAD8D1", plugD: "#B9B6AE", metal: "#9EA3AB", cable: "#E4E2DB", cableD: "#C9C6BE",
+  cath: "#2F3442", cathL: "#454B5B", anode: "#30333A", sheet: "#5A606C", sheetL: "#737A88", elyte: "#17191C", film: "#8F8A80", filmL: "#B3AC9F",
+  ion: "#F1F0EC", night: "#171A21", nightW: "#202737", stand: "#2B2F38", table: "#23262D", tableL: "#333843",
+  caseC: "#5E6570", caseL: "#747C88",
+};
+const DISPLAY = "Smiley", UI = "NotoSC";
+
+// ---------------------------------------------------------------- math
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const TAU = Math.PI * 2, RAD = Math.PI / 180;
+const E = {
+  sine: (x) => 0.5 - 0.5 * Math.cos(Math.PI * x),
+  p2io: (x) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2),
+  p3io: (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2),
+  p2in: (x) => x * x, p3in: (x) => x * x * x,
+  p2out: (x) => 1 - (1 - x) * (1 - x), p3out: (x) => 1 - Math.pow(1 - x, 3), p4out: (x) => 1 - Math.pow(1 - x, 4),
+  smooth: (x) => x * x * (3 - 2 * x),
+};
+function spring(x, w = 15, z = 0.72) {
+  if (x <= 0) return 0;
+  const wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * x) * (Math.cos(wd * x) + ((z * w) / wd) * Math.sin(wd * x));
+}
+function slamScale(u) {                              // 0.17 s: 1.55 -> 0.94 -> 1.0
+  if (u <= 0) return 1.55;
+  if (u < 0.09) return lerp(1.55, 0.94, E.p2in(u / 0.09));
+  if (u < 0.17) return lerp(0.94, 1.0, E.p3out((u - 0.09) / 0.08));
+  return 1;
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const hexRGB = (h) => [0, 1, 2].map((i) => parseInt(h.slice(1 + 2 * i, 3 + 2 * i), 16));
+const mixHex = (a, b, k) => { const p = hexRGB(a), q = hexRGB(b); return `rgb(${[0, 1, 2].map((i) => Math.round(lerp(p[i], q[i], k))).join(",")})`; };
+const rgba = (h, a) => { const p = hexRGB(h); return `rgba(${p[0]},${p[1]},${p[2]},${a})`; };
+function kf(t, K, ease = E.p2io) {
+  if (t <= K[0][0]) return K[0][1];
+  for (let i = 1; i < K.length; i++) if (t < K[i][0]) { const [t0, v0] = K[i - 1], [t1, v1, e] = K[i]; return lerp(v0, v1, (e || ease)(prog(t, t0, t1))); }
+  return K[K.length - 1][1];
+}
+function win(t, a, b, fi = 0.25, fo = 0.25) { return E.p3out(prog(t, a, a + fi)) * (1 - E.p2io(prog(t, b - fo, b))); }
+const hash = (n) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+const vnoise = (x) => { const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); return lerp(hash(i), hash(i + 1), u); };
+
+// a slow, smooth drift (never a shake): incommensurate sines so the picture never stops
+function drift(t) { return [30 * Math.cos(0.8 * t) + 8 * Math.sin(1.7 * t), 22 * Math.sin(0.8 * t) + 6 * Math.cos(1.3 * t), 1 + 0.02 * Math.sin(0.37 * t)]; }   // an ellipse: the speed never drops to zero
+// ---------------------------------------------------------------- camera: screen = A·local + B (log-spiral between keys)
+function key(F, anchor, A) { return { A, B: [anchor[0] - A * F[0], anchor[1] - A * F[1]] }; }
+function interp(k0, k1, u) {
+  const lr = Math.log(k1.A / k0.A), kk = Math.exp(lr), ku = Math.exp(lr * u);
+  let B;
+  if (Math.abs(1 - kk) < 1e-9) B = [lerp(k0.B[0], k1.B[0], u), lerp(k0.B[1], k1.B[1], u)];
+  else { const c0 = k1.B[0] - kk * k0.B[0], c1 = k1.B[1] - kk * k0.B[1], w0 = c0 / (1 - kk), w1 = c1 / (1 - kk); B = [ku * (k0.B[0] - w0) + w0, ku * (k0.B[1] - w1) + w1]; }
+  return { A: k0.A * ku, B };
+}
+const ID = () => ctx.setTransform(1, 0, 0, 1, 0, 0);
+const setK = (K) => ctx.setTransform(K.A, 0, 0, K.A, K.B[0], K.B[1]);
+const toS = (K, p) => [K.A * p[0] + K.B[0], K.A * p[1] + K.B[1]];
+
+// ---------------------------------------------------------------- drawing helpers
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function line(x0, y0, x1, y1) { ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
+const MEASURE = new Map();
+function mw(font, s) { const k = font + "|" + s; let v = MEASURE.get(k); if (v === undefined) { ctx.font = font; v = ctx.measureText(s).width; MEASURE.set(k, v); } return v; }
+function parse(str) { const out = []; let a = 0; for (const ch of str) { if (ch === "[") { a = 1; continue; } if (ch === "]") { a = 0; continue; } out.push({ ch, a }); } return out; }
+const plain = (str) => str.replace(/[\[\]]/g, "");
+function fitSize(str, size, maxW, face = DISPLAY, wt = "") { const f = `${wt} ${size}px ${face}`.trim(), w = mw(f, plain(str)); return w > maxW ? Math.floor(size * maxW / w) : size; }
+// Text band: style none | blur | type | slam | wipe; left aligned at x.
+function lines(L, t, t0, t1, o = {}) {
+  if (t < t0 || t >= t1) return;
+  const three = L.length === 3 && !o.ys;
+  const x = o.x ?? 96, ys = o.ys ?? (three ? [300, 420, 540] : [330, 472]), face = o.face ?? DISPLAY, wt = o.weight ?? "";
+  const col = o.col ?? C.ink, acc = o.acc ?? C.acc, style = o.style ?? "blur";
+  const stag = o.stag ?? 0.055, lineGap = o.lineGap ?? 0.16, exitDur = o.exit ?? 0.16, maxW = o.maxW ?? 930;
+  ID();
+  L.forEach((str, i) => {
+    const size = fitSize(str, Array.isArray(o.size) ? o.size[i] : (o.size ?? (three ? 96 : 112)), maxW, face, wt);
+    const font = `${wt} ${size}px ${face}`.trim();
+    const chars = parse(str), ls = t0 + i * lineGap;
+    if (t < ls) return;
+    let pre = "";
+    ctx.save();
+    if (style === "slam") { const sc0 = slamScale(t - ls), sc = sc0 > 1 ? Math.min(sc0, Math.max(1, (1040 - x) / mw(font, plain(str)))) : sc0, cy = ys[i] - size * 0.35; ctx.translate(x, cy); ctx.scale(sc, sc); ctx.translate(-x, -cy); }
+    if (style === "wipe") { const wv = mw(font, plain(str)); ctx.beginPath(); ctx.rect(0, ys[i] - size * 1.2, x + wv * E.p3out(prog(t, ls, ls + 0.32)) + 4, size * 1.6); ctx.clip(); }
+    ctx.font = font; ctx.textBaseline = "alphabetic";
+    chars.forEach((c, j) => {
+      const cx = x + mw(font, pre); pre += c.ch;
+      const lt = t - (ls + j * stag);
+      let a = 1, blur = 0;
+      if (style === "blur") { const k = clamp(lt / 0.13); a = k; blur = 9 * (1 - k); }
+      else if (style === "type") { a = lt >= 0 ? 1 : 0; }
+      if (t > t1 - exitDur) { const e = clamp((t - (t1 - exitDur)) / exitDur); a *= 1 - e; blur = Math.max(blur, 10 * e); }
+      if (a <= 0.003) return;
+      ctx.globalAlpha = a; ctx.filter = blur > 0.3 ? `blur(${blur.toFixed(1)}px)` : "none";
+      ctx.fillStyle = c.a ? acc : col; ctx.fillText(c.ch, cx, ys[i]);
+    });
+    ctx.restore(); ctx.filter = "none"; ctx.globalAlpha = 1;
+  });
+}
+function label(str, x, y, size, col, t, t0, t1, o = {}) {
+  if (t < t0 || t >= t1) return;
+  ID(); const font = `${o.weight ?? 700} ${size}px ${o.face ?? UI}`; const wv = mw(font, str);
+  const k = E.p3out(prog(t, t0, t0 + 0.28)), e = prog(t, t1 - 0.15, t1);
+  ctx.save(); ctx.font = font; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  const left = o.align === "right" ? x - wv : o.align === "center" ? x - wv / 2 : x;
+  if (o.plate) { ctx.globalAlpha = (1 - e) * k; rr(left - 18, y - size - 4, wv + 36, size + 22, 12); ctx.fillStyle = o.plate; ctx.fill(); }
+  ctx.beginPath(); ctx.rect(left - 4, y - size * 1.2, (wv + 8) * k, size * 1.6); ctx.clip();
+  ctx.globalAlpha = (o.alpha ?? 1) * (1 - e); if (e > 0) ctx.filter = `blur(${(8 * e).toFixed(1)}px)`;
+  ctx.fillStyle = col; ctx.fillText(str, left, y); ctx.restore(); ctx.filter = "none";
+}
+function underline(str, prefix, word, lineIdx, t, t0, t1, ys = [330, 472], size0 = 112) {
+  if (t < t0 || t >= t1) return;
+  const size = fitSize(str, size0, 930), f = `${size}px ${DISPLAY}`;
+  const x0 = 96 + mw(f, prefix), wv = mw(f, word), k = E.p3out(prog(t, t0, t0 + 0.3)), fo = 1 - prog(t, t1 - 0.16, t1);
+  ID(); ctx.globalAlpha = fo; ctx.fillStyle = C.acc; ctx.fillRect(x0 - 4, ys[lineIdx] + 20, (wv + 8) * k, 11); ctx.globalAlpha = 1;
+}
+function leader(x0, y0, x1, y1, col, k = 1, w = 2.5) {
+  ID(); ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(lerp(x0, x1, k), lerp(y0, y1, k)); ctx.stroke();
+  if (k > 0.98) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x1, y1, 6, 0, TAU); ctx.fill(); }
+  ctx.restore();
+}
+function pill(str, x, y, size, t, t0, t1, o = {}) {                     // small text on a dark pill
+  if (t < t0 || t >= t1) return;
+  ID(); const font = `${o.weight ?? 700} ${size}px ${UI}`, wv = mw(font, str), k = E.p3out(prog(t, t0, t0 + 0.25)), e = 1 - prog(t, t1 - 0.15, t1);
+  const left = o.align === "right" ? x - wv : o.align === "center" ? x - wv / 2 : x;
+  ctx.save(); ctx.globalAlpha = k * e; rr(left - 22, y - size - 6, wv + 44, size + 26, (size + 26) / 2); ctx.fillStyle = o.fill ?? "rgba(23,25,28,0.88)"; ctx.fill();
+  if (o.edge) { ctx.strokeStyle = C.acc; ctx.lineWidth = 4; ctx.stroke(); }
+  ctx.font = font; ctx.fillStyle = o.col ?? C.paper; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillText(str, left, y); ctx.restore();
+}
+// an orange box that draws itself (the 示意 frame for a new element)
+function obox(x, y, w, h, k, a = 1, r = 14, lw = 5) {
+  if (k <= 0 || a <= 0) return;
+  ID(); ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = C.acc; ctx.lineWidth = lw; ctx.lineJoin = "round";
+  const per = 2 * (w + h); ctx.setLineDash([per * k, per]); rr(x, y, w, h, r); ctx.stroke(); ctx.restore();
+}
+function oring(x, y, r, k, a = 1, lw = 4) {
+  if (k <= 0 || a <= 0) return;
+  ID(); ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = C.acc; ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + TAU * k); ctx.stroke(); ctx.restore();
+}
+function capsule(P, w, fill) { ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = fill; ctx.lineWidth = w; ctx.beginPath(); P.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke(); ctx.restore(); }
+
+
+// ---------------------------------------------------------------- the hands, drawn from the user's photo (assets/people/model.js)
+// The photo's right hand pinches between index (top) and thumb (bottom); the pinch centre is image (1350, 170).
+// v3.4 (user 11-17: 「手部模型必须优化，还是仿照体脂秤的来改」): drawn like EP.05's feet — one smooth skin with an ink
+// outline, a soft shading towards the edges, a few short creases where fingers touch, small pale nails with warm tips.
+const HM = window.HAND_MODEL.RH;
+const HPINCH = [1352, 172];
+// the traced outline, with the straight cut where the photo's object was (x ≈ 1455, y 154–293) replaced by the soft web
+const HPTS = (() => {
+  const P = HM.pts.slice(), i0 = P.findIndex((p) => p[0] === 1453 && p[1] === 293.5), i1 = P.findIndex((p) => p[0] === 1459.5 && p[1] === 150);
+  const web = [[1440, 286], [1460, 262], [1471, 232], [1473, 200], [1467, 172], [1457, 148]];
+  // the forearm leaves the photo at its right and bottom edges: carry it on, out of the frame (no cut line)
+  const ext = { "1999,666.5": [2790, 1000], "1818,666.5": [2718, 1044], "1999.5,529": [2800, 769] };
+  const Q = P.map((p) => ext[p.join(",")] ?? p);
+  return i0 >= 0 && i1 > i0 ? [...Q.slice(0, i0), ...web, ...Q.slice(i1 + 1)] : Q;
+})();
+const HDET = {
+  nails: [[1286, 56, 20, 11, -0.05], [1262, 266, 22, 18, 0.1]],   // small and pale, near the tips
+  tips: [[1268, 62, 30], [1258, 268, 34]],                                         // warmer fingertips
+  touch: [[[1384, 446], [1424, 452], [1468, 462]], [[1390, 492], [1426, 498], [1462, 508]], [[1380, 360], [1412, 370], [1446, 380]]],   // where fingers touch: short creases from the front back
+  knuckle: [[[1452, 70], [1458, 88]]],
+};
+function smoothPath(P) {                                 // a closed Catmull-Rom-like curve through the points (quadratics through midpoints)
+  const n = P.length, m = (i) => [(P[i % n][0] + P[(i + 1) % n][0]) / 2, (P[i % n][1] + P[(i + 1) % n][1]) / 2];
+  const p0 = m(n - 1); ctx.beginPath(); ctx.moveTo(p0[0], p0[1]);
+  for (let i = 0; i < n; i++) { const q = m(i); ctx.quadraticCurveTo(P[i][0], P[i][1], q[0], q[1]); }
+  ctx.closePath();
+}
+// draw the right hand (mirror = −1: the left hand) so that the pinch centre lands on screen point p, scale s px per image px
+function drawHand(p, s, mirror = 1, a = 1, ang = 0) {
+  if (a <= 0.01) return;
+  ID(); ctx.save(); ctx.globalAlpha *= a; ctx.translate(p[0], p[1]); ctx.rotate(ang); ctx.scale(s * mirror, s); ctx.translate(-HPINCH[0], -HPINCH[1]);
+  smoothPath(HPTS); ctx.fillStyle = C.skin; ctx.fill();
+  ctx.save(); smoothPath(HPTS); ctx.clip();
+  // shading like EP.05: darker towards the edges, light down the middle of the back of the hand and along the forearm
+  ctx.filter = `blur(${(14 / s).toFixed(1)}px)`; ctx.strokeStyle = "rgba(110,62,28,0.22)"; ctx.lineWidth = 60; smoothPath(HPTS); ctx.stroke(); ctx.filter = "none";
+  ctx.lineCap = "round"; ctx.strokeStyle = "rgba(255,246,232,0.22)"; ctx.lineWidth = 46; ctx.filter = `blur(${(10 / s).toFixed(1)}px)`;
+  ctx.beginPath(); ctx.moveTo(1330, 60); ctx.quadraticCurveTo(1480, 90, 1560, 250); ctx.quadraticCurveTo(1660, 440, 1990, 560); ctx.stroke(); ctx.filter = "none";
+  for (const [x, y, r] of HDET.tips) { const gr = ctx.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, "rgba(222,140,118,0.26)"); gr.addColorStop(1, "rgba(222,140,118,0)"); ctx.fillStyle = gr; ctx.fillRect(x - r, y - r, 2 * r, 2 * r); }
+  ctx.restore();
+  // the few lines: where fingers touch, one knuckle
+  ctx.lineCap = "round";
+  for (const c of HDET.touch) { const g = ctx.createLinearGradient(c[0][0], c[0][1], c[2][0], c[2][1]); g.addColorStop(0, "rgba(60,34,16,0.75)"); g.addColorStop(0.6, "rgba(90,50,24,0.55)"); g.addColorStop(1, "rgba(110,62,30,0)"); ctx.strokeStyle = g; ctx.lineWidth = 2.2 / s; ctx.beginPath(); ctx.moveTo(c[0][0], c[0][1]); ctx.quadraticCurveTo(c[1][0], c[1][1], c[2][0], c[2][1]); ctx.stroke(); }
+  for (const c of HDET.knuckle) { ctx.strokeStyle = "rgba(20,20,20,0.25)"; ctx.lineWidth = 1.4 / s; ctx.beginPath(); ctx.moveTo(c[0][0], c[0][1]); ctx.lineTo(c[1][0], c[1][1]); ctx.stroke(); }
+  // the nails: small, pale, with a thin edge and one highlight
+  for (const [cx, cy, ra, rb, an] of HDET.nails) {
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(an);
+    ctx.beginPath(); ctx.ellipse(0, 0, ra, rb, 0, 0, TAU); ctx.fillStyle = "#F0D3C2"; ctx.fill(); ctx.strokeStyle = "rgba(154,106,78,0.55)"; ctx.lineWidth = 1.2 / s; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-ra * 0.2, -rb * 0.3, ra * 0.35, rb * 0.22, 0, 0, TAU); ctx.fillStyle = "rgba(255,255,255,0.32)"; ctx.fill(); ctx.restore();
+  }
+  // the ink outline (as EP.05)
+  smoothPath(HPTS); ctx.lineJoin = "round"; ctx.strokeStyle = C.ink; ctx.lineWidth = 2.8 / s; ctx.stroke();
+  ctx.restore();
+}
+
+// ================================================================ the fireworks (one kind of firework all through the film)
+// age a = seconds since the burst. a < 0: the shell, almost still near the top (FACTS #12: the last 0.5 s before the
+// burst it rises about 1 m). a ≥ 0: the stars fly out, slow down, droop; dimmer from about 1 s, gone by about 1.7 s.
+// Colours (user 11-23: 「coloured」): magenta, teal, a yellow gold — kept clear of the signal orange.
+const FW_COL = [[232, 72, 154], [44, 201, 181], [243, 208, 74]];
+const STARS = (() => { const r = mulberry32(1010); const N = 36; return Array.from({ length: N }, (_, i) => ({ th: (i / N) * TAU + (r() - 0.5) * 0.12, sp: 0.78 + 0.26 * r(), c: i % 3, ph: r() * TAU })); })();
+function fwBright(a) { return a < 0.3 ? 1 : a < 1.0 ? 1 - 0.55 * ((a - 0.3) / 0.7) : Math.max(0, 0.45 * (1 - (a - 1.0) / 0.7)); }
+function firework(cx, cy, R, a, o = {}) {
+  if (a < -0.6 || a > 1.75) return;
+  const lw = Math.max(1, R * (o.lw ?? 0.02));
+  ctx.save(); ctx.globalCompositeOperation = "lighter";
+  if (a < 0) {                                              // the shell: a bright dot, nearly still, a faint tail
+    const k = E.p2out(prog(a, -0.6, -0.48)), y = cy + R * 0.08 * a * a;
+    const g = ctx.createRadialGradient(cx, y, 0, cx, y, R * 0.1); g.addColorStop(0, `rgba(255,244,214,${0.9 * k})`); g.addColorStop(1, "rgba(255,244,214,0)");
+    ctx.fillStyle = g; ctx.fillRect(cx - R * 0.1, y - R * 0.1, R * 0.2, R * 0.2);
+    ctx.strokeStyle = `rgba(255,230,190,${0.3 * k})`; ctx.lineWidth = lw * 0.8; ctx.lineCap = "round"; line(cx, y + R * 0.02, cx, y + R * 0.07);
+    ctx.fillStyle = `rgba(255,250,235,${k})`; ctx.beginPath(); ctx.arc(cx, y, Math.max(1.2, R * 0.022), 0, TAU); ctx.fill();
+    ctx.restore(); return;
+  }
+  const br = fwBright(a), N = o.few ? 18 : 36;
+  if (a < 0.14) { const k = 1 - a / 0.14, rr_ = R * (0.18 + a * 1.4); const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rr_); g.addColorStop(0, `rgba(255,248,230,${0.85 * k})`); g.addColorStop(1, "rgba(255,248,230,0)"); ctx.fillStyle = g; ctx.fillRect(cx - rr_, cy - rr_, 2 * rr_, 2 * rr_); }
+  const pos = (s, aa) => { const r = R * (1 - Math.exp(-Math.max(0, aa) / 0.22)) * s.sp; return [cx + Math.cos(s.th) * r, cy + Math.sin(s.th) * r + R * 0.12 * aa * aa]; };
+  ctx.lineCap = "round";
+  for (let i = 0; i < STARS.length; i += N === 18 ? 2 : 1) {
+    const s = STARS[i], col = FW_COL[s.c];
+    const fl = a > 0.55 ? 0.72 + 0.28 * Math.sin(31 * a + s.ph) : 1, al = br * fl;
+    if (al <= 0.01) continue;
+    const p1 = pos(s, a), p0 = pos(s, Math.max(0, a - 0.13));
+    const g = ctx.createLinearGradient(p0[0], p0[1], p1[0], p1[1]); g.addColorStop(0, `rgba(${col},0)`); g.addColorStop(1, `rgba(${col},${0.9 * al})`);
+    ctx.strokeStyle = g; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
+    ctx.fillStyle = `rgba(${col.map((v) => Math.round(lerp(v, 255, 0.55))).join(",")},${al})`; ctx.beginPath(); ctx.arc(p1[0], p1[1], lw * 0.95, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+}
+const CITY = (() => { const r = mulberry32(77); const B = []; let x = 0; while (x < 1) { const w = 0.05 + 0.09 * r(); B.push([x, w, 0.06 + 0.12 * r()]); x += w + 0.004; } return B; })();
+const SKYSTARS = (() => { const r = mulberry32(5); return Array.from({ length: 9 }, () => [r(), r() * 0.55, r() * TAU]); })();
+// a night sky with the firework(s) at the given ages, in the box x, y, w, h (screen px; the caller clips)
+function skyBox(x, y, w, h, ages, o = {}) {
+  const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, "#090C17"); g.addColorStop(1, "#1A1E31");
+  ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+  if (!o.small) for (const [u, v, ph] of SKYSTARS) { ctx.fillStyle = `rgba(230,232,240,${0.18 + 0.12 * Math.sin(ph + (o.t ?? 0) * 1.3)})`; ctx.fillRect(x + u * w, y + v * h, 2, 2); }
+  const R = h * (o.small ? 0.5 : 0.4), cx = x + w * (o.small ? 0.5 : 0.44), cy = y + h * (o.small ? 0.42 : 0.36);
+  for (const a of ages) firework(cx, cy, R, a, { few: o.small, lw: o.small ? 0.055 : 0.02 });
+  ctx.fillStyle = "#05060B";
+  for (const [u, bw, bh] of CITY) ctx.fillRect(x + u * w, y + h * (1 - bh), bw * w + 1, h * bh + 1);
+  if (o.dim) { ctx.fillStyle = `rgba(5,6,10,${o.dim})`; ctx.fillRect(x, y, w, h); }
+}
+const agesOut = (t) => TL.BURST_OUT.map((b) => t - b);
+const agesIn = (tau_) => TL.BURST_IN.map((b) => tau_ - b);
+// a little frame (a photo of the sky at the given ages)
+function card(cx, cy, w, h, ages, o = {}) {
+  if ((o.a ?? 1) <= 0.01) return;
+  ID(); ctx.save(); ctx.globalAlpha *= o.a ?? 1;
+  ctx.translate(cx, cy); if (o.sc) ctx.scale(o.sc, o.sc);
+  rr(-w / 2, -h / 2, w, h, Math.min(8, h * 0.14)); ctx.save(); ctx.clip();
+  if (o.soft) ctx.filter = `blur(${o.soft.toFixed(2)}px)`;
+  skyBox(-w / 2, -h / 2, w, h, ages, { small: w < 200, t: o.t });
+  ctx.filter = "none";
+  if (o.grey) { ctx.fillStyle = `rgba(150,152,158,${o.grey})`; ctx.fillRect(-w / 2, -h / 2, w, h); }
+  ctx.restore();
+  rr(-w / 2, -h / 2, w, h, Math.min(8, h * 0.14)); ctx.strokeStyle = o.hl ? C.acc : "rgba(214,218,228,0.55)"; ctx.lineWidth = o.hl ? (o.hlw ?? 5) : 2; ctx.stroke();
+  ctx.restore();
+}
+
+// ================================================================ OUTSIDE (light): two hands hold the phone sideways
+const PH = { w: 660, h: 330, r: 54 };
+const SCR = { x: -PH.w / 2 + 14, y: -PH.h / 2 + 14, w: PH.w - 28, h: PH.h - 28, r: PH.r - 14 };
+const SHUT = [122, 112];                     // the shutter, where the right thumb rests (local)
+const LIVEP = { x: -300, y: -140, w: 96, h: 44 };   // the 实况 pill (local), always on
+const THUMB = { x: 236, y: -138, w: 54, h: 54 };    // the last photo (local)
+const CAMM = [-238, -92];                    // the rear camera module seen through the body (local)
+const PS = 1.0;
+function outK(t, zoom = 1, c = [540, 915]) { const d = drift(t); return key([0, 0], [c[0] + 0.45 * d[0], c[1] + 0.45 * d[1]], PS * zoom * (1 + 0.5 * (d[2] - 1))); }
+// what the phone screen shows: { mode: "vf" | "photo" | "edit" | "black", ages, flash, thumbAges, fly (0..1 the shot flying to the thumbnail), open (0..1 the photo opening from it) }
+function phoneOut(t, K, s, o = {}) {
+  setK(K); ctx.save();
+  const bodyA = o.bodyA ?? 1;
+  ctx.globalAlpha = bodyA;
+  ctx.fillStyle = C.bodyL; rr(-170, -PH.h / 2 - 6, 90, 8, 3); ctx.fill(); rr(60, -PH.h / 2 - 6, 54, 8, 3); ctx.fill();
+  rr(-PH.w / 2, -PH.h / 2, PH.w, PH.h, PH.r); ctx.fillStyle = C.body; ctx.fill(); ctx.strokeStyle = C.bodyL; ctx.lineWidth = 4 / K.A; ctx.stroke();
+  ctx.globalAlpha = 1;
+  // the screen
+  ctx.save(); rr(SCR.x, SCR.y, SCR.w, SCR.h, SCR.r); ctx.clip();
+  ctx.fillStyle = C.glass; ctx.fillRect(SCR.x, SCR.y, SCR.w, SCR.h);
+  const scrA = o.scrA ?? 1;
+  ctx.globalAlpha = scrA;
+  if (s.mode === "vf" || s.mode === "photo") {
+    ID(); const p0 = toS(K, [SCR.x, SCR.y]); ctx.save(); skyBox(p0[0], p0[1], SCR.w * K.A, SCR.h * K.A, s.ages, { t }); ctx.restore(); setK(K);
+    if (s.mode === "vf") {
+      // the shutter (under the right thumb) and the last photo
+      ctx.strokeStyle = "rgba(255,255,255,0.92)"; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(SHUT[0], SHUT[1], 34, 0, TAU); ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.beginPath(); ctx.arc(SHUT[0], SHUT[1], 25, 0, TAU); ctx.fill();
+      if (s.thumbAges) { ID(); const q = toS(K, [THUMB.x + THUMB.w / 2, THUMB.y + THUMB.h / 2]); card(q[0], q[1], THUMB.w * K.A, THUMB.h * K.A, s.thumbAges, { a: s.thumbA ?? 1 }); setK(K); }
+    }
+    // the 实况 pill (always on)
+    rr(LIVEP.x, LIVEP.y, LIVEP.w, LIVEP.h, 22); ctx.fillStyle = "rgba(10,12,16,0.55)"; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.font = `700 26px ${UI}`; ctx.fillStyle = "#FFFFFF"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(COPY.live, LIVEP.x + LIVEP.w / 2 + 8, LIVEP.y + LIVEP.h / 2 + 1);
+    ctx.beginPath(); ctx.arc(LIVEP.x + 18, LIVEP.y + LIVEP.h / 2, 6, 0, TAU); ctx.fillStyle = "#FFFFFF"; ctx.fill();
+  }
+  if (s.mode === "edit") drawEdit(t, K, s);
+  // the shot flying into the thumbnail; the photo opening out of it
+  if (s.fly > 0 && s.fly < 1) { const k = E.p3in(s.fly); const x = lerp(SCR.x, THUMB.x, k), y = lerp(SCR.y, THUMB.y, k), w = lerp(SCR.w, THUMB.w, k), h = lerp(SCR.h, THUMB.h, k); ID(); const q = toS(K, [x + w / 2, y + h / 2]); card(q[0], q[1], w * K.A, h * K.A, s.flyAges, {}); setK(K); }
+  if (s.flash > 0) { ctx.globalAlpha = s.flash; ctx.fillStyle = "#FFFFFF"; ctx.fillRect(SCR.x, SCR.y, SCR.w, SCR.h); }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+  ctx.restore();
+}
+// the edit view (the tip): the photo on top, a row of 8 frames, the selector
+const EDIT_AGES = [-0.25, 0, 0.15, 0.35, 0.6, 0.85, 1.0, 1.3];
+function editSel(t) { return lerp(6, 2, E.p3io(prog(t, T.slide, T.slideEnd))); }
+function drawEdit(t, K, s) {
+  ID(); const p0 = toS(K, [SCR.x, SCR.y]), W_ = SCR.w * K.A, H_ = SCR.h * K.A;
+  ctx.fillStyle = "#0B0C0F"; ctx.fillRect(p0[0], p0[1], W_, H_);
+  const sel = editSel(t), sw = E.p2io(prog(t, T.slideEnd, T.slideEnd + 0.3));
+  const big = { x: p0[0] + W_ * 0.22, y: p0[1] + H_ * 0.05, w: W_ * 0.56, h: H_ * 0.62 };
+  ctx.save(); rr(big.x, big.y, big.w, big.h, 8); ctx.clip();
+  skyBox(big.x, big.y, big.w, big.h, [EDIT_AGES[6]], { t: 0 });
+  if (sw > 0) { ctx.globalAlpha = sw; skyBox(big.x, big.y, big.w, big.h, [EDIT_AGES[2]], { t: 0 }); ctx.globalAlpha = 1; }
+  ctx.restore();
+  const n = 8, cw = W_ * 0.068, ch = H_ * 0.15, gap = W_ * 0.007, x0 = p0[0] + W_ / 2 - (n * cw + (n - 1) * gap) / 2, y0 = p0[1] + H_ * 0.76;
+  for (let i = 0; i < n; i++) card(x0 + i * (cw + gap) + cw / 2, y0 + ch / 2, cw, ch, [EDIT_AGES[i]], {});
+  const sx = x0 + sel * (cw + gap) + cw / 2;
+  ID(); ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 5; rr(sx - cw / 2 - 5, y0 - 5, cw + 10, ch + 10, 8); ctx.stroke();
+  // the button, once the new frame is picked (Apple's Chinese label: 设为封面照片)
+  const bk = E.p3out(prog(t, T.slideEnd + 0.1, T.slideEnd + 0.4));
+  if (bk > 0) { ctx.save(); ctx.globalAlpha = bk; const f = `700 ${Math.round(H_ * 0.07)}px ${UI}`, bw = mw(f, "设为封面照片") + 30; rr(sx - bw / 2, y0 - H_ * 0.13, bw, H_ * 0.09, H_ * 0.045); ctx.fillStyle = "rgba(255,255,255,0.92)"; ctx.fill(); ctx.font = f; ctx.fillStyle = "#111"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("设为封面照片", sx, y0 - H_ * 0.085); ctx.restore(); }
+  if (t >= T.slideEnd && t < T.slideEnd + 1.2) obox(sx - cw / 2 - 12, y0 - 12, cw + 24, ch + 24, E.p3out(prog(t, T.slideEnd, T.slideEnd + 0.25)), 1 - prog(t, T.slideEnd + 0.9, T.slideEnd + 1.2), 10, 6);
+}
+function handsOut(t, K, a = 1, tapT = null) {
+  if (a <= 0.01) return;
+  const c = toS(K, [0, 0]), sc = K.A, ex = 230 * sc;
+  const pp = tapT == null ? 0 : Math.sin(Math.PI * prog(t, tapT - 0.1, tapT + 0.14));
+  drawHand([c[0] - ex, c[1] + 8 * sc / PS], 1.15 * sc, -1, a);
+  drawHand([c[0] + ex - 5 * pp, c[1] + 8 * sc / PS + 6 * pp], 1.15 * sc, 1, a);
+}
+// the photo playback: the clip runs from 0.5 s before the burst
+const PLAY = (t, t0) => [-0.5 + (t - t0)];
+// the opening and the closing shots share one timeline: burst at b, the shutter at b + 1
+function screenOut(t, b, tapT, playT) {
+  const s = { mode: "vf", ages: [t - b], flash: 0, fly: 0, thumbAges: null };
+  if (t >= tapT) { s.flash = Math.max(0, 1 - (t - tapT) / 0.16) * 0.85; s.thumbAges = [1.0]; s.thumbA = E.p2out(prog(t, tapT + 0.45, tapT + 0.6)); s.fly = prog(t, tapT + 0.1, tapT + 0.5); s.flyAges = [1.0]; }
+  if (playT != null && t >= playT) {
+    const op = E.p3out(prog(t, playT, playT + 0.25)), age = -0.5 + (t - playT), back = E.p2io(prog(age, 2.0, 2.35));
+    s.mode = "photo"; s.ages = back > 0.5 ? [1.0] : [age]; s.flash = 0; s.fly = 0;
+    s.openK = op;
+  }
+  return s;
+}
+// the strip under the phone (the guess and the flip): 6 frames after 按下 (the guess), then 6 before it (the flip)
+const SX = (i) => 540 + i * 82, SY = 700, SW = 76, SH = 44;
+function drawGuessStrip(t) {
+  if (t < T.stripR - 0.05 || t > T.q3 + 0.45) return;
+  const fo = 1 - E.p2io(prog(t, T.q3, T.q3 + 0.4));
+  ID(); ctx.save(); ctx.globalAlpha = fo;
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 5; ctx.lineCap = "round"; line(540, SY - 34, 540, SY + 34);
+  ctx.restore();
+  label(COPY.press, 540, SY - 52, 44, C.ink, t, T.stripR - 0.05, T.q3 + 0.45, { align: "center", alpha: fo });
+  for (let i = 1; i <= 6; i++) { const t0 = T.stripR + (i - 1) * 0.15, k = E.p3out(prog(t, t0, t0 + 0.2)); if (k > 0) card(SX(i), SY, SW, SH, [1.0 + i * 0.25], { a: k * fo, sc: lerp(0.6, 1, k), t }); }
+  label(COPY.rec, SX(3.5), SY - 52, 44, C.ink, t, T.stripR + 0.3, T.a2, { align: "center" });
+  for (let i = 1; i <= 6; i++) { const t0 = T.stripL + (i - 1) * 0.12, k = E.p3out(prog(t, t0, t0 + 0.2)); if (k > 0) card(SX(-i), SY, SW, SH, [1.0 - i * 0.25], { a: k * fo, sc: lerp(0.6, 1, k), t }); }
+  const bk = E.p3out(prog(t, T.stripL + 0.75, T.stripL + 1.1));
+  obox(SX(-6) - SW / 2 - 12, SY - SH / 2 - 12, SX(-1) - SX(-6) + SW + 24, SH + 24, bk, fo, 12, 5);
+  label(COPY.before, SX(-3.5), SY - 52, 44, C.acc, t, T.stripL + 0.8, T.q3 + 0.45, { align: "center", alpha: fo });
+}
+function strikeX(t) {                                       // ✕ on 开始录 in the guess caption
+  if (t < T.strike || t >= T.a2) return;
+  const str = plain(COPY.q2[1]), size = fitSize(COPY.q2[1], 112, 930), f = `${size}px ${DISPLAY}`;
+  const x0 = 96 + mw(f, "一按它才") - 8, x1 = x0 + mw(f, "开始录") + 16, y0 = 472 - size * 0.82, y1 = 472 + 14;
+  const k1 = E.p3out(prog(t, T.strike, T.strike + 0.1)), k2 = E.p3out(prog(t, T.strike + 0.125, T.strike + 0.225));
+  ID(); ctx.save(); ctx.lineCap = "round";
+  for (const [col, w] of [[C.ground, 30], [C.ink, 18]]) {
+    ctx.strokeStyle = col; ctx.lineWidth = w;
+    line(x0, y0, lerp(x0, x1, k1), lerp(y0, y1, k1));
+    if (k2 > 0) line(x1, y0, lerp(x1, x0, k2), lerp(y0, y1, k2));
+  }
+  ctx.restore();
+}
+
+// ================================================================ INSIDE (dark): the screen, the lens + chip, the pile, the ring
+// 9.5–16: the screen big in the middle, the lens + chip below it (frames go up into the screen); 16–: the screen steps
+// back to the top left (dimmed), the ring forms round the chip; 20.75–: the screen lights up again, the ring sinks a little
+const L1 = { scr: { cx: 540, cy: 800, w: 600, h: 300 }, lens: { x: 455, y: 1180, r: 56 }, chip: { x: 545, y: 1180, s: 80 } };
+const L2 = { scr: { cx: 240, cy: 660, w: 300, h: 150 } };
+const RC1 = { x: 545, y: 1180, r: 230, cw: 112, ch: 64 }, RC2 = { x: 545, y: 1230, r: 190, cw: 92, ch: 52 };
+function pullK(t) { return E.p3io(prog(t, T.pull, T.pullEnd)); }
+function backK(t) { return E.p3io(prog(t, T.ringForm, T.ringForm + 0.6)); }
+function scrBox(t) { const k = backK(t), a = L1.scr, b = L2.scr; return { cx: lerp(a.cx, b.cx, k), cy: lerp(a.cy, b.cy, k), w: lerp(a.w, b.w, k), h: lerp(a.h, b.h, k) }; }
+function chipAt(t) { const G = ringGeo(t), k = pullK(t); return { x: G.x, y: G.y, sc: lerp(1, 0.8, k) }; }
+function ringGeo(t) { const k = pullK(t); return { x: lerp(RC1.x, RC2.x, k), y: lerp(RC1.y, RC2.y, k), r: lerp(RC1.r, RC2.r, k), cw: lerp(RC1.cw, RC2.cw, k), ch: lerp(RC1.ch, RC2.ch, k) }; }
+// the viewfinder panel (inside): the sky live at sky time τ; on (black → sky) at T.vfOn
+function drawPanel(t, box, o = {}) {
+  const { cx, cy, w, h } = box, x = cx - w / 2, y = cy - h / 2;
+  ID(); ctx.save(); ctx.globalAlpha = o.a ?? 1;
+  rr(x - 10, y - 10, w + 20, h + 20, 22); ctx.fillStyle = "#2A2E36"; ctx.fill(); ctx.strokeStyle = "#454A55"; ctx.lineWidth = 3; ctx.stroke();
+  ctx.save(); rr(x, y, w, h, 14); ctx.clip();
+  ctx.fillStyle = C.glass; ctx.fillRect(x, y, w, h);
+  const on = o.on ?? 1;
+  if (on > 0) { ctx.globalAlpha *= on; skyBox(x, y, w, h, agesIn(TL.tau(t)), { t }); }
+  ctx.restore();
+  // UI: 实况 (top left) and the shutter (right)
+  const s = h / 240;
+  if (on > 0) {
+    ctx.globalAlpha = (o.a ?? 1) * on;
+    const lx = x + 14 * s, ly = y + 12 * s, lw_ = 92 * s, lh = 40 * s;
+    rr(lx, ly, lw_, lh, lh / 2); ctx.fillStyle = "rgba(10,12,16,0.55)"; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.font = `700 ${Math.round(24 * s)}px ${UI}`; ctx.fillStyle = "#FFF"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(COPY.live, lx + lw_ / 2 + 7 * s, ly + lh / 2 + 1);
+    ctx.beginPath(); ctx.arc(lx + 16 * s, ly + lh / 2, 5 * s, 0, TAU); ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.92)"; ctx.lineWidth = 5 * s; ctx.beginPath(); ctx.arc(x + w - 42 * s, cy, 26 * s, 0, TAU); ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.beginPath(); ctx.arc(x + w - 42 * s, cy, 19 * s, 0, TAU); ctx.fill();
+    if (o.liveBox > 0) obox(lx - 8, ly - 8, lw_ + 16, lh + 16, o.liveBox, o.liveBoxA ?? 1, lh / 2 + 6, 5);
+  }
+  ctx.restore();
+  return { shutter: [x + w - 42 * s, cy], live: [x + 14 * s + 46 * s, y + 32 * s] };
+}
+function drawLensChip(t, a, hl, at = null) {
+  if (a <= 0.01) return;
+  const c = at ?? { x: L1.chip.x, y: L1.chip.y, sc: 1 };
+  ID(); ctx.save(); ctx.globalAlpha = a; ctx.translate(c.x, c.y); ctx.scale(c.sc, c.sc); ctx.translate(-L1.chip.x, -L1.chip.y);
+  const { lens, chip } = L1;
+  // the light from the sky comes in from the left through the lens onto the chip (fades once the ring is round it)
+  const beam = 1 - E.p2io(prog(t, T.ringForm, T.ringForm + 0.5));
+  if (beam > 0.01) {
+    const g0 = ctx.createLinearGradient(lens.x - 260, 0, lens.x, 0); g0.addColorStop(0, "rgba(243,208,74,0)"); g0.addColorStop(1, `rgba(243,208,74,${0.18 * beam})`);
+    ctx.fillStyle = g0; ctx.beginPath(); ctx.moveTo(lens.x - 260, lens.y - 70); ctx.lineTo(lens.x, lens.y - lens.r * 0.8); ctx.lineTo(chip.x - chip.s / 2, lens.y - 22); ctx.lineTo(chip.x - chip.s / 2, lens.y + 22); ctx.lineTo(lens.x, lens.y + lens.r * 0.8); ctx.lineTo(lens.x - 260, lens.y + 70); ctx.closePath(); ctx.fill();
+  }
+  ctx.beginPath(); ctx.ellipse(lens.x, lens.y, lens.r * 0.42, lens.r, 0, 0, TAU);
+  const g = ctx.createLinearGradient(lens.x - 24, 0, lens.x + 24, 0); g.addColorStop(0, "#5E7088"); g.addColorStop(0.5, "#9FB3C8"); g.addColorStop(1, "#4A5A70");
+  ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = "#C9D3DE"; ctx.lineWidth = 2.5; ctx.stroke();
+  const s = chip.s, x = chip.x - s / 2, y = chip.y - s / 2;
+  rr(x - 10, y - 10, s + 20, s + 20, 8); ctx.fillStyle = "#2B3038"; ctx.fill();
+  rr(x, y, s, s, 6); const g2 = ctx.createLinearGradient(x, y, x + s, y + s); g2.addColorStop(0, "#4A5160"); g2.addColorStop(0.5, "#6B7486"); g2.addColorStop(1, "#3C4250"); ctx.fillStyle = g2; ctx.fill();
+  const lit = hl ?? 0; if (lit > 0) { ctx.fillStyle = `rgba(243,208,74,${0.22 * lit * (0.75 + 0.25 * Math.sin(t * 6))})`; ctx.fill(); }
+  ctx.restore();
+}
+// the frames the chip sends out: one every ¼ s (sky time), flying to the viewfinder; during the pile also down onto it
+const FLOW_RATE = 4;
+function flowCards(t) {
+  if (t < T.flow || t > T.ringForm + 0.4) return;
+  const a = 1 - prog(t, T.ringForm, T.ringForm + 0.4), from = [L1.chip.x, L1.chip.y - L1.chip.s / 2 - 14], to = [L1.chip.x, L1.scr.cy + L1.scr.h / 2 + 12];
+  ID(); ctx.save(); ctx.globalAlpha = a * E.p3out(prog(t, T.flow, T.flow + 0.3)); ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.lineCap = "round"; line(from[0] + 70, from[1], to[0] + 70, to[1] + 16);
+  ctx.fillStyle = C.acc; ctx.beginPath(); ctx.moveTo(to[0] + 70, to[1] + 2); ctx.lineTo(to[0] + 58, to[1] + 22); ctx.lineTo(to[0] + 82, to[1] + 22); ctx.closePath(); ctx.fill(); ctx.restore();
+  const n0 = Math.ceil((T.flow - 0.45) * FLOW_RATE), n1 = Math.floor(t * FLOW_RATE);
+  for (let n = n0; n <= n1; n++) {
+    const tb = n / FLOW_RATE, u = (t - tb) / 0.45; if (u < 0 || u > 1) continue;
+    const k = E.p2io(u); card(from[0], lerp(from[1], to[1], k), 64, 36, agesIn(TL.tau(tb)), { a: a * (1 - E.p3in(prog(u, 0.75, 1))), t: tb });
+  }
+}
+// the pile: from T.pile, every frame also drops a copy beside the path; it grows towards the top
+const PILE = { x: 880, base: 1420, dy: 11, rate: 18, max: 40 };
+function pileCount(t) { return Math.min(PILE.max, Math.floor(Math.max(0, t - T.pile) * PILE.rate)); }
+function pileCardTau(i) { return T.pile + i / PILE.rate; }
+function pileXY(i) { const r = hash(i * 3.1 + 1); return [PILE.x + (r - 0.5) * 14, PILE.base - PILE.dy * i - RC1.ch / 2]; }
+function drawPile(t) {
+  if (t < T.pile || t > T.ringFormEnd) return;
+  const n = pileCount(t), form = prog(t, T.ringForm, T.ringFormEnd);
+  for (let i = 0; i <= n && i < PILE.max; i++) {
+    const tb = pileCardTau(i), fall = E.p2in(prog(t, tb, tb + 0.25));
+    if (t < tb) continue;
+    const [px, py] = pileXY(i);
+    let x = px, y = py - 90 * (1 - fall);
+    if (i >= n - 1 && t > T.pileEnd - 0.35 && t < T.ringForm) y += 0.8 * Math.sin(t * 20);   // the top wobbles (≤ 1 px)
+    const keep = i >= n - 12;                                               // the top 12 become the ring
+    if (form > 0) {
+      if (keep) { const s = n - 1 - i, g = slotPos(t, 11 - s, RC1, 0), k = E.p3io(form); x = lerp(x, g[0], k); y = lerp(y, g[1], k); }
+      else { card(x, y, RC1.cw, RC1.ch, agesIn(tb), { a: 1 - E.p2io(form), t: tb }); continue; }
+    }
+    card(x, y, RC1.cw, RC1.ch, agesIn(tb), { t: tb, a: E.p2out(prog(t, tb, tb + 0.12)) });
+  }
+}
+// the ring: slot s sits at angle −90° + (f − s)·30° (clockwise); the head (where frames are written) is at the top
+function slotPos(t, s, G, f) { const th = (-90 + (f - s) * 30) * RAD; return [G.x + Math.cos(th) * G.r, G.y + Math.sin(th) * G.r]; }
+function slotN(f, s) { const fl = Math.floor(f + 1e-6); return fl - (((fl - s) % 12) + 12) % 12; }
+const nTau = (n) => TL.RING.t0 + n * TL.RING.dt;
+function drawRing(t, o = {}) {
+  if (t < T.ringFormEnd - 1e-6) return;
+  const G = ringGeo(t), f = TL.ringF(t), a = o.a ?? 1;
+  ID(); ctx.save(); ctx.globalAlpha = a;
+  ctx.strokeStyle = "rgba(214,218,228,0.18)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(G.x, G.y, G.r, 0, TAU); ctx.stroke();
+  ctx.restore();
+  for (let s = 0; s < 12; s++) {
+    const n = slotN(f, s), e = f - n, p = slotPos(t, s, G, f);
+    const hl = o.hlSet && o.hlSet.has(n) ? o.hlA ?? 1 : 0;
+    card(p[0], p[1], G.cw, G.ch, agesIn(nTau(n)), { a, t: nTau(n), hl: hl > 0.01, hlw: 5 });
+    if (e < 0.5 && t >= T.write0) {                                        // the old frame greys and crumbles away
+      const k = e / 0.5;
+      card(p[0], p[1] - 4 * k, G.cw, G.ch, agesIn(nTau(n - 12)), { a: a * (1 - k), sc: 1 - 0.25 * k, grey: 0.6, t: nTau(n - 12) });
+    }
+  }
+  // the next frame on its way from the chip up to the head
+  if (t >= T.write0) {
+    const fr = f - Math.floor(f), c = chipAt(t), hy = G.y - G.r;
+    card(G.x, lerp(c.y - 50 * c.sc, hy + 6, E.p2io(fr)), G.cw * lerp(0.55, 1, fr), G.ch * lerp(0.55, 1, fr), agesIn(nTau(Math.floor(f) + 1)), { a: a * E.p3out(prog(fr, 0, 0.25)), t: nTau(Math.floor(f) + 1) });
+  }
+  // the head: an orange mark at the top
+  if (t >= T.write0 - 0.2) {
+    const k = E.p3out(prog(t, T.write0 - 0.2, T.write0 + 0.1)), hx = G.x, hy = G.y - G.r - G.ch / 2 - 22;
+    ID(); ctx.save(); ctx.globalAlpha = a * k; ctx.fillStyle = C.acc; ctx.beginPath(); ctx.moveTo(hx - 16, hy - 14); ctx.lineTo(hx + 16, hy - 14); ctx.lineTo(hx, hy + 6); ctx.closePath(); ctx.fill();
+    rr(hx - G.cw / 2 - 6, G.y - G.r - G.ch / 2 - 6, G.cw + 12, G.ch + 12, 10); ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.stroke(); ctx.restore();
+  }
+}
+// the press: the strip of kept frames (6 before, the sharp one, 6 after)
+const ST = { y: 900, cw: 62, ch: 35, dx: 68 };
+const stripX = (side, j) => (side < 0 ? 540 - 116 - (5 - j) * ST.dx : 540 + 116 + j * ST.dx);
+function drawStrip(t) {
+  if (t < T.a7 || t >= T.q10 + 0.6) return;
+  const G = ringGeo(t), f = TL.ringF(t), col = E.p3io(prog(t, T.collapse, T.collapseEnd));
+  const soft = E.p2io(prog(t, T.soften, T.soften + 0.4));
+  const PC = { x: 540, y: 900, w: 440, h: 248 };
+  // the press line
+  const pk = E.p3out(prog(t, T.a7, T.a7 + 0.3)) * (1 - col);
+  if (pk > 0.01) { ID(); ctx.save(); ctx.globalAlpha = pk; ctx.strokeStyle = C.acc; ctx.lineWidth = 4; ctx.setLineDash([10, 9]); line(540, ST.y - 46, 540, ST.y + 46); ctx.restore(); }
+  const put_ = (side, j, n, tc) => {
+    const u = E.p3io(prog(t, tc, tc + 0.4)); if (t < tc) return;
+    const s = ((n % 12) + 12) % 12, sp = slotPos(t, s, G, f), x1 = stripX(side, j);
+    let x = lerp(sp[0], x1, u), y = lerp(sp[1], ST.y, u), w = lerp(G.cw, ST.cw, u), h = lerp(G.ch, ST.ch, u), sc = 1 - 0.08 * soft;
+    if (col > 0) { x = lerp(x, PC.x, col); y = lerp(y, PC.y, col); }
+    card(x, y, w * sc, h * sc, agesIn(nTau(n)), { soft: 0.9 * soft, a: 1 - E.p3in(prog(col, 0.6, 1)), t: nTau(n), hl: u < 1 && u > 0 });
+  };
+  TL.BEFORE.forEach((n, j) => put_(-1, j, n, TL.COPYB_T[j]));
+  TL.AFTER.forEach((n, j) => put_(1, j, n, TL.COPYA_T[j]));
+  // the sharp photo at the press
+  const kk = E.p3out(prog(t, T.key, T.key + 0.3));
+  if (kk > 0 && col < 1) { const w = 150, h = 86; card(lerp(540, PC.x, col), lerp(ST.y - 40 * (1 - kk), PC.y, col), lerp(w, PC.w, col), lerp(h, PC.h, col), agesIn(nTau(TL.PRESS_N)), { a: kk, t: 0 }); }
+  if (col >= 1 - 1e-6 || t >= T.collapseEnd) {
+    const age = -0.5 + (t - T.collapseEnd) * 1.0;
+    card(PC.x, PC.y, PC.w, PC.h, [age < 1.45 ? age : 1.0], { t });
+    // the 实况 badge
+    ID(); ctx.save(); ctx.globalAlpha = E.p3out(prog(t, T.collapseEnd, T.collapseEnd + 0.3)); const bx = PC.x - PC.w / 2 + 16, by = PC.y - PC.h / 2 + 14;
+    rr(bx, by, 96, 40, 20); ctx.fillStyle = "rgba(10,12,16,0.6)"; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.font = `700 24px ${UI}`; ctx.fillStyle = "#FFF"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(COPY.live, bx + 55, by + 21); ctx.beginPath(); ctx.arc(bx + 17, by + 20, 5, 0, TAU); ctx.fill(); ctx.restore();
+  }
+}
+function drawInside(t) {
+  ID(); ctx.fillStyle = C.dark; ctx.fillRect(0, 0, W, H);
+  const dimAll = E.p2io(prog(t, T.collapse, T.collapse + 0.4)) * (1 - prog(t, T.q10, T.q10 + 0.3));
+  const vfOn = t < T.vfOn ? 0 : E.p2io(prog(t, T.vfOn, T.vfOn + 0.3));
+  const focus = t >= T.vfOn && t < T.chipOn;                               // 9.5–11.25: only the screen is lit
+  const box = scrBox(t), stepBack = backK(t) * (1 - pullK(t));
+  const lb = t >= T.liveBox && t < T.liveBox + 1.6 ? E.p3out(prog(t, T.liveBox, T.liveBox + 0.25)) : 0;
+  const pnl = drawPanel(t, box, { on: vfOn, a: (1 - 0.65 * stepBack) * (1 - 0.7 * dimAll), liveBox: lb, liveBoxA: 1 - prog(t, T.liveBox + 1.3, T.liveBox + 1.6) });
+  const c = t >= T.ringForm ? chipAt(t) : null;
+  drawLensChip(t, (focus ? 0.3 : 1) * (1 - 0.7 * dimAll), t >= T.chipOn ? E.p3out(prog(t, T.chipOn, T.chipOn + 0.3)) * (1 - prog(t, T.ringForm, T.ringForm + 0.4)) : 0, c);
+  if (t >= T.chipOn && t < T.ringForm + 0.3) {
+    const ch = L1.chip, kk = E.p3out(prog(t, T.chipOn, T.chipOn + 0.3)), ka = 1 - prog(t, T.ringForm, T.ringForm + 0.3);
+    obox(ch.x - ch.s / 2 - 22, ch.y - ch.s / 2 - 22, ch.s + 44, ch.s + 44, kk, ka, 12, 5);
+  }
+  flowCards(t);
+  drawPile(t);
+  const hlSet = t >= T.a7 && t < T.collapse ? new Set(TL.BEFORE) : null;
+  drawRing(t, { a: 1 - 0.8 * dimAll, hlSet, hlA: 1 });
+  drawStrip(t);
+  // the tap and its pulse to the ring's head
+  if (t >= T.tap - 0.05 && t < T.tap + 0.9) {
+    const sp = pnl.shutter, G = ringGeo(t), hd = [G.x, G.y - G.r - G.ch / 2 - 30], u = E.p2io(prog(t, T.tap + 0.05, T.tap + 0.55));
+    ID(); ctx.save(); const rk = prog(t, T.tap, T.tap + 0.4); ctx.globalAlpha = 1 - rk; ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(sp[0], sp[1], 18 + 40 * rk, 0, TAU); ctx.stroke(); ctx.restore();
+    if (u > 0 && u < 1) { ID(); ctx.save(); ctx.globalAlpha = 1 - E.p3in(prog(t, T.tap + 0.55, T.tap + 0.85)); ctx.strokeStyle = rgba(C.acc, 0.6); ctx.lineWidth = 3; ctx.setLineDash([8, 10]); line(sp[0], sp[1], hd[0], hd[1]); ctx.setLineDash([]);
+      const q = [lerp(sp[0], hd[0], u), lerp(sp[1], hd[1], u)]; ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(q[0], q[1], 12, 0, TAU); ctx.fill(); ctx.restore(); }
+  }
+}
+// the labels of the inside world (small text, ≤ 2 at a time)
+function insideLabels(t) {
+  const G = ringGeo(t);
+  label(COPY.chip, L1.chip.x, L1.chip.y + 118, 44, C.paper, t, T.chipOn + 0.1, T.q5, { align: "center" });
+  label(COPY.fps, L1.chip.x + 110, 1062, 44, C.paper, t, T.flow + 0.2, T.q5);
+  label(COPY.ring, 770, 800, 44, C.paper, t, T.ringForm + 0.2, T.a6, { align: "center" });
+  label(COPY.term, 770, 800, 44, C.paper, t, T.a6 + 0.1, T.q7, { align: "center" });
+  if (t >= T.ringForm && t < T.ringFormEnd + 0.6) oring(G.x, G.y, G.r + G.ch * 0.5 + 30, E.p3out(prog(t, T.ringForm + 0.2, T.ringFormEnd)), 1 - prog(t, T.ringFormEnd + 0.3, T.ringFormEnd + 0.6), 5);
+  label(COPY.pre, (stripX(-1, 0) + stripX(-1, 5)) / 2, ST.y - 50, 44, C.paper, t, T.copyB, T.collapse, { align: "center" });
+  label(COPY.post, (stripX(1, 0) + stripX(1, 5)) / 2, ST.y - 50, 44, C.paper, t, T.copyA, T.collapse, { align: "center" });
+  if (t >= T.collapseEnd && t < T.q10) pill(COPY.names, 540, 1098, 44, t, T.collapseEnd + 0.1, T.q10, { align: "center" });
+}
+
+// ================================================================ the dive: the phone opens up into the inside view
+const DIVE_C = () => [0, 0];
+function diveCam(t) { return outK(t, 1 + 0.22 * E.p2io(prog(t, T.dive, T.darkB))); }
+function darkR(t) { return 2500 * E.p2in(prog(t, T.darkA, T.darkB)); }
+function morphK(t) { return E.p3io(prog(t, T.lay, T.diveEnd - 0.1)); }
+function drawDive(t) {
+  const K = diveCam(t), R = darkR(t), cm = toS(K, CAMM), mk = morphK(t);
+  // light ground and the phone with hands (fading), then the dark opening from the camera module
+  ID(); ctx.fillStyle = C.ground; ctx.fillRect(0, 0, W, H);
+  const xr = E.p2io(prog(t, T.xray, T.xray + 0.6));
+  const scrFade = 1 - E.p2io(prog(t, T.dive + 0.3, T.lay));
+  if (R < 2400) {
+    phoneOut(t, K, { mode: "photo", ages: [1.0] }, { bodyA: 1 - 0.65 * xr, scrA: scrFade });
+    handsOut(t, K, 1 - E.p2io(prog(t, T.dive, T.dive + 0.5)));
+    if (xr > 0) { drawModuleXray(K, xr); }
+  }
+  if (R > 0) {
+    ctx.save(); ID(); const g = ctx.createRadialGradient(cm[0], cm[1], Math.max(0, R - 60), cm[0], cm[1], R);
+    g.addColorStop(0, rgba(C.dark, 1)); g.addColorStop(1, rgba(C.dark, 0)); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore();
+  }
+  // the parts move to the inside layout: the screen to the right, the lens + chip to the left
+  if (t >= T.darkA) {
+    const a = E.p2io(prog(t, T.darkA, T.darkA + 0.5));
+    const sc0 = toS(K, [SCR.x + SCR.w / 2, SCR.y + SCR.h / 2]), b = L1.scr;
+    const box = { cx: lerp(sc0[0], b.cx, mk), cy: lerp(sc0[1], b.cy, mk), w: lerp(SCR.w * K.A, b.w, mk), h: lerp(SCR.h * K.A, b.h, mk) };
+    drawPanel(t, box, { on: 0, a: a * E.p2io(prog(t, T.lay - 0.4, T.lay + 0.3)) });
+    // lens + chip grow out of the module
+    ID(); ctx.save(); ctx.globalAlpha = a;
+    ctx.restore();
+    drawLensChip(t, a, 0, { x: lerp(cm[0], L1.chip.x, mk), y: lerp(cm[1], L1.chip.y, mk), sc: lerp(0.35 * K.A, 1, mk) });
+  }
+}
+function drawModuleXray(K, a) {
+  setK(K); ctx.save(); ctx.globalAlpha = a;
+  rr(CAMM[0] - 58, CAMM[1] - 40, 116, 80, 20); ctx.strokeStyle = "rgba(200,205,214,0.9)"; ctx.lineWidth = 3 / K.A; ctx.setLineDash([8 / K.A, 6 / K.A]); ctx.stroke(); ctx.setLineDash([]);
+  ctx.beginPath(); ctx.arc(CAMM[0] - 20, CAMM[1], 22, 0, TAU); ctx.fillStyle = "#3C4658"; ctx.fill(); ctx.strokeStyle = "#AEB8C6"; ctx.lineWidth = 3 / K.A; ctx.stroke();
+  rr(CAMM[0] + 14, CAMM[1] - 16, 32, 32, 5); ctx.fillStyle = "#5A6272"; ctx.fill();
+  ctx.restore();
+}
+
+// ================================================================ the closing shot: a window into the phone shows the ring
+function drawXrayRing(t, K, a) {
+  if (a <= 0.01) return;
+  const c = toS(K, [-150, 10]), R = 118 * K.A / PS;
+  ID(); ctx.save(); ctx.globalAlpha = a;
+  ctx.beginPath(); ctx.arc(c[0], c[1], R, 0, TAU); ctx.fillStyle = C.dark; ctx.fill(); ctx.strokeStyle = C.paper; ctx.lineWidth = 4; ctx.stroke(); ctx.clip();
+  // 4 slots / s, the head at the top; the slots that hold the burst are kept (orange) once the shutter is pressed
+  const f = (t - (T.q10 - 3)) * 4, G = { x: c[0], y: c[1], r: R * 0.62 };
+  for (let s = 0; s < 12; s++) {
+    const n = slotN(f, s), th = (-90 + (f - s) * 30) * RAD, p = [G.x + Math.cos(th) * G.r, G.y + Math.sin(th) * G.r];
+    const tw = (T.q10 - 3) + n / 4, age = tw - TL.BURST_OUT[1];
+    const kept = t >= T.tapC && tw >= T.tapC - 1.5 && tw < T.tapC;
+    card(p[0], p[1], 44, 26, [age], { t: tw, hl: kept, hlw: 3 });
+  }
+  ctx.restore();
+}
+
+// ================================================================ light/dark: the caption band follows the picture
+function darkAt(t) {
+  if (t < T.darkA) return 0;
+  if (t < T.diveEnd) { const R = darkR(t); return E.smooth(prog(R, 1250, 1550)); }
+  if (t < T.iris) return 1;
+  return 0;
+}
+function scrimOf(fl, a = 1, gr = "236,235,230") {
+  const STOPS = [[0, 1], [0.66, 1], [0.74, 0.86], [0.82, 0.56], [0.9, 0.24], [1, 0]];
+  const SH = 640;
+  ID(); const g = ctx.createLinearGradient(0, 0, 0, SH);
+  STOPS.forEach(([o, k]) => g.addColorStop(o, fl > 0.5 ? `rgba(23,25,28,${a * k * 0.92})` : `rgba(${gr},${a * k})`));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, SH);
+}
+function textBand(t, fl) {
+  const L = C.ink, D = C.paper, M = fl > 0.5 ? D : L;
+  lines(COPY.h1, t, -1, T.q2, { style: "none", col: L });
+  underline(COPY.h1[1], "怎么还拍到它", "炸开", 1, t, T.underline, T.q2);
+  lines(COPY.q2, t, T.q2, T.a2, { style: "blur", col: L, acc: C.paper, exit: 0.001 });
+  lines(COPY.a2, t, T.a2, T.q3, { style: "slam", col: L, acc: orangeK(t) > 0.35 ? C.ink : C.acc });
+  lines(COPY.q3, t, T.q3, T.h4, { style: "blur", col: M });
+  lines(COPY.h4, t, T.h4, T.a4, { style: "blur", col: D });
+  lines(COPY.a4, t, T.a4, T.q5, { style: "blur", col: D });
+  lines(COPY.q5, t, T.q5, T.a5, { style: "blur", col: D });
+  lines(COPY.a5, t, T.a5, T.a6, { style: "wipe", col: D });
+  lines(COPY.a6, t, T.a6, T.q7, { style: "blur", col: D });
+  lines(COPY.q7, t, T.q7, T.a7, { style: "blur", col: D });
+  lines(COPY.a7, t, T.a7, T.q8, { style: "blur", col: D });
+  lines(COPY.q8, t, T.q8, T.a8, { style: "blur", col: D });
+  lines(COPY.a8, t, T.a8, T.stop1 + 0.16, { style: "blur", col: D });
+  lines(COPY.a9, t, T.a9, T.q10, { style: "slam", col: D, lineGap: 0.2 });
+  lines(COPY.q10, t, T.q10, T.stop2 + 0.16, { style: "blur", col: M });
+  lines(COPY.fin, t, T.fin, T.tip, { style: "slam", col: L, lineGap: 0.25 });
+  lines(COPY.tip1, t, T.tip, T.tip2, { style: "blur", col: L });
+  lines(COPY.tip2, t, T.tip2, T.end, { style: "blur", col: L });
+}
+
+// ================================================================ end card: the phone becomes an outline badge
+const BADGE = [200, 600];
+function endCard(t) {
+  if (t < T.end) return;
+  const k = E.p3io(prog(t, T.end, T.endMorph + 0.3));
+  ID(); ctx.save();
+  const sc = lerp(1.3 * PS, 0.24, k), cx = lerp(540, BADGE[0], k), cy = lerp(880, BADGE[1], k);
+  ctx.translate(cx, cy); ctx.scale(sc, sc);
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 9 / sc * 0.35 + 6; rr(-PH.w / 2, -PH.h / 2, PH.w, PH.h, PH.r); ctx.fillStyle = mixHex(C.body, C.ground, k); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.arc(-PH.w / 2 + 120, 0, 60, 0, TAU); ctx.stroke();   // a lens, as a badge mark
+  ctx.restore();
+  lines(COPY.end, t, T.title1, DUR + 1, { style: "type", col: C.ink, ys: [905, 1045, 1185], size: 124, stag: 0.045, lineGap: 0.3 });
+  lines([COPY.epNum], t, T.ep, DUR + 1, { style: "slam", col: C.ink, x: 400, ys: [520], size: 150 });
+  lines([COPY.epName], t, T.ep + 0.25, DUR + 1, { style: "blur", col: C.ink, x: 404, ys: [668], size: 112 });
+  if (t >= T.sting) {
+    const s2 = spring(t - T.sting, 16, 0.5);
+    ID(); ctx.save(); ctx.translate(BADGE[0], BADGE[1]); ctx.scale(s2, s2); ctx.font = `150px ${DISPLAY}`; ctx.fillStyle = C.acc; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("?", 4, 4); ctx.restore();
+  }
+}
+
+// ================================================================ the frame
+const orangeK = (t) => E.p2io(prog(t, T.myth, T.myth + 0.3)) * (1 - E.p2io(prog(t, T.unOrange, T.unOrange + 0.001)));
+function groundRGB(t) { const o = orangeK(t), g = hexRGB(C.ground), q = hexRGB(C.acc); return [0, 1, 2].map((i) => Math.round(lerp(g[i], q[i], o))).join(","); }
+function groundCol(t) { const o = orangeK(t); return o > 0 ? mixHex(C.ground, C.acc, o) : C.ground; }
+// the outside scene for the opening (b = −0.25) and the closing shot (b = 31.0)
+function drawOutside(t, o = {}) {
+  ID(); ctx.fillStyle = o.ground ?? groundCol(t); ctx.fillRect(0, 0, W, H);
+  const closing = t >= T.iris;
+  const tipK = closing ? E.p2io(prog(t, T.tipIn, T.tipInEnd)) : 0;
+  const K = outK(t, 1 + 0.3 * tipK, [540, lerp(915, 880, tipK)]);
+  let s;
+  if (!closing) s = screenOut(t, TL.BURST_OUT[0], T.tap0, T.open0);
+  else if (t < T.tip) s = screenOut(t, TL.BURST_OUT[1], T.tapC, T.fin);
+  else s = { mode: "edit" };
+  phoneOut(t, K, s);
+  if (closing && t < T.tip) drawXrayRing(t, K, E.p2io(prog(t, T.iris + 0.35, T.iris + 0.65)) * (1 - E.p2io(prog(t, T.fin, T.fin + 0.3))));
+  handsOut(t, K, 1, closing ? T.tapC : T.tap0);
+  if (!closing) drawGuessStrip(t);
+}
+const IRC = [540, 900];
+function frame(t) {
+  ctx.reset(); ID();
+  if (t < T.dive) drawOutside(t);
+  else if (t < T.diveEnd) drawDive(t);
+  else if (t < T.iris) drawInside(t);
+  else if (t < T.irisEnd) {
+    const k = E.p2io(prog(t, T.iris, T.irisEnd)), R = 6 + 2300 * k * k * (3 - 2 * k);
+    drawInside(t);
+    ctx.save(); const P = new Path2D(); P.arc(IRC[0], IRC[1], R, 0, TAU); ID(); ctx.clip(P); drawOutside(t, { ground: C.ground }); ctx.restore();
+  } else if (t < T.end + 0.05) drawOutside(t, { ground: C.ground });
+}
+// the caption layer: drawn once per frame on top (never motion-blurred)
+function overlay(t) {
+  let fl = darkAt(t);
+  if (t >= T.iris && t < T.irisEnd) {
+    const k = E.p2io(prog(t, T.iris, T.irisEnd)), R = 6 + 2300 * k * k * (3 - 2 * k);
+    ctx.save(); let P = new Path2D(); P.rect(0, 0, W, H); P.arc(IRC[0], IRC[1], R, 0, TAU); ID(); ctx.clip(P, "evenodd"); scrimOf(1); textBand(t, 1); ctx.restore();
+    ctx.save(); P = new Path2D(); P.arc(IRC[0], IRC[1], R, 0, TAU); ID(); ctx.clip(P); scrimOf(0); textBand(t, 0); ctx.restore();
+    fl = -1;
+  } else scrimOf(fl, t >= T.end ? 1 - prog(t, T.end, T.end + 0.3) : 1, groundRGB(t));
+  if (fl >= 0) textBand(t, fl);
+  strikeX(t);
+  if (t >= T.diveEnd && t < T.iris) insideLabels(t);
+  if (t >= T.tip && t < T.end) {
+    label(COPY.tipTag, 96, 205, 46, C.acc, t, T.tip, T.end);
+    label(COPY.iphone, 540, 1205, 44, C.ink, t, T.tip2 + 0.3, T.end, { align: "center", plate: C.ground });
+  }
+  if (t >= T.end) { ID(); ctx.fillStyle = C.ground; ctx.globalAlpha = E.p2io(prog(t, T.end, T.end + 0.3)); ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; endCard(t); }
+}
+
+// ---------------------------------------------------------------- motion blur where things move fast
+const BLUR = [[7.0, 9.5, 6], [36.5, 37.1, 6], [41.0, 41.9, 6]];
+const SHUTTER = 0.5 / FPS;
+window.seek = function seek(t) {
+  t = clamp(t, 0, DUR - 1e-6);
+  const b = BLUR.find(([a, bb]) => t >= a && t < bb);
+  if (!b) { ctx = MAIN; frame(t); overlay(t); return; }
+  const SUB = b[2];
+  MAIN.reset();
+  for (let i = 0; i < SUB; i++) {
+    ctx = OFFX;
+    const ts = t + SHUTTER * (i / (SUB - 1) - 0.5);
+    frame(clamp(ts, 0, DUR - 1e-6));
+    MAIN.setTransform(1, 0, 0, 1, 0, 0); MAIN.globalAlpha = 1 / (i + 1); MAIN.drawImage(OFF, 0, 0);
+  }
+  MAIN.globalAlpha = 1; ctx = MAIN; overlay(t);
+};
+window.DUR = DUR; window.FPS = FPS;
+window.ready = false;
+window.whenReady = Promise.all([
+  document.fonts.load(`100px ${DISPLAY}`, "烟花快散了才按怎么还拍到它炸开"), document.fonts.load(`700 50px ${UI}`, "感光芯片实况按下"), document.fonts.load(`400 50px ${UI}`, "示意"),
+]).then(() => document.fonts.ready).then(() => { MEASURE.clear(); window.seek(0); window.ready = true; });
+</script>
+</body>
+</html>
