@@ -45,9 +45,9 @@
   };
 
   // the fireworks. Outside (film time): the opening burst at −0.25, the closing one at 31.0 (the shutter 1 s after each).
-  // Inside (sky time τ, see tau()): bursts at 10.0 (the viewfinder), 14.5 (the pile), 18.0 (the ring), 20.0 (pressed at 21.0).
+  // Inside (sky time τ, see tau()): bursts at 10.0 (the viewfinder), 12.25 (frames flowing), 14.5 (the pile), 16.5, 18.0 (the ring), 20.0 (pressed at 21.0).
   const BURST_OUT = [-0.25, 31.0];
-  const BURST_IN = [10.0, 14.5, 18.0, 20.0];
+  const BURST_IN = [10.0, 12.25, 14.5, 16.5, 18.0, 20.0];
   // inside, the press is shown 4× slowed (示意): τ runs at ¼ speed from the tap until 27.5
   const SLOW = { a: 21.0, b: 27.5, k: 0.25 };
   function tau(t) {
