@@ -703,9 +703,9 @@ function textBand(t, fl) {
   lines(COPY.q7, t, T.q7, T.a7, { style: "blur", col: D });
   lines(COPY.a7, t, T.a7, T.q8, { style: "blur", col: D });
   lines(COPY.q8, t, T.q8, T.a8, { style: "blur", col: D });
-  lines(COPY.a8, t, T.a8, T.stop1 + 0.16, { style: "blur", col: D });
+  lines(COPY.a8, t, T.a8, T.a9, { style: "blur", col: D });            // stays through the half-beat stop (the music stops, not the words)
   lines(COPY.a9, t, T.a9, T.q10, { style: "slam", col: D, lineGap: 0.2 });
-  lines(COPY.q10, t, T.q10, T.stop2 + 0.16, { style: "blur", col: M });
+  lines(COPY.q10, t, T.q10, T.fin, { style: "blur", col: M });
   lines(COPY.fin, t, T.fin, T.tip, { style: "slam", col: L, lineGap: 0.25 });
   lines(COPY.tip1, t, T.tip, T.tip2, { style: "blur", col: L });
   lines(COPY.tip2, t, T.tip2, T.end, { style: "blur", col: L });
