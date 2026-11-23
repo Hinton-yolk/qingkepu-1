@@ -45,9 +45,7 @@
     { seg: "F", text: "你随口问一句，就是[几万亿次]运算。" },
     { seg: "F", text: "这些小工人住的地方，就是 [GPU]。" },
     // G · back up: the punchline
-    { seg: "G", text: "所以 AI 不是笨，是它看世界的“[最小单位]”和我们不一样。" },
-    { seg: "G", text: "很多时候我们觉得别人“连这都不会”，" },
-    { seg: "G", text: "也许只是他看世界用的[积木]，和你不同。" },
+    { seg: "G", text: "所以 AI 不是笨，是它看世界的“[最小单位]”和我们不一样。", hold: 1.16 },   // 用户 11-23：删掉后面两句（「很多时候我们觉得别人“连这都不会”」「也许只是他看世界用的积木，和你不同」）；hold 让下一句正好提前 4.8 秒（两小节），配乐在小节线上剪
     // H · next episode
     { seg: "H", text: "既然 AI 只是在一块一块地猜积木，" },
     { seg: "H", text: "它会不会猜错，而且错得[理直气壮]？" },
@@ -69,7 +67,7 @@
     L.push({ ...ln, plain: ln.text.replace(/[\[\]]/g, ""), t0: +t.toFixed(2), t1: +(t + d).toFixed(2) });
     t += d + (/[。？]$/.test(ln.text) ? STOP : GAP) + (ln.hold || 0);   // hold: extra time after the line for the picture to finish (user 11-22: 12–24 s a little too fast)
   }
-  const END_CARD = +(L[L.length - 1].t1 + 0.4).toFixed(2);
+  const END_CARD = +(Math.round((L[L.length - 1].t0 + 1.0) / 0.6) * 0.6).toFixed(2);   // 用户 11-23：「下期聊」出来约 1 秒就进片尾卡（卡上就是下期标题），不在问号上久留；落在拍点上（0.6 秒格）
   const DUR = +(END_CARD + 3.2).toFixed(2);
 
   const TL = { FPS, W, H, CPS, LINES, L, est, END_CARD, DUR };

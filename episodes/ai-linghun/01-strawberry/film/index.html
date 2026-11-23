@@ -27,6 +27,7 @@ import { BokehPass } from "three/addons/postprocessing/BokehPass.js";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 const QP = new URLSearchParams(location.search), OVERLAY = QP.has("overlay"), BG = QP.get("bg");
 const NOCAP = QP.has("nocap");
+const OP = QP.get("op") || "";   // opening variant under review (user 11-23: three coral r's + the struck「2 个」from the first frame)
 const CS = QP.get("cs") || "A";   // caption style (user 11-22: big captions and small labels must not share a background). A: dark captions, cream labels; B: cream captions, dark labels   // cover art: picture + labels, no captions / headline / end card
 if (OVERLAY) { document.documentElement.style.background = "transparent"; document.body.style.background = "transparent"; }   // labels + captions as a transparent layer (Blender final)
 
@@ -228,11 +229,13 @@ function drawScreen(t) {
   x.fillStyle = "rgba(0,0,0,.07)"; x.fillRect(8, 170, w - 16, 3);
   const q = qLayout(); x.fillStyle = "#3A3532"; rr(q.x, q.y, q.w, q.h, 30, x); x.fill();
   x.font = QF; x.textAlign = "center"; const gh = 0.4 * ramp(t, LAUNCH + 1.0, LAUNCH + 1.5);
-  [...WORD].forEach((ch, i) => { if (t < LAUNCH + i * STAG) { x.fillStyle = "#fff"; x.fillText(ch, q.xs[i], q.ty + 2); } else if (gh > 0) { x.fillStyle = `rgba(255,255,255,${gh})`; x.fillText(ch, q.xs[i], q.ty + 2); } }); x.fillStyle = "#fff";
+  [...WORD].forEach((ch, i) => { if (t < LAUNCH + i * STAG) { x.fillStyle = OP === "2" && RIDX.includes(i) ? "#FF8A63" : "#fff"; x.fillText(ch, q.xs[i], q.ty + 2); } else if (gh > 0) { x.fillStyle = `rgba(255,255,255,${gh})`; x.fillText(ch, q.xs[i], q.ty + 2); } }); x.fillStyle = "#fff";
   x.textAlign = "left"; x.fillText(Q1, q.x0 + tw(WORD, QF, x), q.ty + 2);
   const pop = back(ramp(t, -0.12, 0.3)), ay = q.y + 210;
   x.fillStyle = CORAL; x.beginPath(); x.arc(64, ay, 28, 0, 7); x.fill(); x.font = FI(800, 24); x.fillStyle = "#fff"; x.textAlign = "center"; x.fillText("AI", 64, ay + 1);
-  x.save(); x.translate(110, ay); x.scale(pop, pop); x.fillStyle = "#ECE5D8"; rr(0, -50, 200, 100, 32, x); x.fill(); x.font = F(900, 50); x.fillStyle = INK; x.fillText("2 个。", 100, 3); x.restore();
+  x.save(); x.translate(110, ay); x.scale(pop, pop); x.fillStyle = "#ECE5D8"; rr(0, -50, 200, 100, 32, x); x.fill(); x.font = F(900, 50); x.fillStyle = INK; x.fillText("2 个。", 100, 3);
+  if (OP === "2") { const k = ramp(t, 0.25, 0.6); if (k > 0) { x.strokeStyle = CORAL; x.lineWidth = 9; x.lineCap = "round"; x.beginPath(); x.moveTo(40, -30); x.lineTo(40 + 130 * k, -30 + 60 * k); x.stroke(); } }
+  x.restore();
   for (let i = 0; i < 3; i++) { x.fillStyle = `rgba(43,39,38,${0.15 + 0.25 * Math.max(0, Math.sin(t * 6 - i))})`; x.beginPath(); x.arc(126 + i * 24, ay + 112, 7, 0, 7); x.fill(); }
   x.font = F(700, 36); x.fillStyle = "rgba(43,39,38,.82)"; x.textAlign = "center"; x.fillText("示意：早期 AI 的常见错答", w / 2, ay + 220);
   const off = ramp(t, b(1) - 0.4, b(1) + 0.3); if (off > 0) { x.fillStyle = `rgba(22,20,19,${0.92 * off})`; x.fillRect(0, 0, w, h); }
@@ -496,7 +499,7 @@ SD = a(10) - aO(10);
       txt(`${nA} 笔`, pA.x, pA.y - 30, { font: FI(900, 40), color: CORAL, alpha: sa }); txt(`${nB} 笔`, pB.x, pB.y - 30, { font: FI(900, 40), color: CORAL, alpha: sa }); }
     const five = ramp(t, tA(14) + 0.35, tA(14) + 0.65); if (five > 0) { const p = P3(X0 + 0.05, 1.9, ZR + 1.4);
       label("长约 5 倍", p.x, p.y - 30, { font: F(900, 40), h: 74, bg: CORAL, color: "#fff", alpha: five * (1 - ramp(t, 63.3, 63.6)), scale: back(ramp(t, tA(14) + 0.35, tA(14) + 0.7)) }); }
-    const r = P3(X0, 0, ZR + 3.0); label("每读一块，记一笔账（示意）", 540, Math.min(r.y + 40, 1225), { font: F(700, 32), h: 58, alpha: vis(t, aO(20) + 0.5, 63.4) });
+    const r = P3(X0 + 0.05, 1.9, ZR + 1.4); label("每读一块，记一笔账（示意）", 540, Math.max(r.y - 150, 220), { font: F(700, 32), h: 58, alpha: vis(t, aO(20) + 0.5, 63.4) });   // 用户 11-23 采纳观众意见：原在字幕正上方，像第二行字幕，移到上半屏「长约 5 倍」之上
   });
   for (let i = 0; i < 3; i++) cue("thud", aO(17) + 1.3 + i * 0.1, { g: 0.3, f: 150 });
   for (let j = 0; j < 15; j++) cue("coin", tA(j) + 0.3, { f: 1.0, pan: -0.3, g: 0.45 });   // a coin on each bill per read
@@ -615,6 +618,7 @@ SD = 0;
 // ---------- S7 · what we see vs what the AI sees ----------
 SD = a(27) - aO(27);
 {
+  const E7 = aO(27) + (a(28) - a(27));   // 用户 11-23 删掉 S7 后两句：本站在 E7（v1 时间）结束，原来到 aO(30) = 98.17
   const X0 = ST.s7, us = device(10 * P + 0.5, 1.5, { bh: 0.34, alu: false }), ai = device(10 * P + 0.5, 1.6, { bh: 0.34, alu: false });
   us.position.set(X0, 0, -3.0); ai.position.set(X0, 0, -0.4); us.name = "padUs"; ai.name = "padAI";
   const UY = us.userData.top + CUBE / 2;
@@ -622,27 +626,27 @@ SD = a(27) - aO(27);
   const B7 = makeBlock(10, WORD); B7.m.visible = false; B7.ds.forEach((d) => { d.material.opacity = 0.22; });
   const link = pipeLink([[ST.s6 + 9.1, 0.3, -1.6], [ST.s6 + 11.5, 0.12, -0.6], [X0 - 6.5, 0.12, -1.4], [X0 - 3.9, 0.25, -3.0]]);
   const _c7 = new THREE.Color();
-  const SC0 = aO(27) + 2.2, SCP = 0.32, SCE = SC0 + 10 * SCP, scan7 = (t) => { if (t < SC0 || t >= SCE) return null;   // one pass, letter by letter; then the three r's light together (as in the opening)
+  const SC0 = aO(27) + 1.05, SCP = 0.22, SCE = SC0 + 10 * SCP, scan7 = (t) => { if (t < SC0 || t >= SCE) return null;   // one pass, letter by letter; then the three r's light together (as in the opening)
     const s = (t - SC0) / SCP; return { i: Math.floor(s) % 10, u: s - Math.floor(s) }; };
   propsAround(X0, 71);
   onUpd((t) => {
     link.pulse(ramp(t, 87.5, 88.3), 1);
     const sc = scan7(t);
-    L7.forEach((b, i) => { const p = ramp(t, 88.2 + i * 0.05, 88.5 + i * 0.05); b.m.visible = p > 0 && t < 98.3; const hp = sc && sc.i === i ? 0.16 * Math.sin(Math.PI * sc.u) : 0; b.m.position.set(X0 + X(i), UY + 0.8 * (1 - eo(p)) + hp, -3.0 + 0.1);
-      const rk = RIDX.indexOf(i), red = rk >= 0 ? ramp(t, SCE + 0.15 + rk * 0.12, SCE + 0.4 + rk * 0.12) * (1 - ramp(t, 97.8, 98.2)) : 0;
+    L7.forEach((b, i) => { const p = ramp(t, 88.2 + i * 0.05, 88.5 + i * 0.05); b.m.visible = p > 0 && t < E7 + 0.13; const hp = sc && sc.i === i ? 0.16 * Math.sin(Math.PI * sc.u) : 0; b.m.position.set(X0 + X(i), UY + 0.8 * (1 - eo(p)) + hp, -3.0 + 0.1);
+      const rk = RIDX.indexOf(i), red = rk >= 0 ? ramp(t, SCE + 0.15 + rk * 0.12, SCE + 0.4 + rk * 0.12) * (1 - ramp(t, E7 - 0.15, E7 + 0.25)) : 0;
       if (rk >= 0) { const h = hop(t, SCE + 0.15 + rk * 0.12, 0.4, 0.3); b.m.position.y += h.y; b.m.material.color.copy(b.m.userData.c0 || (b.m.userData.c0 = b.m.material.color.clone())).lerp(_c7.set("#EE6A47"), red); b.d.material.color.set(INK).lerp(_c7.set("#FFFFFF"), red); } });
-    const p = ramp(t, 88.9, 89.3); B7.m.visible = p > 0 && t < 98.3; B7.m.position.set(X0, UY + 0.9 * (1 - eo(p)), -0.4 + 0.25);
+    const p = ramp(t, 88.9, 89.3); B7.m.visible = p > 0 && t < E7 + 0.13; B7.m.position.set(X0, UY + 0.9 * (1 - eo(p)), -0.4 + 0.25);
   });
   onOvl((t) => {
-    const k = vis(t, 88.6, 98.2, 0.3, 0.3); if (k <= 0) return;
+    const k = vis(t, 88.6, E7 + 0.03, 0.3, 0.3); if (k <= 0) return;
     const pu = P3(X0, UY + 0.55, -3.0), pa = P3(X0, 0, 0.55);
     label("我们看到：一个一个字母", pu.x, pu.y - 62, { font: F(900, 34), h: 60, alpha: k });
     label("AI 看到：一整块积木（编号 #73700）", pa.x, pa.y + 40, { font: F(900, 34), h: 60, alpha: k * ramp(t, 89.2, 89.5) });
     // after the read: we can count them — 1 2 3 over the r's, as in the opening
-    RIDX.forEach((i, kk) => { const t0 = SCE + 0.15 + kk * 0.12, al = ramp(t, t0, t0 + 0.12) * (1 - ramp(t, 97.8, 98.1)); if (al <= 0) return;
+    RIDX.forEach((i, kk) => { const t0 = SCE + 0.15 + kk * 0.12, al = ramp(t, t0, t0 + 0.12) * (1 - ramp(t, E7 - 0.15, E7 + 0.15)); if (al <= 0) return;
       const h = hop(t, t0, 0.4, 0.3), q = P3(X0 + X(i), UY + 0.62 + h.y, -2.9), sc = back(ramp(t, t0, t0 + 0.3));
       ctx.save(); ctx.globalAlpha = al; ctx.translate(q.x, q.y); ctx.scale(sc, sc); txt(String(kk + 1), 0, 0, { font: FI(900, 44), color: CORAL }); ctx.restore(); });
-    const hl = vis(t, aO(27) + 2.2, 98.0, 0.3, 0.3), pulse = 0.65 + 0.35 * Math.sin(t * 6);
+    const hl = vis(t, SC0, E7 - 0.17, 0.3, 0.3), pulse = 0.65 + 0.35 * Math.sin(t * 6);
     if (hl > 0) { const sc = scan7(t); ctx.save(); ctx.globalAlpha = hl * pulse; ctx.strokeStyle = CORAL; ctx.lineWidth = 7;
       if (sc) { const xi = X(sc.i) + (sc.u > 0.7 && sc.i < 9 ? (X(sc.i + 1) - X(sc.i)) * ease((sc.u - 0.7) / 0.3) : 0);   // the ring reads once, letter by letter
         const c1 = P3(X0 + xi, UY, -2.9), r1 = Math.abs(P3(X0 + xi + 0.42, UY, -2.9).x - c1.x); ctx.globalAlpha = hl * ramp(t, SC0, SC0 + 0.2) * (1 - ramp(t, SCE - 0.15, SCE)); ctx.beginPath(); ctx.arc(c1.x, c1.y, r1, 0, 7); ctx.stroke(); ctx.globalAlpha = hl * pulse; }
@@ -653,15 +657,16 @@ SD = a(27) - aO(27);
   onKeys(
     [88.3, X0 - 2.0, 0.6, -1.8, 8.4, 0.12, 0.55],
     [aO(27) + 1.4, X0, 0.6, -1.7, 8.0, 0.06, 0.58],
-    [aO(28), X0 + 0.3, 0.6, -1.7, 7.6, -0.06, 0.6],     // one slow orbit through the beat
-    [95.0, X0 + 0.1, 0.6, -1.7, 8.2, -0.13, 0.65],
-    [bO(29), X0, 0.6, -1.7, 9.4, -0.18, 0.7],
+    [aO(27) + 3.1, X0 + 0.3, 0.6, -1.7, 7.6, -0.06, 0.6],     // one slow orbit through the beat (compressed 11-23: the two lines after it are gone)
+    [aO(27) + 4.5, X0 + 0.1, 0.6, -1.7, 8.2, -0.13, 0.65],
+    [E7 - 0.3, X0, 0.6, -1.7, 9.4, -0.18, 0.7],
   );
 }
 
 // ---------- S8 · it guesses block by block — what if it guesses wrong, with full confidence? ----------
-SD = a(27) - aO(27);
+SD = a(28) - aO(30);   // its first line is L[28] since 11-23 (v1 index 30)
 {
+  const E8 = END_CARD - SD;   // the end card in v1 time (用户 11-23：「下期聊」之后不在问号上久留，早点进片尾卡)
   const X0 = ST.s8, model = device(3.2, 2.4, { bh: 0.62, panel: 1.0 }); model.position.set(X0 - 3.6, 0, -2.4); model.name = "model8";
   const TOP = model.userData.top, lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.08, 28), glowMat("#EE6A47")); lamp.position.set(X0 - 2.4, TOP + 0.04, -1.55); scene.add(lamp);
   const rail = device(8.0, 1.0, { bh: 0.3 }); rail.position.set(X0 + 1.9, 0, -0.9);
@@ -675,12 +680,12 @@ SD = a(27) - aO(27);
     link.pulse(ramp(t, 97.9, 98.5), 1);
     lamp.material.color.set("#EE6A47").multiplyScalar(1 + 1.6 * Math.max(...blocks8.map((c) => bump(t, tO(c.k) - 0.1, 0.25)), bump(t, tQ - 0.1, 0.3)));
     [...blocks8, Object.assign(qm, { k: 99 })].forEach((c) => { const t0 = c === qm ? tQ : tO(c.k), p = ramp(t, t0, t0 + 0.36); c.m.visible = t > t0; if (!c.m.visible) return;
-      const h = hop(t, t0 + 0.36, 0.25, 0.16), shake = c === qm ? 0.12 * Math.sin(t * 26) * vis(t, aO(31) + 1.0, 107.2, 0.1, 0.3) : 0;
+      const h = hop(t, t0 + 0.36, 0.25, 0.16), shake = c === qm ? 0.12 * Math.sin(t * 26) * vis(t, aO(31) + 1.0, E8 + 0.45, 0.1, 0.3) : 0;
       c.m.position.set(lerp(X0 - 2.4, c.x, ease(p)), RY + h.y - (CUBE / 2) * h.sq, -0.9); c.m.rotation.set(0, 0, shake); });
   });
   onOvl((t) => {
-    const r = P3(X0 + 1.9, 0, 0.0); label("示意", r.x + 300, Math.min(r.y + 40, 1225), { font: F(700, 30), h: 52, alpha: vis(t, aO(30) + 0.6, 107.2) });
-    const c = ramp(t, aO(31) + 0.6, aO(31) + 0.9); if (c > 0) { const p = P3(qm.x, RY + 1.4, -0.9); label("自信 100%", p.x, p.y, { font: F(900, 40), h: 74, bg: CORAL, color: "#fff", rot: -0.06, alpha: c * (1 - ramp(t, 107.0, 107.3)), scale: back(ramp(t, aO(31) + 0.6, aO(31) + 0.95)) }); }
+    const r = P3(X0 + 1.9, 0, 0.0); label("示意", r.x + 300, Math.min(r.y + 40, 1225), { font: F(700, 30), h: 52, alpha: vis(t, aO(30) + 0.6, E8 + 0.45) });
+    const c = ramp(t, aO(31) + 0.6, aO(31) + 0.9); if (c > 0) { const p = P3(qm.x, RY + 1.4, -0.9); label("自信 100%", p.x, p.y, { font: F(900, 40), h: 74, bg: CORAL, color: "#fff", rot: -0.06, alpha: c * (1 - ramp(t, E8 + 0.25, E8 + 0.55)), scale: back(ramp(t, aO(31) + 0.6, aO(31) + 0.95)) }); }
   });
   for (let k = 0; k < 6; k++) cue("clack", tO(k), { f: [1.0, 1.12, 1.26, 1.12, 1.33, 1.5][k] });
   cue("clack", tQ, { f: 0.8 }); cue("boop", tQ + 0.36, { g: 0.5 });           // the "?" block
@@ -690,9 +695,9 @@ SD = a(27) - aO(27);
     [aO(30) + 1.6, X0 + 0.8, RY, -1.2, 6.0, 0.1, 0.42],      // follow the front of the chain as blocks come out
     [aO(31) + 0.8, X0 + 3.6, RY, -1.0, 5.2, 0.06, 0.4],      // the coral 「？」 lands; keep it and its tag inside the frame
     [bO(31) + 0.2, X0 + 4.2, RY, -0.9, 4.4, 0.03, 0.38],     // push in on the confident wrong guess …
-    [106.9, X0 + 4.7, RY, -0.9, 3.3, -0.07, 0.36],          // … and keep moving through 下期聊
-    [OLD_END, X0 + 0.6, 0.6, -1.6, 10.5, 0.0, 0.85],
-    [OLD_DUR + 0.5, X0 + 0.6, 0.6, -1.6, 11.5, 0.0, 0.95],
+    [E8 + 0.05, X0 + 4.6, RY, -0.9, 3.8, -0.05, 0.37],      // … and keep moving through 下期聊 (shorter since 11-23)
+    [E8 + 0.4, X0 + 0.6, 0.6, -1.6, 10.5, 0.0, 0.85],
+    [E8 + 3.7, X0 + 0.6, 0.6, -1.6, 11.5, 0.0, 0.95],
   );
 }
 // end card (2D): series name, this episode, next episode
@@ -700,11 +705,11 @@ CUES.push({ k: "chime", t: +(END_CARD + 0.15).toFixed(3), m: 77, g: 0.5 }, { k: 
 function endCard(t) {
   const al = ramp(t, END_CARD, END_CARD + 0.5); if (al <= 0) return;
   ctx.save(); ctx.globalAlpha = al * 0.55; ctx.fillStyle = "#2B2726"; ctx.fillRect(0, 0, W, H); ctx.restore();
-  const s = back(ramp(t, END_CARD + 0.15, END_CARD + 0.55));
+  const s = back(ramp(t, END_CARD + 0.1, END_CARD + 0.45));
   ctx.save(); ctx.globalAlpha = al; card(540, 860, 860, 560, { r: 36, a: 0.95 }); ctx.translate(540, 780); ctx.scale(s, s); txt("AI 灵魂拷问", 0, 0, { font: F(900, 112) }); ctx.restore();
-  txt("#01  AI 看不见字母  ✓", 540, 910, { font: F(700, 44), alpha: ramp(t, END_CARD + 0.6, END_CARD + 0.9) });
-  txt("下期 #02", 540, 1010, { font: F(900, 38), color: CORAL, alpha: ramp(t, END_CARD + 0.9, END_CARD + 1.2) });
-  txt("AI 为什么会一本正经地胡说八道？", 540, 1072, { font: F(900, 46), alpha: ramp(t, END_CARD + 1.0, END_CARD + 1.3) });
+  txt("#01  AI 不按字母读  ✓", 540, 910, { font: F(700, 44), alpha: ramp(t, END_CARD + 0.35, END_CARD + 0.6) });   // 用户 11-23：集名跟新的第一句（原「AI 看不见字母」）
+  txt("下期 #02", 540, 1010, { font: F(900, 38), color: CORAL, alpha: ramp(t, END_CARD + 0.5, END_CARD + 0.75) });   // 下期标题提前（原 +0.9 / +1.0）
+  txt("AI 为什么会一本正经地胡说八道？", 540, 1072, { font: F(900, 46), alpha: ramp(t, END_CARD + 0.6, END_CARD + 0.9) });
 }
 // ===================== end of ACTS =====================
 
@@ -900,7 +905,7 @@ function overlays(t) {
     const p = P3(0, BLOCK_Y + 2.25, PADZ - 0.6); let x = 540 - tot / 2;
     TOKS.forEach((s, j) => { const pj = back(ramp(t, a(8) + 0.25 + j * 0.06, a(8) + 0.55 + j * 0.06)); const hi = j === 6; card(x + ws[j] / 2, p.y, ws[j], 54, { alpha: sa, r: 12, bg: hi ? CORAL : undefined, scale: pj });
       ctx.save(); ctx.globalAlpha = sa; ctx.translate(x + ws[j] / 2, p.y); ctx.scale(pj, pj); txt(s, 0, 1, { font: f, color: hi ? "#fff" : INK }); ctx.restore(); x += ws[j] + 8; }); }
-  label("这句切成 8 块，“ strawberry”（带空格）是 1 块 · 实测", 540, Math.min(padsFront.y + 80, 1225), { font: F(700, 32), h: 58, alpha: vis(t, a(8) + 0.4, a(9) + 0.3) });
+  label("“ strawberry”（带空格）是 1 块 · 实测", 540, Math.min(padsFront.y + 80, 1205), { font: F(900, 42), h: 78, alpha: vis(t, a(8) + 0.4, a(9) + 0.3) });   // 用户 11-23 采纳观众意见：只留这一句并放大（原「这句切成 8 块，…」32 号字）
   // Token (L9)
   const tk = ramp(t, a(9) + 1.1, a(9) + 1.4) * (1 - ramp(t, a(10) - 0.04, a(10) + 0.21));
   if (tk > 0) { const p = P3(0, BLOCK_Y - CUBE / 2 + 0.75, BLOCK_Z + 0.85), y = Math.min(p.y + 120, 1225);
