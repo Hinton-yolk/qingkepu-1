@@ -86,7 +86,7 @@
     tip2: ["点编辑，", "换一帧当[封面]"],
     // small text (terms and notes only as small text)
     press: "按下", rec: "开始录", before: "按之前", chip: "感光芯片", fps: "一秒很多张", ring: "这一圈 · 示意", term: "学名：环形缓冲区",
-    pre: "前 1.5 秒", post: "后 1.5 秒", slow: "慢放 · 示意", names: "叫法、时长各家不同", tipTag: "小提示", iphone: "以 iPhone 为例 · 可能没原图清楚", live: "实况",
+    pre: "前 1.5 秒", post: "后 1.5 秒", slow: "慢放 · 示意", structure: "结构示意", names: "叫法、时长各家不同", tipTag: "小提示", iphone: "以 iPhone 为例 · 可能没原图清楚", live: "实况",
     end: ["你每天都在用，", "但你不知道", "它[怎么工作]"], epNum: "EP.10", epName: "实况照片",
   };
   const S16 = BEAT / 4;

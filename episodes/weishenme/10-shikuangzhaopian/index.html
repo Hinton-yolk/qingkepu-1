@@ -208,15 +208,15 @@ function capsule(P, w, fill) { ctx.save(); ctx.lineCap = "round"; ctx.lineJoin =
 const HMOD = window.HAND_MODEL;
 const HIMG = { c: [1015, 370.5], s: 660 / 1170 };       // image px → phone-local units: the phone fills the gap between the hands
 const HDET = {
-  LH: { nails: [[655, 23, 32, 8, -0.03], [502, 148, 25, 36, -0.12]],
-        creases: [[[455, 232], [485, 226], [522, 230]], [[478, 112], [430, 200], [392, 290], [357, 355]], [[530, 195], [524, 300], [507, 400]]],
-        front: [[425, 95], [548, 95], [552, 435], [470, 440], [425, 330]] },
+  LH: { nails: [[655, 23, 32, 8, -0.03], [495, 143, 27, 36, -0.1]],
+        creases: [[[445, 250], [480, 246], [515, 255]], [[465, 130], [437, 195], [400, 260], [367, 340], [357, 360]]],
+        front: [[490, 96], [548, 130], [550, 185], [544, 228], [536, 262], [526, 302], [516, 342], [504, 382], [494, 420], [480, 445], [450, 452], [425, 440], [330, 440], [330, 90]] },
   RH: { nails: [[1330, 36, 30, 8, 0.05], [1370, 385, 30, 29, 0], [1467, 520, 18, 14, 0.7], [1505, 552, 15, 12, 0.6]],
-        creases: [[[1455, 350], [1460, 395], [1458, 440]], [[1540, 300], [1560, 335], [1595, 365]]],
-        front: [[1295, 255], [1612, 255], [1628, 468], [1295, 468]] },
-  RHL: { nails: [[1323, 35, 30, 8, 0.05], [1355, 315, 30, 27, -0.15], [1465, 520, 18, 14, 0.7], [1505, 552, 15, 12, 0.6]],
-        creases: [[[1448, 295], [1455, 335], [1452, 380]], [[1535, 300], [1565, 330], [1600, 345]]],
-        front: [[1295, 255], [1612, 255], [1628, 468], [1295, 468]] },
+        creases: [[[1455, 350], [1460, 395], [1458, 438]]],
+        front: [[1318, 385], [1330, 352], [1345, 345], [1375, 340], [1410, 335], [1445, 332], [1470, 331], [1500, 335], [1530, 345], [1560, 358], [1590, 369], [1615, 378], [1645, 378], [1645, 470], [1610, 462], [1560, 455], [1525, 450], [1490, 445], [1460, 440], [1430, 437], [1400, 435], [1360, 427], [1335, 407], [1320, 392]] },
+  RHL: { nails: [[1323, 35, 30, 8, 0.05], [1360, 316, 32, 29, -0.15], [1465, 520, 18, 14, 0.7], [1505, 552, 15, 12, 0.6]],
+        creases: [[[1448, 295], [1455, 335], [1452, 380]]],
+        front: [[1310, 305], [1322, 290], [1330, 287], [1360, 282], [1400, 284], [1440, 290], [1470, 295], [1500, 304], [1530, 315], [1560, 327], [1590, 340], [1615, 348], [1645, 348], [1645, 440], [1610, 432], [1560, 425], [1525, 417], [1490, 405], [1460, 395], [1430, 385], [1390, 370], [1350, 352], [1325, 327]] },
 };
 function smoothPath(P) {                                 // a closed Catmull-Rom-like curve through the points (quadratics through midpoints)
   const n = P.length, m = (i) => [(P[i % n][0] + P[(i + 1) % n][0]) / 2, (P[i % n][1] + P[(i + 1) % n][1]) / 2];
@@ -241,6 +241,7 @@ function handShape(name, a, front, dev) {               // dev: device px per im
     ctx.beginPath(); ctx.ellipse(-ra * 0.2, -rb * 0.3, ra * 0.35, rb * 0.22, 0, 0, TAU); ctx.fillStyle = "rgba(255,255,255,0.32)"; ctx.fill(); ctx.restore();
   }
   smoothPath(P); ctx.lineJoin = "round"; ctx.strokeStyle = C.ink; ctx.lineWidth = 2.8 / dev; ctx.stroke();
+  if (front) { ctx.save(); smoothPath(P); ctx.clip(); smoothPath(D.front); ctx.strokeStyle = C.ink; ctx.lineWidth = 2.8 / dev; ctx.stroke(); ctx.restore(); }   // where the thumb lies on the phone
   ctx.restore();
 }
 // layer: "back" (the whole hands, under the phone) or "front" (the thumbs, over it); pressed: the right thumb on the shutter
@@ -333,7 +334,7 @@ function worldSky(cx, cy, sc, ages, t) {
 // ================================================================ the phone at any angle (0 = landscape, π/2 = upright)
 // local units = the landscape phone's; turning clockwise by 90° brings its left end (the camera) to the top
 const PORT = { shut: [0, 250], live: { x: -138, y: -296, w: 92, h: 40 } };   // the upright UI (screen-aligned, phone units)
-const LENS_OFF = { main: [-26, 26], second: [28, 26], flash: [-26, -28], mic: [28, -28] };   // round CAMM, in local units
+const LENS_OFF = { main: [-26, -26], second: [28, -26], flash: [-26, 28], mic: [28, 28] };   // round CAMM, local units; seen through the FRONT, so mirrored: lenses on the outer edge, the flash inside
 function rotP(P, l) { const c = Math.cos(P.ang), s = Math.sin(P.ang); return [P.cx + P.sc * (l[0] * c - l[1] * s), P.cy + P.sc * (l[0] * s + l[1] * c)]; }
 function lensDisc(x, y, r) {                                   // a camera lens: a metal ring, dark glass, a coated sheen, a glint
   let g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.2, x, y, r);
@@ -427,7 +428,7 @@ function sensorDie(x, y, w, h, t) {                            // the die's face
   ctx.fillStyle = s; ctx.fillRect(x, y, w, h); ctx.restore();
   ctx.strokeStyle = "rgba(255,255,255,0.28)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + 2, y + 0.5); ctx.lineTo(x + w - 2, y + 0.5); ctx.stroke();
 }
-function drawLoupe(t, k, a, from) {
+function drawLoupe(t, k, a, from, o_lit = 0) {
   if (k <= 0.01 || a <= 0.01) return;
   const cx = lerp(from[0], LOUPE.x, k), cy = lerp(from[1], LOUPE.y, k), r = LOUPE.r * k;
   ID(); ctx.save(); ctx.globalAlpha = a;
@@ -443,7 +444,7 @@ function drawLoupe(t, k, a, from) {
   // the light from the sky: coloured rays converging on the sensor, photons running down them
   const FX = [-70, -35, 0, 35, 70];
   FX.forEach((x0, i) => {
-    const col = FW_COL[i % 3], P = (u) => [lerp(x0, 0, Math.pow(u, 1.25)), lerp(-170, DIE_Y, u)];
+    const col = FW_COL[i % 3], xe = -0.45 * x0, P = (u) => [lerp(x0, xe, Math.pow(u, 1.25)), lerp(-170, DIE_Y, u)];   // each bundle lands on its own spot (an image forms)
     ctx.strokeStyle = `rgba(${col},0.32)`; ctx.lineWidth = 2; ctx.beginPath(); for (let j = 0; j <= 12; j++) { const p = P(j / 12); j ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); } ctx.stroke();
     for (let m = 0; m < 2; m++) { const u = (t * 0.9 + i * 0.21 + m * 0.5) % 1, p = P(u); const pg = ctx.createRadialGradient(p[0], p[1], 0, p[0], p[1], 7); pg.addColorStop(0, `rgba(${col},0.95)`); pg.addColorStop(1, `rgba(${col},0)`); ctx.fillStyle = pg; ctx.fillRect(p[0] - 7, p[1] - 7, 14, 14); }
   });
@@ -455,7 +456,8 @@ function drawLoupe(t, k, a, from) {
   sensorDie(-62, DIE_Y, 124, 9, t);
   ctx.strokeStyle = "#C9A24A"; ctx.lineWidth = 1.2;
   for (const sx of [-1, 1]) for (let j = 0; j < 3; j++) { const x0 = sx * (58 - j * 5), x1 = sx * (80 + j * 4); ctx.beginPath(); ctx.moveTo(x0, DIE_Y + 2); ctx.quadraticCurveTo((x0 + x1) / 2, DIE_Y - 8 - j * 2, x1, DIE_Y + 10); ctx.stroke(); }
-  g = ctx.createRadialGradient(0, DIE_Y, 0, 0, DIE_Y, 22); g.addColorStop(0, `rgba(255,240,210,${0.55 + 0.2 * Math.sin(t * 7)})`); g.addColorStop(1, "rgba(255,240,210,0)"); ctx.fillStyle = g; ctx.fillRect(-22, DIE_Y - 22, 44, 44);
+  for (const x0 of FX) { const xe = -0.45 * x0; g = ctx.createRadialGradient(xe, DIE_Y, 0, xe, DIE_Y, 12); g.addColorStop(0, `rgba(255,240,210,${0.5 + 0.2 * Math.sin(t * 7 + x0)})`); g.addColorStop(1, "rgba(255,240,210,0)"); ctx.fillStyle = g; ctx.fillRect(xe - 12, DIE_Y - 12, 24, 24); }
+  if (o_lit > 0) { ctx.save(); ctx.globalAlpha = o_lit; ctx.strokeStyle = C.acc; ctx.lineWidth = 3; rr(-68, DIE_Y - 6, 136, 21, 4); ctx.stroke(); ctx.restore(); }   // the die lit first (an orange frame)
   ctx.restore();
   ctx.strokeStyle = C.paper; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.stroke();
   ctx.restore();
@@ -507,7 +509,7 @@ function phoneOut(t, K, s, o = {}) {
     ID(); const c0 = toS(K, [0, 0]); worldSky(c0[0], c0[1], K.A, s.ages, t); ctx.restore(); setK(K);
     if (s.mode === "vf") {
       // the shutter (under the right thumb) and the last photo
-      ctx.strokeStyle = "rgba(255,255,255,0.92)"; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(SHUT[0], SHUT[1], 34, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = "rgba(255,255,255,0.92)"; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(SHUT[0], SHUT[1], 34 * (1 - 0.2 * (s.press ?? 0)), 0, TAU); ctx.stroke();
       ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.beginPath(); ctx.arc(SHUT[0], SHUT[1], 25 * (1 - 0.3 * (s.press ?? 0)), 0, TAU); ctx.fill();
       if (s.ripple > 0) { const k = E.p2out(s.ripple); ctx.strokeStyle = `rgba(255,255,255,${0.9 * (1 - k)})`; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(SHUT[0], SHUT[1], 38 + 70 * k, 0, TAU); ctx.stroke(); }
       if (s.thumbAges) { ID(); const q = toS(K, [THUMB.x + THUMB.w / 2, THUMB.y + THUMB.h / 2]); card(q[0], q[1], THUMB.w * K.A, THUMB.h * K.A, s.thumbAges, { a: s.thumbA ?? 1, sc: 1 + 0.35 * Math.sin(Math.PI * (s.thumbA ?? 1)) }); setK(K); }
@@ -553,12 +555,12 @@ const PLAY = (t, t0) => [-0.5 + (t - t0)];
 // the opening and the closing shots share one timeline: burst at b, the shutter at b + 1
 function screenOut(t, b, tapT, playT) {
   const s = { mode: "vf", ages: [t - b], flash: 0, fly: 0, thumbAges: null };
-  if (t >= tapT) { s.flash = Math.max(0, 1 - (t - tapT) / 0.16) * 0.85; s.thumbAges = [1.0]; s.thumbA = E.p2out(prog(t, tapT + 0.45, tapT + 0.6)); s.fly = prog(t, tapT + 0.1, tapT + 0.5); s.flyAges = [1.0]; s.ripple = t < tapT + 0.5 ? prog(t, tapT, tapT + 0.5) : 0; s.press = Math.sin(Math.PI * prog(t, tapT - 0.05, tapT + 0.2)); }
+  if (t >= tapT) { s.flash = t - tapT < 0.067 ? 1 : Math.max(0, 1 - (t - tapT - 0.067) / 0.1); s.thumbAges = [1.0]; s.thumbA = E.p2out(prog(t, tapT + 0.45, tapT + 0.6)); s.fly = prog(t, tapT + 0.1, tapT + 0.5); s.flyAges = [1.0]; s.ripple = t < tapT + 0.5 ? prog(t, tapT, tapT + 0.5) : 0; s.press = Math.sin(Math.PI * prog(t, tapT - 0.05, tapT + 0.2)); }
   if (playT != null && t >= playT) {
     const op = E.p3out(prog(t, playT, playT + 0.3)), age = -0.5 + (t - playT), back = E.p2io(prog(age, 2.0, 2.35));
     s.mode = "photo"; s.ages = back > 0.5 ? [1.0] : [age]; s.flash = 0; s.fly = 0;
     s.openK = op; s.liveGlow = 1 - prog(t, playT, playT + 0.9);
-    if (Math.abs(playT - T.fin) < 1e-6) s.flash = Math.max(0, 1 - (t - playT) / 0.2) * 0.8;   // the closing line: the screen 咔
+    if (Math.abs(playT - T.fin) < 1e-6) s.flash = t - playT < 0.067 ? 1 : Math.max(0, 1 - (t - playT - 0.067) / 0.1);   // the closing line: the screen 咔 (crisp white)
   }
   return s;
 }
@@ -609,7 +611,7 @@ function chipAt(t) { const G = ringGeo(t), k = E.p3io(prog(t, T.ringForm, T.ring
 // the frames the chip sends out: one every ¼ s (sky time), flying to the viewfinder; during the pile also down onto it
 const FLOW_RATE = 4;
 // from the sensor (in the loupe) to the screen
-const FLOW = { a: [LOUPE.x - 118, LOUPE.y + 112], c: [770, 985], b: [655, 1010] };
+const FLOW = { a: [LOUPE.x - 30, LOUPE.y + DIE_Y + 10], c: [760, 990], b: [655, 1010] };   // frames leave from the sensor itself
 function flowPt(u) { const { a, b, c } = FLOW; return [(1 - u) * (1 - u) * a[0] + 2 * (1 - u) * u * c[0] + u * u * b[0], (1 - u) * (1 - u) * a[1] + 2 * (1 - u) * u * c[1] + u * u * b[1]]; }
 function flowCards(t) {
   if (t < T.flow || t > T.ringForm + 0.4) return;
@@ -661,7 +663,8 @@ function drawRing(t, o = {}) {
   for (let s = 0; s < 12; s++) {
     const n = slotN(f, s), e = f - n, p = slotPos(t, s, G, f);
     const hl = o.hlSet && o.hlSet.has(n) ? o.hlA ?? 1 : 0;
-    card(p[0], p[1], G.cw, G.ch, agesIn(nTau(n)), { a, t: nTau(n), hl: hl > 0.01, hlw: 5 });
+    const dimO = s !== TRACK.s ? 1 - 0.6 * win(t, T.a6, TRACK.t + 0.9, 0.3, 0.3) : 1;   // while we follow one slot, the others step back
+    card(p[0], p[1], G.cw, G.ch, agesIn(nTau(n)), { a: a * dimO, t: nTau(n), hl: hl > 0.01, hlw: 5 });
     const trk = s === TRACK.s;
     if (trk && t >= T.a6 && n < TRACK.n && t < TRACK.t) card(p[0], p[1], G.cw, G.ch, agesIn(nTau(n)), { a, t: nTau(n), hl: true, hlw: 7 });   // the one we follow
     if (trk && n === TRACK.n && t >= TRACK.t && t < TRACK.t + 0.8) {          // it reaches the head: pushed out, it greys and goes
@@ -728,7 +731,7 @@ function drawInside(t) {
   // the main lens lit (an orange ring), the loupe opening out of it
   const la = loupeA(t);
   if (t >= T.chipOn && la > 0.01) oring(info.lens[0], info.lens[1], 24 * P.sc + 12, E.p3out(prog(t, T.chipOn, T.chipOn + 0.3)), la, 5);
-  drawLoupe(t, loupeK(t), la, info.lens);
+  drawLoupe(t, loupeK(t), la, info.lens, t >= T.chipOn + 0.45 ? E.p3out(prog(t, T.chipOn + 0.45, T.chipOn + 0.7)) * (1 - prog(t, T.q5 - 0.3, T.q5)) : 0);
   flowCards(t);
   drawPile(t);
   if (t >= T.ringForm) { const c = chipAt(t); sensorIcon(c.x, c.y, 118 * c.sc, E.p2io(prog(t, T.ringForm, T.ringForm + 0.3)) * (1 - 0.7 * dimAll), t); }
@@ -748,6 +751,7 @@ function insideLabels(t) {
   const G = ringGeo(t);
   if (t >= T.chipOn + 0.5 && t < T.q5) leader(LOUPE.x, LOUPE.y + LOUPE.r + 10, LOUPE.x, DIE_AT[1] + 14, C.paper, E.p3out(prog(t, T.chipOn + 0.5, T.chipOn + 0.8)), 2.5);
   label(COPY.chip, LOUPE.x, LOUPE.y + LOUPE.r + 62, 44, C.paper, t, T.chipOn + 0.5, T.q5, { align: "center" });
+  label(COPY.structure, LOUPE.x, LOUPE.y - LOUPE.r - 18, 44, C.paper, t, T.chipOn + 0.7, T.ringForm, { align: "center", alpha: 0.85 });
   label(COPY.fps, 770, 1108, 44, C.paper, t, T.flow + 0.2, T.q5);
   label(COPY.ring, G.x, G.y + 118, 44, C.paper, t, T.ringFormEnd - 0.2, T.a6, { align: "center" });
   label(COPY.term, G.x, G.y + 118, 44, C.paper, t, T.a6 + 0.1, T.q7, { align: "center" });
@@ -765,10 +769,11 @@ function insideLabels(t) {
 function diveP(t) {
   const K0 = outK(t), c0 = toS(K0, [0, 0]);
   const u = E.p3io(prog(t, T.dive, T.dive + 1.0)), z = E.p2io(prog(t, T.dive, T.diveEnd));
-  return { cx: lerp(c0[0], PHI.cx, u), cy: lerp(c0[1], PHI.cy, u), sc: lerp(K0.A, PHI.sc, z), ang: u * Math.PI / 2 };
+  const push = lerp(1, PHI.sc, E.p2io(prog(t, 7.1, T.diveEnd)));
+  return { cx: lerp(c0[0], PHI.cx, u), cy: lerp(c0[1], PHI.cy, u), sc: lerp(K0.A, 1.0, u) * push, ang: u * Math.PI / 2 };
 }
-const DARK_END = 8.7;
-function darkE(t) { return 1500 * E.sine(prog(t, 7.4, DARK_END)); }
+const DARK_END = 7.85;
+function darkE(t) { return 1500 * E.p2in(prog(t, 7.6, 7.85)); }   // quick (≤ 0.25 s), no grey band
 function phoneHalf(P) { const ac = Math.abs(Math.cos(P.ang)), as = Math.abs(Math.sin(P.ang)); return [(330 * ac + 165 * as) * P.sc, (165 * ac + 330 * as) * P.sc]; }
 function handsRelease(t, K, k, layer) { drawHands(K, layer, false, 1 - k, 340 * k); }   // the hands let go and move out sideways
 function drawDive(t) {
@@ -777,7 +782,7 @@ function drawDive(t) {
   if (t >= DARK_END) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = C.dark; ctx.fillRect(0, 0, W, H); }
   else if (e > 0) {
     const [hw, hh] = phoneHalf(P);
-    ID(); ctx.save(); ctx.shadowColor = C.dark; ctx.shadowBlur = 90; ctx.fillStyle = C.dark;
+    ID(); ctx.save(); ctx.shadowColor = C.dark; ctx.shadowBlur = 22; ctx.fillStyle = C.dark;
     rr(P.cx - hw - e, P.cy - hh - e, 2 * (hw + e), 2 * (hh + e), 54 * P.sc + e); ctx.fill(); ctx.restore();
   }
   const rel = E.p2io(prog(t, T.dive, T.dive + 0.6));
@@ -830,7 +835,8 @@ function textBand(t, fl) {
   underline(COPY.h1[1], "怎么还拍到它", "炸开", 1, t, T.underline, T.q2);
   lines(COPY.q2, t, T.q2, T.a2, { style: "blur", col: L, acc: C.paper, exit: 0.001 });
   lines(COPY.a2, t, T.a2, T.q3, { style: "slam", col: L, acc: orangeK(t) > 0.35 ? C.ink : C.acc });
-  lines(COPY.q3, t, T.q3, T.h4, { style: "blur", col: M });
+  lines(COPY.q3, t, T.q3, 7.6, { style: "blur", col: C.ink, exit: 0.15 });
+  lines(COPY.q3, t, 7.85, T.h4, { style: "blur", col: D, stag: 0.02 });
   lines(COPY.h4, t, T.h4, T.a4, { style: "blur", col: D });
   lines(COPY.a4, t, T.a4, T.q5, { style: "blur", col: D });
   lines(COPY.q5, t, T.q5, T.a5, { style: "blur", col: D });
@@ -913,7 +919,7 @@ function overlay(t) {
     ctx.save(); let P = new Path2D(); P.rect(0, 0, W, H); P.arc(IRC[0], IRC[1], R, 0, TAU); ID(); ctx.clip(P, "evenodd"); scrimOf(1); textBand(t, 1); ctx.restore();
     ctx.save(); P = new Path2D(); P.arc(IRC[0], IRC[1], R, 0, TAU); ID(); ctx.clip(P); scrimOf(0); textBand(t, 0); ctx.restore();
     fl = -1;
-  } else if (fl > 0 && fl < 1) scrimOf(fl, Math.abs(2 * fl - 1));   // the dive: the light scrim fades as the dark opens, then the dark one comes in (no one-frame jump)
+  } else if (fl > 0 && fl < 1) { /* the quick dark opening (7.6–7.85): no caption on screen, no scrim (no grey band) */ }
   else scrimOf(fl, t >= T.end ? 1 - prog(t, T.end, T.end + 0.3) : 1, groundRGB(t));
   if (fl >= 0) textBand(t, fl);
   strikeX(t);
@@ -926,7 +932,7 @@ function overlay(t) {
 }
 
 // ---------------------------------------------------------------- motion blur where things move fast
-const BLUR = [[7.0, 9.5, 6], [36.5, 37.1, 6], [41.0, 41.9, 6]];
+const BLUR = [[6.8, 7.55, 6], [36.5, 37.1, 6], [41.0, 41.9, 6]];   // no blur on the quick dark opening (7.6–7.85): it would smear its edge into a grey band
 const SHUTTER = 0.5 / FPS;
 window.seek = function seek(t) {
   t = clamp(t, 0, DUR - 1e-6);
