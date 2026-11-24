@@ -199,26 +199,24 @@ function oring(x, y, r, k, a = 1, lw = 4) {
 function capsule(P, w, fill) { ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = fill; ctx.lineWidth = w; ctx.beginPath(); P.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke(); ctx.restore(); }
 
 
-// ---------------------------------------------------------------- the hands, drawn from the user's photo (assets/people/model.js)
-// The photo's right hand pinches between index (top) and thumb (bottom); the pinch centre is image (1350, 170).
-// v3.4 (user 11-17: 「手部模型必须优化，还是仿照体脂秤的来改」): drawn like EP.05's feet — one smooth skin with an ink
-// outline, a soft shading towards the edges, a few short creases where fingers touch, small pale nails with warm tips.
-const HM = window.HAND_MODEL.RH;
-const HPINCH = [1352, 172];
-// the traced outline, with the straight cut where the photo's object was (x ≈ 1455, y 154–293) replaced by the soft web
-const HPTS = (() => {
-  const P = HM.pts.slice(), i0 = P.findIndex((p) => p[0] === 1453 && p[1] === 293.5), i1 = P.findIndex((p) => p[0] === 1459.5 && p[1] === 150);
-  const web = [[1440, 286], [1460, 262], [1471, 232], [1473, 200], [1467, 172], [1457, 148]];
-  // the forearm leaves the photo at its right and bottom edges: carry it on, out of the frame (no cut line)
-  const ext = { "1999,666.5": [2790, 1000], "1818,666.5": [2718, 1044], "1999.5,529": [2800, 769] };
-  const Q = P.map((p) => ext[p.join(",")] ?? p);
-  return i0 >= 0 && i1 > i0 ? [...Q.slice(0, i0), ...web, ...Q.slice(i1 + 1)] : Q;
-})();
+// ---------------------------------------------------------------- the hands, drawn from the user's photos (assets/people/model.js)
+// User 11-23 「手的建模也要优化」 → two reference photos (11-24): both hands holding a (missing) phone sideways, the right thumb
+// pressing (hands-press) / lifted (hands-lift). tools/handmodel.py traces the outlines; the nails and the few creases are
+// placed by hand. Drawn like EP.05's feet and EP.08's hands: one smooth skin, an ink outline, soft shading towards the
+// edges, a few short creases, small pale nails with warm tips. Layered like a real grip: the hands behind the phone, only
+// the thumbs (and the thumb base) in front of it.
+const HMOD = window.HAND_MODEL;
+const HIMG = { c: [1015, 370.5], s: 660 / 1170 };       // image px → phone-local units: the phone fills the gap between the hands
 const HDET = {
-  nails: [[1286, 56, 20, 11, -0.05], [1262, 266, 22, 18, 0.1]],   // small and pale, near the tips
-  tips: [[1268, 62, 30], [1258, 268, 34]],                                         // warmer fingertips
-  touch: [[[1384, 446], [1424, 452], [1468, 462]], [[1390, 492], [1426, 498], [1462, 508]], [[1380, 360], [1412, 370], [1446, 380]]],   // where fingers touch: short creases from the front back
-  knuckle: [[[1452, 70], [1458, 88]]],
+  LH: { nails: [[655, 23, 32, 8, -0.03], [502, 148, 25, 36, -0.12]],
+        creases: [[[455, 232], [485, 226], [522, 230]], [[478, 112], [430, 200], [392, 290], [357, 355]], [[530, 195], [524, 300], [507, 400]]],
+        front: [[425, 95], [548, 95], [552, 435], [470, 440], [425, 330]] },
+  RH: { nails: [[1330, 36, 30, 8, 0.05], [1370, 385, 30, 29, 0], [1467, 520, 18, 14, 0.7], [1505, 552, 15, 12, 0.6]],
+        creases: [[[1455, 350], [1460, 395], [1458, 440]], [[1540, 300], [1560, 335], [1595, 365]]],
+        front: [[1295, 255], [1612, 255], [1628, 468], [1295, 468]] },
+  RHL: { nails: [[1323, 35, 30, 8, 0.05], [1355, 315, 30, 27, -0.15], [1465, 520, 18, 14, 0.7], [1505, 552, 15, 12, 0.6]],
+        creases: [[[1448, 295], [1455, 335], [1452, 380]], [[1535, 300], [1565, 330], [1600, 345]]],
+        front: [[1295, 255], [1612, 255], [1628, 468], [1295, 468]] },
 };
 function smoothPath(P) {                                 // a closed Catmull-Rom-like curve through the points (quadratics through midpoints)
   const n = P.length, m = (i) => [(P[i % n][0] + P[(i + 1) % n][0]) / 2, (P[i % n][1] + P[(i + 1) % n][1]) / 2];
@@ -226,32 +224,35 @@ function smoothPath(P) {                                 // a closed Catmull-Rom
   for (let i = 0; i < n; i++) { const q = m(i); ctx.quadraticCurveTo(P[i][0], P[i][1], q[0], q[1]); }
   ctx.closePath();
 }
-// draw the right hand (mirror = −1: the left hand) so that the pinch centre lands on screen point p, scale s px per image px
-function drawHand(p, s, mirror = 1, a = 1, ang = 0) {
-  if (a <= 0.01) return;
-  ID(); ctx.save(); ctx.globalAlpha *= a; ctx.translate(p[0], p[1]); ctx.rotate(ang); ctx.scale(s * mirror, s); ctx.translate(-HPINCH[0], -HPINCH[1]);
-  smoothPath(HPTS); ctx.fillStyle = C.skin; ctx.fill();
-  ctx.save(); smoothPath(HPTS); ctx.clip();
-  // shading like EP.05: darker towards the edges, light down the middle of the back of the hand and along the forearm
-  ctx.filter = `blur(${(14 / s).toFixed(1)}px)`; ctx.strokeStyle = "rgba(110,62,28,0.22)"; ctx.lineWidth = 60; smoothPath(HPTS); ctx.stroke(); ctx.filter = "none";
-  ctx.lineCap = "round"; ctx.strokeStyle = "rgba(255,246,232,0.22)"; ctx.lineWidth = 46; ctx.filter = `blur(${(10 / s).toFixed(1)}px)`;
-  ctx.beginPath(); ctx.moveTo(1330, 60); ctx.quadraticCurveTo(1480, 90, 1560, 250); ctx.quadraticCurveTo(1660, 440, 1990, 560); ctx.stroke(); ctx.filter = "none";
-  for (const [x, y, r] of HDET.tips) { const gr = ctx.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, "rgba(222,140,118,0.26)"); gr.addColorStop(1, "rgba(222,140,118,0)"); ctx.fillStyle = gr; ctx.fillRect(x - r, y - r, 2 * r, 2 * r); }
+function handShape(name, a, front, dev) {               // dev: device px per image px
+  const H = HMOD[name], D = HDET[name], P = H.pts;
+  ctx.save(); ctx.globalAlpha *= a;
+  if (front) { ctx.beginPath(); D.front.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath(); ctx.clip(); }
+  smoothPath(P); ctx.fillStyle = C.skin; ctx.fill();
+  ctx.save(); smoothPath(P); ctx.clip();
+  ctx.filter = "blur(9px)"; ctx.strokeStyle = "rgba(110,62,28,0.22)"; ctx.lineWidth = 34 / dev; smoothPath(P); ctx.stroke(); ctx.filter = "none";
+  for (const [x, y, ra] of D.nails) { const r = ra * 1.5, gr = ctx.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, "rgba(222,140,118,0.22)"); gr.addColorStop(1, "rgba(222,140,118,0)"); ctx.fillStyle = gr; ctx.fillRect(x - r, y - r, 2 * r, 2 * r); }
   ctx.restore();
-  // the few lines: where fingers touch, one knuckle
   ctx.lineCap = "round";
-  for (const c of HDET.touch) { const g = ctx.createLinearGradient(c[0][0], c[0][1], c[2][0], c[2][1]); g.addColorStop(0, "rgba(60,34,16,0.75)"); g.addColorStop(0.6, "rgba(90,50,24,0.55)"); g.addColorStop(1, "rgba(110,62,30,0)"); ctx.strokeStyle = g; ctx.lineWidth = 2.2 / s; ctx.beginPath(); ctx.moveTo(c[0][0], c[0][1]); ctx.quadraticCurveTo(c[1][0], c[1][1], c[2][0], c[2][1]); ctx.stroke(); }
-  for (const c of HDET.knuckle) { ctx.strokeStyle = "rgba(20,20,20,0.25)"; ctx.lineWidth = 1.4 / s; ctx.beginPath(); ctx.moveTo(c[0][0], c[0][1]); ctx.lineTo(c[1][0], c[1][1]); ctx.stroke(); }
-  // the nails: small, pale, with a thin edge and one highlight
-  for (const [cx, cy, ra, rb, an] of HDET.nails) {
+  for (const c of D.creases) { const a0 = c[0], a1 = c[c.length - 1]; const g = ctx.createLinearGradient(a0[0], a0[1], a1[0], a1[1]); g.addColorStop(0, "rgba(110,62,30,0)"); g.addColorStop(0.3, "rgba(80,44,20,0.55)"); g.addColorStop(0.7, "rgba(80,44,20,0.5)"); g.addColorStop(1, "rgba(110,62,30,0)"); ctx.strokeStyle = g; ctx.lineWidth = 2.2 / dev; ctx.beginPath(); ctx.moveTo(c[0][0], c[0][1]); for (let i = 1; i < c.length - 1; i++) { const q = [(c[i][0] + c[i + 1][0]) / 2, (c[i][1] + c[i + 1][1]) / 2]; ctx.quadraticCurveTo(c[i][0], c[i][1], q[0], q[1]); } ctx.lineTo(a1[0], a1[1]); ctx.stroke(); }
+  for (const [cx, cy, ra, rb, an] of D.nails) {
     ctx.save(); ctx.translate(cx, cy); ctx.rotate(an);
-    ctx.beginPath(); ctx.ellipse(0, 0, ra, rb, 0, 0, TAU); ctx.fillStyle = "#F0D3C2"; ctx.fill(); ctx.strokeStyle = "rgba(154,106,78,0.55)"; ctx.lineWidth = 1.2 / s; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0, 0, ra, rb, 0, 0, TAU); ctx.fillStyle = "#F0D3C2"; ctx.fill(); ctx.strokeStyle = "rgba(154,106,78,0.55)"; ctx.lineWidth = 1.2 / dev; ctx.stroke();
     ctx.beginPath(); ctx.ellipse(-ra * 0.2, -rb * 0.3, ra * 0.35, rb * 0.22, 0, 0, TAU); ctx.fillStyle = "rgba(255,255,255,0.32)"; ctx.fill(); ctx.restore();
   }
-  // the ink outline (as EP.05)
-  smoothPath(HPTS); ctx.lineJoin = "round"; ctx.strokeStyle = C.ink; ctx.lineWidth = 2.8 / s; ctx.stroke();
+  smoothPath(P); ctx.lineJoin = "round"; ctx.strokeStyle = C.ink; ctx.lineWidth = 2.8 / dev; ctx.stroke();
   ctx.restore();
 }
+// layer: "back" (the whole hands, under the phone) or "front" (the thumbs, over it); pressed: the right thumb on the shutter
+function drawHands(K, layer, pressed, a = 1, slide = 0) {
+  if (a <= 0.01) return;
+  const dev = K.A * HIMG.s;
+  for (const [name, dir] of [["LH", -1], [pressed ? "RH" : "RHL", 1]]) {
+    ID(); ctx.save(); ctx.translate(dir * slide, 0); ctx.transform(K.A, 0, 0, K.A, K.B[0], K.B[1]); ctx.scale(HIMG.s, HIMG.s); ctx.translate(-HIMG.c[0], -HIMG.c[1]);
+    handShape(name, a, layer === "front", dev); ctx.restore();
+  }
+}
+const isPressed = (t, tapT) => tapT != null && t >= tapT - 0.04 && t < tapT + 0.32;
 
 // ================================================================ the fireworks (one kind of firework all through the film)
 // age a = seconds since the burst. a < 0: the shell, almost still near the top (FACTS #12: the last 0.5 s before the
@@ -480,12 +481,12 @@ function sensorIcon(x, y, s, a, t) {
 // ================================================================ OUTSIDE (light): two hands hold the phone sideways
 const PH = { w: 660, h: 330, r: 54 };
 const SCR = { x: -PH.w / 2 + 14, y: -PH.h / 2 + 14, w: PH.w - 28, h: PH.h - 28, r: PH.r - 14 };
-const SHUT = [122, 112];                     // the shutter, where the right thumb rests (local)
-const LIVEP = { x: -300, y: -140, w: 96, h: 44 };   // the 实况 pill (local), always on
+const SHUT = [204, 8];                       // the shutter, under the right thumb's pad (local; from the hand photos)
+const LIVEP = { x: -252, y: -138, w: 96, h: 44 };   // the 实况 pill (local), always on, clear of the left thumb
 const THUMB = { x: 236, y: -138, w: 54, h: 54 };    // the last photo (local)
 const CAMM = [-238, -92];                    // the rear camera module seen through the body (local)
-const PS = 1.0;
-function outK(t, zoom = 1, c = [540, 890]) { const d = drift(t); return key([0, 0], [c[0] + 1.3 * d[0], c[1] + 0.5 * d[1]], PS * zoom * (1 + 0.5 * (d[2] - 1))); }   // the hands stay above y 1450
+const PS = 1.35;   // 11-24: the traced hands are compact, so the phone can be bigger
+function outK(t, zoom = 1, c = [540, 935]) { const d = drift(t); return key([0, 0], [c[0] + 1.3 * d[0], c[1] + 0.5 * d[1]], PS * zoom * (1 + 0.5 * (d[2] - 1))); }   // the hands stay above y 1450
 // what the phone screen shows: { mode: "vf" | "photo" | "edit" | "black", ages, flash, thumbAges, fly (0..1 the shot flying to the thumbnail), open (0..1 the photo opening from it) }
 function phoneOut(t, K, s, o = {}) {
   setK(K); ctx.save();
@@ -546,13 +547,7 @@ function drawEdit(t, K, s) {
   if (bk > 0) { ctx.save(); ctx.globalAlpha = bk; const f = `700 ${Math.round(H_ * 0.07)}px ${UI}`, bw = mw(f, "设为封面照片") + 30; rr(sx - bw / 2, y0 - H_ * 0.13, bw, H_ * 0.09, H_ * 0.045); ctx.fillStyle = "rgba(255,255,255,0.92)"; ctx.fill(); ctx.font = f; ctx.fillStyle = "#111"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("设为封面照片", sx, y0 - H_ * 0.085); ctx.restore(); }
   if (t >= T.slideEnd && t < T.slideEnd + 1.2) obox(sx - cw / 2 - 12, y0 - 12, cw + 24, ch + 24, E.p3out(prog(t, T.slideEnd, T.slideEnd + 0.25)), 1 - prog(t, T.slideEnd + 0.9, T.slideEnd + 1.2), 10, 6);
 }
-function handsOut(t, K, a = 1, tapT = null) {
-  if (a <= 0.01) return;
-  const c = toS(K, [0, 0]), sc = K.A, ex = 230 * sc;
-  const pp = tapT == null ? 0 : Math.sin(Math.PI * prog(t, tapT - 0.12, tapT + 0.16));
-  drawHand([c[0] - ex, c[1] + 8 * sc / PS], 1.15 * sc, -1, a);
-  drawHand([c[0] + ex - 10 * pp, c[1] + 8 * sc / PS + 10 * pp], 1.15 * sc, 1, a);
-}
+function handsOut(t, K, layer, tapT = null, a = 1) { drawHands(K, layer, isPressed(t, tapT), a); }
 // the photo playback: the clip runs from 0.5 s before the burst
 const PLAY = (t, t0) => [-0.5 + (t - t0)];
 // the opening and the closing shots share one timeline: burst at b, the shutter at b + 1
@@ -568,7 +563,7 @@ function screenOut(t, b, tapT, playT) {
   return s;
 }
 // the strip under the phone (the guess and the flip): 6 frames after 按下 (the guess), then 6 before it (the flip)
-const SX = (i) => 540 + i * 82, SY = 668, SW = 76, SH = 44;
+const SX = (i) => 540 + i * 82, SY = 1280, SW = 76, SH = 44;   // under the phone
 function drawGuessStrip(t) {
   if (t < T.stripR - 0.05 || t > T.q3 + 0.45) return;
   const fo = 1 - E.p2io(prog(t, T.q3, T.q3 + 0.4));
@@ -775,11 +770,7 @@ function diveP(t) {
 const DARK_END = 8.7;
 function darkE(t) { return 1500 * E.sine(prog(t, 7.4, DARK_END)); }
 function phoneHalf(P) { const ac = Math.abs(Math.cos(P.ang)), as = Math.abs(Math.sin(P.ang)); return [(330 * ac + 165 * as) * P.sc, (165 * ac + 330 * as) * P.sc]; }
-function handsRelease(t, K, k) {                                  // the hands let go and move out sideways
-  const c = toS(K, [0, 0]), sc = K.A, ex = 230 * sc, dx = 320 * k;
-  drawHand([c[0] - ex - dx, c[1] + 8 * sc / PS], 1.15 * sc, -1, 1 - k);
-  drawHand([c[0] + ex + dx, c[1] + 8 * sc / PS], 1.15 * sc, 1, 1 - k);
-}
+function handsRelease(t, K, k, layer) { drawHands(K, layer, false, 1 - k, 340 * k); }   // the hands let go and move out sideways
 function drawDive(t) {
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = C.ground; ctx.fillRect(0, 0, W, H);
   const P = diveP(t), xr = E.p2io(prog(t, 7.3, 8.2)), e = darkE(t);
@@ -789,9 +780,10 @@ function drawDive(t) {
     ID(); ctx.save(); ctx.shadowColor = C.dark; ctx.shadowBlur = 90; ctx.fillStyle = C.dark;
     rr(P.cx - hw - e, P.cy - hh - e, 2 * (hw + e), 2 * (hh + e), 54 * P.sc + e); ctx.fill(); ctx.restore();
   }
-  phoneAny(t, P, { xray: xr, ages: agesIn(TL.tau(t)), uiL: 1 - prog(t, T.dive, T.dive + 0.35), uiP: prog(t, T.dive + 0.85, T.dive + 1.25), modA: 1 });
   const rel = E.p2io(prog(t, T.dive, T.dive + 0.6));
-  if (rel < 1) handsRelease(t, outK(t), rel);
+  if (rel < 1) handsRelease(t, outK(t), rel, "back");
+  phoneAny(t, P, { xray: xr, ages: agesIn(TL.tau(t)), uiL: 1 - prog(t, T.dive, T.dive + 0.35), uiP: prog(t, T.dive + 0.85, T.dive + 1.25), modA: 1 });
+  if (rel < 1) handsRelease(t, outK(t), rel, "front");
 }
 
 // ================================================================ the closing shot: a window into the phone shows the ring
@@ -861,7 +853,7 @@ function endCard(t) {
   if (t < T.end) return;
   const k = E.p3io(prog(t, T.end, T.endMorph + 0.3));
   ID(); ctx.save();
-  const sc = lerp(1.15 * PS, 0.24, k), cx = lerp(540, BADGE[0], k), cy = lerp(830, BADGE[1], k);
+  const sc = lerp(1.16 * PS, 0.24, k), cx = lerp(540, BADGE[0], k), cy = lerp(900, BADGE[1], k);
   ctx.translate(cx, cy); ctx.scale(sc, sc);
   ctx.strokeStyle = C.ink; ctx.lineWidth = 9 / sc * 0.35 + 6; rr(-PH.w / 2, -PH.h / 2, PH.w, PH.h, PH.r); ctx.fillStyle = mixHex(C.body, C.ground, k); ctx.fill(); ctx.stroke();
   ctx.beginPath(); ctx.arc(-PH.w / 2 + 120, 0, 60, 0, TAU); ctx.stroke();   // a lens, as a badge mark
@@ -885,14 +877,16 @@ function drawOutside(t, o = {}) {
   const closing = t >= T.iris;
   const tipK = closing ? E.p2io(prog(t, T.tipIn, T.tipInEnd)) : 0;
   const pb = closing ? 0 : E.p2io(prog(t, T.open0, T.open0 + 0.6)) * (1 - E.p2io(prog(t, T.q2, T.q2 + 0.5)));   // the photo plays: push a little towards it
-  const K = outK(t, (1 + 0.12 * tipK) * (1 + 0.07 * prog(t, T.tipInEnd, T.end)) * (1 + 0.06 * pb), [540, lerp(890, 830, tipK) - 22 * pb]);
+  const K = outK(t, (1 + 0.1 * tipK) * (1 + 0.06 * prog(t, T.tipInEnd, T.end)) * (1 + 0.06 * pb), [540, lerp(935, 900, tipK) - 22 * pb]);
   let s;
   if (!closing) s = screenOut(t, TL.BURST_OUT[0], T.tap0, T.open0);
   else if (t < T.tip) s = screenOut(t, TL.BURST_OUT[1], T.tapC, T.fin);
   else s = { mode: "edit" };
+  const tapT = closing ? (t < T.tip ? T.tapC : null) : T.tap0;
+  handsOut(t, K, "back", tapT);
   phoneOut(t, K, s);
   if (closing && t < T.tip) drawXrayRing(t, K, E.p2io(prog(t, T.iris + 0.35, T.iris + 0.65)) * (1 - E.p2io(prog(t, T.fin, T.fin + 0.3))));
-  handsOut(t, K, 1, closing ? T.tapC : T.tap0);
+  handsOut(t, K, "front", tapT);
   if (!closing) drawGuessStrip(t);
 }
 const IRC = [540, 900];
@@ -926,7 +920,7 @@ function overlay(t) {
   if (t >= T.diveEnd && t < T.iris) { BASE = insideBase(t); insideLabels(t); BASE = [1, 0, 0]; }
   if (t >= T.tip && t < T.end) {
     label(COPY.tipTag, 96, 205, 46, C.acc, t, T.tip, T.end);
-    label(COPY.iphone, 540, 1205, 44, C.ink, t, T.tip2 + 0.3, T.end, { align: "center", plate: C.ground });
+    label(COPY.iphone, 540, 1330, 44, C.ink, t, T.tip2 + 0.3, T.end, { align: "center", plate: C.ground });
   }
   if (t >= T.end) { ID(); ctx.fillStyle = C.ground; ctx.globalAlpha = E.p2io(prog(t, T.end, T.end + 0.3)); ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; endCard(t); }
 }
