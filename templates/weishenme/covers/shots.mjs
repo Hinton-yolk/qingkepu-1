@@ -29,6 +29,8 @@ const JOBS = [
   ["../../../episodes/weishenme/08-chongdian", "ep08-inset", 23.6, null, null],        // the two bars: 现在的电量 | 累计用掉的电 (two halves = one)
   ["../../../episodes/weishenme/09-xueyaji", "ep09-hero", 2.5, null, null],            // INTERNAL time (frame(t)): the arm in the cuff, 第一次 138 | 第二次 126
   ["../../../episodes/weishenme/09-xueyaji", "ep09-inset", 30.9, null, null],          // internal 30.9 = film 28.9: the hill, 高压 / 低压 (about here)
+  ["../../../episodes/weishenme/10-shikuangzhaopian", "ep10-hero", 2.05, null, null],   // the opening contrast: the Live Photo's burst on the phone, the dim 按下 photo under it
+  ["../../../episodes/weishenme/10-shikuangzhaopian", "ep10-inset", 17.75, null, null],  // the ring (aligned: write 2): it keeps only the latest frames
 ];
 const ONLY = process.argv[2];                                   // node shots.mjs ep04 → only the jobs whose name starts with ep04
 const browser = await chromium.launch();
