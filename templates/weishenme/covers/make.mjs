@@ -71,14 +71,14 @@ const COVERS = [
   // EP.10 (only 小红书, 2026-11-24): the cover question is C (E10-2b); the hero is the opening contrast — the Live Photo's burst
   // on the phone, the dim photo you pressed under it (按下); the inset is the ring (it keeps only the latest frames), led from the photo
   { out: "ep10-xiaohongshu", W: 1080, H: 1440, ep: "EP.10", title: ["你还没按快门，", "它怎么就<b>拍上了</b>？"],
-    hero: "ep10-hero", heroDy: -220, anchor: [752, 1316], inset: { img: "ep10-inset", cx: 540, cy: 1000, src: 455, x: 900, y: 1196, r: 150 }, tag: "按之前就在拍",
+    hero: "ep10-hero", heroDy: -200, anchor: null, inset: { img: "ep10-inset", cx: 540, cy: 1000, src: 455, x: 900, y: 1150, r: 140 }, tag: "按之前就在拍",   // review ③: tag clear of the bottom, no anchor (a 23 px leader read as ⊘)
     ser: 108, t1: 252, t2: 398, size: 124, wash: 440 },
 ];
 const ONLY = process.argv[2];                                   // node make.mjs ep04 → only those covers
 
 function html(c) {
   const i = c.inset, k = i.r / i.src;                                   // the inset shows a circle of radius src (px) from the inset frame
-  const ax = c.anchor[0], ay = c.anchor[1] + c.heroDy;
+  const ax = c.anchor ? c.anchor[0] : 0, ay = c.anchor ? c.anchor[1] + c.heroDy : 0;   // EP.10: no anchor / leader
   const dx = i.x - ax, dy = i.y - ay, L = Math.hypot(dx, dy), ex = i.x - dx / L * (i.r + 6), ey = i.y - dy / L * (i.r + 6);
   let arc = "";
   if (c.arc) {
@@ -112,8 +112,8 @@ function html(c) {
   </style></head><body><div id="cv">
   <div class="hero"></div>
   <svg width="${c.W}" height="${c.H}">${arc}
-    <line x1="${ax}" y1="${ay}" x2="${ex}" y2="${ey}" stroke="#141414" stroke-width="6" stroke-linecap="round"/>
-    <circle cx="${ax}" cy="${ay}" r="16" fill="none" stroke="#FF4A1C" stroke-width="7"/></svg>
+    ${c.anchor ? `<line x1="${ax}" y1="${ay}" x2="${ex}" y2="${ey}" stroke="#141414" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="${ax}" cy="${ay}" r="16" fill="none" stroke="#FF4A1C" stroke-width="7"/>` : ""}</svg>
   <div class="wash"></div>
   <div class="ser">${SERIES}<i>${c.ep}</i></div>
   <div class="t" style="top:${c.t1 - c.size * 0.86}px">${c.title[0]}</div>
