@@ -201,7 +201,7 @@ play(T.fin + 2.0, [[0, 77, 2], [2, 80, 2], [4, 77, 4], [8, 75, 2], [10, 72, 2]],
 const ask = (t) => { blip(t, 75, 0.55, -0.15); blip(t + 0.125, 80, 0.6, 0.15); };       // every question: the same rising 4th (E♭5 → A♭5)
 [T.q3, T.q5, T.q7, T.q10].forEach(ask);
 // 1 the opening: the shutter after the burst; the photo opens and plays (its burst)
-shutter(T.tap0, 1); boom(T.underline, 0.55);
+shutter(T.tap0, 1); boom(1.75, 0.55); tick(1.33, 0.5, 0, 2200);   // v3.2: the photo lands under the phone; the burst in the Live Photo at 1.75
 blip(T.underline, 80, 0.5); blip(T.underline + 0.125, 84, 0.4);
 // 2 the guess: frames grow to the right; true silence; ✕ (one of the three loudest); the flip: frames to the left too
 for (let i = 0; i < 6; i++) tick(T.stripR + i * 0.15, 0.35, 0.3, 2800 + i * 120);
@@ -212,8 +212,8 @@ riser(T.q3 + 0.25, T.diveEnd - T.q3 - 0.25, 0.7); glide(T.xray, 0.5, 70, 79, 0.4
 // 4 the viewfinder on; its burst; the chip; the pile; the ring
 glide(T.vfOn, 0.3, 75, 82, 0.35, 0.2); boom(7.5, 0.3); boom(10.0, 0.4);
 blip(T.chipOn, 84, 0.5, -0.3); blip(T.chipOn + 0.08, 87, 0.4, -0.3);
-boom(12.75, 0.3); boom(14.85, 0.3); riser(T.pile, T.pileEnd - T.pile, 0.45);
-blip(15.12, 87, 0.45, 0.3); tick(15.65, 0.55, 0.3, 2300);   // v3: the bright frame leaves the chip, lands on the pile
+boom(12.75, 0.3); boom(14.5, 0.3); riser(T.pile, T.pileEnd - T.pile, 0.45);
+blip(14.77, 87, 0.45, 0.3); tick(15.6, 0.55, 0.3, 2300);   // v3: the bright frame leaves the chip, lands on the pile
 glide(T.ringForm, 0.9, 82, 75, 0.4, 0); bloom(T.ringFormEnd, [75, 80, 84], 0.45); boom(18.0, 0.28);
 creak(TL.RING.hold.in1 - 0.05, 0.5); tick(TL.RING.hold.in1, 0.5, 0, 2000);   // v3: the new frame covers the old one at the head
 // 5 the press: the shutter; each copy a rising tick; 实况 boxed; the sharp photo

@@ -46,9 +46,10 @@
 
   // the fireworks. Outside (film time): the opening burst at −0.25, the closing one at 31.0 (the shutter 1 s after each).
   // Inside (sky time τ, see tau()): bursts at 10.0 (the viewfinder), 12.25 (frames flowing), 14.5 (the pile), 16.5, 18.0 (the ring), 20.0 (pressed at 21.0).
-  const BURST_OUT = [-0.25, 31.0];
+  // v3.2 (user 11-24: the opening contrast): the opening burst at −0.5, so at the press (0.75) it is clearly almost gone
+  const BURST_OUT = [-0.5, 31.0];
   // v3 (audience v2.2 ②): the 4th burst at 14.85 so the card we follow (captured at 15.1, see index.html PILE) is a bright one
-  const BURST_IN = [7.5, 10.0, 12.75, 14.85, 18.0, 19.8];   // v3: 19.8 (was 20.0) so the middle kept frame shows the burst opening, not its first instant
+  const BURST_IN = [7.5, 10.0, 12.75, 14.5, 18.0, 19.8];   // v3: 19.8 (was 20.0) so the middle kept frame shows the burst opening, not its first instant
   // inside, the press is shown 4× slowed (示意): τ runs at ¼ speed from the tap until 27.5
   const SLOW = { a: 21.0, b: 27.5, k: 0.25 };
   function tau(t) {
@@ -81,7 +82,8 @@
   const PRESS_N = 8;                       // t = τ = 21.0: the write index at the press
   const BEFORE = [5, 6, 7];                // τ 19.5, 20.0, 20.5 (ages −0.3, 0.2, 0.7: the dot, the burst, the spread)
   const AFTER = [8, 9, 10];                // τ 21.0, 21.5, 22.0 (written at t 21.0, 23.0, 25.0: 4× slow)
-  const COPYB_T = BEFORE.map((_, i) => T.copyB + i * 0.5);
+  // v3.2 (audience v3 ②): the bright one (the burst, BEFORE[1]) goes up first, then the dot and the spread
+  const COPYB_T = [T.copyB + 0.45, T.copyB, T.copyB + 0.7];
   const COPYA_T = AFTER.map((_, i) => T.copyA + i * 0.5);
 
   const COPY = {

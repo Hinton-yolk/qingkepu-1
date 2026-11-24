@@ -367,7 +367,7 @@ function skyBox(x, y, w, h, ages, o = {}) {
   ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
   if (!o.small) for (const [u, v, ph] of SKYSTARS) { ctx.fillStyle = `rgba(230,232,240,${0.18 + 0.12 * Math.sin(ph + (o.t ?? 0) * 1.3)})`; ctx.fillRect(x + u * w, y + v * h, 2, 2); }
   const R = h * (o.small ? 0.5 : o.crisp ? 0.48 : 0.47), cx = x + w * (o.small ? 0.5 : 0.46), cy = y + h * (o.small ? 0.42 : 0.4);
-  for (const a of ages) firework(cx, cy, R, a, { few: o.small, lw: o.small ? 0.055 : o.crisp ? 0.04 : 0.028, boost: o.crisp ? 1.8 : o.small ? 1.3 : 1.25 });
+  for (const a of ages) firework(cx, cy, R, a, { few: o.small, lw: o.small ? 0.055 : o.crisp ? 0.04 : 0.028, boost: o.boost ?? (o.crisp ? 1.8 : o.small ? 1.3 : 1.25) });
   ctx.fillStyle = "#05060B";
   for (const [u, bw, bh] of CITY) ctx.fillRect(x + u * w, y + h * (1 - bh), bw * w + 1, h * bh + 1);
   if (o.dim) { ctx.fillStyle = `rgba(5,6,10,${o.dim})`; ctx.fillRect(x, y, w, h); }
@@ -381,7 +381,7 @@ function card(cx, cy, w, h, ages, o = {}) {
   ctx.translate(cx, cy); if (o.sc) ctx.scale(o.sc, o.sc);
   rr(-w / 2, -h / 2, w, h, Math.min(8, h * 0.14)); ctx.save(); ctx.clip();
   if (o.soft) ctx.filter = `blur(${o.soft.toFixed(2)}px)`;
-  skyBox(-w / 2, -h / 2, w, h, ages, { small: w < 200 && !o.crisp, t: o.t, crisp: o.crisp });
+  skyBox(-w / 2, -h / 2, w, h, ages, { small: w < 200 && !o.crisp, t: o.t, crisp: o.crisp, boost: o.boost });
   ctx.filter = "none";
   if (o.grey) { ctx.fillStyle = `rgba(150,152,158,${o.grey})`; ctx.fillRect(-w / 2, -h / 2, w, h); }
   ctx.restore();
@@ -581,8 +581,14 @@ function phoneOut(t, K, s, o = {}) {
   if (s.mode === "vf" || s.mode === "photo") {
     const ok = s.mode === "photo" && s.openK != null ? s.openK : 1;
     ctx.save();
-    if (ok < 1) { setK(K); const x = lerp(THUMB.x, SCR.x, ok), y = lerp(THUMB.y, SCR.y, ok), w = lerp(THUMB.w, SCR.w, ok), h = lerp(THUMB.h, SCR.h, ok); rr(x, y, w, h, lerp(8, SCR.r, ok)); ctx.clip(); }
-    ID(); const c0 = toS(K, [0, 0]); worldSky(c0[0], c0[1], K.A, s.ages, t); ctx.restore(); setK(K);
+    if (ok < 1) { setK(K); const F = s.openFrom ?? THUMB, x = lerp(F.x, SCR.x, ok), y = lerp(F.y, SCR.y, ok), w = lerp(F.w, SCR.w, ok), h = lerp(F.h, SCR.h, ok); rr(x, y, w, h, lerp(8, SCR.r, ok)); ctx.clip(); }
+    ID(); const c0 = toS(K, [0, 0]); worldSky(c0[0], c0[1], K.A, s.ages, t);
+    if (s.bloom > 0) {                                                    // the burst in the Live Photo: its light fills the screen
+      const bx = c0[0] - 25 * K.A, by = c0[1] - 30 * K.A, br = 330 * K.A, g = ctx.createRadialGradient(bx, by, 0, bx, by, br);
+      g.addColorStop(0, `rgba(255,244,226,${0.42 * s.bloom})`); g.addColorStop(0.35, `rgba(255,214,236,${0.16 * s.bloom})`); g.addColorStop(1, "rgba(255,230,240,0)");
+      ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = g; ctx.fillRect(bx - br, by - br, 2 * br, 2 * br); ctx.restore();
+    }
+    ctx.restore(); setK(K);
     if (s.mode === "vf") {
       // the shutter (under the right thumb) and the last photo
       const rf = 1 - 0.22 * (s.press ?? 0) + (s.bounce ?? 0);                 // pressed: it shrinks; let go: it springs back past its size
@@ -630,19 +636,36 @@ function handsOut(t, K, layer, tapT = null, a = 1) { drawHands(K, layer, isPress
 // the photo playback: the clip runs from 0.5 s before the burst
 const PLAY = (t, t0) => [-0.5 + (t - t0)];
 // the opening and the closing shots share one timeline: burst at b, the shutter at b + 1
-function screenOut(t, b, tapT, playT) {
+function screenOut(t, b, tapT, playT, o = {}) {
+  const ka = tapT - b;                                       // the firework's age at the press: the photo
   const s = { mode: "vf", ages: [t - b], flash: 0, fly: 0, thumbAges: null };
-  if (t >= tapT) { s.flash = t - tapT < 0.067 ? 1 : Math.max(0, 1 - (t - tapT - 0.067) / 0.1); s.thumbAges = [1.0]; s.thumbA = E.p2out(prog(t, tapT + 0.45, tapT + 0.6)); s.fly = prog(t, tapT + 0.1, tapT + 0.5); s.flyAges = [1.0]; s.ripple = t < tapT + 0.5 ? prog(t, tapT, tapT + 0.5) : 0; s.press = Math.sin(Math.PI * prog(t, tapT - 0.05, tapT + 0.2)); s.bounce = 0.12 * Math.sin(Math.PI * prog(t, tapT + 0.2, tapT + 0.42)) - 0.03 * Math.sin(Math.PI * prog(t, tapT + 0.42, tapT + 0.56)); }
+  if (t >= tapT) { s.flash = t - tapT < 0.067 ? 1 : Math.max(0, 1 - (t - tapT - 0.067) / 0.1); if (!o.still) { s.thumbAges = [ka]; s.thumbA = E.p2out(prog(t, tapT + 0.45, tapT + 0.6)); s.fly = prog(t, tapT + 0.1, tapT + 0.5); s.flyAges = [ka]; } s.ripple = t < tapT + 0.5 ? prog(t, tapT, tapT + 0.5) : 0; s.press = Math.sin(Math.PI * prog(t, tapT - 0.05, tapT + 0.2)); s.bounce = 0.12 * Math.sin(Math.PI * prog(t, tapT + 0.2, tapT + 0.42)) - 0.03 * Math.sin(Math.PI * prog(t, tapT + 0.42, tapT + 0.56)); }
   if (playT != null && t >= playT) {
-    const op = E.p3out(prog(t, playT, playT + 0.3)), age = -0.5 + (t - playT), back = E.p2io(prog(age, 2.0, 2.35));
-    s.mode = "photo"; s.ages = back > 0.5 ? [1.0] : [age]; s.flash = 0; s.fly = 0;
+    const op = E.p3out(prog(t, playT, playT + 0.3)), age = ka - 1.5 + (t - playT), back = E.p2io(prog(age, ka + 1.0, ka + 1.35));
+    s.mode = "photo"; s.ages = back > 0.5 ? [ka] : [age]; s.flash = 0; s.fly = 0;
     s.openK = op; s.liveGlow = 1 - prog(t, playT, playT + 0.9);
+    if (o.still) { s.openFrom = { x: -70, y: -40, w: 140, h: 80 }; s.bloom = Math.max(0, 1 - Math.abs(age - 0.1) / 0.5); s.liveGlow = Math.max(s.liveGlow, 0.6 * s.bloom); }
     if (Math.abs(playT - T.fin) < 1e-6) s.flash = t - playT < 0.067 ? 1 : Math.max(0, 1 - (t - playT - 0.067) / 0.1);   // the closing line: the screen 咔 (crisp white)
   }
   return s;
 }
 // the strip under the phone (the guess and the flip): 6 frames after 按下 (the guess), then 6 before it (the flip)
 const SX = (i) => 540 + i * 82, SY = 1280, SW = 76, SH = 44;   // under the phone
+const KA0 = T.tap0 - TL.BURST_OUT[0];                            // the opening photo: the firework 1.25 s after its burst
+// v3.2 (user 11-24:「开场…烟花爆燃和实况的对比不是很强烈…拍照以为只拍到了一部分，但是实际上实况却把之前的也记录了，
+// 所以这个对比一定要给出来」): the press leaves one photo, the moment you pressed — the firework almost gone, dim and
+// sparse. It drops out of the screen and stays under the phone (按下). Then the phone plays the Live Photo: the dot, then
+// the burst, bright, from before the press. The dim photo under, the bright burst above, side by side until the guess.
+const STILL = { x: 540, y: 1300, w: 340, h: 191 };
+function drawStill(t, K) {
+  const t0 = T.tap0 + 0.08;
+  if (t < t0 || t >= T.stripR + 0.05) return;
+  const k = E.p3io(prog(t, t0, t0 + 0.5)), c = toS(K, [SCR.x + SCR.w / 2, SCR.y + SCR.h / 2]), sw = SCR.w * K.A, sh = SCR.h * K.A;
+  const g = E.p3io(prog(t, T.q2, T.stripR)), land = 1 + 0.05 * Math.sin(Math.PI * prog(t, t0 + 0.5, t0 + 0.75));
+  const x = lerp(c[0], STILL.x, k), y = lerp(lerp(c[1], STILL.y, k), SY, g), w = lerp(lerp(sw, STILL.w, k), SW, g) * land, h = lerp(lerp(sh, STILL.h, k), SH, g) * land;
+  card(x, y, w, h, [KA0], { a: 1 - g, t: 0, boost: 1.5 });
+  label(COPY.press, STILL.x - STILL.w / 2 - 26, STILL.y + 16, 44, C.ink, t, t0 + 0.45, T.q2 + 0.12, { align: "right" });
+}
 function drawGuessStrip(t) {
   if (t < T.stripR - 0.05 || t > T.q3 + 0.45) return;
   const fo = 1 - E.p2io(prog(t, T.q3, T.q3 + 0.4));
@@ -650,9 +673,9 @@ function drawGuessStrip(t) {
   ctx.strokeStyle = C.ink; ctx.lineWidth = 5; ctx.lineCap = "round"; line(540, SY - 34, 540, SY + 34);
   ctx.restore();
   label(COPY.press, 540, SY - 52, 44, C.ink, t, T.stripR - 0.05, T.q3 + 0.45, { align: "center", alpha: fo });
-  for (let i = 1; i <= 6; i++) { const t0 = T.stripR + (i - 1) * 0.15, k = E.p3out(prog(t, t0, t0 + 0.2)); if (k > 0) card(SX(i), SY, SW, SH, [1.0 + i * 0.25], { a: k * fo, sc: lerp(0.6, 1, k), t }); }
+  for (let i = 1; i <= 6; i++) { const t0 = T.stripR + (i - 1) * 0.15, k = E.p3out(prog(t, t0, t0 + 0.2)); if (k > 0) card(SX(i), SY, SW, SH, [KA0 + i * 0.25], { a: k * fo, sc: lerp(0.6, 1, k), t }); }
   label(COPY.rec, SX(3.5), SY - 52, 44, C.ink, t, T.stripR + 0.3, T.a2, { align: "center" });
-  for (let i = 1; i <= 6; i++) { const t0 = T.stripL + (i - 1) * 0.12, k = E.p3out(prog(t, t0, t0 + 0.2)); if (k > 0) card(SX(-i), SY, SW, SH, [1.0 - i * 0.25], { a: k * fo, sc: lerp(0.6, 1, k), t }); }
+  for (let i = 1; i <= 6; i++) { const t0 = T.stripL + (i - 1) * 0.12, k = E.p3out(prog(t, t0, t0 + 0.2)); if (k > 0) card(SX(-i), SY, SW, SH, [KA0 - i * 0.25], { a: k * fo, sc: lerp(0.6, 1, k), t }); }
   const bk = E.p3out(prog(t, T.stripL + 0.75, T.stripL + 1.1));
   obox(SX(-6) - SW / 2 - 12, SY - SH / 2 - 12, SX(-1) - SX(-6) + SW + 24, SH + 24, bk, fo, 12, 5);
   label(COPY.before, SX(-3.5), SY - 52, 44, C.acc, t, T.stripL + 0.8, T.q3 + 0.45, { align: "center", alpha: fo });
@@ -692,7 +715,7 @@ const FLOW = { a: [LOUPE.x - 30, LOUPE.y + DIE_Y + 10], c: [760, 990], b: [655, 
 function flowPt(u) { const { a, b, c } = FLOW; return [(1 - u) * (1 - u) * a[0] + 2 * (1 - u) * u * c[0] + u * u * b[0], (1 - u) * (1 - u) * a[1] + 2 * (1 - u) * u * c[1] + u * u * b[1]]; }
 function flowCards(t) {
   if (t < T.flow || t > T.ringForm + 0.4) return;
-  const a = 1 - prog(t, T.ringForm, T.ringForm + 0.4);
+  const a = (1 - prog(t, T.ringForm, T.ringForm + 0.4)) * (1 - 0.5 * dimH(t));
   ID(); ctx.save(); ctx.globalAlpha = a * E.p3out(prog(t, T.flow, T.flow + 0.3)); ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.lineCap = "round";
   ctx.beginPath(); for (let j = 0; j <= 20; j++) { const p = flowPt((j / 20) * 0.93); j ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); } ctx.stroke();
   const p1 = flowPt(0.9), p2 = flowPt(1.0); ctx.translate(p2[0], p2[1]); ctx.rotate(Math.atan2(p2[1] - p1[1], p2[0] - p1[0]));
@@ -708,8 +731,11 @@ function flowCards(t) {
 // frame 28 (captured at 15.1, just after the burst at 14.85) leaves the chip by itself, slides down the leader to the top of
 // the pile and lands (hA–hB); then the rest come again. It keeps an orange edge: it is the frame the ring later carries
 // to the head and overwrites (pile index 28 = write index −8 = slot 4).
-const PILE = { x: 905, base: 1420, dy: 11, max: 36, hero: 28, hA: 15.1, hB: 15.65 };
-function pileCardTau(i) { return i < 28 ? T.pile + i * (1.08 / 28) : i === 28 ? PILE.hA : 15.7 + (i - 29) * 0.04; }
+// v3.2 (audience v3 ①「先让它在引线末端亮一下，放大镜和其他小字压暗一点，再让它滑到那摞顶上」): it appears at the
+// leader's end at hA and glows there while the loupe and the labels step back (dimH), slides at hS, lands at hB.
+const PILE = { x: 905, base: 1420, dy: 11, max: 36, hero: 28, hA: 14.75, hS: 15.15, hB: 15.6 };
+function pileCardTau(i) { return i < 28 ? T.pile + i * (0.68 / 28) : i === 28 ? PILE.hA : 15.65 + (i - 29) * 0.045; }
+const dimH = (t) => win(t, PILE.hA - 0.15, PILE.hB + 0.3, 0.2, 0.3);
 function pileCount(t) { let n = 0; while (n < PILE.max && pileCardTau(n) <= t) n++; return n; }
 function pileXY(i) { const r = hash(i * 3.1 + 1); return [PILE.x + (r - 0.5) * 14, PILE.base - PILE.dy * i - RC1.ch / 2]; }
 function drawPile(t) {
@@ -719,9 +745,11 @@ function drawPile(t) {
     const tb = pileCardTau(i), fall = E.p2in(prog(t, tb, tb + 0.25)), hero = i === PILE.hero;
     if (t < tb) continue;
     const [px, py] = pileXY(i);
-    if (hero && t < PILE.hB) {                                              // on its way: out of the chip, down the leader, onto the pile
-      const k = prog(t, PILE.hA, PILE.hB), pop = E.p3out(prog(k, 0, 0.22)), u = E.p2io(prog(k, 0.18, 1));
-      const x = lerp(LOUPE.x, px, u), y = lerp(LOUPE.y + LOUPE.r + 8, py, u), sc = lerp(0.45, 1.3, pop) * lerp(1, 1 / 1.3, E.p2in(prog(k, 0.55, 1)));
+    if (hero && t < PILE.hB) {                                              // at the leader's end, lit; then down onto the pile
+      const pop = E.p3out(prog(t, PILE.hA, PILE.hA + 0.25)), u = E.p2io(prog(t, PILE.hS, PILE.hB)), y0 = LOUPE.y + LOUPE.r + 22;
+      const x = lerp(LOUPE.x, px, u), y = lerp(y0, py, u), sc = lerp(0.45, 1.3, pop) * lerp(1, 1 / 1.3, E.p2in(u)) * (1 + 0.04 * Math.sin(Math.PI * prog(t, PILE.hA + 0.25, PILE.hS)));
+      const glow = pop * (1 - u);
+      if (glow > 0.01) { ID(); ctx.save(); ctx.globalAlpha = 0.55 * glow; ctx.shadowColor = "rgba(255,236,210,0.9)"; ctx.shadowBlur = 40; ctx.fillStyle = "rgba(255,236,210,0.25)"; rr(x - RC1.cw * sc / 2, y - RC1.ch * sc / 2, RC1.cw * sc, RC1.ch * sc, 8); ctx.fill(); ctx.restore(); }
       card(x, y, RC1.cw * sc, RC1.ch * sc, agesIn(tb), { t: tb, hl: true, hlw: 6, a: pop });
       continue;
     }
@@ -800,7 +828,8 @@ function drawStrip(t) {
     const s = ((n % 12) + 12) % 12, sp = slotPos(t, s, G, f), x1 = stripX(side, j);
     let x = lerp(sp[0], x1, u), y = lerp(sp[1], ST.y, u), w = lerp(G.cw, ST.cw, u), h = lerp(G.ch, ST.ch, u), sc = 1 - 0.08 * soft;
     if (col > 0) { x = lerp(x, PC.x, col); y = lerp(y, PC.y, col); }
-    card(x, y, w * sc, h * sc, agesIn(nTau(n)), { soft: 3.2 * soft, grey: 0.28 * soft, a: 1 - E.p3in(prog(col, 0.6, 1)), t: nTau(n), hl: u < 1 && u > 0 });
+    const lead = side < 0 && n === TL.BEFORE[1] ? 1 + 0.22 * Math.sin(Math.PI * u) : 1;   // v3.2: the bright one goes first, a little bigger on its way
+    card(x, y, w * sc * lead, h * sc * lead, agesIn(nTau(n)), { soft: 3.2 * soft, grey: 0.28 * soft, a: 1 - E.p3in(prog(col, 0.6, 1)), t: nTau(n), hl: u < 1 && u > 0 });
   };
   TL.BEFORE.forEach((n, j) => put_(-1, j, n, TL.COPYB_T[j]));
   TL.AFTER.forEach((n, j) => put_(1, j, n, TL.COPYA_T[j]));
@@ -825,8 +854,9 @@ function drawInside(t) {
   const info = phoneAny(t, P, { xray: 1 - pk, ages: agesIn(TL.tau(t)), uiP: 1, modA: focus ? 0.35 : 1, a: (1 - stepBack) * (1 - 0.7 * dimAll), liveBox: lb, liveBoxA: 1 - prog(t, T.liveBox + 1.3, T.liveBox + 1.6) });
   // the main lens lit (an orange ring), the loupe opening out of it
   const la = loupeA(t);
-  if (t >= T.chipOn && la > 0.01) oring(info.lens[0], info.lens[1], 24 * P.sc + 12, E.p3out(prog(t, T.chipOn, T.chipOn + 0.3)), la, 5);
-  drawLoupe(t, loupeK(t), la, info.lens, t >= T.chipOn + 0.45 ? E.p3out(prog(t, T.chipOn + 0.45, T.chipOn + 0.7)) * (1 - prog(t, T.q5 - 0.3, T.q5)) : 0);
+  const dl = 1 - 0.6 * dimH(t);
+  if (t >= T.chipOn && la > 0.01) oring(info.lens[0], info.lens[1], 24 * P.sc + 12, E.p3out(prog(t, T.chipOn, T.chipOn + 0.3)), la * dl, 5);
+  drawLoupe(t, loupeK(t), la * dl, info.lens, t >= T.chipOn + 0.45 ? E.p3out(prog(t, T.chipOn + 0.45, T.chipOn + 0.7)) * (1 - prog(t, T.q5 - 0.3, T.q5)) : 0);
   flowCards(t);
   drawPile(t);
   if (t >= T.ringForm) { const c = chipAt(t); sensorIcon(c.x, c.y, 118 * c.sc, E.p2io(prog(t, T.ringForm, T.ringForm + 0.3)) * (1 - 0.7 * dimAll), t); }
@@ -844,9 +874,9 @@ function drawInside(t) {
 // the labels of the inside world (small text, ≤ 2 at a time)
 function insideLabels(t) {
   const G = ringGeo(t);
-  if (t >= T.chipOn + 0.5 && t < PILE.hA + 0.15) leader(LOUPE.x, LOUPE.y + LOUPE.r + 10, LOUPE.x, DIE_AT[1] + 14, C.paper, E.p3out(prog(t, T.chipOn + 0.5, T.chipOn + 0.8)) * (1 - prog(t, PILE.hA, PILE.hA + 0.15)), 2.5);
-  label(COPY.chip, LOUPE.x, LOUPE.y + LOUPE.r + 62, 44, C.paper, t, T.chipOn + 0.5, PILE.hA + 0.1, { align: "center" });
-  label(COPY.structure, LOUPE.x, LOUPE.y - LOUPE.r - 18, 44, C.paper, t, T.chipOn + 0.7, T.ringForm, { align: "center", alpha: 0.85 });
+  if (t >= T.chipOn + 0.5 && t < PILE.hS + 0.15) leader(LOUPE.x, LOUPE.y + LOUPE.r + 10, LOUPE.x, DIE_AT[1] + 14, C.paper, E.p3out(prog(t, T.chipOn + 0.5, T.chipOn + 0.8)) * (1 - 0.6 * dimH(t)) * (1 - prog(t, PILE.hS, PILE.hS + 0.15)), 2.5);
+  label(COPY.chip, LOUPE.x, LOUPE.y + LOUPE.r + 62, 44, C.paper, t, T.chipOn + 0.5, PILE.hA + 0.05, { align: "center" });
+  label(COPY.structure, LOUPE.x, LOUPE.y - LOUPE.r - 18, 44, C.paper, t, T.chipOn + 0.7, T.ringForm, { align: "center", alpha: 0.85 * (1 - 0.6 * dimH(t)) });
   label(COPY.fps, 770, 1108, 44, C.paper, t, T.flow + 0.2, T.q5);
   label(COPY.ring, G.x, G.y + 118, 44, C.paper, t, T.ringFormEnd - 0.2, T.a6, { align: "center" });
   label(COPY.term, G.x, G.y + 118, 44, C.paper, t, T.a6 + 0.1, T.q7, { align: "center" });
@@ -980,7 +1010,7 @@ function drawOutside(t, o = {}) {
   const pb = closing ? 0 : E.p2io(prog(t, T.open0, T.open0 + 0.6)) * (1 - E.p2io(prog(t, T.q2, T.q2 + 0.5)));   // the photo plays: push a little towards it
   const K = outK(t, (1 + 0.1 * tipK) * (1 + 0.1 * prog(t, T.tipInEnd, T.end)) * (1 + 0.06 * pb), [540, lerp(935, 900, tipK) - 22 * pb]);
   let s;
-  if (!closing) s = screenOut(t, TL.BURST_OUT[0], T.tap0, T.open0);
+  if (!closing) s = screenOut(t, TL.BURST_OUT[0], T.tap0, T.open0, { still: true });
   else if (t < T.tip) s = screenOut(t, TL.BURST_OUT[1], T.tapC, T.fin);
   else s = { mode: "edit" };
   const tapT = closing ? (t < T.tip ? T.tapC : null) : T.tap0;
@@ -988,7 +1018,7 @@ function drawOutside(t, o = {}) {
   phoneOut(t, K, s);
   if (closing && t < T.tip) drawXrayRing(t, K, E.p2io(prog(t, T.iris + 0.35, T.iris + 0.65)) * (1 - E.p2io(prog(t, T.fin, T.fin + 0.3))));
   handsOut(t, K, "front", tapT);
-  if (!closing) drawGuessStrip(t);
+  if (!closing) { drawStill(t, K); drawGuessStrip(t); }
 }
 const IRC = [540, 900];
 function frame(t) {
