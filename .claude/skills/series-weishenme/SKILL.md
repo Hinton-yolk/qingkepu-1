@@ -80,7 +80,8 @@ EP.07 之前的集不回头改。
 - 输出：1080×1920，30 fps，libx264 yuv420p CRF 16，AAC 256k。
 - **交付顺序**（用户 2026-11-11）：成片最终确认前只出一个视频（1080×1920）；观众过了、用户确认视频没问题，再出小红书封面、小红书全屏版和 `publish.md`。见仓库 `CLAUDE.md`「交付顺序」。
   **只出小红书版本**（用户 2026-11-24：「以后视频和封面只用出小红书版本的」）：不做抖音封面、抖音版视频；发抖音也用小红书全屏版和 3:4 封面。
-  小红书全屏版 1080×2340：把每帧顶部 24 行模糊拉伸成 420 px 补在上方。
+  小红书全屏版 1080×2340（终版交付的视频，从 1080×1920 主版本派生）：把每帧顶部 24 行模糊拉伸成 420 px 补在上方，例：
+  `ffmpeg -i out/epNN.mp4 -filter_complex "[0:v]split[a][b];[a]crop=1080:24:0:0,scale=1080:420,boxblur=20:2[top];[top][b]vstack" -c:v libx264 -preset slow -pix_fmt yuv420p -crf 16 -c:a copy -movflags +faststart out/epNN-xhs.mp4`
 - 每集一个项目目录：`index.html`、`timeline.js`、`render.mjs`、`music/score.mjs`、`tools/`（master.sh、beatcheck.mjs、motion.py、fonts.py、verify.sh）、`assets/fonts/`、`SPEC.md`、`REVIEW.md`、`FACTS.md`。
 - 试过但被否掉的：animate 的变形转场样例（「转场太硬」）；three.js 拆解（每帧 21–34 秒，太慢）。用户：「我比较 prefer 现有版本」。
 - **开新一集从模板开始**：`templates/weishenme/`（以 EP.02 为骨架，含系列圣经 `SERIES.md`、封面脚本 `covers/`），步骤和命令见 `templates/weishenme/README.md`。

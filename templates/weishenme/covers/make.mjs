@@ -1,4 +1,5 @@
-// make.mjs — lay out the four covers (抖音 1080×1920, 小红书 1080×1440) as HTML and screenshot them.
+// make.mjs — lay out the covers as HTML and screenshot them. 2026-11-24 on: only 小红书 1080×1440 (user:「以后视频和封面只用出小红书版本的」);
+// the 抖音 1080×1920 entries of EP.01–08 stay as a record. A new episode adds only its "-xiaohongshu" entry.
 import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
