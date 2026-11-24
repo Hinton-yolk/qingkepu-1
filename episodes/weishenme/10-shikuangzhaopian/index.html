@@ -656,14 +656,14 @@ const KA0 = T.tap0 - TL.BURST_OUT[0];                            // the opening 
 // 所以这个对比一定要给出来」): the press leaves one photo, the moment you pressed — the firework almost gone, dim and
 // sparse. It drops out of the screen and stays under the phone (按下). Then the phone plays the Live Photo: the dot, then
 // the burst, bright, from before the press. The dim photo under, the bright burst above, side by side until the guess.
-const STILL = { x: 540, y: 1300, w: 340, h: 191 };
+const STILL = { x: 540, y: 1316, w: 420, h: 236 };   // audience v3.2: big enough to see from the corner of the eye while the burst plays above
 function drawStill(t, K) {
   const t0 = T.tap0 + 0.08;
   if (t < t0 || t >= T.stripR + 0.05) return;
   const k = E.p3io(prog(t, t0, t0 + 0.5)), c = toS(K, [SCR.x + SCR.w / 2, SCR.y + SCR.h / 2]), sw = SCR.w * K.A, sh = SCR.h * K.A;
   const g = E.p3io(prog(t, T.q2, T.stripR)), land = 1 + 0.05 * Math.sin(Math.PI * prog(t, t0 + 0.5, t0 + 0.75));
   const x = lerp(c[0], STILL.x, k), y = lerp(lerp(c[1], STILL.y, k), SY, g), w = lerp(lerp(sw, STILL.w, k), SW, g) * land, h = lerp(lerp(sh, STILL.h, k), SH, g) * land;
-  card(x, y, w, h, [KA0], { a: 1 - g, t: 0, boost: 1.5 });
+  card(x, y, w, h, [KA0], { a: 1 - g, t: 0, boost: 2.4 });   // review v3.2: bright enough to read as the last sparks, not a black picture
   label(COPY.press, STILL.x - STILL.w / 2 - 26, STILL.y + 16, 44, C.ink, t, t0 + 0.45, T.q2 + 0.12, { align: "right" });
 }
 function drawGuessStrip(t) {
