@@ -48,7 +48,7 @@
   // Inside (sky time τ, see tau()): bursts at 10.0 (the viewfinder), 12.25 (frames flowing), 14.5 (the pile), 16.5, 18.0 (the ring), 20.0 (pressed at 21.0).
   const BURST_OUT = [-0.25, 31.0];
   // v3 (audience v2.2 ②): the 4th burst at 14.85 so the card we follow (captured at 15.1, see index.html PILE) is a bright one
-  const BURST_IN = [7.5, 10.0, 12.75, 14.85, 18.0, 20.0];
+  const BURST_IN = [7.5, 10.0, 12.75, 14.85, 18.0, 19.8];   // v3: 19.8 (was 20.0) so the middle kept frame shows the burst opening, not its first instant
   // inside, the press is shown 4× slowed (示意): τ runs at ¼ speed from the tap until 27.5
   const SLOW = { a: 21.0, b: 27.5, k: 0.25 };
   function tau(t) {
@@ -79,7 +79,7 @@
     return tau_ < sa ? SLOW.a + (tau_ - SLOW.a) / SLOW.k : SLOW.b + (tau_ - sa);
   };
   const PRESS_N = 8;                       // t = τ = 21.0: the write index at the press
-  const BEFORE = [5, 6, 7];                // τ 19.5, 20.0, 20.5 (ages −0.5, 0, 0.5: the dot, the burst, the spread)
+  const BEFORE = [5, 6, 7];                // τ 19.5, 20.0, 20.5 (ages −0.3, 0.2, 0.7: the dot, the burst, the spread)
   const AFTER = [8, 9, 10];                // τ 21.0, 21.5, 22.0 (written at t 21.0, 23.0, 25.0: 4× slow)
   const COPYB_T = BEFORE.map((_, i) => T.copyB + i * 0.5);
   const COPYA_T = AFTER.map((_, i) => T.copyA + i * 0.5);

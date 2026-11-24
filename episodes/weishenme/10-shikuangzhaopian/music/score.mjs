@@ -217,7 +217,7 @@ blip(15.12, 87, 0.45, 0.3); tick(15.65, 0.55, 0.3, 2300);   // v3: the bright fr
 glide(T.ringForm, 0.9, 82, 75, 0.4, 0); bloom(T.ringFormEnd, [75, 80, 84], 0.45); boom(18.0, 0.28);
 creak(TL.RING.hold.in1 - 0.05, 0.5); tick(TL.RING.hold.in1, 0.5, 0, 2000);   // v3: the new frame covers the old one at the head
 // 5 the press: the shutter; each copy a rising tick; 实况 boxed; the sharp photo
-shutter(T.tap, 0.8); boom(20.0, 0.3);
+shutter(T.tap, 0.8); boom(19.8, 0.3);
 TL.COPYB_T.forEach((t, i) => tick(t, 0.45, -0.3, 2600 + i * 180));
 blip(T.liveBox, 84, 0.45, 0.3);
 TL.COPYA_T.forEach((t, i) => tick(t, 0.45, 0.3, 2600 + i * 180));

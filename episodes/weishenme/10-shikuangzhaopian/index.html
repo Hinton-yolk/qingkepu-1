@@ -237,10 +237,10 @@ const HWARP = {};
 //  · each thumb casts a soft shadow on the screen; the skin is lit from above, the thumb rounded (light along its top,
 //    shade underneath), the outline brown like EP.07's hands, not black ink.
 const MIRX = 2 * HIMG.c[0];
-const LEFT = { rot: -5 * RAD, piv: [430, 400], dy: 16 };
+const LEFT = { rot: -10 * RAD, piv: [430, 400], dx: -26, dy: 26 };   // review v3: tilted more, lower, shorter on the screen than the right one
 function leftX(p) {
   const x = MIRX - p[0], dx = x - LEFT.piv[0], dy = p[1] - LEFT.piv[1], c = Math.cos(LEFT.rot), sn = Math.sin(LEFT.rot);
-  return [LEFT.piv[0] + dx * c - dy * sn, LEFT.piv[1] + dx * sn + dy * c + LEFT.dy];
+  return [LEFT.piv[0] + dx * c - dy * sn + LEFT.dx, LEFT.piv[1] + dx * sn + dy * c + LEFT.dy];
 }
 function handGeom(name) {
   if (HWARP[name]) return HWARP[name];
@@ -870,7 +870,7 @@ function diveP(t) {
 const DARK_END = 7.85;
 function darkE(t) { return 1500 * E.p2in(prog(t, 7.6, 7.85)); }   // quick (≤ 0.25 s), no grey band
 function phoneHalf(P) { const ac = Math.abs(Math.cos(P.ang)), as = Math.abs(Math.sin(P.ang)); return [(330 * ac + 165 * as) * P.sc, (165 * ac + 330 * as) * P.sc]; }
-function handsRelease(t, K, k, layer) { drawHands(K, layer, false, 1 - k, 340 * k); }   // the hands let go and move out sideways
+function handsRelease(t, K, k, layer) { drawHands(K, layer, false, Math.pow(1 - k, 2.5), 340 * k); }   // the hands let go and move out sideways; review v3: gone before only fingertips are left at the frame edge
 function drawDive(t) {
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = C.ground; ctx.fillRect(0, 0, W, H);
   const P = diveP(t), xr = E.p2io(prog(t, 7.3, 8.2)), e = darkE(t);
