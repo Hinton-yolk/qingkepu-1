@@ -71,7 +71,7 @@ const COVERS = [
   // EP.10 (only 小红书, 2026-11-24): the cover question is C (E10-2b); the hero is the opening contrast — the Live Photo's burst
   // on the phone, the dim photo you pressed under it (按下); the inset is the ring (it keeps only the latest frames), led from the photo
   { out: "ep10-xiaohongshu", W: 1080, H: 1440, ep: "EP.10", title: ["你还没按快门，", "它怎么就<b>拍上了</b>？"],
-    hero: "ep10-hero", heroDy: -200, anchor: null, inset: { img: "ep10-inset", cx: 540, cy: 1000, src: 455, x: 900, y: 1150, r: 140 }, tag: "按之前就在拍",   // review ③: tag clear of the bottom, no anchor (a 23 px leader read as ⊘)
+    hero: "ep10-hero", heroDy: -200, anchor: null, inset: { img: "ep10-inset", cx: 540, cy: 1000, src: 455, x: 906, y: 1150, r: 132 }, tag: "按之前就在拍",   // review ③: tag clear of the bottom, no anchor (a 23 px leader read as ⊘)
     ser: 108, t1: 252, t2: 398, size: 124, wash: 440 },
 ];
 const ONLY = process.argv[2];                                   // node make.mjs ep04 → only those covers
