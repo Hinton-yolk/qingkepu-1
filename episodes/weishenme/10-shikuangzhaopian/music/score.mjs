@@ -134,7 +134,7 @@ const secAt = (t) => { let s = SECS[0][1]; for (const [t0, n] of SECS) if (t >= 
 const STOPS = [[T.hush, T.strike], [T.stop1, T.a9], [T.stop2, T.fin]];
 const silent = (t) => STOPS.some(([a, b]) => t >= a && t < b);
 // the ring writes a frame every ¼ s of sky time (inside: 4×slow during the press): one pluck per write
-const writes = []; { for (let n = 0; ; n++) { const tau_ = TL.RING.t0 + n * TL.RING.dt, t = tau_ < TL.SLOW.a ? tau_ : tau_ < TL.SLOW.a + (TL.SLOW.b - TL.SLOW.a) * TL.SLOW.k ? TL.SLOW.a + (tau_ - TL.SLOW.a) / TL.SLOW.k : TL.SLOW.b + (tau_ - (TL.SLOW.a + (TL.SLOW.b - TL.SLOW.a) * TL.SLOW.k)); if (t >= T.collapse) break; if (t >= T.write0) writes.push(t); } }
+const writes = []; { for (let n = 0; ; n++) { const t = TL.writeT(n); if (t >= T.collapse) break; if (t >= T.write0) writes.push(t); } }   // v3: the ring stops for the overwrite (timeline.js RING.hold)
 const flowing = (t) => t >= T.flow && t < T.ringForm;
 
 // ------------------------------------------------------------------ arrangement
@@ -212,9 +212,10 @@ riser(T.q3 + 0.25, T.diveEnd - T.q3 - 0.25, 0.7); glide(T.xray, 0.5, 70, 79, 0.4
 // 4 the viewfinder on; its burst; the chip; the pile; the ring
 glide(T.vfOn, 0.3, 75, 82, 0.35, 0.2); boom(7.5, 0.3); boom(10.0, 0.4);
 blip(T.chipOn, 84, 0.5, -0.3); blip(T.chipOn + 0.08, 87, 0.4, -0.3);
-boom(12.75, 0.3); boom(15.5, 0.3); riser(T.pile, T.pileEnd - T.pile, 0.45);
+boom(12.75, 0.3); boom(14.85, 0.3); riser(T.pile, T.pileEnd - T.pile, 0.45);
+blip(15.12, 87, 0.45, 0.3); tick(15.65, 0.55, 0.3, 2300);   // v3: the bright frame leaves the chip, lands on the pile
 glide(T.ringForm, 0.9, 82, 75, 0.4, 0); bloom(T.ringFormEnd, [75, 80, 84], 0.45); boom(18.0, 0.28);
-creak(T.a6 + 0.25, 0.5);
+creak(TL.RING.hold.in1 - 0.05, 0.5); tick(TL.RING.hold.in1, 0.5, 0, 2000);   // v3: the new frame covers the old one at the head
 // 5 the press: the shutter; each copy a rising tick; 实况 boxed; the sharp photo
 shutter(T.tap, 0.8); boom(20.0, 0.3);
 TL.COPYB_T.forEach((t, i) => tick(t, 0.45, -0.3, 2600 + i * 180));

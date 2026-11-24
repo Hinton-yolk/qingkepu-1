@@ -47,7 +47,8 @@
   // the fireworks. Outside (film time): the opening burst at −0.25, the closing one at 31.0 (the shutter 1 s after each).
   // Inside (sky time τ, see tau()): bursts at 10.0 (the viewfinder), 12.25 (frames flowing), 14.5 (the pile), 16.5, 18.0 (the ring), 20.0 (pressed at 21.0).
   const BURST_OUT = [-0.25, 31.0];
-  const BURST_IN = [7.5, 10.0, 12.75, 15.5, 18.0, 20.0];
+  // v3 (audience v2.2 ②): the 4th burst at 14.85 so the card we follow (captured at 15.1, see index.html PILE) is a bright one
+  const BURST_IN = [7.5, 10.0, 12.75, 14.85, 18.0, 20.0];
   // inside, the press is shown 4× slowed (示意): τ runs at ¼ speed from the tap until 27.5
   const SLOW = { a: 21.0, b: 27.5, k: 0.25 };
   function tau(t) {
@@ -57,9 +58,27 @@
   }
   // the ring: 12 slots, one written every ½ s of sky time from T.write0 (write index n = 0 at τ = 17.0); 示意 (a camera keeps
   // many more, smaller steps): ½ s per slot so the 1.5 s before / after are three big frames: the dot, the burst, the spread
-  const RING = { n: 12, dt: 0.5, t0: 17.0 };
-  const ringF = (t) => (t < T.write0 ? 0 : (tau(t) - RING.t0) / RING.dt);
-  const PRESS_N = 8;                       // τ = 21.0: the write index at the press
+  // v3 (audience v2.2 ①): the ring stops with the followed slot at the head (hold.a–hold.b); the new frame slides into
+  // the same frame (in0–in1) and covers it; half a beat later the ring turns on. To still reach write 8 at the press
+  // (21.0), it turns a little faster than ½ s per frame before and after the stop (4 frames in 1.5 s; 示意 anyway).
+  const RING = { n: 12, dt: 0.5, t0: 17.0, hold: { a: 18.5, in0: 18.85, in1: 19.15, b: 19.5 } };
+  const RATE = 4 / (RING.hold.a - 17.0);
+  const ringF = (t) => {
+    if (t < T.write0) return 0;
+    if (t < RING.hold.a) return (t - 17.0) * RATE;
+    if (t < RING.hold.b) return 4;
+    if (t < SLOW.a) return 4 + (t - RING.hold.b) * RATE;
+    return (tau(t) - RING.t0) / RING.dt;
+  };
+  // the time write n lands (n ≥ 0): the sound of each write
+  const writeT = (n) => {
+    if (n < 4) return 17.0 + n / RATE;
+    if (n === 4) return RING.hold.in1;
+    if (n <= 8) return RING.hold.b + (n - 4) / RATE;
+    const tau_ = RING.t0 + n * RING.dt, sa = SLOW.a + (SLOW.b - SLOW.a) * SLOW.k;
+    return tau_ < sa ? SLOW.a + (tau_ - SLOW.a) / SLOW.k : SLOW.b + (tau_ - sa);
+  };
+  const PRESS_N = 8;                       // t = τ = 21.0: the write index at the press
   const BEFORE = [5, 6, 7];                // τ 19.5, 20.0, 20.5 (ages −0.5, 0, 0.5: the dot, the burst, the spread)
   const AFTER = [8, 9, 10];                // τ 21.0, 21.5, 22.0 (written at t 21.0, 23.0, 25.0: 4× slow)
   const COPYB_T = BEFORE.map((_, i) => T.copyB + i * 0.5);
@@ -102,7 +121,7 @@
     endType: [T.title1], ep: [T.ep], sting: [T.sting],
   };
 
-  const TL = { BPM, BEAT, BAR, FPS, DUR, W, H, T, COPY, HITS, S16, BURST_OUT, BURST_IN, SLOW, tau, RING, ringF, PRESS_N, BEFORE, AFTER, COPYB_T, COPYA_T };
+  const TL = { BPM, BEAT, BAR, FPS, DUR, W, H, T, COPY, HITS, S16, BURST_OUT, BURST_IN, SLOW, tau, RING, ringF, writeT, PRESS_N, BEFORE, AFTER, COPYB_T, COPYA_T };
   if (typeof module !== "undefined" && module.exports) module.exports = TL;
   else root.TL = TL;
 })(typeof window !== "undefined" ? window : globalThis);
