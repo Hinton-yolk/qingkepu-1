@@ -120,8 +120,8 @@ function loopPts(r0, r1, zb, zt, phi, ox = 0, oy = 0) {
   for (let i = 0; i <= 96; i++) { const th = Math.PI + (i / 96) * TAU; const s = Math.sin(th), r = rc - rr * Math.cos(th); const z = s < 0 ? zb + (zt - zb) * (-s) : zb - 6 * s; pts.push([ox + r * Math.cos(phi), oy + r * Math.sin(phi), z]); }
   return pts;   // starts at the inner bottom, goes up the inner leg first
 }
-const LOOPS = []; for (let k = 0; k < 3; k++) for (let j = 0; j < 8; j++) LOOPS.push({ k, phi: (j / 8) * TAU + k * 0.2, r0: 18 + k * 50, r1: 270 + k * 60, zt: 150 + k * 60 });
-function drawField(P, st) {
+const LOOPS = []; for (let k = 0; k < 3; k++) for (let j = 0; j < 7; j++) LOOPS.push({ k, phi: (j / 7) * TAU + k * 0.45, r0: 40 + k * 75, r1: 300 + k * 35, zt: 110 + k * 35 });
+function drawField(P, st, front = false) {
   const amp = st.field; if (amp <= 0.01) return;
   const sgn = st.fieldSign, mag = Math.abs(st.fieldI);
   const rx = st.rxCenter;   // [x, y] of the phone coil (for "through" highlighting)
@@ -131,7 +131,8 @@ function drawField(P, st) {
     const inner = [L.r0 * Math.cos(L.phi), L.r0 * Math.sin(L.phi)];
     const through = rx ? Math.hypot(inner[0] - rx[0], inner[1] - rx[1]) < PH.rOut * 0.92 : false;
     const hl = through ? st.throughHL : 0;
-    const base = (0.42 - L.k * 0.1) * amp * (0.35 + 0.65 * mag) * (1 - 0.5 * st.dimNot * (through ? 0 : 1));
+    if (front && (!through || hl < 0.01)) continue;
+    const base = (front ? 0.9 * hl : 1) * (0.42 - L.k * 0.08) * amp * (0.35 + 0.65 * mag) * (1 - 0.92 * st.dimNot * (through ? 0 : 1));
     poly(P, pts, false);
     ctx.globalAlpha = 1; ctx.lineWidth = 9 - L.k * 2 + 4 * hl; ctx.strokeStyle = `rgba(${C.field},${base * 0.25 + 0.15 * hl * amp})`; ctx.shadowColor = `rgba(${C.field},0.8)`; ctx.shadowBlur = 18; ctx.stroke();
     ctx.lineWidth = 2.8 - L.k * 0.5 + 1.6 * hl; ctx.strokeStyle = `rgba(${C.field},${Math.min(1, base + 0.4 * hl * amp)})`; ctx.shadowBlur = 0; ctx.stroke();
@@ -150,11 +151,11 @@ function drawPad(P, st) {
   const coil = coilPts(PAD.rIn, PAD.rOut, PAD.turns, PAD.coilZ);
   // seen through frosted glass: blurred, faint coil (when not x-rayed)
   const hazy = 1 - st.xray;
-  if (hazy > 0.02) { ctx.save(); ctx.filter = "blur(2.5px)"; drawCoil(P, coil, 7, 0.55 * hazy); ctx.restore(); ctx.filter = "none"; }
   glass(() => hullPath(P, [...top, ...bot]), { tint: lerp(0.22, 0.10, st.xray), dark: 0.06, rim: 2 });
   glass(() => poly(P, top), { tint: lerp(0.28, 0.08, st.xray), sheen: -0.9, rim: 2 });
+  if (hazy > 0.02) { ctx.save(); poly(P, top); ctx.clip(); ctx.filter = "blur(3px)"; drawCoil(P, coil, 7, 0.4 * hazy); ctx.restore(); ctx.filter = "none"; }
   if (st.xray > 0.02) { disc(P, PAD.rOut + 20, PAD.ferZ, C.ferrite, 0.55 * st.xray); drawCoil(P, coil, 10, st.xray, st.warm); }
-  if (st.padDots > 0.01) dots(P, coil, st.padPhase, st.padDots * st.xray);
+  if (st.padDots > 0.01) dots(P, coil, st.padPhase, st.padDots * st.xray, 41);
   // charging indicator ring on the pad's top
   if (st.indicator > 0.01) { ctx.save(); poly(P, circ(PAD.r - 18, PAD.h + 0.5)); ctx.strokeStyle = `rgba(255,74,28,${0.85 * st.indicator * (0.65 + 0.35 * Math.sin(TAU * 0.8 * TNOW))})`; ctx.lineWidth = 3; ctx.shadowColor = "rgba(255,74,28,0.8)"; ctx.shadowBlur = 18; ctx.stroke(); ctx.restore(); }
   if (st.padMagnet > 0.01) magnetRing(P, 0, 0, PAD.h - 14, st.padMagnet, st.padMagnetHL);
@@ -178,13 +179,11 @@ function drawPhone(P, st) {
   if (st.z > 4) shadow(P([st.ox, st.oy, PAD.h])[0], P([st.ox, st.oy, PAD.h])[1], 260 * (1 + st.z / 400), 80, 0.2 / (1 + st.z / 150));
   // inner parts, blurred behind the frosted back
   const hazy = 1 - st.xray;
-  ctx.save(); ctx.globalAlpha = st.phone;
-  if (hazy > 0.02) { ctx.filter = "blur(3px)"; innerParts(PP, st, 0.6 * hazy, coil); ctx.filter = "none"; }
-  ctx.restore();
-  glass(() => hullPath(PP, [...top, ...bot]), { tint: lerp(0.2, 0.06, st.xray), dark: 0.1, rim: 2, a: st.phone });
-  glass(() => poly(PP, top), { tint: lerp(0.26, 0.05, st.xray), sheen: -0.75, rim: 2.6, a: st.phone });
+  glass(() => hullPath(PP, [...top, ...bot]), { tint: lerp(0.12, 0.05, st.xray), dark: 0.1, rim: 2, a: st.phone });
+  glass(() => poly(PP, top), { tint: lerp(0.13, 0.04, st.xray), sheen: -0.75, rim: 2.6, a: st.phone });
+  if (hazy > 0.02) { ctx.save(); ctx.globalAlpha = st.phone; poly(PP, top); ctx.clip(); ctx.filter = "blur(6px)"; innerParts(PP, st, 0.3 * hazy, coil); ctx.filter = "none"; ctx.restore(); }
   if (st.xray > 0.02) { ctx.save(); ctx.globalAlpha = st.phone; innerParts(PP, st, st.xray, coil, true); ctx.restore(); }
-  if (st.rxDots > 0.01) dots(PP, coil, st.rxPhase, st.rxDots * st.xray, 36, 6);
+  if (st.rxDots > 0.01) dots(PP, coil, st.rxPhase, st.rxDots * st.xray, 37, 6);
   if (st.phoneMagnet > 0.01) magnetRing(PP, 0, PH.coilOy, 10, st.phoneMagnet, st.phoneMagnetHL);
   if (st.ringHolder > 0.01) ringHolder(PP, st);
   // the screen: charging bolt + battery level, fades out when x-rayed
@@ -201,10 +200,10 @@ function innerParts(PP, st, a, coil, sharp = false) {
   ctx.save(); ctx.globalAlpha *= a;
   // battery
   poly(PP, rrPts(320, 470, 24, 30).map((p) => [p[0], p[1] + 150 + 30, p[2]])); ctx.fillStyle = "rgba(60,70,90,0.28)"; ctx.fill(); ctx.strokeStyle = "rgba(60,70,90,0.5)"; ctx.lineWidth = 2; ctx.stroke();
-  if (sharp && st.battFill > 0) { poly(PP, rrPts(300, 450 * st.battFill, 18, 31).map((p) => [p[0], p[1] + 180 + 225 * (1 - st.battFill), p[2]])); ctx.fillStyle = "rgba(255,74,28,0.30)"; ctx.fill(); }
+  if (sharp && st.battFill > 0) { poly(PP, rrPts(300, 450 * st.battFill, 18, 31).map((p) => [p[0], p[1] + 180 + 225 * (1 - st.battFill), p[2]])); ctx.fillStyle = "rgba(255,74,28,0.55)"; ctx.fill(); }
   // ferrite above the coil (towards the battery)
-  disc(PP, PH.rOut + 14, PH.ferDz, C.ferrite, sharp ? 0.5 : 0.35, 0, PH.coilOy);
   drawCoil(PP, coil, sharp ? 9 : 6, 1);
+  disc(PP, PH.rOut + 14, PH.ferDz, C.ferrite, sharp ? 0.22 : 0.15, 0, PH.coilOy);
   // the receiver chip near the top + a copper trace from the coil
   poly(PP, rrPts(90, 64, 8, 32).map((p) => [p[0] + 80, p[1] - 330, p[2]])); ctx.fillStyle = "rgba(30,35,45,0.75)"; ctx.fill();
   if (sharp && st.trace > 0.01) { ctx.save(); ctx.globalAlpha *= st.trace; ctx.strokeStyle = C.copper; ctx.lineWidth = 5; ctx.lineCap = "round";
@@ -278,7 +277,7 @@ const CAMS = [
   [T.back + 0.6, 0.66, -0.30, 2300, 2500, 540, 1080, 0, 40, 40],
   [T.tip, 0.66, -0.30, 2300, 2500, 540, 1080, 0, 40, 40],
   [T.tip + 0.6, 0.86, -0.20, 2300, 2450, 540, 1060, 0, 40, 120],
-  [T.end, 0.86, -0.20, 2300, 2450, 540, 1060, 0, 40, 120],
+  [T.end, 0.80, -0.12, 2300, 2700, 540, 1040, 0, 40, 120],
 ];
 function camAt(t) {
   let i = 0; while (i < CAMS.length - 2 && t >= CAMS[i + 1][0]) i++;
@@ -286,7 +285,7 @@ function camAt(t) {
   const v = (k) => lerp(a[k], b[k], u);
   // a slow orbit that never stops (≤ 0.02 rad), no shake
   const orbit = 0.06 * Math.sin(0.5 * t) + 0.02 * Math.sin(1.07 * t + 1);
-  return { el: v(1) + 0.025 * Math.sin(0.7 * t), az: v(2) + orbit, dist: v(3), focal: v(4) * (1 + 0.03 * Math.sin(0.43 * t + 0.5)), cx: v(5) + 26 * Math.cos(0.8 * t) + 7 * Math.sin(1.7 * t), cy: v(6) + 20 * Math.sin(0.8 * t) + 6 * Math.cos(1.3 * t), tx: v(7), ty: v(8), tz: v(9) };   // a slow ellipse drift: the speed never drops to zero
+  return { el: v(1) + 0.025 * Math.sin(0.7 * t), az: v(2) + orbit, dist: 1.8 * v(3), focal: 1.8 * v(4) * (1 + 0.03 * Math.sin(0.43 * t + 0.5)), cx: v(5) + 26 * Math.cos(0.8 * t) + 7 * Math.sin(1.7 * t), cy: v(6) + 20 * Math.sin(0.8 * t) + 6 * Math.cos(1.3 * t), tx: v(7), ty: v(8), tz: v(9) };   // a slow ellipse drift: the speed never drops to zero
 }
 const OMEGA = TAU * 0.9;                        // the "slowed-down" alternating current: 0.9 Hz on screen
 function worldState(t, side = 0) {             // side: 0 single, -1 left, +1 right
@@ -302,7 +301,7 @@ function worldState(t, side = 0) {             // side: 0 single, -1 left, +1 ri
   if (t < T.low) { s.z = drop(T.drop, T.land); s.hand = 1; s.handOut = E.p2io(prog(t, T.land + 0.35, T.land + 1.15)); s.bolt = spring(t - T.bolt, 14, 0.55); s.indicator = E.p3out(prog(t, T.bolt, T.bolt + 0.3)); }
   else s.bolt = 1, s.indicator = 1;
   // ---- 2–4: x-ray in, the coils, the current, the field
-  s.xray = Math.max(0.35 * E.p2io(prog(t, T.cut, T.cut + 0.6)), E.p2io(prog(t, T.push, T.push + 2.2)));
+  s.xray = Math.max(0.75 * E.p2io(prog(t, T.cut, T.cut + 0.6)), E.p2io(prog(t, T.push, T.push + 2.2))); s.screen = 1 - E.p2io(prog(t, T.cut - 0.2, T.cut + 0.3));
   s.oy = lerp(40, -PH.coilOy, E.p2io(prog(t, T.push, T.push + 1.5)));      // centre the phone's coil over the pad's
   s.rot = lerp(0.08, 0, E.p2io(prog(t, T.push, T.push + 1.5)));
   s.padDots = E.p3out(prog(t, T.cur, T.cur + 0.4)); s.padPhase = 2.6 * Math.cos(OMEGA * (t - T.cur)) * 1.0;
@@ -314,16 +313,16 @@ function worldState(t, side = 0) {             // side: 0 single, -1 left, +1 ri
   s.explode = E.p2io(prog(t, T.push + 0.6, T.push + 2.4)) * (1 - E.p2io(prog(t, T.magnet, T.magnet + 0.6)));
   s.z += 240 * s.explode;
   // ---- chip + battery
-  s.trace = E.p2io(prog(t, T.toChip, T.toChip + 0.6)); s.battFill = 0.35 + 0.45 * E.p2io(prog(t, T.batt, T.batt + 1.4));
+  s.trace = E.p2io(prog(t, T.toChip, T.toChip + 0.6)); s.battFill = 0.25 + 0.65 * E.p2io(prog(t, T.batt, T.batt + 1.6));
   // ---- 5: back out to the side view (keep the field), then the comparisons
   if (t >= T.pull) { s.xray = lerp(1, 0.75, E.p2io(prog(t, T.pull, T.pullEnd))); s.spread = lerp(1, 0.92, prog(t, T.dense, T.dense + 1)); }
   if (side === 1 && t < T.magnet) {   // 放歪
-    const u = E.p2io(prog(t, T.split, T.splitEnd)); s.ox = 150 * u; s.oy = lerp(s.oy, s.oy + 60, u); s.rxCenter = [s.ox, s.oy + PH.coilOy];
-    s.dimNot = 0.6 * E.p2io(prog(t, T.litR, T.litR + 0.4));
+    const u = E.p2io(prog(t, T.split, T.splitEnd)); s.ox = -70 * u; s.oy = lerp(s.oy, s.oy + 290, u); s.rxCenter = [s.ox, s.oy + PH.coilOy];
+    s.dimNot = 0.85 * E.p2io(prog(t, T.litR, T.litR + 0.4)); s.throughHL = E.p2io(prog(t, T.litR, T.litR + 0.4));
     s.warm = E.p2io(prog(t, T.warm, T.warm + 0.8)); s.padDots *= 1; s.padPhase *= lerp(1, 1.7, s.warm);
     s.battFill = 0.8 + 0.04 * prog(t, T.slow, T.magnet);
   }
-  if (side === -1 && t < T.magnet) { s.dimNot = 0.6 * E.p2io(prog(t, T.litL, T.litL + 0.4)); s.battFill = 0.8 + 0.12 * prog(t, T.litL, T.magnet); }
+  if (side === -1 && t < T.magnet) { s.dimNot = 0.85 * E.p2io(prog(t, T.litL, T.litL + 0.4)); s.throughHL = E.p2io(prog(t, T.litL, T.litL + 0.4)); s.battFill = 0.8 + 0.12 * prog(t, T.litL, T.magnet); }
   // ---- magnets: back to one view, the phone comes in off-centre and snaps
   if (t >= T.magnet && t < T.pair) {
     s.xray = 0.75; s.padMagnet = E.p2io(prog(t, T.ringTx, T.ringTx + 0.4)); s.phoneMagnet = E.p2io(prog(t, T.ringRx, T.ringRx + 0.4));
@@ -345,7 +344,7 @@ function worldState(t, side = 0) {             // side: 0 single, -1 left, +1 ri
   }
   // ---- closing: the same drop again, then the tip (a metal ring on the back comes off, the phone is nudged straight)
   if (t >= T.back) {
-    s.xray = 0; s.field = 0; s.padDots = 0; s.rxDots = 0; s.trace = 0; s.switchA = 0; s.key = 0; s.phone = 1; s.battFill = 0.4;
+    s.xray = 0; s.screen = 1; s.field = 0; s.padDots = 0; s.rxDots = 0; s.trace = 0; s.switchA = 0; s.key = 0; s.phone = 1; s.battFill = 0.4;
     s.ox = 0; s.oy = 40; s.rot = 0.08; s.z = t < T.drop2 ? 320 : drop(T.drop2, T.land2);
     s.hand = 1; s.handOut = Math.max(1 - E.p3out(prog(t, T.back + 0.2, T.drop2)), E.p2io(prog(t, T.land2 + 0.35, T.land2 + 1.1)));
     s.bolt = t < T.land2 ? 0 : spring(t - T.land2, 14, 0.55); s.indicator = t < T.land2 ? 0 : 1;
@@ -377,6 +376,9 @@ function label(str, x, y, t, t0, t1, o = {}) {
 function leader(x0, y0, x1, y1, k = 1, a = 1) { if (k <= 0) return; ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = "rgba(20,20,20,0.55)"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(lerp(x0, x1, k), lerp(y0, y1, k)); ctx.stroke(); if (k >= 0.99) { ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(x1, y1, 7, 0, TAU); ctx.fill(); } ctx.restore(); }
 function obox(x, y, w, h, k, a = 1) { if (k <= 0.01 || a <= 0.01) return; ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.lineJoin = "round"; const p = 2 * (w + h) * k; ctx.setLineDash([p, 1e5]); ctx.beginPath(); ctx.roundRect(x, y, w, h, 18); ctx.stroke(); ctx.restore(); }
 function spotlight(cx, cy, rx, ry, a) { if (a <= 0.01) return; ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.ellipse(cx, cy, rx, ry, 0, 0, TAU); ctx.fillStyle = `rgba(236,238,241,${0.5 * a})`; ctx.filter = "blur(30px)"; ctx.fill("evenodd"); ctx.filter = "none"; ctx.restore(); }
+function acdcGlyph(x, y, a) { if (a <= 0.01) return; ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = C.acc; ctx.fillStyle = C.acc; ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.beginPath(); for (let i = 0; i <= 30; i++) { const xx = x + i * 3, yy = y + 14 * Math.sin(i / 30 * TAU * 1.5); i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke(); ctx.beginPath(); ctx.moveTo(x + 110, y); ctx.lineTo(x + 200, y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x + 214, y); ctx.lineTo(x + 196, y - 11); ctx.lineTo(x + 196, y + 11); ctx.closePath(); ctx.fill(); ctx.restore(); }
+function veil(x, a) { if (a <= 0.01) return; ctx.save(); ctx.filter = "blur(40px)"; ctx.fillStyle = `rgba(236,238,241,${0.6 * a})`; ctx.fillRect(x + 30, 660, 480, 780); ctx.restore(); ctx.filter = "none"; }
+function battIcon(x, y, f, a) { if (a <= 0.01) return; ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = C.ink; ctx.lineWidth = 4; ctx.beginPath(); ctx.roundRect(x - 50, y - 22, 92, 44, 9); ctx.stroke(); ctx.fillStyle = C.ink; ctx.fillRect(x + 44, y - 9, 7, 18); ctx.fillStyle = C.acc; ctx.beginPath(); ctx.roundRect(x - 44, y - 16, 80 * clamp(f), 32, 5); ctx.fill(); ctx.restore(); }
 function arrowS(x0, y0, x1, y1, k, a = 1) { if (k <= 0.01) return; const x = lerp(x0, x1, k), y = lerp(y0, y1, k), ang = Math.atan2(y1 - y0, x1 - x0); ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = C.acc; ctx.fillStyle = C.acc; ctx.lineWidth = 6; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x, y); ctx.stroke(); ctx.translate(x, y); ctx.rotate(ang); ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-8, -12); ctx.lineTo(-8, 12); ctx.closePath(); ctx.fill(); ctx.restore(); }
 function bubble(str, x, y, t, t0, t1) {
   if (t < t0 || t >= t1) return; const s = spring(t - t0, 16, 0.55), e = 1 - prog(t, t1 - 0.2, t1), font = `700 52px ${UI}`, wv = mw(font, str);
@@ -436,6 +438,7 @@ function drawWorld(P, st) {
   drawField(P, st);
   if (st.key > 0.01) drawKey(P, st.key);
   const PP = drawPhone(P, st);
+  drawField(P, st, true);      // the lines that thread the phone's coil, drawn over the glass
   if (PP && st.hand > 0.01 && st.handOut < 0.999) drawHand(PP, st.hand, st.handOut);
   return PP;
 }
@@ -458,8 +461,8 @@ function frame(t) {
   if (sk < 0.001) {
     const P = makeP(cam), st = worldState(t, 0); const PP = drawWorld(P, st); annotate(t, P, PP, st);
   } else {
-    const shrink = lerp(1, 0.7, sk);
-    const camL = { ...cam, focal: cam.focal * shrink, cx: lerp(540, 285, sk) }, camR = { ...cam, focal: cam.focal * shrink, cx: lerp(540 + 540, 800, sk) };
+    const shrink = lerp(1, 0.64, sk);
+    const camL = { ...cam, focal: cam.focal * shrink, cx: lerp(540, 285, sk), cy: cam.cy + 20 * sk }, camR = { ...cam, focal: cam.focal * shrink, cx: lerp(540 + 540, 800, sk), cy: cam.cy + 20 * sk };
     const PL = makeP(camL), PR = makeP(camR);
     const stL = worldState(t, -1), stR = worldState(t, 1);
     ctx.save(); ctx.beginPath(); ctx.rect(0, 0, lerp(W, 540, sk), H); ctx.clip(); const PPL = drawWorld(PL, stL); ctx.restore();
@@ -482,16 +485,17 @@ function annotate(t, P, PP, st) {
   if (t >= T.litTx && t < T.cur + 2.0) { const k = E.p3out(prog(t, T.litTx, T.litTx + 0.3)); leader(150, txC[1] - 110, txC[0] - 200, txC[1] - 10, k); label(COPY.tx, 96, txC[1] - 130, t, T.litTx, T.cur + 2.0); }
   if (t >= T.litRx && t < T.cur + 2.0) { const k = E.p3out(prog(t, T.litRx, T.litRx + 0.3)); leader(150, rxC[1] - 130, rxC[0] - 120, rxC[1] - 8, k); label(COPY.rx, 96, rxC[1] - 150, t, T.litRx, T.cur + 2.0); }
   label(COPY.freq, 540, 1430, t, T.cur, T.q2, { size: 44, weight: 400, align: "center" });
-  label(COPY.color, 540, 1430, t, T.q2, T.name, { size: 44, weight: 400, align: "center" });
   // cause → effect arrows: 电流 → 磁 → 电
   if (t >= T.field && t < T.name) arrowS(txC[0] + 330, txC[1] + 40, txC[0] + 330, txC[1] - 120, E.p3out(prog(t, T.field + 0.3, T.field + 0.8)), 1 - prog(t, T.name - 0.3, T.name));
   if (t >= T.rxCur && t < T.name) arrowS(rxC[0] + 330, rxC[1] - 10, rxC[0] + 250, rxC[1] - 70, E.p3out(prog(t, T.rxCur + 0.2, T.rxCur + 0.6)), 1 - prog(t, T.name - 0.3, T.name));
   label(COPY.induct, 540, 1430, t, T.name + 0.3, T.q3, { size: 44, align: "center", col: C.ink });
   // the chip: AC → DC
-  if (PP && t >= T.chip && t < T.q4) { const c = PP([80, -330, 32]); const k = E.p3out(prog(t, T.chip, T.chip + 0.3)); spotlight(c[0], c[1], 220, 160, win(t, T.chip, T.batt + 0.4, 0.3, 0.3)); obox(c[0] - 70, c[1] - 60, 140, 120, k, 1 - prog(t, T.q4 - 0.3, T.q4)); label(COPY.acdc, c[0] + 100, c[1] - 70, t, T.chip, T.q4); }
+  if (PP && t >= T.chip && t < T.q4) { const c = PP([80, -330, 32]); const k = E.p3out(prog(t, T.chip, T.chip + 0.3)); spotlight(c[0], c[1], 220, 160, win(t, T.chip, T.batt + 0.4, 0.3, 0.3)); obox(c[0] - 70, c[1] - 60, 140, 120, k, 1 - prog(t, T.q4 - 0.3, T.q4)); label(COPY.acdc, c[0] - 90, c[1] - 70, t, T.chip, T.q4, { align: "right" }); acdcGlyph(c[0] - 330, c[1] - 10, E.p3out(prog(t, T.chip + 0.2, T.chip + 0.6)) * (1 - prog(t, T.q4 - 0.3, T.q4)));
+    const bt = PP([0, 180, 30]), bA = win(t, T.batt, T.q4, 0.3, 0.3); obox(bt[0] - 150, bt[1] - 120, 300, 240, E.p3out(prog(t, T.batt, T.batt + 0.3)), bA); arrowS(c[0] - 10, c[1] + 60, bt[0] + 20, bt[1] - 120, E.p3out(prog(t, T.batt, T.batt + 0.4)), bA); }
   // the dense field over the coil
   if (t >= T.dense && t < T.q5) { const c = P([0, 0, 120]); obox(c[0] - 170, c[1] - 170, 340, 260, E.p3out(prog(t, T.dense + 0.2, T.dense + 0.6)), 1 - prog(t, T.q5 - 0.3, T.q5)); }
-  label("间距放大 · 示意", 1000, 700, t, T.push + 1.6, T.magnet, { size: 44, weight: 400, align: "right" });
+  label("间距放大 · 示意", 1000, 700, t, T.push + 0.6, T.magnet, { size: 44, weight: 400, align: "right" });
+  label(COPY.color, 1000, 776, t, T.field, T.magnet, { size: 44, weight: 400, align: "right" });
   // magnets
   label(COPY.qi2, 540, 1430, t, T.ringTx, T.q6, { size: 44, align: "center" });
   // tip: the metal ring
@@ -504,31 +508,34 @@ function annotateSplit(t, PL, PR, PPL, PPR, stL, stR, sk) {
     label(COPY.tilted, 800, 1430, t, T.split + 0.4, T.magnet, { size: 48, align: "center", col: t >= T.litR ? C.ink : "rgba(20,20,20,0.6)" });
     // one side at a time
     const onL = win(t, T.litL, T.litR, 0.3, 0.2), onR = E.p2io(prog(t, T.litR, T.litR + 0.3));
-    ctx.save(); ctx.fillStyle = `rgba(236,238,241,${0.55 * onL})`; ctx.fillRect(540, 640, 540, 820); ctx.fillStyle = `rgba(236,238,241,${0.55 * onR})`; ctx.fillRect(0, 640, 540, 820); ctx.restore();
+    veil(540, onL); veil(0, onR);
+    const bA = E.p2io(prog(t, T.litL, T.litL + 0.4)) * (1 - prog(t, T.magnet - 0.3, T.magnet));
+    battIcon(285, 1350, 0.35 + 0.55 * E.p2io(prog(t, T.litL, T.magnet)), bA); battIcon(800, 1350, 0.35 + 0.15 * E.p2io(prog(t, T.slow, T.magnet)), bA);
   } else {
     label(COPY.phone, 285, 1430, t, T.pair + 0.4, T.back, { size: 48, align: "center" });
     label(COPY.key, 800, 1430, t, T.pair + 0.4, T.back, { size: 48, align: "center" });
     const onL = win(t, T.replyL, T.silentR, 0.3, 0.2) + E.p2io(prog(t, T.talk, T.talk + 0.3)), onR = win(t, T.silentR, T.talk, 0.3, 0.3);
-    ctx.save(); ctx.fillStyle = `rgba(236,238,241,${0.55 * clamp(onL)})`; ctx.fillRect(540, 640, 540, 820); ctx.fillStyle = `rgba(236,238,241,${0.55 * onR})`; ctx.fillRect(0, 640, 540, 820); ctx.restore();
-    meter(285, 1300, t, E.p2io(prog(t, T.ping - 0.3, T.ping)) * sk, "reply");
-    meter(800, 1300, t, E.p2io(prog(t, T.ping - 0.3, T.ping)) * sk, "none");
-    label(COPY.load, 285, 1220, t, T.replyL, T.silentR + E8 * 2, { size: 44, align: "center" });
-    if (PPL) { const c = PPL([0, -200, PH.t]); bubble(COPY.more, c[0], c[1] - 40, t, T.bub1, T.a14); bubble(COPY.less, c[0], c[1] + 90, t, T.bub2, T.a14); }
+    veil(540, clamp(onL)); veil(0, onR);
+    const mA = E.p2io(prog(t, T.ping - 0.3, T.ping)) * sk;
+    [[PL, 285, "reply"], [PR, 800, "none"]].forEach(([P, x, mode]) => { const f = P([0, -PAD.r, 0]); leader(x, 1250, f[0], f[1] + 4, 1, mA); meter(x, 1310, t, mA, mode); });
+    label(COPY.reads, 285, 1236, t, T.ping, T.back, { size: 44, align: "center" });
+    if (PPL) { const c = PPL([30, -250, 34]); label(COPY.load, c[0], c[1] - 40, t, T.replyL, T.silentR + E8 * 2, { size: 44, align: "center" }); }
+    if (PPL) { const c = PPL([0, -200, PH.t]); bubble(COPY.more, c[0] - 105, c[1] - 20, t, T.bub1, T.a14); bubble(COPY.less, c[0] + 110, c[1] - 20, t, T.bub2, T.a14); }
   }
 }
 // ================================================================ end card
-const BADGE = [880, 520];
+const BADGE = [200, 600], BSC = 0.34;
 function endCard(t) {
   const k = E.p3io(prog(t, T.end, T.endMorph + 0.3));
-  ctx.save(); const sc = lerp(0.95, 0.24, k), cx = lerp(540, BADGE[0], k), cy = lerp(1000, BADGE[1], k);
+  ctx.save(); const sc = lerp(0.95, BSC, k), cx = lerp(540, BADGE[0], k), cy = lerp(1000, BADGE[1], k);
   ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.strokeStyle = C.ink; ctx.lineWidth = 6 / sc * 0.4 + 6; ctx.lineJoin = "round";
   ctx.beginPath(); ctx.ellipse(0, 120, 330, 110, 0, 0, TAU); ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.fill(); ctx.stroke();
   ctx.beginPath(); ctx.roundRect(-190, -330, 380, 520, 60); ctx.fillStyle = "rgba(255,255,255,0.75)"; ctx.fill(); ctx.stroke();
   ctx.restore();
   typeLines(COPY.end, t, T.title1, [905, 1045, 1185], 124);
-  slamLine(COPY.epNum, t, T.ep, 96, 520, 150);
-  if (t >= T.ep + 0.25) { const a = clamp((t - T.ep - 0.25) / 0.2); ctx.save(); ctx.globalAlpha = a; ctx.filter = `blur(${(8 * (1 - a)).toFixed(1)}px)`; ctx.font = `112px ${DISPLAY}`; ctx.fillStyle = C.ink; ctx.fillText(COPY.epName, 100, 668); ctx.restore(); }
-  if (t >= T.sting) { const s2 = spring(t - T.sting, 16, 0.5); ctx.save(); ctx.translate(BADGE[0], BADGE[1]); ctx.scale(s2, s2); ctx.font = `150px ${DISPLAY}`; ctx.fillStyle = C.acc; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("?", 4, 4); ctx.restore(); }
+  slamLine(COPY.epNum, t, T.ep, 400, 520, 150);
+  if (t >= T.ep + 0.25) { const a = clamp((t - T.ep - 0.25) / 0.2); ctx.save(); ctx.globalAlpha = a; ctx.filter = `blur(${(8 * (1 - a)).toFixed(1)}px)`; ctx.font = `112px ${DISPLAY}`; ctx.fillStyle = C.ink; ctx.fillText(COPY.epName, 404, 668); ctx.restore(); }
+  if (t >= T.sting) { const s2 = spring(t - T.sting, 16, 0.5); ctx.save(); ctx.translate(BADGE[0], BADGE[1] - 70 * BSC); ctx.scale(s2 * 0.7, s2 * 0.7); ctx.font = `150px ${DISPLAY}`; ctx.fillStyle = C.acc; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("?", 4, 4); ctx.restore(); }
 }
 function typeLines(L, t, t0, ys, size) {
   const font = `${size}px ${DISPLAY}`; let n = 0;
