@@ -121,10 +121,11 @@ function loopPts(r0, r1, zb, zt, phi, ox = 0, oy = 0) {
   return pts;   // starts at the inner bottom, goes up the inner leg first
 }
 const LOOPS = []; for (let k = 0; k < 3; k++) for (let j = 0; j < 7; j++) LOOPS.push({ k, phi: (j / 7) * TAU + k * 0.45, r0: 40 + k * 75, r1: 300 + k * 35, zt: 110 + k * 35 });
+// the field of the pad coil as flowing light: each closed loop carries beads that drift along it; the drift follows the current
+// (st.flow = ∫ I dt), so the beads run up through the middle, slow, stop and run back when the current reverses.
 function drawField(P, st, front = false) {
   const amp = st.field; if (amp <= 0.01) return;
-  const sgn = st.fieldSign, mag = Math.abs(st.fieldI);
-  const rx = st.rxCenter;   // [x, y] of the phone coil (for "through" highlighting)
+  const mag = Math.abs(st.fieldI), rx = st.rxCenter;
   ctx.save(); ctx.lineCap = "round";
   for (const L of LOOPS) {
     const pts = loopPts(L.r0, L.r1 * st.spread, PAD.ferZ, L.zt * st.reach * (1 + 1.2 * (st.explode || 0)), L.phi);
@@ -132,13 +133,20 @@ function drawField(P, st, front = false) {
     const through = rx ? Math.hypot(inner[0] - rx[0], inner[1] - rx[1]) < PH.rOut * 0.92 : false;
     const hl = through ? st.throughHL : 0;
     if (front && (!through || hl < 0.01)) continue;
-    const base = (front ? 0.9 * hl : 1) * (0.42 - L.k * 0.08) * amp * (0.35 + 0.65 * mag) * (1 - 0.92 * st.dimNot * (through ? 0 : 1));
-    poly(P, pts, false);
-    ctx.globalAlpha = 1; ctx.lineWidth = 9 - L.k * 2 + 4 * hl; ctx.strokeStyle = `rgba(${C.field},${base * 0.25 + 0.15 * hl * amp})`; ctx.shadowColor = `rgba(${C.field},0.8)`; ctx.shadowBlur = 18; ctx.stroke();
-    ctx.lineWidth = 2.8 - L.k * 0.5 + 1.6 * hl; ctx.strokeStyle = `rgba(${C.field},${Math.min(1, base + 0.4 * hl * amp)})`; ctx.shadowBlur = 0; ctx.stroke();
-    // a chevron at the top of the loop, pointing with the field
-    if (L.k === 0 && mag > 0.2) { const i = 48, a0 = P(pts[i - 3]), a1 = P(pts[i + 3]); const ang = Math.atan2(a1[1] - a0[1], a1[0] - a0[0]) + (sgn < 0 ? Math.PI : 0); const m = P(pts[i]);
-      ctx.save(); ctx.translate(m[0], m[1]); ctx.rotate(ang); ctx.globalAlpha = amp * mag; ctx.fillStyle = `rgba(${C.field},0.95)`; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(-8, -8); ctx.lineTo(-8, 8); ctx.closePath(); ctx.fill(); ctx.restore(); }
+    const dim = 1 - 0.75 * st.dimNot * (through ? 0 : 1);
+    const base = (front ? 0.9 * hl : 1) * (0.30 - L.k * 0.06) * amp * (0.45 + 0.55 * mag) * dim;
+    const S = pts.map(P);
+    ctx.beginPath(); S.forEach((q, i) => (i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])));
+    ctx.globalAlpha = 1; ctx.lineWidth = 2 + 1.5 * hl; ctx.strokeStyle = `rgba(${C.field},${Math.min(1, base + 0.25 * hl * amp)})`; ctx.stroke();
+    // beads
+    const nB = 7, a = Math.min(1, (0.55 + 0.45 * mag) * amp * dim * (front ? hl : 1) + 0.35 * hl * amp);
+    ctx.fillStyle = `rgba(${C.field},${a})`; ctx.shadowColor = `rgba(${C.field},0.9)`; ctx.shadowBlur = 12;
+    for (let b = 0; b < nB; b++) {
+      let u = (b / nB + st.flow * 0.18 + L.k * 0.05 + L.phi * 0.02) % 1; if (u < 0) u += 1;
+      const f = u * (S.length - 1), i = Math.floor(f), q0 = S[i], q1 = S[Math.min(S.length - 1, i + 1)], w = f - i;
+      ctx.beginPath(); ctx.arc(lerp(q0[0], q1[0], w), lerp(q0[1], q1[1], w), (5 + 2 * hl) * (L.k === 0 ? 1 : 0.8), 0, TAU); ctx.fill();
+    }
+    ctx.shadowBlur = 0;
   }
   ctx.restore();
 }
@@ -170,30 +178,60 @@ function magnetRing(P, ox, oy, z, a, hl) {
   ctx.restore();
 }
 function phoneFrame(st) { const c = Math.cos(st.rot), s = Math.sin(st.rot); return (p) => [st.ox + p[0] * c - p[1] * s, st.oy + p[0] * s + p[1] * c, p[2] + st.z]; }
+// a real phone lying screen-up: brushed-metal frame, black glass, a dark wallpaper, the camera pill, and the charging ring.
+// It turns into frosted glass only when we go inside (st.xray).
+function drawRealPhone(PP, st, a) {
+  if (a <= 0.01) return;
+  const top = rrPts(PH.w, PH.h, 72, PH.t), bot = rrPts(PH.w, PH.h, 72, 0), mid = rrPts(PH.w, PH.h, 72, PH.t * 0.5);
+  ctx.save(); ctx.globalAlpha = a;
+  // frame (the visible side band): a metal gradient across the screen-space bounds
+  const hb = hull2([...top, ...bot].map(PP)); let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; hb.forEach(([x, y]) => { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); });
+  ctx.beginPath(); hb.forEach((q, i) => (i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.closePath();
+  const gm = ctx.createLinearGradient(x0, y0, x1, y1); gm.addColorStop(0, "#E9ECEF"); gm.addColorStop(0.35, "#A7AEB7"); gm.addColorStop(0.55, "#F4F5F7"); gm.addColorStop(0.8, "#8E959E"); gm.addColorStop(1, "#C9CED4");
+  ctx.fillStyle = gm; ctx.fill(); ctx.strokeStyle = "rgba(40,45,55,0.55)"; ctx.lineWidth = 1.5; ctx.stroke();
+  poly(PP, mid); ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = 1.2; ctx.stroke();        // the frame's highlight line
+  // side buttons on the left long edge
+  [[-120, 70], [10, 70], [-260, 40]].forEach(([y, l]) => { poly(PP, [[-PH.w / 2 - 5, y, PH.t * 0.35], [-PH.w / 2 - 5, y + l, PH.t * 0.35], [-PH.w / 2 - 5, y + l, PH.t * 0.7], [-PH.w / 2 - 5, y, PH.t * 0.7]]); ctx.fillStyle = "#9AA1AA"; ctx.fill(); });
+  // black glass
+  poly(PP, top); ctx.fillStyle = "#0B0D11"; ctx.fill();
+  // the display: a dark gradient wallpaper, slightly inset
+  const scr = rrPts(PH.w - 26, PH.h - 26, 60, PH.t + 0.3); const c = PP([0, 0, PH.t]), tl = PP([-PH.w / 2, -PH.h / 2, PH.t]), br = PP([PH.w / 2, PH.h / 2, PH.t]);
+  poly(PP, scr); const gw = ctx.createLinearGradient(tl[0], tl[1], br[0], br[1]); gw.addColorStop(0, "#1C2740"); gw.addColorStop(0.5, "#2A2140"); gw.addColorStop(1, "#3A2232"); ctx.fillStyle = gw; ctx.fill();
+  // the camera pill near the top
+  poly(PP, rrPts(110, 32, 16, PH.t + 0.6).map((p) => [p[0], p[1] - PH.h / 2 + 60, p[2]])); ctx.fillStyle = "#000"; ctx.fill();
+  // the charging ring: a circle on the screen; its lit arc turns at the charging rate, and goes grey when charging stops
+  if (st.charge > 0.01) {
+    const R = 86, n = 64, cy0 = -40, k = st.charge;
+    const ring = Array.from({ length: n + 1 }, (_, i) => { const t = i / n * TAU; return [R * Math.cos(t), cy0 + R * Math.sin(t), PH.t + 0.8]; });
+    ctx.globalAlpha = a * k; poly(PP, ring, false); ctx.strokeStyle = "rgba(255,255,255,0.18)"; ctx.lineWidth = 7; ctx.stroke();
+    const ph = st.chargePhase || 0, arc = ring.slice(0, Math.round(n * 0.32) + 1).map(([x, y, z]) => { const t = Math.atan2(y - cy0, x) + ph; return [R * Math.cos(t), cy0 + R * Math.sin(t), z]; });
+    poly(PP, arc, false); ctx.strokeStyle = st.chargeOn ? C.acc : "rgba(170,175,185,0.8)"; ctx.lineWidth = 8; ctx.lineCap = "round"; if (st.chargeOn) { ctx.shadowColor = "rgba(255,74,28,0.9)"; ctx.shadowBlur = 16; } ctx.stroke(); ctx.shadowBlur = 0;
+    const b = PP([0, cy0, PH.t + 1]); bolt(b[0], b[1], 0.75, a * k * (st.chargeOn ? 1 : 0.35));
+  }
+  // glass reflection: one soft diagonal streak
+  ctx.save(); ctx.globalAlpha = a; poly(PP, top); ctx.clip(); const gr = ctx.createLinearGradient(tl[0], tl[1], br[0], br[1]);
+  const sh = 0.38 + 0.08 * Math.sin(0.6 * TNOW); gr.addColorStop(sh - 0.08, "rgba(255,255,255,0)"); gr.addColorStop(sh, "rgba(255,255,255,0.10)"); gr.addColorStop(sh + 0.02, "rgba(255,255,255,0.03)"); gr.addColorStop(sh + 0.12, "rgba(255,255,255,0)");
+  ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H); ctx.restore();
+  poly(PP, top); ctx.strokeStyle = "rgba(20,22,28,0.9)"; ctx.lineWidth = 2; ctx.stroke();
+  ctx.restore();
+}
 function drawPhone(P, st) {
   if (st.phone <= 0.01) return;
   const F = phoneFrame(st), PP = (p) => P(F(p));
   const top = rrPts(PH.w, PH.h, 72, PH.t), bot = rrPts(PH.w, PH.h, 72, 0);
   const coil = coilPts(PH.rIn, PH.rOut, PH.turns, PH.coilDz, 0, PH.coilOy, 0.6);
-  const c0 = PP([0, 0, 0]);
-  if (st.z > 4) shadow(P([st.ox, st.oy, PAD.h])[0], P([st.ox, st.oy, PAD.h])[1], 260 * (1 + st.z / 400), 80, 0.2 / (1 + st.z / 150));
-  // inner parts, blurred behind the frosted back
-  const hazy = 1 - st.xray;
-  glass(() => hullPath(PP, [...top, ...bot]), { tint: lerp(0.12, 0.05, st.xray), dark: 0.1, rim: 2, a: st.phone });
-  glass(() => poly(PP, top), { tint: lerp(0.13, 0.04, st.xray), sheen: -0.75, rim: 2.6, a: st.phone });
-  if (hazy > 0.02) { ctx.save(); ctx.globalAlpha = st.phone; poly(PP, top); ctx.clip(); ctx.filter = "blur(6px)"; innerParts(PP, st, 0.3 * hazy, coil); ctx.filter = "none"; ctx.restore(); }
-  if (st.xray > 0.02) { ctx.save(); ctx.globalAlpha = st.phone; innerParts(PP, st, st.xray, coil, true); ctx.restore(); }
+  if (st.z > 4) { const s0 = P([st.ox, st.oy, PAD.h]); shadow(s0[0], s0[1], 260 * (1 + st.z / 400), 80, 0.22 / (1 + st.z / 150)); }
+  if (st.ringHolder > 0.01 && st.ringLift < 0.01) ringHolder(PP, st);
+  drawRealPhone(PP, st, st.phone * (1 - st.xray));
+  if (st.xray > 0.01) {
+    glass(() => hullPath(PP, [...top, ...bot]), { tint: 0.06, dark: 0.1, rim: 2, a: st.phone * st.xray });
+    glass(() => poly(PP, top), { tint: 0.05, sheen: -0.75, rim: 2.6, a: st.phone * st.xray });
+    ctx.save(); ctx.globalAlpha = st.phone; innerParts(PP, st, st.xray, coil, true); ctx.restore();
+  }
   if (st.rxDots > 0.01) dots(PP, coil, st.rxPhase, st.rxDots * st.xray, 37, 6);
   if (st.phoneMagnet > 0.01) magnetRing(PP, 0, PH.coilOy, 10, st.phoneMagnet, st.phoneMagnetHL);
-  if (st.ringHolder > 0.01) ringHolder(PP, st);
-  // the screen: charging bolt + battery level, fades out when x-rayed
-  const ui = st.phone * (1 - st.xray) * st.screen;
-  if (ui > 0.02) {
-    const sc = PP([0, -40, PH.t]);
-    const rg = ctx.createRadialGradient(sc[0], sc[1], 0, sc[0], sc[1], 230); rg.addColorStop(0, `rgba(255,120,70,${0.3 * st.bolt * ui})`); rg.addColorStop(1, "rgba(255,120,70,0)");
-    ctx.save(); poly(PP, top); ctx.clip(); ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H); ctx.restore();
-    if (st.bolt > 0.01) bolt(sc[0], sc[1], 1.2 * (0.6 + 0.4 * st.bolt), ui * st.bolt);
-  }
+  if (st.ringHolder > 0.01 && st.ringLift >= 0.01) ringHolder(PP, st);
+  if (st.eddy > 0.01) eddyLoops(PP, st);
   return PP;
 }
 function innerParts(PP, st, a, coil, sharp = false) {
@@ -251,7 +289,8 @@ function drawHand(PP, a, out = 0) {
   ctx.fillStyle = "rgba(196,150,108,0.55)"; Hd.shade2.forEach((p) => { path(p); ctx.fill(); });
   ctx.fillStyle = "rgba(255,238,222,0.55)"; Hd.light.forEach((p) => { path(p); ctx.fill(); });
   ctx.filter = "none";
-  ctx.strokeStyle = "rgba(170,120,85,0.55)"; ctx.lineWidth = 3; ctx.lineJoin = "round"; Hd.crease.forEach((p) => { ctx.beginPath(); p.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke(); });
+  const cr = (w, col, blur) => { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineJoin = "round"; ctx.filter = blur ? `blur(${blur}px)` : "none"; Hd.crease.forEach((p) => { ctx.beginPath(); p.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke(); }); ctx.filter = "none"; };
+  cr(22, "rgba(150,100,70,0.38)", Math.max(1.5, 7 * sc)); cr(6, "rgba(150,100,70,0.55)", Math.max(0.8, 1.5 * sc));
   ctx.restore();
   path(Hd.outline); ctx.strokeStyle = "rgba(180,130,95,0.6)"; ctx.lineWidth = 2.5; ctx.stroke();
   ctx.restore();
@@ -262,18 +301,18 @@ const CAMS = [
   [0, 0.66, -0.30, 2300, 2500, 540, 1080, 0, 40, 40],
   [T.land, 0.64, -0.27, 2300, 2560, 540, 1070, 0, 40, 40],
   [T.low, 0.56, -0.20, 2300, 3050, 540, 1040, 0, 40, 40],
-  [T.lowEnd, 0.16, -0.18, 1500, 2350, 540, 1040, 0, 0, 60],
-  [T.push, 0.17, -0.20, 1500, 2350, 540, 1040, 0, 0, 60],
+  [T.lowEnd, 0.16, -0.18, 1500, 2350, 540, 1040, 0, 0, 90],
+  [T.push, 0.17, -0.20, 1500, 2350, 540, 1040, 0, 0, 90],
   [T.pushEnd, 0.36, -0.26, 1900, 2250, 540, 1150, 0, 0, 170],
-  [T.toChip, 0.40, -0.30, 1900, 2250, 540, 1150, 0, 0, 170],
-  [T.chip, 0.66, -0.22, 2300, 2350, 540, 1060, 0, -80, 200],
-  [T.pull, 0.66, -0.22, 2300, 2350, 540, 1060, 0, -80, 200],
-  [T.pullEnd, 0.22, -0.06, 1900, 2350, 540, 1080, 0, 0, 190],
-  [T.magnet, 0.22, -0.06, 1900, 2350, 540, 1080, 0, 0, 190],
-  [T.magnet + 0.7, 0.62, -0.25, 2200, 2400, 540, 1050, 0, 0, 50],
-  [T.pair, 0.62, -0.25, 2200, 2400, 540, 1050, 0, 0, 50],
-  [T.pairEnd, 0.70, -0.20, 2200, 2400, 540, 1050, 0, 0, 50],
-  [T.back, 0.70, -0.20, 2200, 2400, 540, 1050, 0, 0, 50],
+  [T.backPad, 0.36, -0.26, 1900, 2250, 540, 1150, 0, 0, 170],
+  [T.name + 2.5, 0.30, -0.12, 1900, 2250, 540, 1140, 0, 0, 170],
+  [T.pull, 0.30, -0.12, 1900, 2250, 540, 1140, 0, 0, 170],
+  [T.pullEnd, 0.30, -0.02, 2150, 2250, 540, 1120, 90, 0, 160],
+  [T.magnet, 0.30, -0.02, 2150, 2250, 540, 1120, 90, 0, 160],
+  [T.magnet + 0.8, 0.42, -0.20, 2150, 2300, 540, 1110, 0, 0, 130],
+  [T.metal, 0.42, -0.20, 2150, 2300, 540, 1110, 0, 0, 130],
+  [T.metalIn + 0.8, 0.26, -0.16, 1750, 2350, 540, 1100, 0, 0, 120],
+  [T.back, 0.26, -0.16, 1750, 2350, 540, 1100, 0, 0, 120],
   [T.back + 0.6, 0.66, -0.30, 2300, 2500, 540, 1080, 0, 40, 40],
   [T.tip, 0.66, -0.30, 2300, 2500, 540, 1080, 0, 40, 40],
   [T.tip + 0.6, 0.86, -0.20, 2300, 2450, 540, 1060, 0, 40, 120],
@@ -283,80 +322,77 @@ function camAt(t) {
   let i = 0; while (i < CAMS.length - 2 && t >= CAMS[i + 1][0]) i++;
   const a = CAMS[i], b = CAMS[i + 1], u = b[0] > a[0] ? E.p3io(prog(t, a[0], b[0])) : 1;
   const v = (k) => lerp(a[k], b[k], u);
-  // a slow orbit that never stops (≤ 0.02 rad), no shake
   const orbit = 0.06 * Math.sin(0.5 * t) + 0.02 * Math.sin(1.07 * t + 1);
-  return { el: v(1) + 0.025 * Math.sin(0.7 * t), az: v(2) + orbit, dist: 1.8 * v(3), focal: 1.8 * v(4) * (1 + 0.03 * Math.sin(0.43 * t + 0.5)), cx: v(5) + 26 * Math.cos(0.8 * t) + 7 * Math.sin(1.7 * t), cy: v(6) + 20 * Math.sin(0.8 * t) + 6 * Math.cos(1.3 * t), tx: v(7), ty: v(8), tz: v(9) };   // a slow ellipse drift: the speed never drops to zero
+  return { el: v(1) + 0.025 * Math.sin(0.7 * t), az: v(2) + orbit, dist: 1.8 * v(3), focal: 1.8 * v(4) * (1 + 0.03 * Math.sin(0.43 * t + 0.5)),
+    cx: v(5) + 26 * Math.cos(0.8 * t) + 7 * Math.sin(1.7 * t), cy: v(6) + 20 * Math.sin(0.8 * t) + 6 * Math.cos(1.3 * t), tx: v(7), ty: v(8), tz: v(9) };
 }
 const OMEGA = TAU * 0.9;                        // the "slowed-down" alternating current: 0.9 Hz on screen
-function worldState(t, side = 0) {             // side: 0 single, -1 left, +1 right
+const flowAt = (t, t0) => (t < t0 ? 0 : (1 - Math.cos(OMEGA * (t - t0))) * 1.6);     // ∫ sin → the beads go up, stop, come back
+function worldState(t) {
   const s = {
-    xray: 0, field: 0, fieldI: 0, fieldSign: 1, spread: 1, reach: 1, throughHL: 0, dimNot: 0, rxCenter: null,
-    padDots: 0, padPhase: 0, rxDots: 0, rxPhase: 0, indicator: 0, warm: 0, padMagnet: 0, padMagnetHL: 0,
-    phone: 1, ox: 0, oy: 40, z: 0, rot: 0.08, bolt: 0, screen: 1, battFill: 0.35, trace: 0, switchA: 0, switchOn: 0,
-    phoneMagnet: 0, phoneMagnetHL: 0, explode: 0, handOut: 0, rxGlow: 0, ringHolder: 0, ringLift: 0, key: 0, hand: 0,
+    xray: 0, field: 0, fieldI: 0, flow: 0, spread: 1, reach: 1, throughHL: 0, dimNot: 0, rxCenter: null,
+    padDots: 0, padPhase: 0, padSpeed: 1, rxDots: 0, rxPhase: 0, indicator: 0, warm: 0, padMagnet: 0, padMagnetHL: 0,
+    phone: 1, ox: 0, oy: 40, z: 0, rot: 0.08, bolt: 0, screen: 1, battFill: 0.3, trace: 0, switchA: 0, switchOn: 0,
+    phoneMagnet: 0, phoneMagnetHL: 0, explode: 0, handOut: 0, rxGlow: 0, ringHolder: 0, ringLift: 0, hand: 0, eddy: 0,
+    charge: 0, chargeOn: 1, chargePhase: 0,
   };
-  const I = Math.sin(OMEGA * (t - T.cur)); s.fieldI = I; s.fieldSign = Math.sign(I) || 1;
-  // ---- 1: the drop
-  const drop = (t0, t1) => { const u = prog(t, t0, t1); return 320 * (1 - E.p3out(u)) + (u >= 1 ? 0 : 0); };
-  if (t < T.low) { s.z = drop(T.drop, T.land); s.hand = 1; s.handOut = E.p2io(prog(t, T.land + 0.35, T.land + 1.15)); s.bolt = spring(t - T.bolt, 14, 0.55); s.indicator = E.p3out(prog(t, T.bolt, T.bolt + 0.3)); }
-  else s.bolt = 1, s.indicator = 1;
-  // ---- 2–4: x-ray in, the coils, the current, the field
-  s.xray = Math.max(0.75 * E.p2io(prog(t, T.cut, T.cut + 0.6)), E.p2io(prog(t, T.push, T.push + 2.2))); s.screen = 1 - E.p2io(prog(t, T.cut - 0.2, T.cut + 0.3));
-  s.oy = lerp(40, -PH.coilOy, E.p2io(prog(t, T.push, T.push + 1.5)));      // centre the phone's coil over the pad's
-  s.rot = lerp(0.08, 0, E.p2io(prog(t, T.push, T.push + 1.5)));
-  s.padDots = E.p3out(prog(t, T.cur, T.cur + 0.4)); s.padPhase = 2.6 * Math.cos(OMEGA * (t - T.cur)) * 1.0;
-  s.field = E.p2io(prog(t, T.field, T.field + 0.8)); s.reach = lerp(0.55, 1, E.p2io(prog(t, T.through, T.through + 1.0)));
-  s.throughHL = win(t, T.through + 0.4, T.name + 1.0, 0.5, 0.5);
-  s.rxCenter = [s.ox, s.oy + PH.coilOy];
-  s.rxDots = E.p3out(prog(t, T.rxCur, T.rxCur + 0.4)); s.rxGlow = win(t, T.rxCur, T.name + 0.6, 0.3, 0.4);
-  if (t < T.pull) s.field *= lerp(1, 0.35, win(t, T.rxCur, T.name + 0.6, 0.4, 0.5)); s.rxPhase = 2.4 * Math.cos(OMEGA * (t - T.cur) - 1.2);
-  // ---- exploded view (gap enlarged, schematic) from the push-in until the magnets
+  const I = Math.sin(OMEGA * (t - T.cur)); s.fieldI = I; s.flow = flowAt(t, T.cur);
+  const drop = (t0, t1) => 320 * (1 - E.p3out(prog(t, t0, t1)));
+  s.charge = E.p3out(prog(t, T.bolt, T.bolt + 0.4)); s.chargePhase = 2.2 * t;
+  // ---- 1–3: the drop, the cut, the push in
+  if (t < T.low) { s.z = drop(T.drop, T.land); s.hand = 1; s.handOut = E.p2io(prog(t, T.land + 0.35, T.land + 1.15)); s.indicator = E.p3out(prog(t, T.bolt, T.bolt + 0.3)); }
+  else s.indicator = 1;
+  s.xray = Math.max(0.8 * E.p2io(prog(t, T.cut, T.cut + 0.6)), E.p2io(prog(t, T.push, T.push + 2.0)));
+  s.oy = lerp(40, -PH.coilOy, E.p2io(prog(t, T.push, T.push + 1.5))); s.rot = lerp(0.08, 0, E.p2io(prog(t, T.push, T.push + 1.5)));
   s.explode = Math.max(0.55 * E.p2io(prog(t, T.cut, T.cut + 0.6)), E.p2io(prog(t, T.push + 0.6, T.push + 2.4))) * (1 - E.p2io(prog(t, T.magnet, T.magnet + 0.6)));
-  s.z += 240 * s.explode;
-  // ---- chip + battery
-  s.trace = E.p2io(prog(t, T.toChip, T.toChip + 0.6)); s.battFill = 0.25 + 0.65 * E.p2io(prog(t, T.batt, T.batt + 1.6));
-  // ---- 5: back out to the side view (keep the field), then the comparisons
-  if (t >= T.pull) { s.xray = lerp(1, 0.75, E.p2io(prog(t, T.pull, T.pullEnd))); s.spread = lerp(1, 0.92, prog(t, T.dense, T.dense + 1)); }
-  if (side === 1 && t < T.magnet) {   // 放歪
-    const u = E.p2io(prog(t, T.split, T.splitEnd)); s.ox = -70 * u; s.oy = lerp(s.oy, s.oy + 290, u); s.rxCenter = [s.ox, s.oy + PH.coilOy];
-    s.dimNot = 0.7 * E.p2io(prog(t, T.litR, T.litR + 0.4)); s.throughHL = E.p2io(prog(t, T.litR, T.litR + 0.4));
-    s.warm = E.p2io(prog(t, T.warm, T.warm + 0.8)); s.padDots *= 1; s.padPhase *= lerp(1, 1.7, s.warm);
-    s.battFill = 0.8 + 0.04 * prog(t, T.slow, T.magnet);
-  }
-  if (side === -1 && t < T.magnet) { s.dimNot = 0.85 * E.p2io(prog(t, T.litL, T.litL + 0.4)); s.throughHL = E.p2io(prog(t, T.litL, T.litL + 0.4)); s.battFill = 0.8 + 0.12 * prog(t, T.litL, T.magnet); }
-  // ---- magnets: back to one view, the phone comes in off-centre and snaps
-  if (t >= T.magnet && t < T.pair) {
-    s.xray = 0.75; s.padMagnet = E.p2io(prog(t, T.ringTx, T.ringTx + 0.4)); s.phoneMagnet = E.p2io(prog(t, T.ringRx, T.ringRx + 0.4));
+  // ---- 4 (after the lab): the pad's current, the flowing field, the phone's coil
+  s.padDots = E.p3out(prog(t, T.cur, T.cur + 0.4)); s.padPhase = 2.6 * Math.cos(OMEGA * (t - T.cur));
+  s.field = E.p2io(prog(t, T.cur + 0.2, T.cur + 1.0)); s.reach = lerp(0.6, 1, E.p2io(prog(t, T.through, T.through + 1.0)));
+  s.throughHL = E.p2io(prog(t, T.through, T.through + 0.6));
+  s.rxCenter = [s.ox, s.oy + PH.coilOy];
+  s.rxDots = E.p3out(prog(t, T.rxCur, T.rxCur + 0.4)); s.rxPhase = 2.4 * Math.cos(OMEGA * (t - T.cur) - 1.2); s.rxGlow = win(t, T.rxCur, T.name + 0.8, 0.3, 0.4);
+  if (t < T.pull) s.field *= lerp(1, 0.4, win(t, T.rxCur, T.name + 0.8, 0.4, 0.5));
+  s.battFill = 0.3 + 0.3 * E.p2io(prog(t, T.batt, T.batt + 1.4));
+  // ---- 5a: slide out (fewer lines thread the coil, the pad works harder, heat), slide back, magnets
+  const slide = E.p2io(prog(t, T.slide, T.slideEnd)) * (1 - E.p2io(prog(t, T.slideBack, T.slideBackEnd)));
+  if (t >= T.pull && t < T.magnet) { s.ox = 270 * slide; s.rxCenter = [s.ox, s.oy + PH.coilOy]; s.dimNot = 0.8 * slide; s.padSpeed = 1 + 1.3 * slide; s.warm = slide * E.p2io(prog(t, T.hot, T.hot + 0.8)); }
+  if (t >= T.magnet && t < T.metal) {
+    s.padMagnet = E.p2io(prog(t, T.ringTx, T.ringTx + 0.4)); s.phoneMagnet = E.p2io(prog(t, T.ringRx, T.ringRx + 0.4));
     s.padMagnetHL = win(t, T.ringTx, T.snap + 0.6, 0.3, 0.3); s.phoneMagnetHL = win(t, T.ringRx, T.snap + 0.6, 0.3, 0.3);
-    const sn = t < T.snap ? 0 : E.back(clamp((t - T.snap) / 0.22)); s.ox = lerp(230, 0, sn); s.oy = lerp(-PH.coilOy + 110, -PH.coilOy, sn); s.z = t < T.snap ? 10 : 0;
-    s.field = 0.7; s.battFill = 0.9;
+    const sn = t < T.snap ? 0 : E.back(clamp((t - T.snap) / 0.22)); s.ox = lerp(230, 0, sn); s.oy = lerp(-PH.coilOy + 110, -PH.coilOy, sn); s.z = t < T.snap ? 12 : 0;
+    s.rxCenter = [s.ox, s.oy + PH.coilOy]; s.xray = 0.85; s.explode = 0;
   }
-  // ---- talking: 手机 (left) / 钥匙 (right)
-  if (t >= T.pair && t < T.back) {
-    s.xray = 0.85; s.field = 0; s.padDots = 0; s.rxDots = 0; s.padMagnet = 0; s.phoneMagnet = 0; s.battFill = 0.6;
-    const ping = win(t, T.ping, T.ping + 0.9, 0.12, 0.5); s.field = 0.9 * ping; s.reach = 0.8; s.fieldI = 1; s.fieldSign = 1;
-    if (side === 1) { s.phone = 0; s.key = 1; s.indicator = 1 - E.p2io(prog(t, T.silentR + 0.6, T.silentR + 1.4)); }
-    else {
-      s.switchA = E.p2io(prog(t, T.replyL - 0.1, T.replyL + 0.2));
-      const blink = (t0, n, per) => { for (let i = 0; i < n; i++) { const tt = t - (t0 + i * per); if (tt >= 0 && tt < per * 0.5) return 1; } return 0; };
-      s.switchOn = Math.max(blink(T.replyL, 4, E8 * 2) * (t < T.silentR ? 1 : 0), t >= T.talk ? blink(T.talk, 12, E8) : 0);
-      if (t >= T.talk) { s.field = 0.55 + 0.25 * Math.sin(TAU * 0.8 * (t - T.talk)); s.padDots = 1; s.padPhase = 2 * Math.cos(OMEGA * t); }
-    }
+  // ---- 5b: metal between them: eddies, heat, the pad stops
+  if (t >= T.metal && t < T.back) {
+    s.explode = 0.6 * E.p2io(prog(t, T.metal, T.metalIn + 0.4)); s.xray = 0.9; s.padMagnet = 0; s.phoneMagnet = 0;
+    s.ringHolder = E.p2io(prog(t, T.metalIn - 0.2, T.metalIn + 0.4)); s.ringLift = 0;
+    s.eddy = E.p2io(prog(t, T.eddy, T.eddy + 0.5));
+    s.padSpeed = 1 + 0.6 * s.eddy;
+    const off = E.p2io(prog(t, T.stop, T.stop + 0.6));
+    s.field *= 1 - off; s.padDots *= 1 - off; s.rxDots *= 1 - off; s.eddy *= 1 - off; s.indicator = 1 - off; s.throughHL *= 1 - off;
   }
-  // ---- closing: the same drop again, then the tip (a metal ring on the back comes off, the phone is nudged straight)
+  s.padPhase *= s.padSpeed;
+  // ---- 6: closing + tip
   if (t >= T.back) {
-    s.xray = 0; s.screen = 1; s.field = 0; s.padDots = 0; s.rxDots = 0; s.trace = 0; s.switchA = 0; s.key = 0; s.phone = 1; s.battFill = 0.4;
-    s.ox = 0; s.oy = 40; s.rot = 0.08; s.z = t < T.drop2 ? 320 : drop(T.drop2, T.land2);
+    s.xray = 0; s.screen = 1; s.field = 0; s.padDots = 0; s.rxDots = 0; s.trace = 0; s.phone = 1; s.battFill = 0.4; s.explode = 0; s.eddy = 0; s.ringHolder = 0; s.warm = 0;
+    s.ox = 0; s.oy = 40; s.rot = 0.08; s.z = t < T.drop2 ? 320 : drop(T.drop2, T.land2); s.indicator = t < T.land2 ? 0 : 1;
     s.hand = 1; s.handOut = Math.max(1 - E.p3out(prog(t, T.back + 0.2, T.drop2)), E.p2io(prog(t, T.land2 + 0.35, T.land2 + 1.1)));
-    s.bolt = t < T.land2 ? 0 : spring(t - T.land2, 14, 0.55); s.indicator = t < T.land2 ? 0 : 1;
+    s.charge = t < T.land2 ? 0 : E.p3out(prog(t, T.land2, T.land2 + 0.4));
   }
   if (t >= T.tip) {
     s.xray = 0.6 * E.p2io(prog(t, T.tip, T.tip + 0.5)); s.ringHolder = 1 - E.p2io(prog(t, T.ringOff + 0.4, T.ringOff + 0.9)); s.ringLift = E.p2io(prog(t, T.ringOff, T.ringOff + 0.8));
-    const nu = E.back(clamp((t - T.nudge) / 0.35)); s.ox = lerp(120, 0, t < T.nudge ? 0 : nu); s.oy = lerp(-PH.coilOy + 110, -PH.coilOy, t < T.nudge ? 0 : nu); s.rot = lerp(0.18, 0, t < T.nudge ? 0 : nu);
-    s.bolt = t < T.nudge ? 0.35 : 1; s.indicator = t < T.nudge ? 0.4 : 1; s.hand = 0;
-    s.padDots = 0;
+    const nu = t < T.nudge ? 0 : E.back(clamp((t - T.nudge) / 0.35)); s.ox = lerp(120, 0, nu); s.oy = lerp(-PH.coilOy + 110, -PH.coilOy, nu); s.rot = lerp(0.18, 0, nu);
+    s.chargeOn = t >= T.nudge; s.indicator = t < T.nudge ? 0.4 : 1; s.hand = 0;
   }
+  // charging speed shown by the phone's ring: proportional to how well the coils couple
+  s.chargePhase = 2.2 * t * (1 - 0.75 * (s.dimNot || 0));
   return s;
+}
+function eddyLoops(PP, st) {
+  const c = [0, PH.coilOy + 40], z = -4;
+  ctx.save(); ctx.globalAlpha = st.eddy; ctx.strokeStyle = C.acc; ctx.lineCap = "round"; ctx.shadowColor = "rgba(255,74,28,0.9)"; ctx.shadowBlur = 10;
+  [30, 55, 80].forEach((r, i) => { poly(PP, circ(r, z, 48, c[0], c[1])); ctx.lineWidth = 4; ctx.setLineDash([16, 12]); ctx.lineDashOffset = -TNOW * (60 + 20 * i); ctx.stroke(); });
+  ctx.setLineDash([]); ctx.restore();
 }
 
 // ================================================================ screen-space helpers
@@ -438,17 +474,142 @@ function drawSubs(t) {
 function drawWorld(P, st) {
   drawPad(P, st);
   drawField(P, st);
-  if (st.key > 0.01) drawKey(P, st.key);
   const PP = drawPhone(P, st);
   drawField(P, st, true);      // the lines that thread the phone's coil, drawn over the glass
   if (PP && st.hand > 0.01 && st.handOut < 0.999) drawHand(PP, st.hand, st.handOut);
   return PP;
 }
-function splitK(t) {   // 0 single → 1 side by side
-  const a = E.p3io(prog(t, T.split, T.splitEnd)) * (1 - E.p3io(prog(t, T.magnet - 0.05, T.magnet + 0.5)));
-  const b = E.p3io(prog(t, T.pair, T.pairEnd)) * (1 - E.p3io(prog(t, T.back, T.back + 0.6)));
-  return Math.max(a, b);
+// ---------------------------------------------------------------- the lab: a magnet pushed into a coil lights a lamp
+const LAB = { cx: 520, cy: 1000, len: 540, r: 150, turns: 14 };
+function magnetX(t) {        // the magnet's centre (screen x); it enters the coil from the right
+  const rest = 1020, inside = 580;
+  if (t < T.magIn1) return lerp(1260, rest, E.p3out(prog(t, T.labIn, T.labIn + 0.45)));
+  if (t < T.magStop) return lerp(rest, inside, E.p2io(prog(t, T.magIn1, T.magIn1 + 0.42)));
+  if (t < T.magOut1) return inside;
+  if (t < T.shake) return lerp(inside, rest, E.p2io(prog(t, T.magOut1, T.magOut1 + 0.42)));
+  const per = 4 * E8;  // in and out once per two beats
+  return lerp(rest, inside, 0.5 - 0.5 * Math.cos(TAU * (t - T.shake) / per));
 }
+function drawLab(t) {
+  const x = magnetX(t), v = (magnetX(t + 1 / 60) - magnetX(t - 1 / 60)) * 30;   // px per second; < 0 = going in
+  const inLit = clamp(-v / 900), outLit = clamp(v / 900);
+  const { cx, cy, len, r, turns } = LAB, x0 = cx - len / 2;
+  const tx = (i) => x0 + (i + 0.5) * len / turns;
+  ctx.save();
+  // shadow
+  shadow(cx + 60, cy + r + 70, 420, 40, 0.18);
+  // the board with two lamps under the coil, wires up to the coil ends
+  const lampY = 1340, lampA = [cx - 95, lampY], lampB = [cx + 95, lampY];
+  ctx.strokeStyle = C.copper; ctx.lineWidth = 6; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(x0 + 6, cy + r - 10); ctx.bezierCurveTo(x0 - 40, cy + r + 120, lampA[0] - 120, lampY - 30, lampA[0] - 40, lampY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x0 + len - 6, cy + r - 10); ctx.bezierCurveTo(x0 + len + 40, cy + r + 120, lampB[0] + 120, lampY - 30, lampB[0] + 40, lampY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(lampA[0] - 40, lampY); ctx.lineTo(lampB[0] + 40, lampY); ctx.stroke();
+  [[lampA, inLit], [lampB, outLit]].forEach(([p, lit]) => {
+    if (lit > 0.02) { const g = ctx.createRadialGradient(p[0], p[1] - 30, 0, p[0], p[1] - 30, 240); g.addColorStop(0, `rgba(255,220,140,${lit})`); g.addColorStop(0.35, `rgba(255,190,90,${0.5 * lit})`); g.addColorStop(1, "rgba(255,214,140,0)"); ctx.fillStyle = g; ctx.fillRect(p[0] - 260, p[1] - 290, 520, 520); }
+    ctx.fillStyle = "#59606B"; ctx.fillRect(p[0] - 22, p[1] - 6, 44, 26);
+    ctx.beginPath(); ctx.arc(p[0], p[1] - 22, 30, Math.PI, 0); ctx.lineTo(p[0] + 30, p[1] - 4); ctx.lineTo(p[0] - 30, p[1] - 4); ctx.closePath();
+    ctx.fillStyle = lit > 0.02 ? `rgb(${Math.round(lerp(225, 255, lit))},${Math.round(lerp(228, 236, lit))},${Math.round(lerp(232, 190, lit))})` : "rgba(230,233,238,0.9)"; ctx.fill(); ctx.strokeStyle = "rgba(90,96,108,0.6)"; ctx.lineWidth = 2; ctx.stroke();
+  });
+  // back halves of the turns, the glass tube
+  ctx.lineCap = "round";
+  for (let i = 0; i < turns; i++) { ctx.beginPath(); ctx.ellipse(tx(i), cy, 20, r, 0, Math.PI / 2, 1.5 * Math.PI); ctx.strokeStyle = C.copperDk; ctx.lineWidth = 9; ctx.stroke(); }
+  glass(() => { ctx.beginPath(); ctx.roundRect(x0 - 10, cy - r + 14, len + 20, 2 * r - 28, 24); }, { tint: 0.25, rim: 2 });
+  // the magnet's field (flowing out of N, round to S) and the magnet
+  const mL = 360, mH = 110, nX = x - mL / 2;       // N on the left (it goes in first)
+  ctx.save(); ctx.lineWidth = 2.5;
+  for (const [ry, sgn] of [[60, -1], [120, -1], [60, 1], [120, 1]]) {
+    const pts = []; for (let k = 0; k <= 40; k++) { const a = Math.PI * k / 40; pts.push([x - (mL / 2 + 10) * Math.cos(a), cy + sgn * (mH / 2 + ry * Math.sin(a))]); }
+    ctx.strokeStyle = `rgba(${C.field},0.45)`; ctx.beginPath(); pts.forEach((q, k) => (k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.stroke();
+    ctx.fillStyle = `rgba(${C.field},0.9)`; for (let b = 0; b < 3; b++) { const u = (b / 3 + 0.35 * t) % 1, q = pts[Math.floor(u * 40)]; ctx.beginPath(); ctx.arc(q[0], q[1], 7, 0, TAU); ctx.fill(); }
+  }
+  ctx.restore();
+  ctx.save(); ctx.shadowColor = "rgba(30,40,60,0.25)"; ctx.shadowBlur = 20; ctx.shadowOffsetY = 10;
+  ctx.fillStyle = "#C8413B"; ctx.beginPath(); ctx.roundRect(nX, cy - mH / 2, mL / 2, mH, [14, 0, 0, 14]); ctx.fill();
+  ctx.fillStyle = "#8D949E"; ctx.beginPath(); ctx.roundRect(nX + mL / 2, cy - mH / 2, mL / 2, mH, [0, 14, 14, 0]); ctx.fill(); ctx.restore();
+  ctx.fillStyle = "rgba(255,255,255,0.25)"; ctx.fillRect(nX + 10, cy - mH / 2 + 8, mL - 20, 10);
+  ctx.font = `700 48px ${UI}`; ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("N", nX + mL / 4, cy + 2); ctx.fillText("S", nX + 3 * mL / 4, cy + 2); ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  // front halves of the turns, with the induced current running through them while the magnet moves
+  for (let i = 0; i < turns; i++) { ctx.beginPath(); ctx.ellipse(tx(i), cy, 20, r, 0, -Math.PI / 2, Math.PI / 2); ctx.strokeStyle = C.copper; ctx.lineWidth = 10; ctx.stroke(); ctx.strokeStyle = "rgba(255,225,190,0.5)"; ctx.lineWidth = 3; ctx.stroke(); }
+  const flow = (inLit - outLit), sp = t * 3;
+  if (Math.abs(flow) > 0.05) { ctx.fillStyle = "#FF6A3D"; ctx.shadowColor = "rgba(255,74,28,0.9)"; ctx.shadowBlur = 12; ctx.globalAlpha = Math.min(1, Math.abs(flow) * 1.5);
+    for (let i = 0; i < turns; i++) for (let k = 0; k < 2; k++) { let u = ((k / 2 + sp * Math.sign(flow) + i * 0.13) % 1 + 1) % 1; const ang = -Math.PI / 2 + Math.PI * u; ctx.beginPath(); ctx.arc(tx(i) + 20 * Math.cos(ang), cy + r * Math.sin(ang), 6, 0, TAU); ctx.fill(); }
+    ctx.shadowBlur = 0; ctx.globalAlpha = 1; }
+  ctx.restore();
+}
+// ---------------------------------------------------------------- AC → DC close-up inside the phone
+function drawACDC(t) {
+  const y = 1040, xC = 210, xChip = 560, xB = 820, chip = E.p3out(prog(t, T.rect - 0.1, T.rect + 0.35));
+  ctx.save();
+  // the receiver coil's edge on the left
+  for (let k = 0; k < 6; k++) { ctx.beginPath(); ctx.arc(-160, y, 260 + k * 22, -0.55, 0.55); ctx.strokeStyle = C.copperDk; ctx.lineWidth = 12; ctx.stroke(); ctx.strokeStyle = C.copper; ctx.lineWidth = 9; ctx.stroke(); }
+  // the battery on the right, filling when it gets one-way current
+  const bw = 250, bh = 440, bx = xB, by = y - bh / 2, fill = 0.3 + 0.5 * E.p2io(prog(t, T.batt, T.pull));
+  glass(() => { ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 28); }, { tint: 0.4, rim: 2.5 });
+  ctx.fillStyle = "rgba(255,74,28,0.6)"; ctx.beginPath(); ctx.roundRect(bx + 16, by + 16 + (bh - 32) * (1 - fill), bw - 32, (bh - 32) * fill, 18); ctx.fill();
+  ctx.fillStyle = C.ink; ctx.fillRect(bx + bw / 2 - 36, by - 18, 72, 18);
+  // the trace
+  ctx.strokeStyle = C.copper; ctx.lineWidth = 14; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(xC, y); ctx.lineTo(bx, y); ctx.stroke();
+  // the battery's door: one way only
+  ctx.fillStyle = C.ink; ctx.beginPath(); ctx.moveTo(bx - 10, y - 26); ctx.lineTo(bx + 18, y); ctx.lineTo(bx - 10, y + 26); ctx.closePath(); ctx.fill();
+  // beads: back and forth before the chip (or all the way, before the chip exists); one way after it
+  ctx.fillStyle = "#FF6A3D"; ctx.shadowColor = "rgba(255,74,28,0.9)"; ctx.shadowBlur = 12;
+  const swing = 70 * Math.sin(OMEGA * 1.6 * (t - T.wire));
+  const leftEnd = chip > 0.5 ? xChip - 60 : bx - 20;
+  for (let k = 0; k < 14; k++) { const xx = xC + 20 + k * 46 + swing; if (xx < leftEnd && xx > xC) { ctx.beginPath(); ctx.arc(xx, y, 8, 0, TAU); ctx.fill(); } }
+  if (chip > 0.5) for (let k = 0; k < 6; k++) { const xx = xChip + 70 + ((k * 40 + (t - T.rect) * 160) % 240); if (xx < bx - 10) { ctx.beginPath(); ctx.arc(xx, y, 8, 0, TAU); ctx.fill(); } }
+  ctx.shadowBlur = 0;
+  // the "bounce": before the chip, current flowing the wrong way hits the door
+  if (chip < 0.5 && t > T.wire + 0.6) { const bounce = clamp(-Math.cos(OMEGA * 1.6 * (t - T.wire))); ctx.save(); ctx.globalAlpha = bounce; ctx.strokeStyle = C.acc; ctx.lineWidth = 6; ctx.lineCap = "round"; line2(bx - 56, y - 30, bx - 26, y + 30); line2(bx - 56, y + 30, bx - 26, y - 30); ctx.restore(); }
+  // the chip slides in, with its little before/after plot
+  if (chip > 0.01) {
+    ctx.save(); ctx.globalAlpha = chip; const cyy = y - 40 * (1 - chip);
+    ctx.fillStyle = "#1F242C"; ctx.beginPath(); ctx.roundRect(xChip - 60, cyy - 50, 120, 100, 12); ctx.fill();
+    ctx.strokeStyle = "#9AA1AA"; ctx.lineWidth = 4; for (let k = -2; k <= 2; k++) { line2(xChip + k * 22, cyy - 50, xChip + k * 22, cyy - 64); line2(xChip + k * 22, cyy + 50, xChip + k * 22, cyy + 64); }
+    const gy = 790, wv = (x0, w, f) => { ctx.beginPath(); for (let i = 0; i <= 40; i++) { const xx = x0 + i * w / 40; ctx.lineTo(xx, gy - f(i / 40)); } ctx.stroke(); };
+    ctx.strokeStyle = "rgba(20,20,20,0.25)"; ctx.lineWidth = 2; line2(250, gy, 470, gy); line2(650, gy, 870, gy);
+    ctx.strokeStyle = C.acc; ctx.lineWidth = 5; wv(250, 220, (u) => 50 * Math.sin(u * TAU * 2)); wv(650, 220, () => 45);
+    arrowS(490, gy, 630, gy, 1, chip);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+function line2(x0, y0, x1, y1) { ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
+// ---------------------------------------------------------------- thermal view (示意): blue tint, hot spots, rising shimmer
+function thermal(k, spots) {
+  if (k <= 0.01) return;
+  ctx.save(); ctx.globalCompositeOperation = "color"; ctx.fillStyle = `rgba(28,40,140,${0.9 * k})`; ctx.fillRect(0, 0, W, H); ctx.restore();
+  ctx.save(); ctx.globalCompositeOperation = "multiply"; ctx.fillStyle = `rgba(90,110,190,${0.45 * k})`; ctx.fillRect(0, 0, W, H); ctx.restore();
+  for (const [x, y, r, h] of spots) {
+    if (h <= 0.01) continue;
+    const a = k * h, g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(255,248,170,${a})`); g.addColorStop(0.22, `rgba(255,205,50,${a})`); g.addColorStop(0.5, `rgba(250,110,30,${0.9 * a})`);
+    g.addColorStop(0.75, `rgba(210,40,60,${0.6 * a})`); g.addColorStop(1, "rgba(120,30,120,0)");
+    ctx.save(); ctx.fillStyle = g; ctx.fillRect(x - r, y - r, 2 * r, 2 * r); ctx.restore();
+    ctx.save(); ctx.globalAlpha = 0.6 * a; ctx.strokeStyle = "rgba(255,200,120,1)"; ctx.lineWidth = 4; ctx.lineCap = "round"; ctx.filter = "blur(2px)";
+    for (let j = -2; j <= 2; j++) { ctx.beginPath(); for (let i = 0; i <= 16; i++) { const yy = y - r * 0.35 - i * 12 - ((TNOW * 90) % 12), xx = x + j * 60 + 12 * Math.sin(i * 0.7 - TNOW * 7 + j); i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke(); }
+    ctx.restore(); ctx.filter = "none";
+  }
+}
+// ---------------------------------------------------------------- power bars (异物检测)
+function fodBars(t) {
+  const a = win(t, T.bars, T.back, 0.3, 0.3); if (a <= 0.01) return;
+  const x0 = 150, w0 = 700, y1 = 1250, y2 = 1350, got = 0.62 * E.p2io(prog(t, T.bars + 0.3, T.gap));
+  ctx.save(); ctx.globalAlpha = a; ctx.font = `700 44px ${UI}`;
+  const bar = (y, f, col) => { ctx.fillStyle = "rgba(20,20,20,0.1)"; ctx.beginPath(); ctx.roundRect(x0 + 190, y - 34, w0 - 190, 40, 12); ctx.fill(); ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(x0 + 190, y - 34, (w0 - 190) * f, 40, 12); ctx.fill(); };
+  ctx.fillStyle = C.ink; ctx.fillText(COPY.sent, x0 - 40, y1); ctx.fillText(COPY.got, x0 - 40, y2);
+  bar(y1, E.p2io(prog(t, T.bars, T.bars + 0.4)), "#59606B"); bar(y2, got, "#59606B");
+  const g = E.p2io(prog(t, T.gap, T.gap + 0.4));
+  if (g > 0.01) { const gx = x0 + 190 + (w0 - 190) * 0.62; ctx.globalAlpha = a * g; ctx.fillStyle = "rgba(235,60,40,0.85)"; ctx.beginPath(); ctx.roundRect(gx, y1 - 34, (w0 - 190) * 0.38, 40, 12); ctx.fill();
+    ctx.strokeStyle = C.acc; ctx.lineWidth = 4; ctx.setLineDash([8, 8]); line2(gx, y1 - 44, gx, y2 + 12); ctx.setLineDash([]); }
+  ctx.restore();
+}
+function iris(t, tIn, drawA, drawB, cx = 540, cy = 1040) {   // B grows out of a circle over 0.5 s
+  const k = E.p3io(prog(t, tIn, tIn + 0.5));
+  if (k <= 0) { drawA(); return; } if (k >= 1) { drawB(); return; }
+  drawA(); ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, 1300 * k, 0, TAU); ctx.clip(); ctx.drawImage(BG, 0, 0); drawB(); ctx.restore();
+  ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, 1300 * k, 0, TAU); ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineWidth = 4; ctx.stroke(); ctx.restore();
+}
+function worldScene(t) { const cam = camAt(t), P = makeP(cam), st = worldState(t); const PP = drawWorld(P, st); annotate(t, P, PP, st); }
 function frame(t) {
   TNOW = t;
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.filter = "none"; ctx.drawImage(BG, 0, 0);
@@ -459,73 +620,50 @@ function frame(t) {
     g2.addColorStop(0, "rgba(255,170,130,0.13)"); g2.addColorStop(1, "rgba(255,170,130,0)"); ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H);
   }
   if (t >= T.end) { endCard(t); return; }
-  const cam = camAt(t), sk = splitK(t);
-  if (sk < 0.001) {
-    const P = makeP(cam), st = worldState(t, 0); const PP = drawWorld(P, st); annotate(t, P, PP, st);
-  } else {
-    const shrink = lerp(1, 0.64, sk);
-    const camL = { ...cam, focal: cam.focal * shrink, cx: lerp(540, 285, sk), cy: cam.cy + 20 * sk }, camR = { ...cam, focal: cam.focal * shrink, cx: lerp(540 + 540, 800, sk), cy: cam.cy + 20 * sk };
-    const PL = makeP(camL), PR = makeP(camR);
-    const stL = worldState(t, -1), stR = worldState(t, 1);
-    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, lerp(W, 540, sk), H); ctx.clip(); const PPL = drawWorld(PL, stL); ctx.restore();
-    ctx.save(); ctx.globalAlpha = sk; ctx.beginPath(); ctx.rect(lerp(W, 540, sk), 0, W, H); ctx.clip(); const PPR = drawWorld(PR, stR); ctx.restore();
-    // divider
-    ctx.save(); ctx.globalAlpha = 0.6 * sk; ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(540, 700); ctx.lineTo(540, 1420); ctx.stroke(); ctx.restore();
-    annotateSplit(t, PL, PR, PPL, PPR, stL, stR, sk);
-  }
+  if (t < T.labIn + 0.5) iris(t, T.labIn, () => worldScene(t), () => drawLab(t));
+  else if (t < T.backPad) drawLab(t);
+  else if (t < T.wire) iris(t, T.backPad, () => drawLab(t), () => worldScene(t));
+  else if (t < T.pull) iris(t, T.wire, () => worldScene(t), () => drawACDC(t), 540, 1100);
+  else iris(t, T.pull, () => drawACDC(t), () => worldScene(t));
+  labLabels(t);
   drawSubs(t);
 }
+function labLabels(t) {
+  if (t >= T.wire && t < T.pull + 0.3) label(COPY.rectNote, 560, 1240, t, T.rect, T.pull, { size: 44, align: "center" });
+}
 function annotate(t, P, PP, st) {
+  const txC = P([0, 0, PAD.coilZ]), rxC = PP ? PP([0, PH.coilOy, PH.coilDz]) : txC;
   // 2: where the two shells meet — no contacts
   if (t >= T.cut && t < T.q1 + 0.4) { const a = P([-PAD.r * 0.2, 0, PAD.h + 70]), b = P([PAD.r * 0.2, 0, PAD.h + 70]); const k = E.p3out(prog(t, T.cut, T.cut + 0.4)), fo = 1 - prog(t, T.q1, T.q1 + 0.4);
     obox(Math.min(a[0], b[0]) - 260, a[1] - 150, Math.abs(b[0] - a[0]) + 520, 300, k, fo); }
-  // 3: the two coils, one at a time (spotlight + label)
-  const txC = P([0, 0, PAD.coilZ]), rxC = PP ? PP([0, PH.coilOy, PH.coilDz]) : txC;
-  const litTx = win(t, T.litTx, T.a3 + 0.3, 0.3, 0.3), litRx = win(t, T.litRx, T.a3 + 0.3, 0.3, 0.3);
-  spotlight(txC[0], txC[1] + 10, 520, 230, litTx * (1 - litRx));
-  spotlight(rxC[0], rxC[1], 520, 230, litRx);
-  if (t >= T.litTx && t < T.cur + 2.0) { const k = E.p3out(prog(t, T.litTx, T.litTx + 0.3)); leader(150, txC[1] - 110, txC[0] - 200, txC[1] - 10, k); label(COPY.tx, 96, txC[1] - 130, t, T.litTx, T.cur + 2.0); }
-  if (t >= T.litRx && t < T.cur + 2.0) { const k = E.p3out(prog(t, T.litRx, T.litRx + 0.3)); leader(150, rxC[1] - 130, rxC[0] - 120, rxC[1] - 8, k); label(COPY.rx, 96, rxC[1] - 150, t, T.litRx, T.cur + 2.0); }
-  label(COPY.freq, 540, 1430, t, T.cur, T.q2, { size: 44, weight: 400, align: "center" });
-  // cause → effect arrows: 电流 → 磁 → 电
-  if (t >= T.field && t < T.name) arrowS(txC[0] + 330, txC[1] + 40, txC[0] + 330, txC[1] - 120, E.p3out(prog(t, T.field + 0.3, T.field + 0.8)), 1 - prog(t, T.name - 0.3, T.name));
-  if (t >= T.rxCur && t < T.name) arrowS(rxC[0] + 330, rxC[1] - 10, rxC[0] + 250, rxC[1] - 70, E.p3out(prog(t, T.rxCur + 0.2, T.rxCur + 0.6)), 1 - prog(t, T.name - 0.3, T.name));
-  label(COPY.induct, 540, 1430, t, T.name + 0.3, T.q3, { size: 44, align: "center", col: C.ink });
-  // the chip: AC → DC
-  if (PP && t >= T.chip && t < T.q4) { const c = PP([80, -330, 32]); const k = E.p3out(prog(t, T.chip, T.chip + 0.3)); spotlight(c[0], c[1], 220, 160, win(t, T.chip, T.batt + 0.4, 0.3, 0.3)); obox(c[0] - 70, c[1] - 60, 140, 120, k, 1 - prog(t, T.q4 - 0.3, T.q4)); label(COPY.acdc, c[0] - 90, c[1] - 70, t, T.chip, T.q4, { align: "right" }); { const e = PP([PH.rOut * Math.cos(0.6), PH.coilOy + PH.rOut * Math.sin(0.6), PH.coilDz]), m = [(e[0] + c[0]) / 2 + 40, (e[1] + c[1]) / 2]; waveGlyph(m[0], m[1], E.p3out(prog(t, T.chip + 0.2, T.chip + 0.6)) * (1 - prog(t, T.q4 - 0.3, T.q4))); }
-    const bt = PP([0, 180, 30]), bA = win(t, T.batt, T.q4, 0.3, 0.3); obox(bt[0] - 150, bt[1] - 120, 300, 240, E.p3out(prog(t, T.batt, T.batt + 0.3)), bA); arrowS(c[0] - 10, c[1] + 60, bt[0] + 20, bt[1] - 120, E.p3out(prog(t, T.batt, T.batt + 0.4)), bA); }
-  // the dense field over the coil
-  if (t >= T.dense && t < T.q5) { const c = P([0, 0, 120]); obox(c[0] - 170, c[1] - 170, 340, 260, E.p3out(prog(t, T.dense + 0.2, T.dense + 0.6)), 1 - prog(t, T.q5 - 0.3, T.q5)); }
-  label("间距放大 · 示意", 1000, 700, t, T.cut, T.magnet, { size: 44, weight: 400, align: "right" });
-  label(COPY.color, 1000, 776, t, T.field, T.magnet, { size: 44, weight: 400, align: "right" });
-  // magnets
-  label(COPY.qi2, 540, 1430, t, T.ringTx, T.q6, { size: 44, align: "center" });
-  if (PP && t >= T.ringRx + 0.3 && t < T.snap + 0.5) { const a = P([230, -PH.coilOy + 110 + PH.coilOy, 120]), b = P([20, 10, 120]); arrowS(a[0], a[1], b[0], b[1], E.p3out(prog(t, T.ringRx + 0.3, T.snap)), 1 - prog(t, T.snap + 0.2, T.snap + 0.5)); }
-  // tip: the metal ring
+  // 3: the two coils, one at a time
+  const litTx = win(t, T.litTx, T.labIn, 0.3, 0.3), litRx = win(t, T.litRx, T.labIn, 0.3, 0.3);
+  spotlight(txC[0], txC[1] + 10, 520, 230, litTx * (1 - litRx)); spotlight(rxC[0], rxC[1], 520, 230, litRx);
+  if (t >= T.litTx && t < T.labIn) { const k = E.p3out(prog(t, T.litTx, T.litTx + 0.3)); leader(150, txC[1] - 110, txC[0] - 200, txC[1] - 10, k); label(COPY.tx, 96, txC[1] - 130, t, T.litTx, T.labIn); }
+  if (t >= T.litRx && t < T.labIn) { const k = E.p3out(prog(t, T.litRx, T.litRx + 0.3)); leader(150, rxC[1] - 130, rxC[0] - 120, rxC[1] - 8, k); label(COPY.rx, 96, rxC[1] - 150, t, T.litRx, T.labIn); }
+  label(COPY.gapNote, 1000, 700, t, T.cut, T.labIn, { size: 44, weight: 400, align: "right" });
+  label(COPY.gapNote, 1000, 700, t, T.backPad, T.wire, { size: 44, weight: 400, align: "right" });
+  label(COPY.gapNote, 1000, 700, t, T.pull, T.magnet, { size: 44, weight: 400, align: "right" });
+  label(COPY.gapNote, 1000, 700, t, T.metal, T.back, { size: 44, weight: 400, align: "right" });
+  label(COPY.color, 1000, 776, t, T.cur, T.wire, { size: 44, weight: 400, align: "right" });
+  label(COPY.freq, 540, 1430, t, T.cur, T.name, { size: 44, weight: 400, align: "center" });
+  label(COPY.induct, 540, 1430, t, T.name + 0.3, T.wire, { size: 44, align: "center", col: C.ink });
+  // 5a: heat — thermal view while the phone sits off-centre
+  const th = win(t, T.thermal, T.slideBackEnd + 0.3, 0.5, 0.6);
+  if (th > 0.01) { thermal(th, [[txC[0], txC[1] - 10, 300, st.warm], [rxC[0], rxC[1], 220, 0.4 * st.warm]]); label(COPY.thermalNote, 1000, 852, t, T.thermal, T.slideBackEnd + 0.3, { size: 44, weight: 400, align: "right" }); }
+  label(COPY.qi2, 540, 1430, t, T.ringTx, T.metal, { size: 44, align: "center" });
+  if (PP && t >= T.ringRx + 0.3 && t < T.snap + 0.5) { const a = P([230, 110, 120]), b = P([20, 10, 120]); arrowS(a[0], a[1], b[0], b[1], E.p3out(prog(t, T.ringRx + 0.3, T.snap)), 1 - prog(t, T.snap + 0.2, T.snap + 0.5)); }
+  // 5b: metal — eddies, heat, the pad's sum
+  if (PP && t >= T.metalIn && t < T.eddy + 0.6) { const c = PP([0, PH.coilOy + 40, -4]); obox(c[0] - 150, c[1] - 80, 300, 160, E.p3out(prog(t, T.metalIn, T.metalIn + 0.4)), 1 - prog(t, T.eddy + 0.2, T.eddy + 0.6)); }
+  label(COPY.eddyNote, 540, 1430, t, T.eddy, T.metalHot, { size: 44, align: "center" });
+  const mh = win(t, T.metalHot, T.bars + 0.4, 0.5, 0.5);
+  if (mh > 0.01 && PP) { const c = PP([0, PH.coilOy + 40, -4]); thermal(mh, [[c[0], c[1], 300, 1], [txC[0], txC[1], 300, 0.35]]); label(COPY.thermalNote, 1000, 852, t, T.metalHot, T.bars + 0.4, { size: 44, weight: 400, align: "right" }); }
+  fodBars(t);
+  label(COPY.fod, 540, 1430, t, T.gap, T.back, { size: 44, align: "center" });
+  // tip: the metal ring comes off
   if (PP && t >= T.tip && t < T.ringOff + 0.5) { const c = PP([0, PH.coilOy + 40, 0]); obox(c[0] - 130, c[1] - 90, 260, 180, E.p3out(prog(t, T.tip + 0.3, T.tip + 0.7)), 1 - prog(t, T.ringOff, T.ringOff + 0.4)); }
 }
-function annotateSplit(t, PL, PR, PPL, PPR, stL, stR, sk) {
-  if (t >= T.back || (t >= T.magnet && t < T.pair)) return;
-  if (t < T.magnet) {
-    label(COPY.aligned, 285, 1430, t, T.split + 0.4, T.magnet, { size: 48, align: "center", col: t >= T.litL ? C.ink : "rgba(20,20,20,0.6)" });
-    label(COPY.tilted, 800, 1430, t, T.split + 0.4, T.magnet, { size: 48, align: "center", col: t >= T.litR ? C.ink : "rgba(20,20,20,0.6)" });
-    // one side at a time
-    const onL = win(t, T.litL, T.litR, 0.3, 0.2), onR = E.p2io(prog(t, T.litR, T.litR + 0.3));
-    veil(540, onL); veil(0, onR);
-    const bA = E.p2io(prog(t, T.litL, T.litL + 0.4)) * (1 - prog(t, T.magnet - 0.3, T.magnet));
-    battIcon(285, 1350, 0.35 + 0.55 * E.p2io(prog(t, T.litL, T.magnet)), bA); battIcon(800, 1350, 0.35 + 0.15 * E.p2io(prog(t, T.slow, T.magnet)), bA);
-  } else {
-    label(COPY.phone, 285, 1430, t, T.pair + 0.4, T.back, { size: 48, align: "center" });
-    label(COPY.key, 800, 1430, t, T.pair + 0.4, T.back, { size: 48, align: "center" });
-    const onL = win(t, T.replyL, T.silentR, 0.3, 0.2) + E.p2io(prog(t, T.talk, T.talk + 0.3)), onR = win(t, T.silentR, T.talk, 0.3, 0.3);
-    veil(540, clamp(onL)); veil(0, onR);
-    const mA = E.p2io(prog(t, T.ping - 0.3, T.ping)) * sk;
-    [[PL, 285, "reply"], [PR, 800, "none"]].forEach(([P, x, mode]) => { const fa = P([0, -PAD.r, 0]), fb = P([0, PAD.r, 0]), f = fa[1] > fb[1] ? fa : fb; leader(x, 1250, f[0], f[1] + 4, 1, mA); meter(x, 1310, t, mA, mode); });
-    label(COPY.reads, 285, 1236, t, T.ping, T.back, { size: 44, align: "center" });
-    if (PPL) { const c = PPL([30, -250, 34]); label(COPY.load, c[0], c[1] - 40, t, T.replyL, T.silentR + E8 * 2, { size: 44, align: "center" }); }
-    if (PPL) { const c = PPL([0, -200, PH.t]); bubble(COPY.more, c[0] - 105, c[1] - 20, t, T.bub1, T.a14); bubble(COPY.less, c[0] + 110, c[1] - 20, t, T.bub2, T.a14); }
-  }
-}
+
 // ================================================================ end card
 const BADGE = [200, 600], BSC = 0.34;
 function endCard(t) {

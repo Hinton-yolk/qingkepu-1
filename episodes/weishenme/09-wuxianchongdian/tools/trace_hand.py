@@ -33,11 +33,15 @@ def region(cond, sigma=3):
     f = ndi.gaussian_filter((cond & inner).astype(float), sigma)
     return polys(f, 0.5, 1.5, 30)
 shade1, shade2, light = region(Ls < p[0]), region(Ls < p[1]), region(Ls > p[2])
-# creases: thin dark lines (local darkness much stronger than the surroundings), skeletonised into polylines
-dark = (ndi.gaussian_filter(L, 6) - ndi.gaussian_filter(L, 1.2)) > 0.035
-dark &= ndi.binary_erosion(mask, iterations=10)
-dark = morphology.remove_small_objects(dark, 120)
-crease = [q for q in polys(ndi.gaussian_filter(dark.astype(float), 1.5), 0.5, 1.5, 50)]
+# creases: the long edges between the fingers (Canny), short wrinkles dropped; stored as thin outlines of each edge
+from skimage import feature
+edges = feature.canny(L, sigma=2.2, low_threshold=0.02, high_threshold=0.05) & ndi.binary_erosion(mask, iterations=8)
+lab, n = ndi.label(ndi.binary_dilation(edges, iterations=1))
+sizes = ndi.sum(np.ones_like(L), lab, range(1, n + 1))
+objs = ndi.find_objects(lab)
+ok = [i + 1 for i, (sz, sl) in enumerate(zip(sizes, objs)) if sz > 200 and (sl[0].stop - sl[0].start) > 110 and (sl[1].start + sl[1].stop) / 2 > 820]
+keep = np.isin(lab, ok)    # only the long, roughly vertical edges between the four fingers (not the thumb, not the back of the hand)
+crease = polys(ndi.gaussian_filter(keep.astype(float), 0.8), 0.5, 1.0, 40)
 ys, xs = np.nonzero(mask)
 thumb = [float(xs.min()), float(ys[xs == xs.min()].mean())]
 tips_y = ys.max(); tips = [float(xs[ys == tips_y].mean()), float(tips_y)]
