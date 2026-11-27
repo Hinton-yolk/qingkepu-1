@@ -127,7 +127,7 @@ function drawField(P, st, front = false) {
   const rx = st.rxCenter;   // [x, y] of the phone coil (for "through" highlighting)
   ctx.save(); ctx.lineCap = "round";
   for (const L of LOOPS) {
-    const pts = loopPts(L.r0, L.r1 * st.spread, PAD.ferZ, L.zt * st.reach * (1 + 1.5 * (st.explode || 0)), L.phi);
+    const pts = loopPts(L.r0, L.r1 * st.spread, PAD.ferZ, L.zt * st.reach * (1 + 1.2 * (st.explode || 0)), L.phi);
     const inner = [L.r0 * Math.cos(L.phi), L.r0 * Math.sin(L.phi)];
     const through = rx ? Math.hypot(inner[0] - rx[0], inner[1] - rx[1]) < PH.rOut * 0.92 : false;
     const hl = through ? st.throughHL : 0;
@@ -311,7 +311,7 @@ function worldState(t, side = 0) {             // side: 0 single, -1 left, +1 ri
   s.rxDots = E.p3out(prog(t, T.rxCur, T.rxCur + 0.4)); s.rxGlow = win(t, T.rxCur, T.name + 0.6, 0.3, 0.4);
   if (t < T.pull) s.field *= lerp(1, 0.35, win(t, T.rxCur, T.name + 0.6, 0.4, 0.5)); s.rxPhase = 2.4 * Math.cos(OMEGA * (t - T.cur) - 1.2);
   // ---- exploded view (gap enlarged, schematic) from the push-in until the magnets
-  s.explode = E.p2io(prog(t, T.push + 0.6, T.push + 2.4)) * (1 - E.p2io(prog(t, T.magnet, T.magnet + 0.6)));
+  s.explode = Math.max(0.55 * E.p2io(prog(t, T.cut, T.cut + 0.6)), E.p2io(prog(t, T.push + 0.6, T.push + 2.4))) * (1 - E.p2io(prog(t, T.magnet, T.magnet + 0.6)));
   s.z += 240 * s.explode;
   // ---- chip + battery
   s.trace = E.p2io(prog(t, T.toChip, T.toChip + 0.6)); s.battFill = 0.25 + 0.65 * E.p2io(prog(t, T.batt, T.batt + 1.6));
@@ -319,7 +319,7 @@ function worldState(t, side = 0) {             // side: 0 single, -1 left, +1 ri
   if (t >= T.pull) { s.xray = lerp(1, 0.75, E.p2io(prog(t, T.pull, T.pullEnd))); s.spread = lerp(1, 0.92, prog(t, T.dense, T.dense + 1)); }
   if (side === 1 && t < T.magnet) {   // 放歪
     const u = E.p2io(prog(t, T.split, T.splitEnd)); s.ox = -70 * u; s.oy = lerp(s.oy, s.oy + 290, u); s.rxCenter = [s.ox, s.oy + PH.coilOy];
-    s.dimNot = 0.85 * E.p2io(prog(t, T.litR, T.litR + 0.4)); s.throughHL = E.p2io(prog(t, T.litR, T.litR + 0.4));
+    s.dimNot = 0.7 * E.p2io(prog(t, T.litR, T.litR + 0.4)); s.throughHL = E.p2io(prog(t, T.litR, T.litR + 0.4));
     s.warm = E.p2io(prog(t, T.warm, T.warm + 0.8)); s.padDots *= 1; s.padPhase *= lerp(1, 1.7, s.warm);
     s.battFill = 0.8 + 0.04 * prog(t, T.slow, T.magnet);
   }
@@ -477,8 +477,8 @@ function frame(t) {
 }
 function annotate(t, P, PP, st) {
   // 2: where the two shells meet — no contacts
-  if (t >= T.cut && t < T.q1 + 0.4) { const a = P([-PAD.r * 0.2, 0, PAD.h]), b = P([PAD.r * 0.2, 0, PAD.h]); const k = E.p3out(prog(t, T.cut, T.cut + 0.4)), fo = 1 - prog(t, T.q1, T.q1 + 0.4);
-    obox(Math.min(a[0], b[0]) - 260, a[1] - 70, Math.abs(b[0] - a[0]) + 520, 140, k, fo); }
+  if (t >= T.cut && t < T.q1 + 0.4) { const a = P([-PAD.r * 0.2, 0, PAD.h + 70]), b = P([PAD.r * 0.2, 0, PAD.h + 70]); const k = E.p3out(prog(t, T.cut, T.cut + 0.4)), fo = 1 - prog(t, T.q1, T.q1 + 0.4);
+    obox(Math.min(a[0], b[0]) - 260, a[1] - 150, Math.abs(b[0] - a[0]) + 520, 300, k, fo); }
   // 3: the two coils, one at a time (spotlight + label)
   const txC = P([0, 0, PAD.coilZ]), rxC = PP ? PP([0, PH.coilOy, PH.coilDz]) : txC;
   const litTx = win(t, T.litTx, T.a3 + 0.3, 0.3, 0.3), litRx = win(t, T.litRx, T.a3 + 0.3, 0.3, 0.3);
@@ -496,7 +496,7 @@ function annotate(t, P, PP, st) {
     const bt = PP([0, 180, 30]), bA = win(t, T.batt, T.q4, 0.3, 0.3); obox(bt[0] - 150, bt[1] - 120, 300, 240, E.p3out(prog(t, T.batt, T.batt + 0.3)), bA); arrowS(c[0] - 10, c[1] + 60, bt[0] + 20, bt[1] - 120, E.p3out(prog(t, T.batt, T.batt + 0.4)), bA); }
   // the dense field over the coil
   if (t >= T.dense && t < T.q5) { const c = P([0, 0, 120]); obox(c[0] - 170, c[1] - 170, 340, 260, E.p3out(prog(t, T.dense + 0.2, T.dense + 0.6)), 1 - prog(t, T.q5 - 0.3, T.q5)); }
-  label("间距放大 · 示意", 1000, 700, t, T.push + 0.6, T.magnet, { size: 44, weight: 400, align: "right" });
+  label("间距放大 · 示意", 1000, 700, t, T.cut, T.magnet, { size: 44, weight: 400, align: "right" });
   label(COPY.color, 1000, 776, t, T.field, T.magnet, { size: 44, weight: 400, align: "right" });
   // magnets
   label(COPY.qi2, 540, 1430, t, T.ringTx, T.q6, { size: 44, align: "center" });
@@ -520,7 +520,7 @@ function annotateSplit(t, PL, PR, PPL, PPR, stL, stR, sk) {
     const onL = win(t, T.replyL, T.silentR, 0.3, 0.2) + E.p2io(prog(t, T.talk, T.talk + 0.3)), onR = win(t, T.silentR, T.talk, 0.3, 0.3);
     veil(540, clamp(onL)); veil(0, onR);
     const mA = E.p2io(prog(t, T.ping - 0.3, T.ping)) * sk;
-    [[PL, 285, "reply"], [PR, 800, "none"]].forEach(([P, x, mode]) => { const f = P([0, -PAD.r, 0]); leader(x, 1250, f[0], f[1] + 4, 1, mA); meter(x, 1310, t, mA, mode); });
+    [[PL, 285, "reply"], [PR, 800, "none"]].forEach(([P, x, mode]) => { const fa = P([0, -PAD.r, 0]), fb = P([0, PAD.r, 0]), f = fa[1] > fb[1] ? fa : fb; leader(x, 1250, f[0], f[1] + 4, 1, mA); meter(x, 1310, t, mA, mode); });
     label(COPY.reads, 285, 1236, t, T.ping, T.back, { size: 44, align: "center" });
     if (PPL) { const c = PPL([30, -250, 34]); label(COPY.load, c[0], c[1] - 40, t, T.replyL, T.silentR + E8 * 2, { size: 44, align: "center" }); }
     if (PPL) { const c = PPL([0, -200, PH.t]); bubble(COPY.more, c[0] - 105, c[1] - 20, t, T.bub1, T.a14); bubble(COPY.less, c[0] + 110, c[1] - 20, t, T.bub2, T.a14); }
