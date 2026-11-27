@@ -202,7 +202,7 @@ function innerParts(PP, st, a, coil, sharp = false) {
   poly(PP, rrPts(320, 470, 24, 30).map((p) => [p[0], p[1] + 150 + 30, p[2]])); ctx.fillStyle = "rgba(60,70,90,0.28)"; ctx.fill(); ctx.strokeStyle = "rgba(60,70,90,0.5)"; ctx.lineWidth = 2; ctx.stroke();
   if (sharp && st.battFill > 0) { poly(PP, rrPts(300, 450 * st.battFill, 18, 31).map((p) => [p[0], p[1] + 180 + 225 * (1 - st.battFill), p[2]])); ctx.fillStyle = "rgba(255,74,28,0.55)"; ctx.fill(); }
   // ferrite above the coil (towards the battery)
-  drawCoil(PP, coil, sharp ? 9 : 6, 1);
+  drawCoil(PP, coil, sharp ? 9 : 6, 1, sharp ? 1.6 * (st.rxGlow || 0) : 0);
   disc(PP, PH.rOut + 14, PH.ferDz, C.ferrite, sharp ? 0.22 : 0.15, 0, PH.coilOy);
   // the receiver chip near the top + a copper trace from the coil
   poly(PP, rrPts(90, 64, 8, 32).map((p) => [p[0] + 80, p[1] - 330, p[2]])); ctx.fillStyle = "rgba(30,35,45,0.75)"; ctx.fill();
@@ -293,7 +293,7 @@ function worldState(t, side = 0) {             // side: 0 single, -1 left, +1 ri
     xray: 0, field: 0, fieldI: 0, fieldSign: 1, spread: 1, reach: 1, throughHL: 0, dimNot: 0, rxCenter: null,
     padDots: 0, padPhase: 0, rxDots: 0, rxPhase: 0, indicator: 0, warm: 0, padMagnet: 0, padMagnetHL: 0,
     phone: 1, ox: 0, oy: 40, z: 0, rot: 0.08, bolt: 0, screen: 1, battFill: 0.35, trace: 0, switchA: 0, switchOn: 0,
-    phoneMagnet: 0, phoneMagnetHL: 0, explode: 0, handOut: 0, ringHolder: 0, ringLift: 0, key: 0, hand: 0,
+    phoneMagnet: 0, phoneMagnetHL: 0, explode: 0, handOut: 0, rxGlow: 0, ringHolder: 0, ringLift: 0, key: 0, hand: 0,
   };
   const I = Math.sin(OMEGA * (t - T.cur)); s.fieldI = I; s.fieldSign = Math.sign(I) || 1;
   // ---- 1: the drop
@@ -308,7 +308,8 @@ function worldState(t, side = 0) {             // side: 0 single, -1 left, +1 ri
   s.field = E.p2io(prog(t, T.field, T.field + 0.8)); s.reach = lerp(0.55, 1, E.p2io(prog(t, T.through, T.through + 1.0)));
   s.throughHL = win(t, T.through + 0.4, T.name + 1.0, 0.5, 0.5);
   s.rxCenter = [s.ox, s.oy + PH.coilOy];
-  s.rxDots = E.p3out(prog(t, T.rxCur, T.rxCur + 0.4)); s.rxPhase = 2.4 * Math.cos(OMEGA * (t - T.cur) - 1.2);
+  s.rxDots = E.p3out(prog(t, T.rxCur, T.rxCur + 0.4)); s.rxGlow = win(t, T.rxCur, T.name + 0.6, 0.3, 0.4);
+  if (t < T.pull) s.field *= lerp(1, 0.35, win(t, T.rxCur, T.name + 0.6, 0.4, 0.5)); s.rxPhase = 2.4 * Math.cos(OMEGA * (t - T.cur) - 1.2);
   // ---- exploded view (gap enlarged, schematic) from the push-in until the magnets
   s.explode = E.p2io(prog(t, T.push + 0.6, T.push + 2.4)) * (1 - E.p2io(prog(t, T.magnet, T.magnet + 0.6)));
   s.z += 240 * s.explode;
@@ -327,7 +328,7 @@ function worldState(t, side = 0) {             // side: 0 single, -1 left, +1 ri
   if (t >= T.magnet && t < T.pair) {
     s.xray = 0.75; s.padMagnet = E.p2io(prog(t, T.ringTx, T.ringTx + 0.4)); s.phoneMagnet = E.p2io(prog(t, T.ringRx, T.ringRx + 0.4));
     s.padMagnetHL = win(t, T.ringTx, T.snap + 0.6, 0.3, 0.3); s.phoneMagnetHL = win(t, T.ringRx, T.snap + 0.6, 0.3, 0.3);
-    const sn = t < T.snap ? 0 : E.back(clamp((t - T.snap) / 0.22)); s.ox = lerp(150, 0, sn); s.oy = lerp(-PH.coilOy + 70, -PH.coilOy, sn); s.z = t < T.snap ? 10 : 0;
+    const sn = t < T.snap ? 0 : E.back(clamp((t - T.snap) / 0.22)); s.ox = lerp(230, 0, sn); s.oy = lerp(-PH.coilOy + 110, -PH.coilOy, sn); s.z = t < T.snap ? 10 : 0;
     s.field = 0.7; s.battFill = 0.9;
   }
   // ---- talking: 手机 (left) / 钥匙 (right)
@@ -377,6 +378,7 @@ function leader(x0, y0, x1, y1, k = 1, a = 1) { if (k <= 0) return; ctx.save(); 
 function obox(x, y, w, h, k, a = 1) { if (k <= 0.01 || a <= 0.01) return; ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.lineJoin = "round"; const p = 2 * (w + h) * k; ctx.setLineDash([p, 1e5]); ctx.beginPath(); ctx.roundRect(x, y, w, h, 18); ctx.stroke(); ctx.restore(); }
 function spotlight(cx, cy, rx, ry, a) { if (a <= 0.01) return; ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.ellipse(cx, cy, rx, ry, 0, 0, TAU); ctx.fillStyle = `rgba(236,238,241,${0.5 * a})`; ctx.filter = "blur(30px)"; ctx.fill("evenodd"); ctx.filter = "none"; ctx.restore(); }
 function acdcGlyph(x, y, a) { if (a <= 0.01) return; ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = C.acc; ctx.fillStyle = C.acc; ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.beginPath(); for (let i = 0; i <= 30; i++) { const xx = x + i * 3, yy = y + 14 * Math.sin(i / 30 * TAU * 1.5); i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke(); ctx.beginPath(); ctx.moveTo(x + 110, y); ctx.lineTo(x + 200, y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x + 214, y); ctx.lineTo(x + 196, y - 11); ctx.lineTo(x + 196, y + 11); ctx.closePath(); ctx.fill(); ctx.restore(); }
+function waveGlyph(x, y, a) { if (a <= 0.01) return; ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.beginPath(); for (let i = 0; i <= 30; i++) { const xx = x - 45 + i * 3, yy = y + 13 * Math.sin(i / 30 * TAU * 1.5); i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke(); ctx.restore(); }
 function veil(x, a) { if (a <= 0.01) return; ctx.save(); ctx.filter = "blur(40px)"; ctx.fillStyle = `rgba(236,238,241,${0.6 * a})`; ctx.fillRect(x + 30, 660, 480, 780); ctx.restore(); ctx.filter = "none"; }
 function battIcon(x, y, f, a) { if (a <= 0.01) return; ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = C.ink; ctx.lineWidth = 4; ctx.beginPath(); ctx.roundRect(x - 50, y - 22, 92, 44, 9); ctx.stroke(); ctx.fillStyle = C.ink; ctx.fillRect(x + 44, y - 9, 7, 18); ctx.fillStyle = C.acc; ctx.beginPath(); ctx.roundRect(x - 44, y - 16, 80 * clamp(f), 32, 5); ctx.fill(); ctx.restore(); }
 function arrowS(x0, y0, x1, y1, k, a = 1) { if (k <= 0.01) return; const x = lerp(x0, x1, k), y = lerp(y0, y1, k), ang = Math.atan2(y1 - y0, x1 - x0); ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = C.acc; ctx.fillStyle = C.acc; ctx.lineWidth = 6; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x, y); ctx.stroke(); ctx.translate(x, y); ctx.rotate(ang); ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-8, -12); ctx.lineTo(-8, 12); ctx.closePath(); ctx.fill(); ctx.restore(); }
@@ -490,7 +492,7 @@ function annotate(t, P, PP, st) {
   if (t >= T.rxCur && t < T.name) arrowS(rxC[0] + 330, rxC[1] - 10, rxC[0] + 250, rxC[1] - 70, E.p3out(prog(t, T.rxCur + 0.2, T.rxCur + 0.6)), 1 - prog(t, T.name - 0.3, T.name));
   label(COPY.induct, 540, 1430, t, T.name + 0.3, T.q3, { size: 44, align: "center", col: C.ink });
   // the chip: AC → DC
-  if (PP && t >= T.chip && t < T.q4) { const c = PP([80, -330, 32]); const k = E.p3out(prog(t, T.chip, T.chip + 0.3)); spotlight(c[0], c[1], 220, 160, win(t, T.chip, T.batt + 0.4, 0.3, 0.3)); obox(c[0] - 70, c[1] - 60, 140, 120, k, 1 - prog(t, T.q4 - 0.3, T.q4)); label(COPY.acdc, c[0] - 90, c[1] - 70, t, T.chip, T.q4, { align: "right" }); acdcGlyph(c[0] - 330, c[1] - 10, E.p3out(prog(t, T.chip + 0.2, T.chip + 0.6)) * (1 - prog(t, T.q4 - 0.3, T.q4)));
+  if (PP && t >= T.chip && t < T.q4) { const c = PP([80, -330, 32]); const k = E.p3out(prog(t, T.chip, T.chip + 0.3)); spotlight(c[0], c[1], 220, 160, win(t, T.chip, T.batt + 0.4, 0.3, 0.3)); obox(c[0] - 70, c[1] - 60, 140, 120, k, 1 - prog(t, T.q4 - 0.3, T.q4)); label(COPY.acdc, c[0] - 90, c[1] - 70, t, T.chip, T.q4, { align: "right" }); { const e = PP([PH.rOut * Math.cos(0.6), PH.coilOy + PH.rOut * Math.sin(0.6), PH.coilDz]), m = [(e[0] + c[0]) / 2 + 40, (e[1] + c[1]) / 2]; waveGlyph(m[0], m[1], E.p3out(prog(t, T.chip + 0.2, T.chip + 0.6)) * (1 - prog(t, T.q4 - 0.3, T.q4))); }
     const bt = PP([0, 180, 30]), bA = win(t, T.batt, T.q4, 0.3, 0.3); obox(bt[0] - 150, bt[1] - 120, 300, 240, E.p3out(prog(t, T.batt, T.batt + 0.3)), bA); arrowS(c[0] - 10, c[1] + 60, bt[0] + 20, bt[1] - 120, E.p3out(prog(t, T.batt, T.batt + 0.4)), bA); }
   // the dense field over the coil
   if (t >= T.dense && t < T.q5) { const c = P([0, 0, 120]); obox(c[0] - 170, c[1] - 170, 340, 260, E.p3out(prog(t, T.dense + 0.2, T.dense + 0.6)), 1 - prog(t, T.q5 - 0.3, T.q5)); }
@@ -498,6 +500,7 @@ function annotate(t, P, PP, st) {
   label(COPY.color, 1000, 776, t, T.field, T.magnet, { size: 44, weight: 400, align: "right" });
   // magnets
   label(COPY.qi2, 540, 1430, t, T.ringTx, T.q6, { size: 44, align: "center" });
+  if (PP && t >= T.ringRx + 0.3 && t < T.snap + 0.5) { const a = P([230, -PH.coilOy + 110 + PH.coilOy, 120]), b = P([20, 10, 120]); arrowS(a[0], a[1], b[0], b[1], E.p3out(prog(t, T.ringRx + 0.3, T.snap)), 1 - prog(t, T.snap + 0.2, T.snap + 0.5)); }
   // tip: the metal ring
   if (PP && t >= T.tip && t < T.ringOff + 0.5) { const c = PP([0, PH.coilOy + 40, 0]); obox(c[0] - 130, c[1] - 90, 260, 180, E.p3out(prog(t, T.tip + 0.3, T.tip + 0.7)), 1 - prog(t, T.ringOff, T.ringOff + 0.4)); }
 }
