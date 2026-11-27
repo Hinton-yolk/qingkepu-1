@@ -14,6 +14,7 @@
 <body>
 <canvas id="c" width="1080" height="1920"></canvas>
 <script src="timeline.js"></script>
+<script src="assets/people/hand.js"></script>
 <script>
 // EP.09 无线充电 — 第二季：半透明玻璃实物。window.seek(t) paints frame t; a pure function of t (seeded noise only).
 // World units ≈ 0.1 mm. The pad is a glass puck (r 300, h 60), its coil 30 below the top; the phone (420 × 880 × 44) lies on it,
@@ -73,8 +74,10 @@ function buildBG() {
   BG = document.createElement("canvas"); BG.width = W; BG.height = H; paintBackground(BG.getContext("2d"));
   BGBLUR = document.createElement("canvas"); BGBLUR.width = W; BGBLUR.height = H; const b = BGBLUR.getContext("2d"); b.filter = "blur(28px)"; b.drawImage(BG, 0, 0);
 }
+let TNOW = 0;
 function glass(pathFn, { tint = 0.3, sheen = -0.7, rim = 2.4, dark = 0, a = 1 } = {}) {
   if (a <= 0.01) return;
+  sheen += 0.22 * Math.sin(0.9 * TNOW);
   ctx.save(); ctx.globalAlpha = a; pathFn(); ctx.clip();
   ctx.drawImage(BGBLUR, 0, 0);
   ctx.fillStyle = `rgba(255,255,255,${tint})`; ctx.fillRect(0, 0, W, H);
@@ -153,7 +156,7 @@ function drawPad(P, st) {
   if (st.xray > 0.02) { disc(P, PAD.rOut + 20, PAD.ferZ, C.ferrite, 0.55 * st.xray); drawCoil(P, coil, 10, st.xray, st.warm); }
   if (st.padDots > 0.01) dots(P, coil, st.padPhase, st.padDots * st.xray);
   // charging indicator ring on the pad's top
-  if (st.indicator > 0.01) { ctx.save(); poly(P, circ(PAD.r - 18, PAD.h + 0.5)); ctx.strokeStyle = `rgba(255,74,28,${0.85 * st.indicator})`; ctx.lineWidth = 3; ctx.shadowColor = "rgba(255,74,28,0.8)"; ctx.shadowBlur = 18; ctx.stroke(); ctx.restore(); }
+  if (st.indicator > 0.01) { ctx.save(); poly(P, circ(PAD.r - 18, PAD.h + 0.5)); ctx.strokeStyle = `rgba(255,74,28,${0.85 * st.indicator * (0.65 + 0.35 * Math.sin(TAU * 0.8 * TNOW))})`; ctx.lineWidth = 3; ctx.shadowColor = "rgba(255,74,28,0.8)"; ctx.shadowBlur = 18; ctx.stroke(); ctx.restore(); }
   if (st.padMagnet > 0.01) magnetRing(P, 0, 0, PAD.h - 14, st.padMagnet, st.padMagnetHL);
   if (st.warm > 0.01) { const m = P([0, 0, PAD.coilZ]); ctx.save(); const g = ctx.createRadialGradient(m[0], m[1], 0, m[0], m[1], Math.abs(sc) * 1.1); g.addColorStop(0, `rgba(255,110,50,${0.4 * st.warm})`); g.addColorStop(1, "rgba(255,110,50,0)"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore(); }
 }
@@ -230,24 +233,28 @@ function drawKey(P, a) {
   poly(P, blade); ctx.fillStyle = g; ctx.fill(); ctx.stroke();
   ctx.restore();
 }
-// placeholder hand (real skin, flat + soft shading) holding the phone by its long sides from above; replaced once the reference arrives
-function drawHand(PP, a) {
-  if (a <= 0.01) return;
-  // shapes in the phone's own frame (units ≈ 0.1 mm), on a plane just above the screen; projected, so the hand scales with the phone
-  const z = PH.t + 40, HS = 0.72, P2 = (x, y) => PP([300 + (x - 300) * HS + 60, -400 + (y + 400) * HS - 40, z]);
-  const o = P2(0, 0), ux = P2(100, 0), uy = P2(0, 100);
-  const sx = HS * Math.hypot(ux[0] - o[0], ux[1] - o[1]) / (100 * HS);
-  const cap = (pts, w, col) => { ctx.strokeStyle = col; ctx.lineWidth = w * sx; ctx.beginPath(); pts.forEach(([x, y], i) => { const q = P2(x, y); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }); ctx.stroke(); };
-  const blob = (cx, cy, rx, ry, col) => { ctx.fillStyle = col; ctx.beginPath(); for (let i = 0; i <= 40; i++) { const t = i / 40 * TAU, q = P2(cx + rx * Math.cos(t), cy + ry * Math.sin(t)); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); } ctx.closePath(); ctx.fill(); };
-  ctx.save(); ctx.globalAlpha = a; ctx.lineCap = "round"; ctx.lineJoin = "round";
-  // forearm from the upper right, back of the hand over the phone's top-right corner
-  cap([[900, -1500], [330, -470]], 330, C.skinSh); cap([[905, -1510], [335, -480]], 300, C.skin);
-  blob(260, -380, 250, 190, C.skinSh); blob(255, -388, 238, 178, C.skin);
-  // four fingers wrap over the right long edge (their tips curl under, out of sight)
-  [[-470, 0], [-330, 1], [-190, 2], [-60, 3]].forEach(([y, i]) => { cap([[300, y + 40], [240 - i * 4, y + 10]], 96 - i * 8, C.skinSh); cap([[302, y + 36], [244 - i * 4, y + 6]], 86 - i * 8, C.skin); });
-  // the thumb rests on the screen, pointing down-left
-  cap([[120, -300], [-10, -180], [-80, -110]], 104, C.skinSh); cap([[118, -306], [-8, -186], [-76, -116]], 92, C.skin);
-  blob(-74, -112, 34, 26, "rgba(255,235,220,0.7)");   // the thumbnail
+// the hand, drawn from the user's reference photo (assets/people/hand.js, traced by tools/trace_hand.py): flat skin, two shadow
+// layers, a highlight, a few creases. A similarity transform puts the thumb tip on the phone's left long edge and the fingertips
+// on its right long edge, so the hand holds the phone by its sides and moves with it.
+function drawHand(PP, a, out = 0) {
+  if (a <= 0.01 || !window.HAND) return;
+  const Hd = window.HAND, z = PH.t * 0.5;
+  const A = PP([-PH.w / 2 - 4, -230, z]), B = PP([PH.w / 2 + 4, 40, z]);
+  const di = [Hd.tips[0] - Hd.thumb[0], Hd.tips[1] - Hd.thumb[1]], ds = [B[0] - A[0], B[1] - A[1]];
+  const sc = Math.hypot(ds[0], ds[1]) / Math.hypot(di[0], di[1]), rot = Math.atan2(ds[1], ds[0]) - Math.atan2(di[1], di[0]);
+  ctx.save(); ctx.globalAlpha = a; ctx.translate(520 * out, -760 * out);
+  ctx.translate(A[0], A[1]); ctx.rotate(rot); ctx.scale(sc, sc); ctx.translate(-Hd.thumb[0], -Hd.thumb[1]);
+  const path = (pts) => { ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); };
+  ctx.save(); ctx.shadowColor = "rgba(60,40,30,0.22)"; ctx.shadowBlur = 40 * sc; ctx.shadowOffsetY = 24 * sc; path(Hd.outline); ctx.fillStyle = C.skin; ctx.fill(); ctx.restore();
+  ctx.save(); path(Hd.outline); ctx.clip();
+  ctx.filter = `blur(${Math.max(1, 6 * sc).toFixed(1)}px)`;
+  ctx.fillStyle = "rgba(214,173,132,0.75)"; Hd.shade1.forEach((p) => { path(p); ctx.fill(); });
+  ctx.fillStyle = "rgba(196,150,108,0.55)"; Hd.shade2.forEach((p) => { path(p); ctx.fill(); });
+  ctx.fillStyle = "rgba(255,238,222,0.55)"; Hd.light.forEach((p) => { path(p); ctx.fill(); });
+  ctx.filter = "none";
+  ctx.strokeStyle = "rgba(170,120,85,0.55)"; ctx.lineWidth = 3; ctx.lineJoin = "round"; Hd.crease.forEach((p) => { ctx.beginPath(); p.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke(); });
+  ctx.restore();
+  path(Hd.outline); ctx.strokeStyle = "rgba(180,130,95,0.6)"; ctx.lineWidth = 2.5; ctx.stroke();
   ctx.restore();
 }
 // ================================================================ camera + world state
@@ -255,11 +262,11 @@ const CAMS = [
   // t, el, az, dist, focal, cx, cy, tx, ty, tz
   [0, 0.66, -0.30, 2300, 2500, 540, 1080, 0, 40, 40],
   [T.land, 0.64, -0.27, 2300, 2560, 540, 1070, 0, 40, 40],
-  [T.low, 0.64, -0.27, 2300, 2560, 540, 1070, 0, 40, 40],
+  [T.low, 0.56, -0.20, 2300, 3050, 540, 1040, 0, 40, 40],
   [T.lowEnd, 0.16, -0.18, 1500, 2350, 540, 1040, 0, 0, 60],
   [T.push, 0.17, -0.20, 1500, 2350, 540, 1040, 0, 0, 60],
-  [T.pushEnd, 0.36, -0.26, 1700, 2350, 540, 1100, 0, 0, 170],
-  [T.toChip, 0.40, -0.30, 1700, 2350, 540, 1100, 0, 0, 170],
+  [T.pushEnd, 0.36, -0.26, 1900, 2250, 540, 1150, 0, 0, 170],
+  [T.toChip, 0.40, -0.30, 1900, 2250, 540, 1150, 0, 0, 170],
   [T.chip, 0.66, -0.22, 2300, 2350, 540, 1060, 0, -80, 200],
   [T.pull, 0.66, -0.22, 2300, 2350, 540, 1060, 0, -80, 200],
   [T.pullEnd, 0.22, -0.06, 1900, 2350, 540, 1080, 0, 0, 190],
@@ -278,8 +285,8 @@ function camAt(t) {
   const a = CAMS[i], b = CAMS[i + 1], u = b[0] > a[0] ? E.p3io(prog(t, a[0], b[0])) : 1;
   const v = (k) => lerp(a[k], b[k], u);
   // a slow orbit that never stops (≤ 0.02 rad), no shake
-  const orbit = 0.018 * Math.sin(0.55 * t) + 0.008 * Math.sin(1.13 * t + 1);
-  return { el: v(1) + 0.008 * Math.sin(0.7 * t), az: v(2) + orbit, dist: v(3), focal: v(4) * (1 + 0.012 * Math.sin(0.41 * t)), cx: v(5), cy: v(6), tx: v(7), ty: v(8), tz: v(9) };
+  const orbit = 0.06 * Math.sin(0.5 * t) + 0.02 * Math.sin(1.07 * t + 1);
+  return { el: v(1) + 0.025 * Math.sin(0.7 * t), az: v(2) + orbit, dist: v(3), focal: v(4) * (1 + 0.03 * Math.sin(0.43 * t + 0.5)), cx: v(5) + 26 * Math.cos(0.8 * t) + 7 * Math.sin(1.7 * t), cy: v(6) + 20 * Math.sin(0.8 * t) + 6 * Math.cos(1.3 * t), tx: v(7), ty: v(8), tz: v(9) };   // a slow ellipse drift: the speed never drops to zero
 }
 const OMEGA = TAU * 0.9;                        // the "slowed-down" alternating current: 0.9 Hz on screen
 function worldState(t, side = 0) {             // side: 0 single, -1 left, +1 right
@@ -287,12 +294,12 @@ function worldState(t, side = 0) {             // side: 0 single, -1 left, +1 ri
     xray: 0, field: 0, fieldI: 0, fieldSign: 1, spread: 1, reach: 1, throughHL: 0, dimNot: 0, rxCenter: null,
     padDots: 0, padPhase: 0, rxDots: 0, rxPhase: 0, indicator: 0, warm: 0, padMagnet: 0, padMagnetHL: 0,
     phone: 1, ox: 0, oy: 40, z: 0, rot: 0.08, bolt: 0, screen: 1, battFill: 0.35, trace: 0, switchA: 0, switchOn: 0,
-    phoneMagnet: 0, phoneMagnetHL: 0, explode: 0, ringHolder: 0, ringLift: 0, key: 0, hand: 0,
+    phoneMagnet: 0, phoneMagnetHL: 0, explode: 0, handOut: 0, ringHolder: 0, ringLift: 0, key: 0, hand: 0,
   };
   const I = Math.sin(OMEGA * (t - T.cur)); s.fieldI = I; s.fieldSign = Math.sign(I) || 1;
   // ---- 1: the drop
   const drop = (t0, t1) => { const u = prog(t, t0, t1); return 320 * (1 - E.p3out(u)) + (u >= 1 ? 0 : 0); };
-  if (t < T.low) { s.z = drop(T.drop, T.land); s.hand = 1 - E.p2io(prog(t, T.land + 0.4, T.land + 1.2)); s.bolt = spring(t - T.bolt, 14, 0.55); s.indicator = E.p3out(prog(t, T.bolt, T.bolt + 0.3)); }
+  if (t < T.low) { s.z = drop(T.drop, T.land); s.hand = 1; s.handOut = E.p2io(prog(t, T.land + 0.35, T.land + 1.15)); s.bolt = spring(t - T.bolt, 14, 0.55); s.indicator = E.p3out(prog(t, T.bolt, T.bolt + 0.3)); }
   else s.bolt = 1, s.indicator = 1;
   // ---- 2–4: x-ray in, the coils, the current, the field
   s.xray = Math.max(0.35 * E.p2io(prog(t, T.cut, T.cut + 0.6)), E.p2io(prog(t, T.push, T.push + 2.2)));
@@ -311,7 +318,7 @@ function worldState(t, side = 0) {             // side: 0 single, -1 left, +1 ri
   // ---- 5: back out to the side view (keep the field), then the comparisons
   if (t >= T.pull) { s.xray = lerp(1, 0.75, E.p2io(prog(t, T.pull, T.pullEnd))); s.spread = lerp(1, 0.92, prog(t, T.dense, T.dense + 1)); }
   if (side === 1 && t < T.magnet) {   // 放歪
-    const u = E.p2io(prog(t, T.split, T.splitEnd)); s.ox = 190 * u; s.oy = lerp(s.oy, s.oy + 60, u); s.rxCenter = [s.ox, s.oy + PH.coilOy];
+    const u = E.p2io(prog(t, T.split, T.splitEnd)); s.ox = 150 * u; s.oy = lerp(s.oy, s.oy + 60, u); s.rxCenter = [s.ox, s.oy + PH.coilOy];
     s.dimNot = 0.6 * E.p2io(prog(t, T.litR, T.litR + 0.4));
     s.warm = E.p2io(prog(t, T.warm, T.warm + 0.8)); s.padDots *= 1; s.padPhase *= lerp(1, 1.7, s.warm);
     s.battFill = 0.8 + 0.04 * prog(t, T.slow, T.magnet);
@@ -340,7 +347,7 @@ function worldState(t, side = 0) {             // side: 0 single, -1 left, +1 ri
   if (t >= T.back) {
     s.xray = 0; s.field = 0; s.padDots = 0; s.rxDots = 0; s.trace = 0; s.switchA = 0; s.key = 0; s.phone = 1; s.battFill = 0.4;
     s.ox = 0; s.oy = 40; s.rot = 0.08; s.z = t < T.drop2 ? 320 : drop(T.drop2, T.land2);
-    s.hand = Math.max(E.p3out(prog(t, T.back, T.drop2)) * (1 - E.p2io(prog(t, T.land2 + 0.4, T.land2 + 1.1))), 0);
+    s.hand = 1; s.handOut = Math.max(1 - E.p3out(prog(t, T.back + 0.2, T.drop2)), E.p2io(prog(t, T.land2 + 0.35, T.land2 + 1.1)));
     s.bolt = t < T.land2 ? 0 : spring(t - T.land2, 14, 0.55); s.indicator = t < T.land2 ? 0 : 1;
   }
   if (t >= T.tip) {
@@ -369,7 +376,7 @@ function label(str, x, y, t, t0, t1, o = {}) {
 }
 function leader(x0, y0, x1, y1, k = 1, a = 1) { if (k <= 0) return; ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = "rgba(20,20,20,0.55)"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(lerp(x0, x1, k), lerp(y0, y1, k)); ctx.stroke(); if (k >= 0.99) { ctx.fillStyle = C.acc; ctx.beginPath(); ctx.arc(x1, y1, 7, 0, TAU); ctx.fill(); } ctx.restore(); }
 function obox(x, y, w, h, k, a = 1) { if (k <= 0.01 || a <= 0.01) return; ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.lineJoin = "round"; const p = 2 * (w + h) * k; ctx.setLineDash([p, 1e5]); ctx.beginPath(); ctx.roundRect(x, y, w, h, 18); ctx.stroke(); ctx.restore(); }
-function spotlight(cx, cy, rx, ry, a) { if (a <= 0.01) return; ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.ellipse(cx, cy, rx, ry, 0, 0, TAU); ctx.fillStyle = `rgba(30,36,48,${0.2 * a})`; ctx.filter = "blur(30px)"; ctx.fill("evenodd"); ctx.filter = "none"; ctx.restore(); }
+function spotlight(cx, cy, rx, ry, a) { if (a <= 0.01) return; ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.ellipse(cx, cy, rx, ry, 0, 0, TAU); ctx.fillStyle = `rgba(236,238,241,${0.5 * a})`; ctx.filter = "blur(30px)"; ctx.fill("evenodd"); ctx.filter = "none"; ctx.restore(); }
 function arrowS(x0, y0, x1, y1, k, a = 1) { if (k <= 0.01) return; const x = lerp(x0, x1, k), y = lerp(y0, y1, k), ang = Math.atan2(y1 - y0, x1 - x0); ctx.save(); ctx.globalAlpha = a; ctx.strokeStyle = C.acc; ctx.fillStyle = C.acc; ctx.lineWidth = 6; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x, y); ctx.stroke(); ctx.translate(x, y); ctx.rotate(ang); ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-8, -12); ctx.lineTo(-8, 12); ctx.closePath(); ctx.fill(); ctx.restore(); }
 function bubble(str, x, y, t, t0, t1) {
   if (t < t0 || t >= t1) return; const s = spring(t - t0, 16, 0.55), e = 1 - prog(t, t1 - 0.2, t1), font = `700 52px ${UI}`, wv = mw(font, str);
@@ -429,7 +436,7 @@ function drawWorld(P, st) {
   drawField(P, st);
   if (st.key > 0.01) drawKey(P, st.key);
   const PP = drawPhone(P, st);
-  if (PP && st.hand > 0.01) drawHand(PP, st.hand);
+  if (PP && st.hand > 0.01 && st.handOut < 0.999) drawHand(PP, st.hand, st.handOut);
   return PP;
 }
 function splitK(t) {   // 0 single → 1 side by side
@@ -438,13 +445,20 @@ function splitK(t) {   // 0 single → 1 side by side
   return Math.max(a, b);
 }
 function frame(t) {
+  TNOW = t;
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.filter = "none"; ctx.drawImage(BG, 0, 0);
+  {   // a soft light drifting across the backdrop: the room's light, never still
+    const lx = 540 + 360 * Math.cos(0.85 * t + 0.8), ly = 1050 + 450 * Math.sin(0.63 * t), g = ctx.createRadialGradient(lx, ly, 0, lx, ly, 640);
+    g.addColorStop(0, "rgba(255,255,255,0.5)"); g.addColorStop(1, "rgba(255,255,255,0)"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    const mx = 540 - 400 * Math.cos(0.6 * t), my = 900 + 400 * Math.cos(0.77 * t + 2), g2 = ctx.createRadialGradient(mx, my, 0, mx, my, 560);
+    g2.addColorStop(0, "rgba(255,170,130,0.13)"); g2.addColorStop(1, "rgba(255,170,130,0)"); ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H);
+  }
   if (t >= T.end) { endCard(t); return; }
   const cam = camAt(t), sk = splitK(t);
   if (sk < 0.001) {
     const P = makeP(cam), st = worldState(t, 0); const PP = drawWorld(P, st); annotate(t, P, PP, st);
   } else {
-    const shrink = lerp(1, 0.58, sk);
+    const shrink = lerp(1, 0.7, sk);
     const camL = { ...cam, focal: cam.focal * shrink, cx: lerp(540, 285, sk) }, camR = { ...cam, focal: cam.focal * shrink, cx: lerp(540 + 540, 800, sk) };
     const PL = makeP(camL), PR = makeP(camR);
     const stL = worldState(t, -1), stR = worldState(t, 1);
@@ -455,8 +469,6 @@ function frame(t) {
     annotateSplit(t, PL, PR, PPL, PPR, stL, stR, sk);
   }
   drawSubs(t);
-  label(COPY.hand, 540, 1440, t, 0, T.low, { size: 30, weight: 400, align: "center", plate: false, col: "rgba(20,20,20,0.35)" });
-  label(COPY.hand, 540, 1440, t, T.back, T.tip, { size: 30, weight: 400, align: "center", plate: false, col: "rgba(20,20,20,0.35)" });
 }
 function annotate(t, P, PP, st) {
   // 2: where the two shells meet — no contacts
@@ -492,12 +504,12 @@ function annotateSplit(t, PL, PR, PPL, PPR, stL, stR, sk) {
     label(COPY.tilted, 800, 1430, t, T.split + 0.4, T.magnet, { size: 48, align: "center", col: t >= T.litR ? C.ink : "rgba(20,20,20,0.6)" });
     // one side at a time
     const onL = win(t, T.litL, T.litR, 0.3, 0.2), onR = E.p2io(prog(t, T.litR, T.litR + 0.3));
-    ctx.save(); ctx.fillStyle = `rgba(30,36,48,${0.12 * onL})`; ctx.fillRect(540, 640, 540, 820); ctx.fillStyle = `rgba(30,36,48,${0.12 * onR})`; ctx.fillRect(0, 640, 540, 820); ctx.restore();
+    ctx.save(); ctx.fillStyle = `rgba(236,238,241,${0.55 * onL})`; ctx.fillRect(540, 640, 540, 820); ctx.fillStyle = `rgba(236,238,241,${0.55 * onR})`; ctx.fillRect(0, 640, 540, 820); ctx.restore();
   } else {
     label(COPY.phone, 285, 1430, t, T.pair + 0.4, T.back, { size: 48, align: "center" });
     label(COPY.key, 800, 1430, t, T.pair + 0.4, T.back, { size: 48, align: "center" });
     const onL = win(t, T.replyL, T.silentR, 0.3, 0.2) + E.p2io(prog(t, T.talk, T.talk + 0.3)), onR = win(t, T.silentR, T.talk, 0.3, 0.3);
-    ctx.save(); ctx.fillStyle = `rgba(30,36,48,${0.12 * clamp(onL)})`; ctx.fillRect(540, 640, 540, 820); ctx.fillStyle = `rgba(30,36,48,${0.12 * onR})`; ctx.fillRect(0, 640, 540, 820); ctx.restore();
+    ctx.save(); ctx.fillStyle = `rgba(236,238,241,${0.55 * clamp(onL)})`; ctx.fillRect(540, 640, 540, 820); ctx.fillStyle = `rgba(236,238,241,${0.55 * onR})`; ctx.fillRect(0, 640, 540, 820); ctx.restore();
     meter(285, 1300, t, E.p2io(prog(t, T.ping - 0.3, T.ping)) * sk, "reply");
     meter(800, 1300, t, E.p2io(prog(t, T.ping - 0.3, T.ping)) * sk, "none");
     label(COPY.load, 285, 1220, t, T.replyL, T.silentR + E8 * 2, { size: 44, align: "center" });
