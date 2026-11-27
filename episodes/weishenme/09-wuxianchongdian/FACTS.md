@@ -46,3 +46,12 @@
 - https://www.we-online.com/components/media/o109042v410%20ANP014_Wireless%20Energy%20Transmission%20Coils%20as%20Key%20Components.pdf
 - https://www.gdwecent.com/?p=21693
 - https://www.avnet.com/americas/resources/article/watch-for-these-2-problems-in-your-qi-wireless-charging-project/
+
+## v4 新增
+| # | 事实 | 片中用法 | 来源 |
+|---|---|---|---|
+| 14 | 法拉第电磁感应：磁铁插入 / 拔出线圈时，线圈里感应出电流，方向相反；磁铁不动就没有电流。多匝线圈 + 强磁铁可以点亮 LED（中学常见演示）。片中用两颗反向并联的 LED，插入亮一颗、拔出亮另一颗，以显示方向 | 「磁铁插进线圈，灯就亮一下」「磁一变，线圈里就有电」 | 法拉第定律（任一大学物理教材）；〔百〕Wikipedia「Faraday's law of induction」 |
+| 15 | 电池充电需要直流；接收端的整流电路（二极管 / 同步整流）把线圈里的交流变成单向的电，再经稳压、充电管理送进电池 | 「电池只收单向的，芯片把它理顺」，小字「整流 · 示意」 | 〔厂〕TI BQ51013C 数据手册（同步整流器）；见 #10 |
+| 16 | 金属在交变磁场里会感应出闭合的涡流，涡流在金属电阻上发热 | 「金属里也会感应出电，在里面打转」「这些电，全变成了热」，小字「涡流」 | 〔规〕WPC Qi v1.3 FOD（金属异物发热）；〔厂〕Corning（涡流发热）；见 #8、#9 |
+| 17 | 功率损耗型异物检测：接收端定期报告收到的功率（Received Power Packet），发射端用自己送出的功率减去它，估算「不明损耗」；超过阈值就判定有金属异物，降功率或停止送电 | 「板子一算：送出的比收到的多，就降速、甚至停充」，小字「异物检测」 | 〔规〕WPC Qi v1.3 Foreign Object Detection（PDF，见链接）；IEC 63563-7:2025。**待核：引规范原文段落** |
+| 18 | 热成像配色（蓝 → 黄 → 红）只是示意温度高低，不对应具体温度 | 「热成像 · 示意」 | 示意，无数字 |
