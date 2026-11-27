@@ -1,4 +1,4 @@
-# kepu-studio
+# Qingkepu
 
 「芯片与光」科普短视频工作室：剑桥材料学博士讲芯片与光，发在抖音和小红书。视频由 Claude Code 写代码生成。
 
