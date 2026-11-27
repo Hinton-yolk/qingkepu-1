@@ -1,0 +1,262 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Smiley;src:url(../../../../templates/weishenme/assets/fonts/SmileySans-Oblique.ttf)}
+html,body{margin:0;background:#000}
+canvas{display:block}
+</style></head>
+<body><canvas id="c" width="1080" height="1920"></canvas>
+<script>
+// 新一季样张：半透明玻璃实物。f=1 第一帧（字幕版式 A）、f=2 线圈原理（版式 A）、f=3 第一帧（字幕版式 B）
+const W = 1080, H = 1920;
+const C = {
+  bg0: '#EEF0F2', bg1: '#DCE1E6', ink: '#141414', orange: '#FF4A1C',
+  copper: '#C9824F', copperDk: '#8E5230', field: '110,140,255', glassEdge: 'rgba(255,255,255,0.85)',
+};
+const NOTO = '"Noto Sans CJK SC","Noto Sans SC",sans-serif';
+const f = +(new URLSearchParams(location.search).get('f') || 1);
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+
+// ---------- tiny 3D ----------
+function camera(el, az, dist, cx, cy, focal) {
+  const ce = Math.cos(el), se = Math.sin(el), ca = Math.cos(az), sa = Math.sin(az);
+  return ([x, y, z]) => {
+    // rotate around z (azimuth), then tilt (elevation)
+    const x1 = x * ca - y * sa, y1 = x * sa + y * ca;
+    const yv = y1 * ce + z * se;      // depth axis (toward back)
+    const zv = -y1 * se + z * ce;     // up
+    const d = dist + yv;
+    const s = focal / d;
+    return [cx + x1 * s, cy - zv * s, d];
+  };
+}
+function rrectPts(w, h, r, z, n = 10) {
+  const pts = [], hw = w / 2, hh = h / 2;
+  const cs = [[hw - r, hh - r, 0], [-hw + r, hh - r, Math.PI / 2], [-hw + r, -hh + r, Math.PI], [hw - r, -hh + r, 1.5 * Math.PI]];
+  for (const [cx, cy, a0] of cs) for (let i = 0; i <= n; i++) {
+    const a = a0 + (i / n) * Math.PI / 2; pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a), z]);
+  }
+  return pts;
+}
+const circPts = (r, z, n = 96, ox = 0, oy = 0) => Array.from({ length: n }, (_, i) => { const a = i / n * 2 * Math.PI; return [ox + r * Math.cos(a), oy + r * Math.sin(a), z]; });
+function path(P, pts, close = true) { ctx.beginPath(); pts.forEach((p, i) => { const q = P(p); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); }); if (close) ctx.closePath(); }
+const tf = (pts, fn) => pts.map(fn);
+
+// ---------- background ----------
+function background() {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, C.bg0); g.addColorStop(1, C.bg1);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // soft coloured ambient light so the glass has something to refract
+  const blob = (x, y, r, col) => { const rg = ctx.createRadialGradient(x, y, 0, x, y, r); rg.addColorStop(0, col); rg.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H); };
+  blob(860, 820, 620, 'rgba(255,150,110,0.30)');
+  blob(160, 1250, 700, 'rgba(120,160,255,0.26)');
+  blob(540, 1500, 500, 'rgba(255,255,255,0.55)');
+}
+let BG; // blurred copy of the background, used as "what you see through frosted glass"
+function snapshotBlur(px) {
+  const o = document.createElement('canvas'); o.width = W; o.height = H;
+  const c2 = o.getContext('2d'); c2.filter = `blur(${px}px)`; c2.drawImage(cv, 0, 0); return o;
+}
+
+// glass fill: blurred background + milky tint + gradient sheen, then rim light
+function glassFill(pathFn, { tint = 0.32, sheenAng = -0.6, rim = 2.4, inner = null, innerAlpha = 0.55, dark = 0 } = {}) {
+  ctx.save(); pathFn(); ctx.clip();
+  ctx.drawImage(BG, 0, 0);
+  ctx.fillStyle = `rgba(255,255,255,${tint})`; ctx.fillRect(0, 0, W, H);
+  if (dark) { ctx.fillStyle = `rgba(40,50,70,${dark})`; ctx.fillRect(0, 0, W, H); }
+  if (inner) { ctx.globalAlpha = innerAlpha; ctx.drawImage(inner, 0, 0); ctx.globalAlpha = 1; }
+  const b = 1400, cx = 540, cy = 1000;
+  const g = ctx.createLinearGradient(cx - b * Math.cos(sheenAng), cy - b * Math.sin(sheenAng), cx + b * Math.cos(sheenAng), cy + b * Math.sin(sheenAng));
+  g.addColorStop(0.00, 'rgba(255,255,255,0.00)'); g.addColorStop(0.42, 'rgba(255,255,255,0.05)');
+  g.addColorStop(0.47, 'rgba(255,255,255,0.38)'); g.addColorStop(0.50, 'rgba(255,255,255,0.08)');
+  g.addColorStop(0.56, 'rgba(255,255,255,0.20)'); g.addColorStop(0.60, 'rgba(255,255,255,0.02)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+  ctx.save(); pathFn(); ctx.lineWidth = rim; ctx.strokeStyle = C.glassEdge; ctx.stroke();
+  ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(80,90,110,0.25)'; ctx.stroke(); ctx.restore();
+}
+function layer(draw, blur = 0) {
+  const o = document.createElement('canvas'); o.width = W; o.height = H;
+  const c2 = o.getContext('2d'); const keep = ctx; window.__ctx = c2;
+  draw(c2); if (!blur) return o;
+  const o2 = document.createElement('canvas'); o2.width = W; o2.height = H;
+  const c3 = o2.getContext('2d'); c3.filter = `blur(${blur}px)`; c3.drawImage(o, 0, 0); return o2;
+}
+function coilPath(c2, P, rIn, rOut, turns, z, ox = 0, oy = 0) {
+  c2.beginPath(); const n = turns * 90;
+  for (let i = 0; i <= n; i++) { const t = i / n, a = t * turns * 2 * Math.PI, r = rIn + (rOut - rIn) * t; const q = P([ox + r * Math.cos(a), oy + r * Math.sin(a), z]); i ? c2.lineTo(q[0], q[1]) : c2.moveTo(q[0], q[1]); }
+}
+function drawCoil(c2, P, rIn, rOut, turns, z, w, ox = 0, oy = 0) {
+  coilPath(c2, P, rIn, rOut, turns, z, ox, oy);
+  c2.lineCap = 'round'; c2.lineJoin = 'round';
+  c2.strokeStyle = C.copperDk; c2.lineWidth = w + 2.5; c2.stroke();
+  c2.strokeStyle = C.copper; c2.lineWidth = w; c2.stroke();
+  c2.strokeStyle = 'rgba(255,225,190,0.55)'; c2.lineWidth = w * 0.3; c2.stroke();
+}
+function shadow(x, y, rx, ry, a) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(1, ry / rx);
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx); g.addColorStop(0, `rgba(30,40,60,${a})`); g.addColorStop(1, 'rgba(30,40,60,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, rx, 0, 7); ctx.fill(); ctx.restore();
+}
+
+// ---------- subtitles ----------
+// segs: [[text, isKey], ...] per line
+function measureLine(line, font) { ctx.font = font; return line.reduce((s, [t]) => s + ctx.measureText(t).width, 0); }
+function subtitleA(lines, y0 = 236) { // frosted glass card, centred
+  const size = 104, lh = 138, font = `${size}px Smiley`;
+  const wMax = Math.max(...lines.map(l => measureLine(l, font)));
+  const cw = Math.min(W - 96, wMax + 120), chh = lines.length * lh + 74, x0 = (W - cw) / 2;
+  const card = () => { ctx.beginPath(); ctx.roundRect(x0, y0, cw, chh, 44); };
+  ctx.save(); ctx.shadowColor = 'rgba(40,50,80,0.18)'; ctx.shadowBlur = 50; ctx.shadowOffsetY = 18; card(); ctx.fillStyle = 'rgba(255,255,255,0.01)'; ctx.fill(); ctx.restore();
+  glassFill(card, { tint: 0.52, sheenAng: -0.35, rim: 2 });
+  ctx.textBaseline = 'alphabetic';
+  lines.forEach((l, i) => {
+    let x = (W - measureLine(l, font)) / 2; const y = y0 + 60 + size * 0.86 + i * lh;
+    for (const [t, k] of l) { ctx.font = font; ctx.fillStyle = k ? C.orange : C.ink; ctx.fillText(t, x, y); const w = ctx.measureText(t).width;
+      if (k) { ctx.fillStyle = C.orange; ctx.beginPath(); ctx.roundRect(x, y + 16, w, 9, 4.5); ctx.fill(); } x += w; }
+  });
+}
+function subtitleB(lines) { // left aligned, bigger, keyword in an orange pill
+  const size = 120, font = `${size}px Smiley`, x0 = 88; const ys = [350, 504];
+  lines.forEach((l, i) => {
+    let x = x0; const y = ys[i];
+    for (const [t, k] of l) { ctx.font = font; const w = ctx.measureText(t).width;
+      if (k) { ctx.fillStyle = C.orange; ctx.beginPath(); ctx.roundRect(x - 14, y - size * 0.88, w + 28, size * 1.12, 26); ctx.fill(); ctx.fillStyle = '#FFF8F2'; }
+      else { ctx.fillStyle = C.ink; }
+      ctx.fillText(t, x + (k ? 0 : 0), y); x += w + (k ? 30 : 0); }
+  });
+}
+function small(text, x, y, { align = 'left', col = 'rgba(20,20,20,0.72)', size = 44, weight = 400 } = {}) {
+  ctx.font = `${weight} ${size}px ${NOTO}`; ctx.textAlign = align; ctx.fillStyle = col; ctx.fillText(text, x, y); ctx.textAlign = 'left';
+}
+function leader(x1, y1, x2, y2) { ctx.strokeStyle = 'rgba(20,20,20,0.55)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.fillStyle = C.orange; ctx.beginPath(); ctx.arc(x2, y2, 7, 0, 7); ctx.fill(); }
+function bolt(x, y, s, glow) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  if (glow) { ctx.shadowColor = 'rgba(255,74,28,0.9)'; ctx.shadowBlur = 40; }
+  ctx.fillStyle = C.orange; ctx.beginPath();
+  ctx.moveTo(8, -52); ctx.lineTo(-26, 8); ctx.lineTo(-2, 8); ctx.lineTo(-10, 52); ctx.lineTo(26, -10); ctx.lineTo(2, -10); ctx.closePath(); ctx.fill(); ctx.restore();
+}
+
+// ---------- scene 1: phone dropping onto the pad ----------
+function scene1() {
+  background(); BG = snapshotBlur(26);
+  const P = camera(0.66, -0.30, 2300, 540, 1180, 2500);
+  // pad: frosted glass puck
+  const R = 290, padH = 52;
+  shadow(560, 1300, 470, 120, 0.28);
+  const padTop = circPts(R, padH), padBot = circPts(R, 0);
+  const innerPad = layer(c2 => { drawCoil(c2, P, 60, 210, 10, padH - 8, 7); }, 2.2);
+  // pad side band
+  glassFill(() => { ctx.beginPath(); const t = padTop.map(P), b = padBot.map(P);
+    // outline of the cylinder silhouette: front half of bottom + back half of top
+    let L = 0, Rr = 0; t.forEach((q, i) => { if (q[0] < t[L][0]) L = i; if (q[0] > t[Rr][0]) Rr = i; });
+    const n = t.length; const seq = []; for (let i = Rr; i !== L; i = (i + n - 1) % n) seq.push(t[i]); seq.push(t[L]);
+    const seqB = []; for (let i = L; i !== Rr; i = (i + n - 1) % n) seqB.push(b[i]); seqB.push(b[Rr]);
+    [...seq, ...seqB].forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); }, { tint: 0.22, dark: 0.10, rim: 2 });
+  glassFill(() => path(P, padTop), { tint: 0.30, inner: innerPad, innerAlpha: 0.75, sheenAng: -0.9 });
+  // glowing ring on the pad = charging indicator
+  ctx.save(); path(P, circPts(R - 18, padH + 0.5)); ctx.strokeStyle = 'rgba(255,74,28,0.85)'; ctx.lineWidth = 3; ctx.shadowColor = 'rgba(255,74,28,0.8)'; ctx.shadowBlur = 18; ctx.stroke(); ctx.restore();
+
+  // phone, just landed (2 mm above), slightly rotated
+  const ph = { w: 420, h: 880, t: 44, z: padH + 6, rot: 0.10, ox: 6, oy: 40 };
+  const rot = p => { const c = Math.cos(ph.rot), s = Math.sin(ph.rot); return [ph.ox + p[0] * c - p[1] * s, ph.oy + p[0] * s + p[1] * c, p[2]]; };
+  const top = tf(rrectPts(ph.w, ph.h, 72, ph.z + ph.t), rot), bot = tf(rrectPts(ph.w, ph.h, 72, ph.z), rot);
+  shadow(560, 1230, 340, 100, 0.22);
+  const innerPhone = layer(c2 => {
+    // battery, coil, chip — what you see through the frosted back
+    const bat = tf(rrectPts(320, 500, 24, ph.z + 14), p => rot([p[0], p[1] + 70, p[2]]));
+    c2.beginPath(); bat.map(P).forEach((q, i) => i ? c2.lineTo(q[0], q[1]) : c2.moveTo(q[0], q[1])); c2.closePath();
+    c2.fillStyle = 'rgba(60,70,90,0.30)'; c2.fill(); c2.strokeStyle = 'rgba(60,70,90,0.45)'; c2.lineWidth = 2; c2.stroke();
+    const P2 = p => P(rot(p)); drawCoil(c2, P2, 55, 190, 9, ph.z + 8, 6, 0, -30);
+    const chip = tf(rrectPts(90, 60, 8, ph.z + 18), p => rot([p[0] + 70, p[1] - 300, p[2]]));
+    c2.beginPath(); chip.map(P).forEach((q, i) => i ? c2.lineTo(q[0], q[1]) : c2.moveTo(q[0], q[1])); c2.closePath(); c2.fillStyle = 'rgba(30,35,45,0.55)'; c2.fill();
+  }, 3.0);
+  // sides (simple: draw bottom outline filled, then top)
+  glassFill(() => { ctx.beginPath(); const a = bot.map(P), b = top.map(P); const hull = convexHull([...a, ...b]); hull.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); }, { tint: 0.20, dark: 0.12, rim: 2 });
+  glassFill(() => path(P, top), { tint: 0.26, inner: innerPhone, innerAlpha: 0.9, sheenAng: -0.75, rim: 2.6 });
+  // screen: lit charging bolt behind the glass
+  const sc = P(rot([0, -40, ph.z + ph.t]));
+  ctx.save(); const rg = ctx.createRadialGradient(sc[0], sc[1], 0, sc[0], sc[1], 220); rg.addColorStop(0, 'rgba(255,120,70,0.30)'); rg.addColorStop(1, 'rgba(255,120,70,0)');
+  path(P, top); ctx.clip(); ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H); ctx.restore();
+  bolt(sc[0], sc[1], 1.25, true);
+  // charging ripples rising from pad (subtle)
+  for (let i = 0; i < 3; i++) { ctx.save(); path(P, circPts(R + 30 + i * 46, padH * 0.5)); ctx.strokeStyle = `rgba(255,74,28,${0.22 - i * 0.06})`; ctx.lineWidth = 2.5; ctx.stroke(); ctx.restore(); }
+  // hand placeholder note
+  small('（手为占位：草稿照参考图画，黄种人肤色）', 540, 1700, { align: 'center', size: 34, col: 'rgba(20,20,20,0.40)' });
+}
+function convexHull(pts) {
+  const p = pts.map(q => [q[0], q[1]]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], up = [];
+  for (const q of p) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  for (const q of p.slice().reverse()) { while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+  return lo.slice(0, -1).concat(up.slice(0, -1));
+}
+
+// ---------- scene 2: two coils, field passing through ----------
+function scene2() {
+  background();
+  ctx.fillStyle = 'rgba(210,220,235,0.35)'; ctx.fillRect(0, 0, W, H);
+  BG = snapshotBlur(30);
+  const P = camera(0.50, -0.22, 1900, 560, 1050, 1850);
+  const zLo = 0, zHi = 380;
+  const slab = (z, th, r) => ({ top: rrectPts(r * 2, r * 2, r * 0.95, z + th), bot: rrectPts(r * 2, r * 2, r * 0.95, z) });
+  const hullPath = sl => () => { ctx.beginPath(); convexHull([...sl.top.map(P), ...sl.bot.map(P)]).forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); };
+  const sLo = slab(zLo - 30, 44, 300), sHi = slab(zHi - 14, 44, 300);
+  shadow(570, 1420, 470, 110, 0.20);
+  fieldLines(P, zLo, zHi, 0.45);                       // behind everything, faint
+  const coilLo = layer(c2 => drawCoil(c2, P, 60, 230, 9, zLo, 11));
+  glassFill(hullPath(sLo), { tint: 0.20, rim: 2, inner: coilLo, innerAlpha: 0.95 });
+  currentDots(P, 60, 230, 9, zLo, 0.0);
+  fieldLines(P, zLo, zHi, 1.0);                        // between the two slabs
+  const coilHi = layer(c2 => drawCoil(c2, P, 60, 230, 9, zHi, 11));
+  glassFill(hullPath(sHi), { tint: 0.20, rim: 2, inner: coilHi, innerAlpha: 0.95 });
+  fieldLines(P, zLo, zHi, 0.35);                       // in front of the upper slab, faint (passes through)
+  currentDots(P, 60, 230, 9, zHi, 0.5);
+  const a = P([-300, 120, zLo - 10]), b = P([-300, 120, zHi + 30]);
+  leader(150, a[1] + 110, a[0] + 30, a[1] + 4); small("充电板里的线圈", 96, a[1] + 165);
+  leader(150, b[1] - 120, b[0] + 30, b[1] - 4); small('手机里的线圈', 96, b[1] - 140);
+  small('每秒十几万次 · 慢放示意', 96, 1430, { size: 40, col: 'rgba(20,20,20,0.62)' });
+  small('磁场颜色为示意', W - 96, 1430, { align: 'right', size: 40, col: 'rgba(20,20,20,0.62)' });
+}
+function currentDots(P, rIn, rOut, turns, z, phase) {
+  const n = 46;
+  for (let i = 0; i < n; i++) {
+    const t = (i / n + phase * 0.013) % 1, a = t * turns * 2 * Math.PI, r = rIn + (rOut - rIn) * t;
+    const q = P([r * Math.cos(a), r * Math.sin(a), z + 2]);
+    ctx.save(); ctx.shadowColor = 'rgba(255,74,28,0.9)'; ctx.shadowBlur = 14; ctx.fillStyle = '#FF6A3D';
+    ctx.beginPath(); ctx.arc(q[0], q[1], 6.5, 0, 7); ctx.fill(); ctx.restore();
+  }
+  // direction chevron on the outer turn
+  const a0 = turns * 2 * Math.PI * 0.97, r0 = rOut;
+  const q0 = P([r0 * Math.cos(a0), r0 * Math.sin(a0), z]), q1 = P([r0 * Math.cos(a0 + 0.25), r0 * Math.sin(a0 + 0.25), z]);
+  const ang = Math.atan2(q1[1] - q0[1], q1[0] - q0[0]);
+  ctx.save(); ctx.translate(q1[0], q1[1]); ctx.rotate(ang); ctx.fillStyle = C.orange; ctx.beginPath(); ctx.moveTo(18, 0); ctx.lineTo(-12, -13); ctx.lineTo(-12, 13); ctx.closePath(); ctx.fill(); ctx.restore();
+}
+function fieldLines(P, zLo, zHi, gain = 1) {
+  // each line: up the axis region (r small), arcs out over the top, back down outside the coils
+  const az = [0.3, 1.35, 2.4, 3.45, 4.5, 5.55];
+  for (const phi of az) for (const k of [0, 1, 2]) {
+    const r0 = 25 + k * 40, rMax = 320 + k * 60, top = zHi + 110 + k * 60, bot = zLo - 90 - k * 40;
+    const pts = [];
+    for (let i = 0; i <= 120; i++) {
+      const u = i / 120 * 2 * Math.PI; // loop param
+      const r = r0 + (rMax - r0) * (1 - Math.cos(u)) / 2;
+      const zc = (top + bot) / 2, zr = (top - bot) / 2;
+      const z = zc + zr * Math.sin(u) * 0.95 + (u < Math.PI / 2 || u > 1.5 * Math.PI ? 0 : 0);
+      pts.push([r * Math.cos(phi), r * Math.sin(phi), z]);
+    }
+    const alpha = (0.55 - k * 0.14) * gain;
+    ctx.save(); path(P, pts, false); ctx.lineWidth = 9 - k * 2; ctx.strokeStyle = `rgba(${C.field},${alpha * 0.25})`; ctx.shadowColor = `rgba(${C.field},0.8)`; ctx.shadowBlur = 22; ctx.stroke();
+    ctx.lineWidth = 3 - k * 0.6; ctx.strokeStyle = `rgba(${C.field},${alpha})`; ctx.shadowBlur = 0; ctx.stroke(); ctx.restore();
+  }
+}
+
+// ---------- compose ----------
+document.fonts.load('104px Smiley').then(() => document.fonts.load(`44px ${NOTO}`)).then(() => {
+  if (f === 2) { scene2(); subtitleA([[['电流一变，周围就有了', 0]], [['一阵阵变化的', 0], ['磁', 1]]]); }
+  else { scene1(); if (f === 3) subtitleB([[['没插线，', 0]], [['电怎么', 0], ['进', 1], ['手机的？', 0]]]); else subtitleA([[['没插线，', 0]], [['电怎么', 0], ['进', 1], ['手机的？', 0]]]); }
+  document.title = 'ready';
+});
+</script></body></html>
