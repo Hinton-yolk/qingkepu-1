@@ -6,19 +6,18 @@
 | # | 事实（片中怎么说） | 片中用法 | 来源 |
 |---|---|---|---|
 | 1 | 手机无线充电主流是 Qi 标准（WPC 无线充电联盟），原理是**电磁感应**：充电板线圈通交流电产生交变磁场，手机里的线圈感应出交流电 | 第 4 段整体 | 〔百〕Wikipedia「Qi (standard)」；〔厂〕DigiKey「Inductive Versus Resonant Wireless Charging」 |
-| 2 | Qi 基础 / 扩展功率档（BPP / EPP）工作频率约 110–205 kHz（资料下限有 87 / 100 / 105 / 110 kHz 几种写法）；Qi2 磁吸档（MPP）为 360 kHz → 片中说「每秒十几万到几十万次」（110–360 kHz = 每秒 11–36 万个周期） | 小字「每秒十几万到几十万次 · 慢放示意」 | 〔厂〕DigiKey 同上；〔百〕Wikipedia；MPP 360 kHz：〔测试实验室〕GRL「Qi2 wireless charging standards evolution」（BPP / EPP 87–205 kHz，MPP 360 kHz；Qi2 先以 BPP 128 kHz 握手再切到 360 kHz）；〔百〕Spilma「Qi, Qi2 wireless charging certification」、Tinkervault「Qi and Qi2 standards」（二手资料，WPC 规范原文未见）；〔估〕换算 |
+| 2 | Qi 基础 / 扩展功率档（BPP / EPP）工作频率约 110–205 kHz（资料下限有 87 / 100 / 105 / 110 kHz 几种写法）；Qi2 磁吸档（MPP）为 360 kHz → 片中说「每秒十几万到几十万次」（110–360 kHz = 每秒 11–36 万个周期） | 小字「每秒来回十几万到几十万次 · 慢放示意」 | 〔厂〕DigiKey 同上；〔百〕Wikipedia；MPP 360 kHz：〔测试实验室〕GRL「Qi2 wireless charging standards evolution」（BPP / EPP 87–205 kHz，MPP 360 kHz；Qi2 先以 BPP 128 kHz 握手再切到 360 kHz）；〔百〕Spilma「Qi, Qi2 wireless charging certification」、Tinkervault「Qi and Qi2 standards」（二手资料，WPC 规范原文未见）；〔估〕换算 |
 | 3 | 手机压在充电板上，但两边电路之间隔着外壳，没有任何导电接触（电荷不穿过间隙，过去的是变化的磁场 / 能量） | 「没有一根线，连着它们」「电没走过去，过去的是磁」 | 由原理直接得出（感应耦合）〔百〕Wikipedia |
 | 4 | 线圈要靠得近、对得正，耦合才好；Qi 设备通常要求发射、接收线圈对得比较准 | 「为什么要放正」段 | 〔百〕Wikipedia；〔厂〕DigiKey。**不放具体毫米数**（没找到可靠来源） |
-| 5 | Qi2 的磁吸功率规范（MPP）基于苹果贡献的 MagSafe，用一圈磁铁让手机和充电器对正 | 「背后有一圈磁铁，一贴就正」，小字「Qi2 磁吸」 | 〔百〕Macworld / MacRumors 关于 Qi2 MPP 的报道（2023-01）；WPC 公告待补原文链接 |
+| 5 | Qi2 的磁吸功率规范（MPP）基于苹果贡献的 MagSafe，用一圈磁铁让手机和充电器对正 | 「所以有的手机和充电器，各有一圈磁铁」，小字「Qi2 磁吸」（不少安卓机标 Qi2 Ready、本身没有磁铁，要靠磁吸壳） | 〔百〕Macworld / MacRumors 关于 Qi2 MPP 的报道（2023-01）；WPC 公告待补原文链接 |
 | 6 | 手机和充电板**通过同一对线圈通信**：接收端改变自己的负载（负载调制 / ASK），发射端从线圈上的电压、电流包络读出数据包（控制误差包：「多一点 / 少一点」） | 「手机就用这圈线回话」「多一点、少一点」 | 〔规〕WPC Qi v1.3 Communications Physical Layer（PDF）；〔厂〕TI BQ51013C 数据手册「通信调制器」 |
 | 7 | 充电板先发短促的「探测」（ping），收不到合规的回复就不开始送电 | 「板子会先问一声」「没有回话，就不送电」 | Qi 四个阶段：选择、探测（ping）、识别与配置、送电；数字 ping 收不到合规的信号强度包就不进入后续阶段、不送电。〔百〕All About Circuits「How Does the Qi Wireless Charging Standard Work」；〔专利〕US 9866073 等对 Qi 流程的描述。规范原文未见 |
-| 8 | 金属异物（硬币、钥匙）在交变磁场里会因涡流发热；Qi 规定了异物检测（FOD）防止这种情况 | 钥匙那一拍；小提示「摘掉金属指环扣」 | 〔规〕WPC Qi v1.3 FOD（PDF）；IEC 63563-7:2025（Qi 2.0 Part 7: FOD）；〔厂〕Avnet 文章 |
+| 8 | 金属异物（硬币、钥匙）在交变磁场里会因涡流发热；Qi 规定了异物检测（FOD）防止这种情况 | 钥匙那一拍；小提示「摘掉厚壳和金属指环」 | 〔规〕WPC Qi v1.3 FOD（PDF）；IEC 63563-7:2025（Qi 2.0 Part 7: FOD）；〔厂〕Avnet 文章 |
 | 9 | 手机背面用玻璃而不是整块金属，一个原因是金属会产生涡流、消耗并发热；玻璃几乎不损耗磁场 | 可选小字（目前没进片） | 〔厂〕Corning「Glass is Better for Wireless Charging」（玻璃厂商，立场有偏） |
 | 10 | 手机收到的是交流电，要经过整流变成直流，再由充电管理芯片充进电池 | 小字「交流 → 直流」 | 〔厂〕TI BQ51013C 数据手册（接收芯片集成同步整流器，输出直流给充电电路） |
-
 | 11 | 苹果官方：iPhone 和充电器之间不要放东西；厚壳、金属壳会导致不充或变慢；金属物品会变热或干扰充电 | 小提示「充得慢、发烫？摘掉厚壳和金属指环，再放正一点」 | 〔厂〕Apple「How to wirelessly charge your iPhone」；Apple「Important safety information for iPhone」 |
-| 12 | 线圈错位 → 穿过接收线圈的磁通变少、耦合系数下降；Qi 闭环功控会让发射端加大驱动补回功率，代价是效率下降、发热增加；补不回来或过热降功率时才变慢 / 停 | 「穿过手机的磁就少了」「板子得更使劲，还容易发烫」 | 〔厂〕WECENT 台架数据（15 W 充电器错位 5 mm，效率约 81% → 63%，线圈约 35 °C → 50 °C 以上；**单一厂商，立场有偏，数字不上屏**）；功控机制见 #6。**待补：TI / Würth 应用笔记或论文** |
-| 13 | 平面线圈的磁场集中在线圈正上方（轴线附近），在外缘掉头回绕；发射线圈下面、接收线圈上面各有一层铁氧体片，引导磁通并屏蔽 | 「磁只在线圈正上方最密」；画面铁氧体片 | 〔厂〕Würth Elektronik ANP014「Wireless Energy Transmission Coils as Key Components」 |
+| 12 | 线圈错位 → 穿过接收线圈的磁通变少、耦合系数下降；Qi 闭环功控会让发射端加大驱动补回功率，代价是效率下降、发热增加；补不回来或过热降功率时才变慢 / 停 | 「穿过手机这圈的磁就少了」「板子得更使劲，还容易发烫」 | 〔厂〕WECENT 台架数据（15 W 充电器错位 5 mm，效率约 81% → 63%，线圈约 35 °C → 50 °C 以上；**单一厂商，立场有偏，数字不上屏**）；功控机制见 #6。**待补：TI / Würth 应用笔记或论文** |
+| 13 | 平面线圈的磁场集中在线圈正上方（轴线附近），在外缘掉头回绕；发射线圈下面、接收线圈上面各有一层铁氧体片，引导磁通并屏蔽 | 「磁都挤在线圈正上方」；画面铁氧体片 | 〔厂〕Würth Elektronik ANP014「Wireless Energy Transmission Coils as Key Components」 |
 
 ## 类比 / 示意（片中要标注）
 - 磁场的颜色、磁力线的样子：**示意**，磁场看不见，画面加注「颜色为示意」。
