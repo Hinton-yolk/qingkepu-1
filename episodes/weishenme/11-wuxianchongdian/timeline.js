@@ -1,5 +1,5 @@
 // timeline.js — the single source of truth for picture (index.html) and sound (music/score.mjs).
-// EP.09 无线充电 · 第二季第一集（半透明玻璃画风、字幕版式 A、钢鼓热带配乐 104 BPM）。脚本：script.md 逐句脚本 v3.1（定稿）。
+// EP.11 无线充电 · 第二季第一集（半透明玻璃画风、字幕版式 A、钢鼓热带配乐 104 BPM）。脚本：script.md 逐句脚本 v3.1（定稿）。
 // Every cue is written in script seconds and snapped to the 104 BPM eighth-note grid (≈ 0.2885 s) by q().
 //   1 phenomenon   0     没插线，电怎么进手机的？（手把手机放上充电板，⚡）
 //   2 surprise     2.75  没有一根线，连着它们
@@ -71,7 +71,7 @@
     tx: "发射线圈", rx: "接收线圈", freq: "每秒来回十几万到几十万次 · 慢放示意", color: "蓝线是磁", color2: "橙点是电流 · 示意", magnetNote: "充电器磁铁", magnetNote2: "手机磁铁", metalNote: "金属片", gapNote: "间距放大 · 示意",
     induct: "这叫电磁感应", leakNote: "漏磁", lossNote: "线圈电阻 · 漏磁", thermalNote: "热成像 · 示意", qi2: "Qi2 磁吸 · 帮你对准",
     eddyNote: "涡流", fod: "异物检测", battNote: "电池", tipTag: "小提示",
-    end: ["你每天都在用，", "但你不知道", "它[怎么工作]"], epNum: "EP.09", epName: "无线充电",
+    end: ["你每天都在用，", "但你不知道", "它[怎么工作]"], epNum: "EP.11", epName: "无线充电",
   };
   const ORDER = ["h1", "a1", "q1", "a2", "exp1", "exp2", "q2", "a3", "a4", "name", "q4", "q5", "a7", "a10", "q8", "a15", "a16", "q6", "a11", "a12", "a13", "a14", "tip"];
   const STYLE = { name: "slam", a14: "slam" };

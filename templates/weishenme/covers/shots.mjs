@@ -27,8 +27,8 @@ const JOBS = [
   ["../../../episodes/weishenme/07-shoubiaolvguang", "ep07-inset", 10.0, null, null],  // the section (v7.2 timing): green light into the skin, the blood eats it
   ["../../../episodes/weishenme/08-chongdian", "ep08-hero", 0.6, null, null],          // the hand plugs the cable into the phone, ⚡37%
   ["../../../episodes/weishenme/08-chongdian", "ep08-inset", 23.6, null, null],        // the two bars: 现在的电量 | 累计用掉的电 (two halves = one)
-  ["../../../episodes/weishenme/09-wuxianchongdian", "ep09-hero", 1.3, null, null],     // the phone just landed on the pad, the charging ring lit (the hand lifting away)
-  ["../../../episodes/weishenme/09-wuxianchongdian", "ep09-inset", 19.2, null, null],   // the two coils, the field threading the phone's coil
+  ["../../../episodes/weishenme/11-wuxianchongdian", "ep11-hero", 1.3, null, null],     // the phone just landed on the pad, the charging ring lit (the hand lifting away)
+  ["../../../episodes/weishenme/11-wuxianchongdian", "ep11-inset", 19.2, null, null],   // the two coils, the field threading the phone's coil
 ];
 const ONLY = process.argv[2];                                   // node shots.mjs ep04 → only the jobs whose name starts with ep04
 const browser = await chromium.launch();
@@ -48,7 +48,7 @@ for (const [dir, name, t, camExpr, anchor] of JOBS.filter((j) => !ONLY || j[1].s
     if (typeof window.tag === "function" && name.startsWith("ep06")) window.tag = () => {};          // EP.06: no small tags on the cover art
     if (name === "ep07-inset") { for (const f of ["overlays", "spotlight", "drawCard"]) if (typeof window[f] === "function") window[f] = () => {}; }   // EP.07 inset: the light and the vessel only (no frames, tags or card)
     if (name === "ep08-inset") { window.pill = () => {}; window.label = () => {}; }   // EP.08 inset: the two bars only (no small text cut by the circle)
-    if (name.startsWith("ep09")) { window.drawSubs = () => {}; window.label = () => {}; window.leader = () => {}; window.obox = () => {}; window.spotlight = () => {}; }   // EP.09: the picture only
+    if (name.startsWith("ep11")) { window.drawSubs = () => {}; window.label = () => {}; window.leader = () => {}; window.obox = () => {}; window.spotlight = () => {}; }   // EP.11: the picture only
     if (camExpr) { const K = eval(camExpr); window.cam = () => K; }
     if (camExpr && typeof window.sweeping === "function" && typeof window.drawPhone === "function") {
       // EP.01: the phone half seen through — the board above an orange scan line, the screen below it

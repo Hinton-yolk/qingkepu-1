@@ -1,4 +1,4 @@
-// music/score.mjs — EP.09 的整片配乐 + 音效，全部代码合成，读 ../timeline.js，让每个音落在画面动作上。
+// music/score.mjs — EP.11 的整片配乐 + 音效，全部代码合成，读 ../timeline.js，让每个音落在画面动作上。
 //   node music/score.mjs  ->  out/score.wav（再 sh tools/master.sh out/score.wav audio/mix.wav → -14 LUFS）
 // 第二季配乐：钢鼓热带（用户 11-27 选样曲 I），104 BPM，D 大调。
 //   开头（0–4.6）：钢鼓动机 sol-do-mi-re（A5 D6 F#6 E6，没解决）+ 轻反拍切音，没有鼓
