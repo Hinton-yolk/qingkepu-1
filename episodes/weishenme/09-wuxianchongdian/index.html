@@ -120,7 +120,7 @@ function loopPts(r0, r1, zb, zt, phi, ox = 0, oy = 0) {
   for (let i = 0; i <= 96; i++) { const th = Math.PI + (i / 96) * TAU; const s = Math.sin(th), r = rc - rr * Math.cos(th); const z = s < 0 ? zb + (zt - zb) * (-s) : zb - 6 * s; pts.push([ox + r * Math.cos(phi), oy + r * Math.sin(phi), z]); }
   return pts;   // starts at the inner bottom, goes up the inner leg first
 }
-const LOOPS = []; for (let k = 0; k < 3; k++) for (let j = 0; j < 7; j++) LOOPS.push({ k, phi: (j / 7) * TAU + k * 0.45, r0: 40 + k * 75, r1: 300 + k * 35, zt: 110 + k * 35 });
+const LOOPS = []; for (let k = 0; k < 2; k++) for (let j = 0; j < 7; j++) LOOPS.push({ k, phi: (j / 7) * TAU + k * 0.45, r0: 40 + k * 75, r1: 300 + k * 35, zt: 110 + k * 35 });
 // the field of the pad coil as flowing light: each closed loop carries beads that drift along it; the drift follows the current
 // (st.flow = ∫ I dt), so the beads run up through the middle, slow, stop and run back when the current reverses.
 function drawField(P, st, front = false) {
@@ -356,7 +356,7 @@ function worldState(t) {
   s.explode = Math.max(0.55 * E.p2io(prog(t, T.cut, T.cut + 0.6)), E.p2io(prog(t, T.push + 0.6, T.push + 2.4))) * (1 - E.p2io(prog(t, T.magnet, T.magnet + 0.6)));
   // ---- 4 (after the lab): the pad's current, the flowing field, the phone's coil
   s.padDots = E.p3out(prog(t, T.cur, T.cur + 0.4)); s.padPhase = 2.6 * Math.cos(OMEGA * (t - T.cur));
-  s.field = E.p2io(prog(t, T.cur + 0.2, T.cur + 1.0)); s.reach = lerp(0.6, 1, E.p2io(prog(t, T.through, T.through + 1.0)));
+  s.field = E.p2io(prog(t, T.cur + 1.2, T.cur + 2.0)); s.reach = lerp(0.6, 1, E.p2io(prog(t, T.through, T.through + 1.0)));
   s.throughHL = E.p2io(prog(t, T.through, T.through + 0.6));
   s.rxCenter = [s.ox, s.oy + PH.coilOy];
   s.rxDots = E.p3out(prog(t, T.rxCur, T.rxCur + 0.4)); s.rxPhase = 2.4 * Math.cos(OMEGA * (t - T.cur) - 1.2); s.rxGlow = win(t, T.rxCur, T.name + 0.8, 0.3, 0.4);
