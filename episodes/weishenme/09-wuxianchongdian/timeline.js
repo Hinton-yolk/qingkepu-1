@@ -73,7 +73,7 @@
     a14: ["所以没插线，", "靠的是[磁]"],
     tip: ["充得慢、发烫？", "摘掉厚壳和[金属]指环，", "再放[正]一点"],
     tx: "发射线圈", rx: "接收线圈", freq: "每秒来回十几万到几十万次 · 慢放示意", color: "颜色为示意", gapNote: "间距放大 · 示意",
-    induct: "这叫电磁感应", rectNote: "整流 · 示意", thermalNote: "热成像 · 示意", qi2: "Qi2 磁吸", eddyNote: "涡流", fod: "异物检测",
+    induct: "这叫电磁感应", rectNote: "整流 · 示意", thermalNote: "热成像 · 示意", qi2: "Qi2 磁吸 · 帮你对准", gapLabel: "差的这截，变成了热", eddyNote: "涡流", fod: "异物检测",
     sent: "板子送出", got: "手机收到", tipTag: "小提示",
     end: ["你每天都在用，", "但你不知道", "它[怎么工作]"], epNum: "EP.09", epName: "无线充电",
   };

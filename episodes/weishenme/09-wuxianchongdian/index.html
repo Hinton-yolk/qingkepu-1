@@ -310,10 +310,10 @@ const CAMS = [
   [T.low, 0.56, -0.20, 2300, 3050, 540, 1040, 0, 40, 40],
   [T.lowEnd, 0.16, -0.18, 1500, 2350, 540, 1040, 0, 0, 90],
   [T.push, 0.17, -0.20, 1500, 2350, 540, 1040, 0, 0, 90],
-  [T.pushEnd, 0.20, -0.22, 2000, 2550, 540, 1100, 0, 0, 230],
-  [T.backPad, 0.20, -0.22, 2000, 2550, 540, 1100, 0, 0, 230],
-  [T.name + 2.5, 0.22, -0.12, 2000, 2550, 540, 1100, 0, 0, 230],
-  [T.pull, 0.22, -0.12, 2000, 2550, 540, 1100, 0, 0, 230],
+  [T.pushEnd, 0.20, -0.22, 2000, 2550, 540, 1030, 0, 0, 230],
+  [T.backPad, 0.20, -0.22, 2000, 2550, 540, 1030, 0, 0, 230],
+  [T.name + 2.5, 0.22, -0.12, 2000, 2550, 540, 1030, 0, 0, 230],
+  [T.pull, 0.22, -0.12, 2000, 2550, 540, 1030, 0, 0, 230],
   [T.pullEnd, 0.30, -0.02, 2250, 2450, 540, 1120, 100, 0, 160],
   [T.magnet, 0.30, -0.02, 2250, 2450, 540, 1120, 100, 0, 160],
   [T.magnet + 0.8, 0.42, -0.20, 2150, 2550, 540, 1110, 0, 0, 130],
@@ -356,7 +356,7 @@ function worldState(t) {
   s.explode = Math.max(0.55 * E.p2io(prog(t, T.cut, T.cut + 0.6)), E.p2io(prog(t, T.push + 0.6, T.push + 2.4))) * (1 - E.p2io(prog(t, T.magnet, T.magnet + 0.6)));
   // ---- 4 (after the lab): the pad's current, the flowing field, the phone's coil
   s.padDots = E.p3out(prog(t, T.cur, T.cur + 0.4)); s.padPhase = 2.6 * Math.cos(OMEGA * (t - T.cur));
-  s.field = E.p2io(prog(t, T.cur + 1.2, T.cur + 2.0)); s.reach = lerp(0.6, 1, E.p2io(prog(t, T.through, T.through + 1.0)));
+  s.field = E.p2io(prog(t, T.cur + 0.45, T.cur + 1.0)); s.reach = lerp(0.6, 1, E.p2io(prog(t, T.through, T.through + 1.0)));
   s.throughHL = E.p2io(prog(t, T.through, T.through + 0.6));
   s.rxCenter = [s.ox, s.oy + PH.coilOy];
   s.rxDots = E.p3out(prog(t, T.rxCur, T.rxCur + 0.4)); s.rxPhase = 2.4 * Math.cos(OMEGA * (t - T.cur) - 1.2); s.rxGlow = win(t, T.rxCur, T.name + 0.8, 0.3, 0.4);
@@ -528,6 +528,7 @@ function drawLab0(t) {
     // the diode arrow beside it on the wire: which way this branch lets current through
     const ax = x + dir * 80; ctx.fillStyle = C.ink; ctx.beginPath(); ctx.moveTo(ax + dir * 16, y); ctx.lineTo(ax - dir * 14, y - 15); ctx.lineTo(ax - dir * 14, y + 15); ctx.closePath(); ctx.fill();
     ctx.fillRect(ax + dir * 16 - 2.5, y - 15, 5, 30);
+    ctx.strokeStyle = C.ink; ctx.lineWidth = 2.5; for (const o of [-6, 6]) { line2(ax + o, y - 18, ax + o + 10, y - 32); line2(ax + o + 10, y - 32, ax + o + 3, y - 30); line2(ax + o + 10, y - 32, ax + o + 9, y - 25); }
   };
   led(cx, yA, 1, inLit); led(cx, yB, -1, outLit);
   // back halves of the turns, the glass tube
@@ -625,6 +626,9 @@ function fodBars(t) {
   if (g > 0.01) { const gx = x0 + 190 + (w0 - 190) * 0.62; ctx.globalAlpha = a * g; ctx.fillStyle = "rgba(235,60,40,0.85)"; ctx.beginPath(); ctx.roundRect(gx, y1 - 34, (w0 - 190) * 0.38, 40, 12); ctx.fill();
     ctx.strokeStyle = C.acc; ctx.lineWidth = 4; ctx.setLineDash([8, 8]); line2(gx, y1 - 44, gx, y2 + 12); ctx.setLineDash([]); }
   ctx.restore();
+  label(COPY.gapLabel, 900, 1210, t, T.gap + 0.2, T.back, { size: 44, align: "right", col: "rgb(200,45,30)" });
+  ctx.save();
+  ctx.restore();
 }
 function iris(t, tIn, drawA, drawB, cx = 540, cy = 1040) {   // B grows out of a circle over 0.5 s
   const k = E.p3io(prog(t, tIn, tIn + 0.5));
@@ -670,6 +674,8 @@ function annotate(t, P, PP, st) {
   label(COPY.gapNote, 1000, 700, t, T.metal, T.bars, { size: 44, weight: 400, align: "right" });
   label(COPY.color, 1000, 776, t, T.cur, T.wire, { size: 44, weight: 400, align: "right" });
   label(COPY.freq, 540, 1430, t, T.cur, T.name, { size: 44, weight: 400, align: "center" });
+  { const a1 = win(t, T.cur, T.cur + 0.9, 0.25, 0.35); spotlight(txC[0], txC[1], 460, 150, a1); const b = P([-PAD.rOut, 0, PAD.coilZ]), c = P([PAD.rOut, 0, PAD.coilZ]); if (a1 > 0.01) obox(Math.min(b[0], c[0]) - 30, txC[1] - 90, Math.abs(c[0] - b[0]) + 60, 180, E.p3out(prog(t, T.cur, T.cur + 0.4)), a1); }
+  if (PP) { const a3 = win(t, T.rxCur, T.name, 0.3, 0.3), b = PP([-PH.rOut, PH.coilOy, PH.coilDz]), c = PP([PH.rOut, PH.coilOy, PH.coilDz]); if (a3 > 0.01) obox(Math.min(b[0], c[0]) - 30, rxC[1] - 90, Math.abs(c[0] - b[0]) + 60, 180, E.p3out(prog(t, T.rxCur, T.rxCur + 0.4)), a3); }
   label(COPY.induct, 540, 1430, t, T.name + 0.3, T.wire, { size: 44, align: "center", col: C.ink });
   // 5a: heat — thermal view while the phone sits off-centre
   const th = win(t, T.thermal, T.slideBackEnd + 0.3, 0.5, 0.6);
