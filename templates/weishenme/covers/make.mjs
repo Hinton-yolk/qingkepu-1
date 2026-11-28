@@ -62,6 +62,12 @@ const COVERS = [
   { out: "ep08-xiaohongshu", W: 1080, H: 1440, ep: "EP.08", title: ["手机天天充，", "会<b>充坏</b>电池吗？"],
     hero: "ep08-hero", heroDy: -300, anchor: [540, 942], inset: { img: "ep08-inset", cx: 532, cy: 1195, src: 372, x: 300, y: 1180, r: 150 }, tag: "它数的不是次数",
     ser: 108, t1: 252, t2: 398, size: 124, wash: 440 },
+  { out: "ep09-douyin", W: 1080, H: 1920, ep: "EP.09", title: ["没插线，", "电怎么<b>进</b>手机的？"],
+    hero: "ep09-hero", heroDy: 40, anchor: [610, 1095], inset: { img: "ep09-inset", cx: 540, cy: 1050, src: 430, x: 830, y: 1400, r: 180 }, tag: "两圈线圈，靠磁传电",
+    ser: 300, t1: 452, t2: 602, size: 132, wash: 700 },
+  { out: "ep09-xiaohongshu", W: 1080, H: 1440, ep: "EP.09", title: ["没插线，", "电怎么<b>进</b>手机的？"],
+    hero: "ep09-hero", heroDy: -170, anchor: [610, 1095], inset: { img: "ep09-inset", cx: 540, cy: 1050, src: 430, x: 850, y: 1125, r: 150 }, tag: "两圈线圈，靠磁传电",
+    ser: 108, t1: 252, t2: 398, size: 128, wash: 520 },
 ];
 const ONLY = process.argv[2];                                   // node make.mjs ep04 → only those covers
 

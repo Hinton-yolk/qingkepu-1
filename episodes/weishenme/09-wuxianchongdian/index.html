@@ -681,7 +681,8 @@ function annotate(t, P, PP, st) {
   label(COPY.gapNote, 1000, LY(t, 700), t, T.cut + 0.35, T.labIn, { size: 44, weight: 400, align: "right" });
   label(COPY.gapNote, 1000, LY(t, 700), t, T.backPad, T.magnet, { size: 44, weight: 400, align: "right" });
   label(COPY.gapNote, 1000, LY(t, 700), t, T.heatQ + 0.6, T.back, { size: 44, weight: 400, align: "right" });
-  label(COPY.color, 1000, LY(t, 776), t, T.cur, T.magnet, { size: 44, weight: 400, align: "right" });
+  label(COPY.color, 70, 1080, t, T.cur + 0.5, T.leak, { size: 44, weight: 400, align: "left", col: "rgb(60,80,200)" });      // the legend sits by the field lines it explains
+  label(COPY.color2, 70, 1142, t, T.cur + 0.5, T.leak, { size: 44, weight: 400, align: "left", col: "rgb(200,60,20)" });
   label(COPY.freq, 540, 1430, t, T.cur, T.name, { size: 44, weight: 400, align: "center" });
   { const a1 = win(t, T.cur, T.cur + 0.9, 0.25, 0.35); spotlight(txC[0], txC[1], 460, 150, a1); const b = P([-PAD.rOut, 0, PAD.coilZ]), c = P([PAD.rOut, 0, PAD.coilZ]); if (a1 > 0.01) obox(Math.min(b[0], c[0]) - 30, txC[1] - 90, Math.abs(c[0] - b[0]) + 60, 180, E.p3out(prog(t, T.cur, T.cur + 0.4)), a1); }
   if (PP) { const a3 = win(t, T.rxCur, T.name, 0.3, 0.3), b = PP([-PH.rOut, PH.coilOy, PH.coilDz]), c = PP([PH.rOut, PH.coilOy, PH.coilDz]); if (a3 > 0.01) obox(Math.min(b[0], c[0]) - 30, rxC[1] - 90, Math.abs(c[0] - b[0]) + 60, 180, E.p3out(prog(t, T.rxCur, T.rxCur + 0.4)), a3); }
@@ -689,6 +690,8 @@ function annotate(t, P, PP, st) {
   // 5a: leakage — the lines that miss the phone's coil are marked
   if (t >= T.leak && t < T.magnet) { const a = P([-300, 0, 200]); const x = Math.max(120, a[0] - 20), y = a[1] - 40; leader(x + 30, y + 10, a[0] + 40, a[1] + 30, E.p3out(prog(t, T.leak, T.leak + 0.4))); label(COPY.leakNote, x, y, t, T.leak, T.magnet, { size: 48, align: "left", col: "rgb(60,80,200)" }); }
   label(COPY.qi2, 540, 1430, t, T.ringTx, T.heatQ, { size: 44, align: "center" });
+  if (t >= T.ringTx && t < T.heatQ) { const a = P([-285, 0, PAD.h - 14]), k = E.p3out(prog(t, T.ringTx, T.ringTx + 0.4)); leader(150, a[1] + 120, a[0] + 6, a[1] + 4, k); label(COPY.magnetNote, 110, a[1] + 170, t, T.ringTx, T.heatQ, { size: 44, col: C.ink });
+    if (PP && t >= T.ringRx) { const b = PP([-285, PH.coilOy, 10]), k2 = E.p3out(prog(t, T.ringRx, T.ringRx + 0.4)); leader(150, b[1] - 110, b[0] + 6, b[1] - 4, k2); label(COPY.magnetNote2, 110, b[1] - 130, t, T.ringRx, T.heatQ, { size: 44, col: C.ink }); } }
   if (PP && t >= T.ringRx + 0.3 && t < T.snap + 0.5) { const a = P([200, 40 - PH.coilOy, 140]), b = P([20, 40 - PH.coilOy, 140]); arrowS(a[0], a[1], b[0], b[1], E.p3out(prog(t, T.ringRx + 0.3, T.snap)), 1 - prog(t, T.snap + 0.2, T.snap + 0.5)); }
   // 5b: loss → heat, right behind the battery
   label(COPY.lossNote, 540, 1430, t, T.loss, T.thermal, { size: 44, align: "center" });
@@ -702,6 +705,7 @@ function annotate(t, P, PP, st) {
   // 5c: metal — eddies, the field stopped under it, heat, the pad stops
   if (PP && t >= T.metalIn && t < T.eddy + 0.6) { const c = PP([0, PH.coilOy + 40, -6 - st.metalDrop]); obox(c[0] - 160, c[1] - 80, 320, 160, E.p3out(prog(t, T.metalIn, T.metalIn + 0.4)), 1 - prog(t, T.eddy + 0.2, T.eddy + 0.6)); }
   label(COPY.eddyNote, 540, 1430, t, T.eddy, T.metalHot, { size: 44, align: "center" });
+  if (PP && t >= T.metalIn && t < T.a13) { const c = PP([-120, PH.coilOy + 40, -6 - st.metalDrop]), k = E.p3out(prog(t, T.metalIn, T.metalIn + 0.4)); leader(150, c[1] + 120, c[0] + 4, c[1] + 2, k); label(COPY.metalNote, 110, c[1] + 170, t, T.metalIn, T.a13, { size: 44, col: C.ink }); }
   const mh = win(t, T.metalHot, T.back, 0.5, 0.5);
   if (mh > 0.01 && PP) { thermal(mh, [{ pts: circ(PAD.rOut + 10, PAD.coilZ).map(P), h: 0.3 }, { pts: circ(120, -6 - st.metalDrop, 48, 0, PH.coilOy + 40).map(PP), h: 1 }]); label(COPY.thermalNote, 1000, LY(t, 852), t, T.metalHot, T.back, { size: 44, weight: 400, align: "right" }); }
   label(COPY.fod, 540, 1430, t, T.a13, T.back, { size: 44, align: "center" });
