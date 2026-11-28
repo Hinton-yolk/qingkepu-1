@@ -177,7 +177,7 @@ function magnetRing(P, ox, oy, z, a, hl) {
   if (hl > 0.01) { ctx.globalAlpha = a * hl; poly(P, circ(285, z, 72, ox, oy)); ctx.strokeStyle = C.acc; ctx.lineWidth = 5; ctx.stroke(); }
   ctx.restore();
 }
-function phoneFrame(st) { const c = Math.cos(st.rot), s = Math.sin(st.rot); return (p) => [st.ox + p[0] * c - p[1] * s, st.oy + p[0] * s + p[1] * c, p[2] + st.z]; }
+function phoneFrame(st) { const c = Math.cos(st.rot), s = Math.sin(st.rot); return (p) => [st.ox + p[0] * c - p[1] * s, st.oy + p[0] * s + p[1] * c, p[2] + st.z + PAD.h]; }
 // a real phone lying screen-up: brushed-metal frame, black glass, a dark wallpaper, the camera pill, and the charging ring.
 // It turns into frosted glass only when we go inside (st.xray).
 function drawRealPhone(PP, st, a) {
@@ -221,17 +221,19 @@ function drawPhone(P, st) {
   const top = rrPts(PH.w, PH.h, 72, PH.t), bot = rrPts(PH.w, PH.h, 72, 0);
   const coil = coilPts(PH.rIn, PH.rOut, PH.turns, PH.coilDz, 0, PH.coilOy, 0.6);
   if (st.z > 4) { const s0 = P([st.ox, st.oy, PAD.h]); shadow(s0[0], s0[1], 260 * (1 + st.z / 400), 80, 0.22 / (1 + st.z / 150)); }
-  if (st.ringHolder > 0.01 && st.ringLift < 0.01) ringHolder(PP, st);
+  if (st.ringHolder > 0.01 && st.ringLift < 0.01 && st.xray < 0.3) ringHolder(PP, st);
   drawRealPhone(PP, st, st.phone * (1 - st.xray));
   if (st.xray > 0.01) {
-    glass(() => hullPath(PP, [...top, ...bot]), { tint: 0.06, dark: 0.1, rim: 2, a: st.phone * st.xray });
-    glass(() => poly(PP, top), { tint: 0.05, sheen: -0.75, rim: 2.6, a: st.phone * st.xray });
+    // x-rayed: a thin, really see-through shell (a faint frosted wash + its rim), so what's behind it shows
+    ctx.save(); ctx.globalAlpha = st.phone * st.xray; hullPath(PP, [...top, ...bot]); ctx.fillStyle = "rgba(235,240,248,0.22)"; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineWidth = 2.2; ctx.stroke();
+    poly(PP, top); ctx.fillStyle = "rgba(255,255,255,0.10)"; ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.95)"; ctx.lineWidth = 2.6; ctx.stroke(); ctx.restore();
+    if (st.ringHolder > 0.01 && st.ringLift < 0.01) ringHolder(PP, st);      // under the phone: drawn before the phone's insides
+    if (st.eddy > 0.01) eddyLoops(PP, st);
     ctx.save(); ctx.globalAlpha = st.phone; innerParts(PP, st, st.xray, coil, true); ctx.restore();
   }
   if (st.rxDots > 0.01) dots(PP, coil, st.rxPhase, st.rxDots * st.xray, 37, 6);
   if (st.phoneMagnet > 0.01) magnetRing(PP, 0, PH.coilOy, 10, st.phoneMagnet, st.phoneMagnetHL);
   if (st.ringHolder > 0.01 && st.ringLift >= 0.01) ringHolder(PP, st);
-  if (st.eddy > 0.01) eddyLoops(PP, st);
   return PP;
 }
 function innerParts(PP, st, a, coil, sharp = false) {
@@ -252,11 +254,14 @@ function innerParts(PP, st, a, coil, sharp = false) {
   ctx.restore();
 }
 function ringHolder(PP, st) {
-  const lift = st.ringLift, a = st.ringHolder;
+  const lift = st.ringLift, a = st.ringHolder, z = -6 - (st.metalDrop || 0) - lift * 220, oy = PH.coilOy + 40 + lift * 260, R = 120;
   ctx.save(); ctx.globalAlpha = a;
-  const pts = circ(95, -4 - lift * 220, 48, 0, PH.coilOy + 40 + lift * 260);
-  poly(PP, pts); const g = ctx.createLinearGradient(0, 900, 0, 1200); g.addColorStop(0, "#C9CED6"); g.addColorStop(1, "#7E8692"); ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = "#5B6170"; ctx.lineWidth = 3; ctx.stroke();
-  poly(PP, circ(60, -4 - lift * 220, 48, 0, PH.coilOy + 40 + lift * 260)); ctx.strokeStyle = "rgba(255,255,255,0.7)"; ctx.lineWidth = 6; ctx.stroke();
+  hullPath(PP, [...circ(R, z, 48, 0, oy), ...circ(R, z - 14, 48, 0, oy)]); ctx.fillStyle = "#6E7682"; ctx.fill();
+  const top = circ(R, z, 48, 0, oy).map(PP); let x0 = 1e9, x1 = -1e9; top.forEach(([x]) => { x0 = Math.min(x0, x); x1 = Math.max(x1, x); });
+  ctx.beginPath(); top.forEach((q, i) => (i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.closePath();
+  const g = ctx.createLinearGradient(x0, 0, x1, 0); g.addColorStop(0, "#AEB5BF"); g.addColorStop(0.45, "#EEF0F3"); g.addColorStop(0.6, "#9DA4AE"); g.addColorStop(1, "#C9CED6");
+  ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = "#4E5562"; ctx.lineWidth = 3; ctx.stroke();
+  poly(PP, circ(70, z, 48, 0, oy)); ctx.strokeStyle = "rgba(90,96,108,0.7)"; ctx.lineWidth = 5; ctx.stroke();
   ctx.restore();
 }
 function bolt(x, y, s, a) { ctx.save(); ctx.globalAlpha = a; ctx.translate(x, y); ctx.scale(s, s); ctx.shadowColor = "rgba(255,74,28,0.9)"; ctx.shadowBlur = 36; ctx.fillStyle = C.acc; ctx.beginPath(); ctx.moveTo(8, -52); ctx.lineTo(-26, 8); ctx.lineTo(-2, 8); ctx.lineTo(-10, 52); ctx.lineTo(26, -10); ctx.lineTo(2, -10); ctx.closePath(); ctx.fill(); ctx.restore(); }
@@ -305,16 +310,18 @@ const CAMS = [
   [T.low, 0.56, -0.20, 2300, 3050, 540, 1040, 0, 40, 40],
   [T.lowEnd, 0.16, -0.18, 1500, 2350, 540, 1040, 0, 0, 90],
   [T.push, 0.17, -0.20, 1500, 2350, 540, 1040, 0, 0, 90],
-  [T.pushEnd, 0.36, -0.26, 1900, 2250, 540, 1150, 0, 0, 170],
-  [T.backPad, 0.36, -0.26, 1900, 2250, 540, 1150, 0, 0, 170],
-  [T.name + 2.5, 0.30, -0.12, 1900, 2250, 540, 1140, 0, 0, 170],
-  [T.pull, 0.30, -0.12, 1900, 2250, 540, 1140, 0, 0, 170],
-  [T.pullEnd, 0.30, -0.02, 2150, 2250, 540, 1120, 90, 0, 160],
-  [T.magnet, 0.30, -0.02, 2150, 2250, 540, 1120, 90, 0, 160],
-  [T.magnet + 0.8, 0.42, -0.20, 2150, 2300, 540, 1110, 0, 0, 130],
-  [T.metal, 0.42, -0.20, 2150, 2300, 540, 1110, 0, 0, 130],
-  [T.metalIn + 0.8, 0.26, -0.16, 1750, 2350, 540, 1100, 0, 0, 120],
-  [T.back, 0.26, -0.16, 1750, 2350, 540, 1100, 0, 0, 120],
+  [T.pushEnd, 0.20, -0.22, 2000, 2550, 540, 1100, 0, 0, 230],
+  [T.backPad, 0.20, -0.22, 2000, 2550, 540, 1100, 0, 0, 230],
+  [T.name + 2.5, 0.22, -0.12, 2000, 2550, 540, 1100, 0, 0, 230],
+  [T.pull, 0.22, -0.12, 2000, 2550, 540, 1100, 0, 0, 230],
+  [T.pullEnd, 0.30, -0.02, 2250, 2450, 540, 1120, 100, 0, 160],
+  [T.magnet, 0.30, -0.02, 2250, 2450, 540, 1120, 100, 0, 160],
+  [T.magnet + 0.8, 0.42, -0.20, 2150, 2550, 540, 1110, 0, 0, 130],
+  [T.metal, 0.42, -0.20, 2150, 2550, 540, 1110, 0, 0, 130],
+  [T.metalIn + 0.8, 0.26, -0.16, 1750, 2600, 540, 1040, 0, 0, 120],
+  [T.bars, 0.26, -0.16, 1750, 2600, 540, 1040, 0, 0, 120],
+  [T.bars + 0.6, 0.30, -0.16, 2100, 2350, 540, 960, 0, 0, 120],
+  [T.back, 0.30, -0.16, 2100, 2350, 540, 960, 0, 0, 120],
   [T.back + 0.6, 0.66, -0.30, 2300, 2500, 540, 1080, 0, 40, 40],
   [T.tip, 0.66, -0.30, 2300, 2500, 540, 1080, 0, 40, 40],
   [T.tip + 0.6, 0.86, -0.20, 2300, 2450, 540, 1060, 0, 40, 120],
@@ -357,7 +364,7 @@ function worldState(t) {
   s.battFill = 0.3 + 0.3 * E.p2io(prog(t, T.batt, T.batt + 1.4));
   // ---- 5a: slide out (fewer lines thread the coil, the pad works harder, heat), slide back, magnets
   const slide = E.p2io(prog(t, T.slide, T.slideEnd)) * (1 - E.p2io(prog(t, T.slideBack, T.slideBackEnd)));
-  if (t >= T.pull && t < T.magnet) { s.ox = 270 * slide; s.rxCenter = [s.ox, s.oy + PH.coilOy]; s.dimNot = 0.8 * slide; s.padSpeed = 1 + 1.3 * slide; s.warm = slide * E.p2io(prog(t, T.hot, T.hot + 0.8)); }
+  if (t >= T.pull && t < T.magnet) { s.ox = 200 * slide; s.rxCenter = [s.ox, s.oy + PH.coilOy]; s.dimNot = 0.8 * slide; s.padSpeed = 1 + 1.3 * slide; s.warm = slide * E.p2io(prog(t, T.hot, T.hot + 0.8)); }
   if (t >= T.magnet && t < T.metal) {
     s.padMagnet = E.p2io(prog(t, T.ringTx, T.ringTx + 0.4)); s.phoneMagnet = E.p2io(prog(t, T.ringRx, T.ringRx + 0.4));
     s.padMagnetHL = win(t, T.ringTx, T.snap + 0.6, 0.3, 0.3); s.phoneMagnetHL = win(t, T.ringRx, T.snap + 0.6, 0.3, 0.3);
@@ -367,9 +374,9 @@ function worldState(t) {
   // ---- 5b: metal between them: eddies, heat, the pad stops
   if (t >= T.metal && t < T.back) {
     s.explode = 0.6 * E.p2io(prog(t, T.metal, T.metalIn + 0.4)); s.xray = 0.9; s.padMagnet = 0; s.phoneMagnet = 0;
-    s.ringHolder = E.p2io(prog(t, T.metalIn - 0.2, T.metalIn + 0.4)); s.ringLift = 0;
+    s.ringHolder = E.p2io(prog(t, T.metalIn - 0.2, T.metalIn + 0.4)); s.ringLift = 0; s.metalDrop = 150 * s.explode / 0.6;
     s.eddy = E.p2io(prog(t, T.eddy, T.eddy + 0.5));
-    s.padSpeed = 1 + 0.6 * s.eddy;
+    s.padSpeed = 1 + 0.6 * s.eddy; s.field *= lerp(1, 0.35, s.ringHolder); s.throughHL *= lerp(1, 0.3, s.ringHolder);
     const off = E.p2io(prog(t, T.stop, T.stop + 0.6));
     s.field *= 1 - off; s.padDots *= 1 - off; s.rxDots *= 1 - off; s.eddy *= 1 - off; s.indicator = 1 - off; s.throughHL *= 1 - off;
   }
@@ -386,14 +393,15 @@ function worldState(t) {
     const nu = t < T.nudge ? 0 : E.back(clamp((t - T.nudge) / 0.35)); s.ox = lerp(120, 0, nu); s.oy = lerp(-PH.coilOy + 110, -PH.coilOy, nu); s.rot = lerp(0.18, 0, nu);
     s.chargeOn = t >= T.nudge; s.indicator = t < T.nudge ? 0.4 : 1; s.hand = 0;
   }
+  s.z += 300 * s.explode;          // the exploded view (gap enlarged, schematic)
   // charging speed shown by the phone's ring: proportional to how well the coils couple
   s.chargePhase = 2.2 * t * (1 - 0.75 * (s.dimNot || 0));
   return s;
 }
 function eddyLoops(PP, st) {
-  const c = [0, PH.coilOy + 40], z = -4;
+  const c = [0, PH.coilOy + 40], z = -7 - (st.metalDrop || 0);
   ctx.save(); ctx.globalAlpha = st.eddy; ctx.strokeStyle = C.acc; ctx.lineCap = "round"; ctx.shadowColor = "rgba(255,74,28,0.9)"; ctx.shadowBlur = 10;
-  [30, 55, 80].forEach((r, i) => { poly(PP, circ(r, z, 48, c[0], c[1])); ctx.lineWidth = 4; ctx.setLineDash([16, 12]); ctx.lineDashOffset = -TNOW * (60 + 20 * i); ctx.stroke(); });
+  [38, 70, 102].forEach((r, i) => { poly(PP, circ(r, z, 48, c[0], c[1])); ctx.lineWidth = 6; ctx.setLineDash([16, 12]); ctx.lineDashOffset = -TNOW * (60 + 20 * i); ctx.stroke(); });
   ctx.setLineDash([]); ctx.restore();
 }
 
@@ -492,7 +500,11 @@ function magnetX(t) {        // the magnet's centre (screen x); it enters the co
   const per = 4 * E8;  // in and out once per two beats
   return lerp(rest, inside, 0.5 - 0.5 * Math.cos(TAU * (t - T.shake) / per));
 }
+function drift2D(t) { const sc = 1 + 0.025 * Math.sin(0.5 * t); ctx.translate(540 + 26 * Math.cos(0.8 * t) + 7 * Math.sin(1.7 * t), 1040 + 20 * Math.sin(0.8 * t)); ctx.scale(sc, sc); ctx.translate(-540, -1040); }
 function drawLab(t) {
+  ctx.save(); drift2D(t); drawLab0(t); ctx.restore();
+}
+function drawLab0(t) {
   const x = magnetX(t), v = (magnetX(t + 1 / 60) - magnetX(t - 1 / 60)) * 30;   // px per second; < 0 = going in
   const inLit = clamp(-v / 900), outLit = clamp(v / 900);
   const { cx, cy, len, r, turns } = LAB, x0 = cx - len / 2;
@@ -540,6 +552,9 @@ function drawLab(t) {
 }
 // ---------------------------------------------------------------- AC → DC close-up inside the phone
 function drawACDC(t) {
+  ctx.save(); drift2D(t); drawACDC0(t); ctx.restore();
+}
+function drawACDC0(t) {
   const y = 1040, xC = 210, xChip = 560, xB = 820, chip = E.p3out(prog(t, T.rect - 0.1, T.rect + 0.35));
   ctx.save();
   // the receiver coil's edge on the left
@@ -595,7 +610,8 @@ function thermal(k, spots) {
 // ---------------------------------------------------------------- power bars (异物检测)
 function fodBars(t) {
   const a = win(t, T.bars, T.back, 0.3, 0.3); if (a <= 0.01) return;
-  const x0 = 150, w0 = 700, y1 = 1250, y2 = 1350, got = 0.62 * E.p2io(prog(t, T.bars + 0.3, T.gap));
+  const x0 = 150, w0 = 760, y1 = 1300, y2 = 1390, got = 0.62 * E.p2io(prog(t, T.bars + 0.3, T.gap));
+  glass(() => { ctx.beginPath(); ctx.roundRect(70, 1225, 940, 205, 36); }, { tint: 0.6, rim: 2, a });
   ctx.save(); ctx.globalAlpha = a; ctx.font = `700 44px ${UI}`;
   const bar = (y, f, col) => { ctx.fillStyle = "rgba(20,20,20,0.1)"; ctx.beginPath(); ctx.roundRect(x0 + 190, y - 34, w0 - 190, 40, 12); ctx.fill(); ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(x0 + 190, y - 34, (w0 - 190) * f, 40, 12); ctx.fill(); };
   ctx.fillStyle = C.ink; ctx.fillText(COPY.sent, x0 - 40, y1); ctx.fillText(COPY.got, x0 - 40, y2);
@@ -646,7 +662,7 @@ function annotate(t, P, PP, st) {
   label(COPY.gapNote, 1000, 700, t, T.cut, T.labIn, { size: 44, weight: 400, align: "right" });
   label(COPY.gapNote, 1000, 700, t, T.backPad, T.wire, { size: 44, weight: 400, align: "right" });
   label(COPY.gapNote, 1000, 700, t, T.pull, T.magnet, { size: 44, weight: 400, align: "right" });
-  label(COPY.gapNote, 1000, 700, t, T.metal, T.back, { size: 44, weight: 400, align: "right" });
+  label(COPY.gapNote, 1000, 700, t, T.metal, T.bars, { size: 44, weight: 400, align: "right" });
   label(COPY.color, 1000, 776, t, T.cur, T.wire, { size: 44, weight: 400, align: "right" });
   label(COPY.freq, 540, 1430, t, T.cur, T.name, { size: 44, weight: 400, align: "center" });
   label(COPY.induct, 540, 1430, t, T.name + 0.3, T.wire, { size: 44, align: "center", col: C.ink });
@@ -656,12 +672,12 @@ function annotate(t, P, PP, st) {
   label(COPY.qi2, 540, 1430, t, T.ringTx, T.metal, { size: 44, align: "center" });
   if (PP && t >= T.ringRx + 0.3 && t < T.snap + 0.5) { const a = P([230, 110, 120]), b = P([20, 10, 120]); arrowS(a[0], a[1], b[0], b[1], E.p3out(prog(t, T.ringRx + 0.3, T.snap)), 1 - prog(t, T.snap + 0.2, T.snap + 0.5)); }
   // 5b: metal — eddies, heat, the pad's sum
-  if (PP && t >= T.metalIn && t < T.eddy + 0.6) { const c = PP([0, PH.coilOy + 40, -4]); obox(c[0] - 150, c[1] - 80, 300, 160, E.p3out(prog(t, T.metalIn, T.metalIn + 0.4)), 1 - prog(t, T.eddy + 0.2, T.eddy + 0.6)); }
+  if (PP && t >= T.metalIn && t < T.eddy + 0.6) { const c = PP([0, PH.coilOy + 40, -4 - (st.metalDrop || 0)]); obox(c[0] - 150, c[1] - 80, 300, 160, E.p3out(prog(t, T.metalIn, T.metalIn + 0.4)), 1 - prog(t, T.eddy + 0.2, T.eddy + 0.6)); }
   label(COPY.eddyNote, 540, 1430, t, T.eddy, T.metalHot, { size: 44, align: "center" });
   const mh = win(t, T.metalHot, T.bars + 0.4, 0.5, 0.5);
-  if (mh > 0.01 && PP) { const c = PP([0, PH.coilOy + 40, -4]); thermal(mh, [[c[0], c[1], 300, 1], [txC[0], txC[1], 300, 0.35]]); label(COPY.thermalNote, 1000, 852, t, T.metalHot, T.bars + 0.4, { size: 44, weight: 400, align: "right" }); }
+  if (mh > 0.01 && PP) { const c = PP([0, PH.coilOy + 40, -4 - (st.metalDrop || 0)]); thermal(mh, [[c[0], c[1], 300, 1], [txC[0], txC[1], 300, 0.35]]); label(COPY.thermalNote, 1000, 852, t, T.metalHot, T.bars + 0.4, { size: 44, weight: 400, align: "right" }); }
   fodBars(t);
-  label(COPY.fod, 540, 1430, t, T.gap, T.back, { size: 44, align: "center" });
+  label(COPY.fod, 1000, 776, t, T.gap, T.back, { size: 44, align: "right" });
   // tip: the metal ring comes off
   if (PP && t >= T.tip && t < T.ringOff + 0.5) { const c = PP([0, PH.coilOy + 40, 0]); obox(c[0] - 130, c[1] - 90, 260, 180, E.p3out(prog(t, T.tip + 0.3, T.tip + 0.7)), 1 - prog(t, T.ringOff, T.ringOff + 0.4)); }
 }

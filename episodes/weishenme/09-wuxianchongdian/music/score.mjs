@@ -117,18 +117,27 @@ const MEL = [[0, 78], [0.75, 81], [1.5, 83], [2.5, 81], [4, 81], [4.75, 85], [5.
 
 // 1 · opening
 panMel(MOTIF, 0.0, 1.1); bar(0, "D", 0); bar(4 * B, "D", 1);
-// 2–4 · explanation (bars run from the first question at q1 up to the half-beat stop before the name)
-const exp0 = T.q1, stop1 = T.name - E8;
-bars(exp0, stop1, ["G", "A", "Bm", "A"], (i) => (i < 1 ? 1 : 2));
-panMel(MEL, exp0 + 4 * B, 0.6);
-// name: resolve + full band G–A–D, then section 5 with Em–A–D–Bm until the talking part
+// 2–3 · into the coils (q1 → the lab)
+bars(T.q1, T.labIn, ["G", "A"], (i) => (i < 1 ? 1 : 2));
+// the lab: lighter — pan arpeggios + shaker; a bright plink each time a lamp lights
+const arps = (t0, t1, prog, v = 0.32) => { for (let t = t0; t < t1 - 0.01; t += E8) { const k = Math.round((t - t0) / E8), c = prog[Math.floor(k / 8) % prog.length]; steelpan(t, CH[c][k % 3] + 12, v, ((k % 4) - 1.5) * 0.3); shaker(t, 0.55); } };
+arps(T.labIn, T.backPad, ["Bm", "G", "A", "A"]); bars(T.labIn, T.backPad, ["Bm", "G", "A", "A"], 0);
+const plink = (t, m) => { glock(t, m, 0.7, 0.25); steelpan(t, m - 12, 0.4, 0.25); };
+plink(T.magIn1 + 0.15, 93); plink(T.magOut1 + 0.15, 90);
+for (let t = T.shake + E8; t < T.labOut; t += 2 * E8) plink(t, Math.round((t - T.shake) / (2 * E8)) % 2 ? 90 : 93);
+// back on the pad: the full band up to the half-beat stop before the name
+bars(T.backPad, T.name - E8, ["G", "A", "Bm", "A"], 2);
+panMel(MEL, T.backPad + 4 * B, 0.6);
+// name: resolve; the AC → DC part keeps the full band
 panMel(RESOLVE, T.name, 1.2); slamHit(T.name);
-bars(T.name, T.q3 + 8 * B, ["G", "A", "D", "D"], 2);
-bars(T.q3 + 8 * B, T.q6, ["Em", "A", "D", "Bm"], 2);
+bars(T.name, T.q4, ["G", "A", "D", "D"], 2);
+// 5a · alignment + heat (a darker colour while it's hot), magnets
+bars(T.q4, T.metal, ["Em", "A", "D", "Bm"], 2);
 panMel(MEL.map(([b, m]) => [b, m - 2]), T.q4, 0.55);
-// the talking section: lighter — pan arpeggios + shaker (lets ping / replies through)
-for (let t = T.q6; t < T.a14 - E8 - 0.01; t += E8) { const c = ["G", "A", "D", "Bm"][Math.floor((t - T.q6) / (4 * B)) % 4]; steelpan(t, CH[c][Math.round((t - T.q6) / E8) % 3] + 12, 0.32, ((Math.round((t - T.q6) / E8) % 4) - 1.5) * 0.3); shaker(t, 0.6); }
-bars(T.q6, T.a14 - E8, ["G", "A", "D", "Bm"], 1);
+// 5b · metal: lighter while it heats; the pad gives up at T.stop (a falling tone), then only pads until the closing
+arps(T.metal, T.stop, ["Em", "C" in CH ? "C" : "G", "A", "Bm"], 0.3); bars(T.metal, T.stop, ["Em", "G", "A", "Bm"], 1);
+put(T.stop, 1.2, (tt) => 0.16 * Math.sin(TAU * (520 * tt - 180 * tt * tt)) * Math.exp(-tt * 2.5) * att(tt, 0.01), { rev: 0.4 });
+for (let t = T.stop + E8; t < T.a14 - E8 - 0.01; t += 2 * E8) steelpan(t, CH.Bm[Math.round((t - T.stop) / (2 * E8)) % 3] + 12, 0.22, 0);
 // closing: resolve + full band, tip lighter, end card motif + the question-mark note
 panMel(RESOLVE, T.a14, 1.2); slamHit(T.a14);
 bars(T.a14, T.tip, ["G", "A", "D"], 2);
@@ -137,9 +146,7 @@ panMel(MOTIF.slice(0, 3), T.ep - 2 * E8, 0.9); bar(T.end, "D", 0); bar(T.end + 4
 steelpan(T.sting, 88, 1.2, 0); glock(T.sting, 100, 0.6);
 // effects
 HITS.land.forEach((t) => thunk(t)); HITS.closing.forEach((t) => thunk(t)); HITS.bolt.forEach((t) => chime(t)); chime(T.land2 + 0.02, 0.9);
-HITS.question.forEach((t) => qmark(t)); HITS.snap.forEach((t) => magSnap(t)); HITS.ping.forEach((t) => ping(t));
-HITS.reply.forEach((t) => click(t, 1.0)); for (let i = 0; i < 12; i++) click(T.talk + i * E8, 0.45);
-HITS.bubbles.forEach((t) => pop(t)); HITS.ringOff.forEach((t) => metal(t)); click(T.nudge, 0.8, 1500);
+HITS.question.forEach((t) => qmark(t)); HITS.snap.forEach((t) => magSnap(t)); HITS.ringOff.forEach((t) => metal(t)); click(T.nudge, 0.8, 1500);
 reverb(0.76, 0.4, 0.2);
 // half-beat stops: true silence
 HITS.stop.forEach((t) => silence(t, t + E8));
