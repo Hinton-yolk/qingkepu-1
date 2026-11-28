@@ -290,7 +290,9 @@ function drawHand(PP, a, out = 0) {
   ctx.fillStyle = "rgba(255,238,222,0.55)"; Hd.light.forEach((p) => { path(p); ctx.fill(); });
   ctx.filter = "none";
   const cr = (w, col, blur) => { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineJoin = "round"; ctx.filter = blur ? `blur(${blur}px)` : "none"; Hd.crease.forEach((p) => { ctx.beginPath(); p.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke(); }); ctx.filter = "none"; };
-  cr(22, "rgba(150,100,70,0.38)", Math.max(1.5, 7 * sc)); cr(6, "rgba(150,100,70,0.55)", Math.max(0.8, 1.5 * sc));
+  // finger boundaries: a soft shadow on the finger behind (offset to its side), then a clear contour line
+  const fl = (pts, w, col, dx, blur) => { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.filter = blur ? `blur(${blur}px)` : "none"; ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x + dx, y) : ctx.moveTo(x + dx, y))); ctx.stroke(); ctx.filter = "none"; };
+  (Hd.fingers || []).forEach((f) => { fl(f, 34, "rgba(160,105,70,0.42)", 16, Math.max(2, 9 * sc)); fl(f, 7, "rgba(150,98,66,0.9)", 0, 0); fl(f, 3, "rgba(255,236,220,0.6)", -6, 0); });
   ctx.restore();
   path(Hd.outline); ctx.strokeStyle = "rgba(180,130,95,0.6)"; ctx.lineWidth = 2.5; ctx.stroke();
   ctx.restore();
