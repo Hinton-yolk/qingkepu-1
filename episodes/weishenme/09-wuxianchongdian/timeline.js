@@ -12,37 +12,33 @@
   const W = 1080, H = 1920;
   const q = (s) => Math.round(s / E8) * E8;
   const S = {
-    // 1 · 0–2.75 手把手机放上充电板
     h1: 0, drop: 0, land: 0.75, bolt: 0.75,
-    // 2 · 2.75 没有一根线 → 剖开一角
     a1: 2.75, low: 2.75, lowEnd: 4.0, cut: 3.5,
-    // 3 · 4.75 钻进去，两圈线圈
     q1: 4.75, push: 4.75, pushEnd: 8.0, a2: 6.75, litTx: 6.75, litRx: 7.5,
-    // 4 · 8.75 实验：磁铁插线圈点灯
     exp1: 8.75, labIn: 8.75, magIn1: 9.25, magStop: 9.75, magOut1: 10.5,
     exp2: 11.25, shake: 11.25, labOut: 13.25,
     q2: 13.5, backPad: 13.5, backPadEnd: 14.75,
     a3: 15.5, cur: 15.5,
     a4: 18.0, through: 18.0, rxCur: 18.5,
     name: 20.5,
-    // 4b · 交流 → 直流
-    q3: 23.25, wire: 23.25, wireEnd: 24.25,
-    a6: 25.75, rect: 25.75, batt: 26.5,
-    // 5a · 放正 / 放歪
-    q4: 28.25, pull: 28.25, pullEnd: 29.5,
-    q5: 30.25, slide: 30.75, slideEnd: 32.25,
-    a8: 32.5, hot: 32.75, thermal: 33.25,
-    a9: 35.25, slideBack: 35.25, slideBackEnd: 36.25,
-    a10: 37.0, magnet: 37.0, ringTx: 37.25, ringRx: 37.75, snap: 38.5,
-    // 5b · 金属
-    q6: 39.5, metal: 39.5, metalIn: 40.0,
-    a11: 41.25, eddy: 41.5,
-    a12: 43.75, metalHot: 43.75,
-    a13: 45.75, bars: 45.75, gap: 46.75, stop: 47.75,
+    // 5a · 放正：漏磁
+    q4: 23.25, pull: 23.25, pullEnd: 24.5,
+    q5: 25.25, slide: 25.75, slideEnd: 27.25,
+    a7: 27.5, leak: 27.5,
+    a10: 30.0, magnet: 30.0, ringTx: 30.25, ringRx: 30.75, snap: 31.5,
+    // 5b · 无线为什么更容易热
+    q8: 32.5, heatQ: 32.5,
+    a15: 34.75, loss: 34.75,
+    a16: 37.0, thermal: 37.25,
+    // 5c · 金属：挡住磁
+    q6: 39.25, metal: 39.25, metalIn: 39.75,
+    a11: 41.0, eddy: 41.25, block: 41.5,
+    a12: 43.5, metalHot: 43.5,
+    a13: 45.75, stop: 46.5,
     // 6 · 闭环 + 小提示
-    a14: 49.0, back: 49.0, drop2: 49.25, land2: 50.0,
-    tip: 51.75, ringOff: 52.75, nudge: 54.0,
-    end: 55.75, endMorph: 56.35, title1: 56.25, ep: 57.25, sting: 58.25,
+    a14: 48.25, back: 48.25, drop2: 48.5, land2: 49.25,
+    tip: 51.0, ringOff: 52.0, nudge: 53.25,
+    end: 55.0, endMorph: 55.6, title1: 55.5, ep: 56.5, sting: 57.5,
   };
   const T = {}; for (const k in S) T[k] = +q(S[k]).toFixed(4);
   const DUR = +(T.sting + 1.25).toFixed(4);
@@ -59,30 +55,30 @@
     a3: ["充电板让电流", "来回[换向]，", "磁也跟着来回变"],
     a4: ["手机这圈被磁穿过，", "电就[跑]起来了"],
     name: ["底下的磁一变，", "手机线圈里就有了[电]"],
-    q3: ["可这电是来回跑的，", "电池能[直接]收吗？"],
-    a6: ["电池只收单向的，", "芯片把它[理顺]"],
     q4: ["那为什么，", "一定要放[正]？"],
     q5: ["把手机往旁边", "[挪]一挪呢？"],
-    a8: ["板子只好加大电流，", "线圈就[发烫]了"],
-    a9: ["挪回去，", "就[凉]下来了"],
+    a7: ["磁从旁边[漏]走了，", "手机接到的就少"],
     a10: ["有的手机和充电器，", "各有一圈[磁铁]"],
+    q8: ["那无线充电，", "为什么更容易[热]？"],
+    a15: ["隔空传过去，", "总会[损失]一些"],
+    a16: ["损失的变成了[热]，", "就贴在电池背后"],
     q6: ["中间夹块[金属]呢？"],
-    a11: ["金属里也会感应出电，", "在里面[打转]"],
-    a12: ["这些电，", "全变成了[热]"],
-    a13: ["板子一算：", "送出的比收到的[多]，", "就降速、甚至停充"],
+    a11: ["金属里感应出电，", "反过来把磁[挡住]"],
+    a12: ["挡下来的，", "在金属里变成[热]"],
+    a13: ["板子发现有金属，", "就降速、甚至[停充]"],
     a14: ["所以没插线，", "靠的是[磁]"],
     tip: ["充得慢、发烫？", "摘掉厚壳和[金属]指环，", "再放[正]一点"],
     tx: "发射线圈", rx: "接收线圈", freq: "每秒来回十几万到几十万次 · 慢放示意", color: "颜色为示意", gapNote: "间距放大 · 示意",
-    induct: "这叫电磁感应", rectNote: "整流 · 示意", thermalNote: "热成像 · 示意", qi2: "Qi2 磁吸 · 帮你对准", gapLabel: "差的这截，变成了热", eddyNote: "涡流", fod: "异物检测",
-    sent: "板子送出", got: "手机收到", tipTag: "小提示",
+    induct: "这叫电磁感应", leakNote: "漏磁", lossNote: "线圈电阻 · 漏磁", thermalNote: "热成像 · 示意", qi2: "Qi2 磁吸 · 帮你对准",
+    eddyNote: "涡流", fod: "异物检测", battNote: "电池", tipTag: "小提示",
     end: ["你每天都在用，", "但你不知道", "它[怎么工作]"], epNum: "EP.09", epName: "无线充电",
   };
-  const ORDER = ["h1", "a1", "q1", "a2", "exp1", "exp2", "q2", "a3", "a4", "name", "q3", "a6", "q4", "q5", "a8", "a9", "a10", "q6", "a11", "a12", "a13", "a14", "tip"];
+  const ORDER = ["h1", "a1", "q1", "a2", "exp1", "exp2", "q2", "a3", "a4", "name", "q4", "q5", "a7", "a10", "q8", "a15", "a16", "q6", "a11", "a12", "a13", "a14", "tip"];
   const STYLE = { name: "slam", a14: "slam" };
   const SUBS = ORDER.map((k, i) => ({ key: k, t0: T[k], t1: i + 1 < ORDER.length ? T[ORDER[i + 1]] : T.end, lines: COPY[k], style: STYLE[k] || "blur" }));
 
   // sound cues (music/score.mjs)
-  const QUESTIONS = ["h1", "q1", "q2", "q3", "q4", "q5", "q6"].map((k) => T[k]);
+  const QUESTIONS = ["h1", "q1", "q2", "q4", "q5", "q8", "q6"].map((k) => T[k]);
   const HITS = {
     land: [T.land], bolt: [T.bolt], question: QUESTIONS.slice(1), name: [T.name], snap: [T.snap],
     ledFlash: [T.magIn1, T.magOut1], closing: [T.land2], ringOff: [T.ringOff], stopCharge: [T.stop], sting: [T.sting],
